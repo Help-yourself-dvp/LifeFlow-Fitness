@@ -707,16 +707,42 @@ function exportData() {
     water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
     food: { date: state.food.date, items: state.food.items, goal: state.food.goal }
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const json = JSON.stringify(backup, null, 2);
+  const fileName = `fitflow-backup-${todayKey()}.json`;
+
+  // 1. Android WebView (Capacitor/SAF мост через JavascriptInterface)
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.saveBackup === 'function') {
+      toast('Выберите папку для сохранения...');
+      window.FitFlowExport.saveBackup(json, fileName);
+      return;
+    }
+    if (window.AquaExport && typeof window.AquaExport.saveBackup === 'function') {
+      toast('Выберите папку для сохранения...');
+      window.AquaExport.saveBackup(json, fileName);
+      return;
+    }
+  } catch (e) {
+    console.warn('Native backup export error:', e);
+  }
+
+  // 2. Браузер: обычное скачивание файла
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `fitflow-backup-${todayKey()}.json`;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
   toast('Резервная копия сохранена');
+}
+
+if (typeof window !== 'undefined') {
+  window.onBackupSaveResult = function (ok, message) {
+    toast(message || (ok ? 'Резервная копия сохранена' : 'Сохранение отменено'));
+  };
 }
 
 function importData(file) {

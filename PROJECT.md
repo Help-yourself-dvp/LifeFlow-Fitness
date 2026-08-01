@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.1.0**
+Текущая версия: **0.1.1**
 
 ---
 
@@ -92,15 +92,18 @@ APK
 
 - localStorage (ключ `fitflow:state`)
 
-## Нативная оболочка (планируется)
+## Нативная оболочка (Capacitor 5)
 
-- Capacitor 5+
-- @capacitor/local-notifications (для напоминаний)
-- постоянный debug.keystore для обновлений поверх старых версий
+- Capacitor 5.7.0
+- @capacitor/local-notifications (для будущих напоминаний)
+- постоянный debug.keystore для обновлений поверх старых версий (`DEBUG_KEYSTORE_BASE64` в GitHub Secrets)
+- мост Storage Access Framework (SAF) через JavascriptInterface `FitFlowExport` для сохранения резервных копий через нативное окно Android
 
-## Сборка (планируется)
+## Сборка
 
-- GitHub Actions (build.yml по образцу water-filter)
+- GitHub Actions (`build.yml` и `generate-keystore.yml` по образцу `water-filter`)
+- генерация иконок из `icon.png` и адаптивных иконок (фон `--md-sys-color-primary` `#00696B`)
+- автоматическая сборка `app-debug.apk` и `FitFlow-v0.1.1-debug.apk`
 
 ---
 
@@ -108,15 +111,19 @@ APK
 
 ```
 LifeFlow-Fitness/
-├── AI_GUIDE.md       — правила разработки
-├── PROJECT.md        — настоящий документ
-├── README.md         — краткое описание
-├── index.html        — разметка главного экрана и настроек
-├── style.css         — дизайн-система Material 3 (light/dark)
-├── app.js            — логика приложения
-├── test-parser.js    — тесты парсера продуктов
-├── package.json      — описание проекта, скрипт тестов
-└── previews/         — скриншоты интерфейса
+├── .github/workflows/
+│   ├── build.yml             — сборка APK (Capacitor 5, MainActivity, иконки, подпись)
+│   └── generate-keystore.yml — генерация постоянного debug.keystore
+├── AI_GUIDE.md               — правила разработки
+├── PROJECT.md                — настоящий документ
+├── README.md                 — краткое описание
+├── icon.png                  — иконка приложения (512x512, бирюзовая тема #00696B)
+├── index.html                — разметка главного экрана и настроек
+├── style.css                 — дизайн-система Material 3 (light/dark)
+├── app.js                    — логика приложения (вкл. мост FitFlowExport)
+├── test-parser.js            — тесты парсера продуктов
+├── package.json              — описание проекта, скрипт тестов
+└── previews/                 — скриншоты интерфейса
 ```
 
 При будущей сборке автоматически создаются каталоги:
@@ -319,6 +326,14 @@ node test-parser.js
 
 # 14. История версий
 
+## 0.1.1
+
+- настройка сборки APK через GitHub Actions по образцу water-filter (`.github/workflows/build.yml`);
+- workflow генерации стабильного ключа (`.github/workflows/generate-keystore.yml`);
+- поддержка постоянного `debug.keystore` из GitHub Secrets (`DEBUG_KEYSTORE_BASE64`) для совместимых обновлений без потери данных;
+- добавление иконки приложения `icon.png` (512x512) и генерации адаптивных иконок для Android (бирюзовый фон `#00696B`);
+- нативный мост `FitFlowExport.saveBackup` (Storage Access Framework) для сохранения резервных копий через системное окно в Android WebView.
+
 ## 0.1.0
 
 - базовая структура: index.html, style.css, app.js;
@@ -344,8 +359,7 @@ node test-parser.js
 ## Средний приоритет
 
 - статистика за неделю/месяц;
-- SQLite вместо localStorage (по мере роста данных);
-- сборка APK через GitHub Actions.
+- SQLite вместо localStorage (по мере роста данных).
 
 ## Низкий приоритет
 

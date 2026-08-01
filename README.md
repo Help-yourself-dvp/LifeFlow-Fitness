@@ -17,7 +17,7 @@
 - [ ] Тренировки + вечернее подтверждение через уведомления (Capacitor Local Notifications — переживают перезагрузку телефона)
 - [ ] SQLite-база продуктов (родной плагин) + наполнение из открытых источников (USDA SR28 RU, Open Food Facts)
 - [ ] ИИ-разбор фраз (Gemini / DeepSeek / YandexGPT) — опционально, с учётом ограничений в РФ
-- [ ] Сборка Android через GitHub Actions (Capacitor 5+)
+- [x] Сборка Android через GitHub Actions (Capacitor 5, постоянный debug.keystore, app-debug.apk)
 - [ ] Приложение LifeOps (напоминания, погода OpenWeatherMap, система хранения вещей)
 
 ## Как смотреть приложение в браузере (без установки APK)
@@ -50,11 +50,21 @@ node test-parser.js    # тесты парсера продуктов (27 про
 ├── index.html       — разметка главного экрана и настроек
 ├── style.css        — Material 3 дизайн-система (light/dark токены)
 ├── app.js           — логика: темы, состояние, вода, парсер еды, экспорт/импорт
+├── icon.png         — иконка приложения (512x512)
 ├── test-parser.js   — автотесты парсера
 ├── package.json     — описание проекта
 ├── previews/        — скриншоты интерфейса
-└── (далее)          — capacitor.config.ts, workflow GitHub Actions
+└── .github/         — workflows для сборки APK и генерации постоянного ключа подписи
 ```
+
+## Сборка и скачивание APK (GitHub Actions)
+
+Проект настроен на автоматическую сборку Android APK при каждом пуше в репозиторий:
+1. Во вкладке **Actions** на GitHub выберите workflow **Build Native Android APK** или откройте последний запуск.
+2. В разделе **Artifacts** скачайте архив **FitFlow-APK** (содержит `app-debug.apk` и `FitFlow-v0.1.1-debug.apk`).
+3. Для сохранения постоянной подписи (чтобы обновлять приложение поверх без удаления данных):
+   - Запустите workflow **Generate Stable Debug Keystore** (вкладка Actions).
+   - Скопируйте содержимое сгенерированного файла `debug.keystore.base64.txt` в секреты репозитория (**Settings → Secrets and variables → Actions**) под именем `DEBUG_KEYSTORE_BASE64`.
 
 ## Стек
 
