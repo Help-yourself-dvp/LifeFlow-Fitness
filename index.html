@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FAFDFC" id="meta-theme">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>FitFlow — фитнес-трекер</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== Шапка ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2.5c-4 4.2-6.5 7.6-6.5 10.6a6.5 6.5 0 0 0 13 0C18.5 10.1 16 6.7 12 2.5Z"
+                fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>FitFlow</h1>
+        <p id="date-label">—</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <span class="local-badge" title="Все данные хранятся локально">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z"
+                stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="m9 12 2 2 4-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Офлайн</span>
+      </span>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Светлая / тёмная тема">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4 19 19M19 5l-1.6 1.6M6.6 17.4 5 19"
+                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"
+                stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== Основной экран ===== -->
+  <main class="content">
+
+  <div id="home-view">
+    <section class="greeting">
+      <p class="greeting-title" id="greeting-title">Доброе утро!</p>
+      <p class="greeting-sub">Сегодня отличный день, чтобы заботиться о себе 💪</p>
+    </section>
+
+    <!-- ===== Карточка: Вода ===== -->
+    <section class="card water-card" id="water-card" aria-labelledby="water-title">
+      <div class="card-header">
+        <div class="card-icon water-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2.5c-4 4.2-6.5 7.6-6.5 10.6a6.5 6.5 0 0 0 13 0C18.5 10.1 16 6.7 12 2.5Z"
+                  fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="water-title">Вода</h2>
+          <p>Визуальный прогресс за день</p>
+        </div>
+      </div>
+
+      <div class="water-body">
+        <div class="water-ring-wrap">
+          <svg class="water-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--grad-a)"/>
+                <stop offset="100%" stop-color="var(--grad-b)"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="60" cy="60" r="54"/>
+            <circle class="ring-fg" id="water-ring-fg" cx="60" cy="60" r="54"/>
+          </svg>
+          <div class="water-ring-center">
+            <span class="water-value" id="water-total">0</span>
+            <span class="water-unit">мл</span>
+            <span class="water-sub" id="water-status">из 2 500 мл</span>
+          </div>
+        </div>
+
+        <div class="water-actions">
+          <button class="chip" data-water="250" type="button">
+            <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
+          </button>
+          <button class="chip" data-water="500" type="button">
+            <span class="chip-emoji" aria-hidden="true">🧴</span> +500 мл
+          </button>
+          <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последний стакан">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 5v5h5M4.6 10a8 8 0 1 1-1.1 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Отменить
+          </button>
+        </div>
+
+        <div class="goal-row">
+          <span class="goal-label">Дневная цель</span>
+          <div class="goal-stepper">
+            <button class="mini-btn" id="water-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
+            <span class="goal-value" id="water-goal">2500 мл</span>
+            <button class="mini-btn" id="water-goal-plus" type="button" aria-label="Увеличить цель">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Карточка: Еда ===== -->
+    <section class="card food-card" id="food-card" aria-labelledby="food-title">
+      <div class="card-header">
+        <div class="card-icon food-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 3v7M4 3v4a2.5 2.5 0 0 0 5 0V3M18.5 3c-1.7 0-3 1.8-3 4.5 0 1.6 1 2.9 2.3 3.2L17.4 21M7 13v8M17 10v11"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="food-title">Питание</h2>
+          <p>Умный ввод текстом + калории</p>
+        </div>
+        <button class="card-menu icon-btn" id="food-ai-badge" type="button" title="ИИ-разбор фраз появится позже">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="calorie-summary">
+        <div class="calorie-numbers">
+          <span class="calorie-value" id="food-total">0</span>
+          <span class="calorie-divider">/</span>
+          <span class="calorie-goal" id="food-goal-label">2 000</span>
+          <span class="calorie-unit">ккал</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="2000" aria-valuenow="0" id="food-progress">
+          <div class="progress-fill" id="food-progress-fill"></div>
+        </div>
+        <p class="calorie-hint" id="food-status">Добавьте приём пищи, чтобы начать</p>
+      </div>
+
+      <form class="food-form" id="food-form" autocomplete="off">
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input type="text" id="food-input" class="food-input" inputmode="text"
+                 placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
+        </div>
+        <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+        <button class="btn btn-ghost btn-mic" id="food-mic" type="button" title="Голосовой ввод — скоро" disabled>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="2.5" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </form>
+
+      <p class="parse-error" id="food-error" hidden></p>
+
+      <div class="quick-meals">
+        <span class="quick-label">Быстрое добавление:</span>
+        <div class="quick-chips">
+          <button class="chip chip-sm" data-quick="гречка 100г" type="button">Гречка 100г</button>
+          <button class="chip chip-sm" data-quick="яйцо 2шт" type="button">Яйцо 2шт</button>
+          <button class="chip chip-sm" data-quick="куриная грудка 150г" type="button">Грудка 150г</button>
+          <button class="chip chip-sm" data-quick="банан 1шт" type="button">Банан</button>
+        </div>
+      </div>
+
+      <ul class="food-list" id="food-list"></ul>
+
+      <div class="goal-row">
+        <span class="goal-label">Цель по калориям</span>
+        <div class="goal-stepper">
+          <button class="mini-btn" id="food-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
+          <span class="goal-value" id="food-goal">2 000 ккал</span>
+          <button class="mini-btn" id="food-goal-plus" type="button" aria-label="Увеличить цель">+</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="privacy-note">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z"
+              stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      Все данные хранятся локально на устройстве. Регистрация не требуется.
+    </p>
+  </div><!-- /home-view -->
+
+  <!-- ===== Настройки ===== -->
+  <div id="settings-view" hidden>
+    <section class="card settings-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2>Настройки</h2>
+          <p>Тема, резервное копирование</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Тема оформления</p>
+        <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="Тема оформления">
+          <button type="button" data-theme-mode="auto">Авто</button>
+          <button type="button" data-theme-mode="light">Светлая</button>
+          <button type="button" data-theme-mode="dark">Тёмная</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Резервное копирование</p>
+        <div class="settings-row">
+          <button class="btn btn-secondary" id="export-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Экспорт
+          </button>
+          <button class="btn btn-secondary" id="import-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 14V3M7.5 8.5 12 4l4.5 4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Импорт
+          </button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+        <p class="settings-hint">Экспортируйте данные перед переустановкой приложения, а после установки — импортируйте сохранённый файл.</p>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Данные</p>
+        <button class="btn btn-danger" id="reset-btn" type="button">Сбросить все данные</button>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">О приложении</p>
+        <p class="settings-hint">FitFlow v0.1 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная, редактируется.</p>
+      </div>
+    </section>
+  </div><!-- /settings-view -->
+
+  </main>
+
+  <!-- ===== Нижняя навигация ===== -->
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <button class="nav-item active" data-nav="home" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4v-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+      <span>Главная</span>
+    </button>
+    <button class="nav-item" data-nav="stats" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Статистика <i class="soon-badge">скоро</i></span>
+    </button>
+    <button class="nav-item" data-nav="training" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 4v16M17 4v16M4 8.5h3M4 15.5h3M17 8.5h3M17 15.5h3M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>Тренировки <i class="soon-badge">скоро</i></span>
+    </button>
+    <button class="nav-item" data-nav="settings" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
+              stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>Настройки</span>
+    </button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
