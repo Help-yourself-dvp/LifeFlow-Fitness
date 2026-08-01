@@ -913,6 +913,105 @@ html[data-theme="dark"] .icon-sun { display: none; }
   transform: translateX(-50%) translateY(0);
 }
 
+/* ============================================================
+   Настройки
+   ============================================================ */
+.settings-icon {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+}
+
+.settings-group {
+  padding: 14px 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.settings-group:first-of-type {
+  border-top: none;
+}
+
+.settings-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-bottom: 10px;
+}
+
+.settings-hint {
+  font-size: 0.78rem;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.settings-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 14px;
+}
+
+.btn-secondary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-danger {
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+  border-radius: 14px;
+}
+
+/* Сегментированный выбор темы */
+.segmented {
+  display: flex;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: 11px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.segmented button.active {
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+
+html[data-theme="dark"] .segmented button.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+/* Плавное переключение экранов */
+#home-view,
+#settings-view {
+  animation: view-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* ---------- Доступность ---------- */
 @media (prefers-reduced-motion: reduce) {
   * {

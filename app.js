@@ -292,7 +292,7 @@ function saveState() {
 }
 
 /* ============================================================
-   Тема (Light / Dark)
+   Тема (Авто / Light / Dark)
    ============================================================ */
 const LIGHT_THEME_COLOR = '#fafdfc';
 const DARK_THEME_COLOR = '#0e1514';
@@ -303,15 +303,37 @@ function applyTheme(theme) {
     .setAttribute('content', theme === 'dark' ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
 }
 
-function initTheme() {
-  const saved = state.theme || localStorage.getItem('fitflow:theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+function systemPrefersDark() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 
-  // Следим за системной темой, пока пользователь не выбрал свою
+function getThemeMode() {
+  const saved = localStorage.getItem('fitflow:theme');
+  return saved === 'light' || saved === 'dark' ? saved : 'auto';
+}
+
+function setThemeMode(mode) {
+  if (mode === 'auto') {
+    localStorage.removeItem('fitflow:theme');
+  } else {
+    localStorage.setItem('fitflow:theme', mode);
+  }
+  applyThemeMode(mode);
+}
+
+function applyThemeMode(mode) {
+  applyTheme(mode === 'auto' ? (systemPrefersDark() ? 'dark' : 'light') : mode);
+  $$('#theme-segmented button').forEach((btn) =>
+    btn.classList.toggle('active', btn.dataset.themeMode === mode));
+}
+
+function initTheme() {
+  applyThemeMode(getThemeMode());
+
+  // Следим за системной темой в режиме «Авто»
   window.matchMedia('(prefers-color-scheme: dark)')
     .addEventListener('change', (e) => {
-      if (!localStorage.getItem('fitflow:theme')) {
+      if (getThemeMode() === 'auto') {
         applyTheme(e.matches ? 'dark' : 'light');
       }
     });
@@ -319,10 +341,7 @@ function initTheme() {
 
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  state.theme = next;
-  localStorage.setItem('fitflow:theme', next);
-  applyTheme(next);
+  setThemeMode(current === 'dark' ? 'light' : 'dark');
 }
 
 /* ============================================================
@@ -340,8 +359,6 @@ function renderWater() {
   const pct = Math.min(1, goal > 0 ? total / goal : 0);
 
   $('#water-total').textContent = fmt(total);
-  $('#water-goal-label').textContent = fmt(goal);
-  $('#water-goal').textContent = `${fmt(goal)} мл`;
   $('#water-ring-fg').style.strokeDashoffset =
     String(RING_CIRCUMFERENCE * (1 - pct));
 
@@ -485,6 +502,80 @@ function changeFoodGoal(delta) {
 }
 
 /* ============================================================
+   Экран Настройки: переключение, экспорт/импорт/сброс
+   ============================================================ */
+function switchView(view) {
+  const isSettings = view === 'settings';
+  $('#home-view').hidden = isSettings;
+  $('#settings-view').hidden = !isSettings;
+  $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
+}
+
+function exportData() {
+  const backup = {
+    app: 'fitflow',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: { theme: getThemeMode() },
+    water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
+    food: { date: state.food.date, items: state.food.items, goal: state.food.goal }
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fitflow-backup-${todayKey()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('Резервная копия сохранена');
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || data.app !== 'fitflow') throw new Error('bad format');
+
+      if (data.settings && data.settings.theme) setThemeMode(data.settings.theme);
+
+      // Вода: объединяем журнал с сегодняшним днём
+      if (data.water && Array.isArray(data.water.log)) {
+        state.water.log.push(...data.water.log);
+        state.water.total = state.water.log.reduce((s, l) => s + (l.ml || 0), 0);
+      }
+      if (data.water && typeof data.water.goal === 'number') {
+        state.water.goal = Math.min(10000, Math.max(500, Math.round(data.water.goal)));
+      }
+
+      // Еда: добавляем блюда
+      if (data.food && Array.isArray(data.food.items)) {
+        state.food.items.push(...data.food.items);
+      }
+      if (data.food && typeof data.food.goal === 'number') {
+        state.food.goal = Math.min(10000, Math.max(800, Math.round(data.food.goal)));
+      }
+
+      saveState();
+      renderAll();
+      toast('Данные импортированы ✓');
+    } catch (e) {
+      toast('Не удалось прочитать файл резервной копии');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetAll() {
+  if (!window.confirm('Удалить все данные FitFlow с этого устройства? Действие нельзя отменить.')) return;
+  localStorage.removeItem('fitflow:state');
+  localStorage.removeItem('fitflow:theme');
+  location.reload();
+}
+
+/* ============================================================
    Toast
    ============================================================ */
 let toastTimer = null;
@@ -561,12 +652,30 @@ function init() {
   $('#food-mic').addEventListener('click', () =>
     toast('Голосовой ввод — скоро'));
 
+  // Навигация
   $$('.nav-item').forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.nav === 'home') return;
-      toast(`Раздел «${btn.textContent.trim().replace('скоро', '')}» появится в следующих итерациях`);
+      const nav = btn.dataset.nav;
+      if (nav === 'home' || nav === 'settings') {
+        switchView(nav);
+      } else {
+        toast(`Раздел «${btn.textContent.trim().replace('скоро', '')}» появится в следующих итерациях`);
+      }
     });
   });
+
+  // Настройки: тема
+  $$('#theme-segmented button').forEach((btn) =>
+    btn.addEventListener('click', () => setThemeMode(btn.dataset.themeMode)));
+
+  // Настройки: резервное копирование
+  $('#export-btn').addEventListener('click', exportData);
+  $('#import-btn').addEventListener('click', () => $('#import-file').click());
+  $('#import-file').addEventListener('change', (e) => {
+    if (e.target.files[0]) importData(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('#reset-btn').addEventListener('click', resetAll);
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */

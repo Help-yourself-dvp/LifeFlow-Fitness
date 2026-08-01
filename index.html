@@ -54,6 +54,7 @@
   <!-- ===== Основной экран ===== -->
   <main class="content">
 
+  <div id="home-view">
     <section class="greeting">
       <p class="greeting-title" id="greeting-title">Доброе утро!</p>
       <p class="greeting-sub">Сегодня отличный день, чтобы заботиться о себе 💪</p>
@@ -89,7 +90,7 @@
           <div class="water-ring-center">
             <span class="water-value" id="water-total">0</span>
             <span class="water-unit">мл</span>
-            <span class="water-sub" id="water-status">из <span id="water-goal-label">2500</span> мл</span>
+            <span class="water-sub" id="water-status">из 2 500 мл</span>
           </div>
         </div>
 
@@ -202,6 +203,66 @@
       </svg>
       Все данные хранятся локально на устройстве. Регистрация не требуется.
     </p>
+  </div><!-- /home-view -->
+
+  <!-- ===== Настройки ===== -->
+  <div id="settings-view" hidden>
+    <section class="card settings-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2>Настройки</h2>
+          <p>Тема, резервное копирование</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Тема оформления</p>
+        <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="Тема оформления">
+          <button type="button" data-theme-mode="auto">Авто</button>
+          <button type="button" data-theme-mode="light">Светлая</button>
+          <button type="button" data-theme-mode="dark">Тёмная</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Резервное копирование</p>
+        <div class="settings-row">
+          <button class="btn btn-secondary" id="export-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Экспорт
+          </button>
+          <button class="btn btn-secondary" id="import-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 14V3M7.5 8.5 12 4l4.5 4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Импорт
+          </button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+        <p class="settings-hint">Экспортируйте данные перед переустановкой приложения, а после установки — импортируйте сохранённый файл.</p>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Данные</p>
+        <button class="btn btn-danger" id="reset-btn" type="button">Сбросить все данные</button>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">О приложении</p>
+        <p class="settings-hint">FitFlow v0.1 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная, редактируется.</p>
+      </div>
+    </section>
+  </div><!-- /settings-view -->
+
   </main>
 
   <!-- ===== Нижняя навигация ===== -->
@@ -230,7 +291,7 @@
         <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
               stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      <span>Настройки <i class="soon-badge">скоро</i></span>
+      <span>Настройки</span>
     </button>
   </nav>
 
