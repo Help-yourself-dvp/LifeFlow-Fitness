@@ -1,0 +1,22 @@
+# Node / Capacitor
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Capacitor
+android/
+ios/
+www/
+.capacitor/
+
+# Редакторы и ОС
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Сборка
+dist/
+build/
+*.apk
+*.aab
