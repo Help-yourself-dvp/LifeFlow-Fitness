@@ -174,6 +174,23 @@
 
       <p class="parse-error" id="food-error" hidden></p>
 
+      <div class="manual-food-section">
+        <p class="quick-label">Своё блюдо:</p>
+        <div class="manual-food-row">
+          <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
+          <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
+        </div>
+        <div class="settings-row">
+          <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить вручную</button>
+          <button class="btn btn-secondary" id="manual-food-favorite" type="button">Сохранить в мои блюда</button>
+        </div>
+      </div>
+
+      <div class="quick-meals favorite-meals-section">
+        <span class="quick-label">Мои блюда:</span>
+        <div class="quick-chips" id="favorite-meals"></div>
+      </div>
+
       <div class="quick-meals">
         <span class="quick-label">Быстрое добавление:</span>
         <div class="quick-chips">
@@ -205,6 +222,183 @@
     </p>
   </div><!-- /home-view -->
 
+  <!-- ===== Статистика ===== -->
+  <div id="stats-view" hidden>
+    <section class="card stats-card" aria-labelledby="stats-title">
+      <div class="card-header">
+        <div class="card-icon stats-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="stats-title">Статистика</h2>
+          <p id="stats-period-caption">Итоги за 7 дней</p>
+        </div>
+      </div>
+
+      <div class="segmented stats-periods" id="stats-periods" role="radiogroup" aria-label="Период статистики">
+        <button type="button" data-stats-period="day">Сегодня</button>
+        <button class="active" type="button" data-stats-period="week">7 дней</button>
+        <button type="button" data-stats-period="month">30 дней</button>
+      </div>
+
+      <section class="stats-section stats-water" aria-labelledby="stats-water-title">
+        <div class="stats-section-head">
+          <h3 id="stats-water-title">💧 Вода</h3>
+          <strong id="stats-water-total">—</strong>
+        </div>
+        <p id="stats-water-hint">—</p>
+        <div class="stats-bars" id="stats-water-bars" aria-label="График воды"></div>
+        <button class="stats-details-btn" type="button" data-open-detail="water">Подробнее о воде →</button>
+      </section>
+
+      <section class="stats-section stats-food" aria-labelledby="stats-food-title">
+        <div class="stats-section-head">
+          <h3 id="stats-food-title">🍽️ Питание</h3>
+          <strong id="stats-food-total">—</strong>
+        </div>
+        <p id="stats-food-hint">—</p>
+        <div class="stats-bars" id="stats-food-bars" aria-label="График калорий"></div>
+        <button class="stats-details-btn" type="button" data-open-detail="food">Подробнее о питании →</button>
+      </section>
+
+      <section class="stats-section stats-activity" aria-labelledby="stats-activity-title">
+        <div class="stats-section-head">
+          <h3 id="stats-activity-title">🌿 Активность</h3>
+          <strong id="stats-activity-total">—</strong>
+        </div>
+        <p id="stats-activity-hint">—</p>
+        <div class="stats-bars" id="stats-activity-bars" aria-label="График активности"></div>
+      </section>
+    </section>
+  </div><!-- /stats-view -->
+
+  <!-- ===== Подробно: вода ===== -->
+  <div id="water-details-view" hidden>
+    <section class="card detail-card stats-water" aria-labelledby="water-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon water-icon" aria-hidden="true">💧</div>
+        <div class="card-title-wrap">
+          <h2 id="water-details-title">Вода подробно</h2>
+          <p id="water-details-caption">Итоги за 7 дней</p>
+        </div>
+      </div>
+      <div class="segmented detail-periods" id="water-detail-periods" role="radiogroup" aria-label="Период воды">
+        <button type="button" data-detail-period="day">Сегодня</button>
+        <button class="active" type="button" data-detail-period="week">7 дней</button>
+        <button type="button" data-detail-period="month">30 дней</button>
+      </div>
+      <div class="detail-highlight"><strong id="water-details-total">—</strong><span id="water-details-average">—</span></div>
+      <div class="stats-bars detail-bars" id="water-details-bars" aria-label="Подробный график воды"></div>
+      <p class="detail-insight" id="water-details-insight">—</p>
+    </section>
+  </div><!-- /water-details-view -->
+
+  <!-- ===== Подробно: питание ===== -->
+  <div id="food-details-view" hidden>
+    <section class="card detail-card stats-food" aria-labelledby="food-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon food-icon" aria-hidden="true">🍽️</div>
+        <div class="card-title-wrap">
+          <h2 id="food-details-title">Питание подробно</h2>
+          <p id="food-details-caption">Итоги за 7 дней</p>
+        </div>
+      </div>
+      <div class="segmented detail-periods" id="food-detail-periods" role="radiogroup" aria-label="Период питания">
+        <button type="button" data-detail-period="day">Сегодня</button>
+        <button class="active" type="button" data-detail-period="week">7 дней</button>
+        <button type="button" data-detail-period="month">30 дней</button>
+      </div>
+      <div class="detail-highlight"><strong id="food-details-total">—</strong><span id="food-details-average">—</span></div>
+      <div class="stats-bars detail-bars" id="food-details-bars" aria-label="Подробный график питания"></div>
+      <p class="detail-insight" id="food-details-insight">—</p>
+    </section>
+  </div><!-- /food-details-view -->
+
+  <!-- ===== Активность ===== -->
+  <div id="training-view" hidden>
+    <section class="card training-card" aria-labelledby="training-title">
+      <div class="card-header">
+        <div class="card-icon training-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 4v16M17 4v16M4 8.5h3M4 15.5h3M17 8.5h3M17 15.5h3M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="training-title">Активность</h2>
+          <p>Прогулки, спорт и активный отдых — всё в одном месте</p>
+        </div>
+      </div>
+
+      <div class="training-summary">
+        <span class="training-summary-label">Сегодня</span>
+        <strong id="training-total">Сегодня активности пока нет</strong>
+      </div>
+
+      <div class="weekly-activity-goal">
+        <div class="stats-section-head">
+          <div>
+            <span class="training-summary-label">Цель на последние 7 дней</span>
+            <strong id="weekly-activity-total">0 мин из 150 мин</strong>
+          </div>
+          <div class="goal-stepper">
+            <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
+            <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
+          </div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="weekly-activity-progress"></div></div>
+      </div>
+
+      <form id="training-form" class="training-form" autocomplete="off">
+        <div class="activity-templates-section">
+          <p class="training-field-label">Готовая активность</p>
+          <ul class="activity-template-list" id="activity-templates" aria-live="polite"></ul>
+        </div>
+
+        <div>
+          <p class="training-field-label">Вид активности</p>
+          <div class="workout-type-selector" role="radiogroup" aria-label="Вид активности">
+            <button class="workout-type-btn active" type="button" data-activity-type="walk" role="radio" aria-checked="true">🚶 Прогулка</button>
+            <button class="workout-type-btn" type="button" data-activity-type="cardio" role="radio" aria-checked="false">🏃 Кардио</button>
+            <button class="workout-type-btn" type="button" data-activity-type="strength" role="radio" aria-checked="false">🏋️ Силовая</button>
+            <button class="workout-type-btn" type="button" data-activity-type="stretch" role="radio" aria-checked="false">🧘 Растяжка</button>
+            <button class="workout-type-btn" type="button" data-activity-type="leisure" role="radio" aria-checked="false">⛸️ Активный отдых</button>
+            <button class="workout-type-btn" type="button" data-activity-type="other" role="radio" aria-checked="false">💪 Другое</button>
+          </div>
+        </div>
+
+        <label class="workout-duration-label" for="workout-duration">
+          <span>Длительность</span>
+          <span class="workout-duration-input-wrap">
+            <input id="workout-duration" type="text" inputmode="decimal" placeholder="1,5" aria-describedby="workout-duration-hint">
+            <span>ч</span>
+          </span>
+        </label>
+        <p class="training-hint" id="workout-duration-hint">Можно указать часы с дробью: 0,5 = 30 мин, 1,5 = 1 ч 30 мин.</p>
+
+        <label class="activity-note-label" for="activity-note">Заметка <span>(необязательно)</span>
+          <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
+        </label>
+
+        <div class="activity-template-create">
+          <label for="activity-template-name">Название для готового варианта</label>
+          <div class="activity-template-create-row">
+            <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
+            <button class="btn btn-secondary" id="activity-template-save" type="button">Сохранить как готовое</button>
+          </div>
+          <p class="training-hint">Сначала выберите вид и длительность, затем сохраните вариант для одного нажатия в следующий раз.</p>
+        </div>
+
+        <button class="btn btn-primary training-add-btn" type="submit">Добавить активность</button>
+      </form>
+
+      <ul class="workout-list" id="training-list" aria-live="polite"></ul>
+    </section>
+  </div><!-- /training-view -->
+
   <!-- ===== Настройки ===== -->
   <div id="settings-view" hidden>
     <section class="card settings-card">
@@ -218,7 +412,7 @@
         </div>
         <div class="card-title-wrap">
           <h2>Настройки</h2>
-          <p>Тема, резервное копирование</p>
+          <p>Тема, напоминания и резервное копирование</p>
         </div>
       </div>
 
@@ -229,6 +423,54 @@
           <button type="button" data-theme-mode="light">Светлая</button>
           <button type="button" data-theme-mode="dark">Тёмная</button>
         </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Утренняя мотивация</p>
+          <label class="switch" for="morning-motivation-toggle">
+            <input id="morning-motivation-toggle" type="checkbox" role="switch" aria-describedby="morning-motivation-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить утреннее мотивирующее уведомление</span>
+          </label>
+        </div>
+        <div class="reminder-time-row">
+          <label for="morning-motivation-time">Присылать каждый день в</label>
+          <input id="morning-motivation-time" class="time-input" type="time" value="08:00" aria-label="Время утренней мотивации">
+        </div>
+        <label class="motivation-theme-row" for="morning-motivation-theme">
+          <span>Тема фраз</span>
+          <select id="morning-motivation-theme">
+            <option value="mixed">Смешанная</option>
+            <option value="calm">Спокойный день</option>
+            <option value="health">Здоровье</option>
+            <option value="food">Питание</option>
+            <option value="activity">Активность</option>
+          </select>
+        </label>
+        <p class="settings-hint" id="morning-motivation-status">Утренние фразы выключены.</p>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Вечерняя активность</p>
+          <label class="switch" for="workout-reminder-toggle">
+            <input id="workout-reminder-toggle" type="checkbox" role="switch" aria-describedby="workout-reminder-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить вечернее напоминание об активности</span>
+          </label>
+        </div>
+        <div class="reminder-time-row">
+          <label for="workout-reminder-time">Напоминать каждый день в</label>
+          <input id="workout-reminder-time" class="time-input" type="time" value="20:00" aria-label="Время вечернего напоминания об активности">
+        </div>
+        <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
+        <button class="btn btn-secondary notification-setup-btn" id="notification-setup-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Настроить уведомления
+        </button>
       </div>
 
       <div class="settings-group">
@@ -258,10 +500,73 @@
 
       <div class="settings-group">
         <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная, редактируется.</p>
+        <p class="settings-hint">FitFlow v0.1.16 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+        <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
       </div>
     </section>
   </div><!-- /settings-view -->
+
+  <!-- ===== Настройка уведомлений ===== -->
+  <div id="notifications-view" hidden>
+    <section class="card notification-setup-card" aria-labelledby="notification-setup-title">
+      <div class="card-header">
+        <div class="card-icon notification-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="notification-setup-title">Настроить уведомления</h2>
+          <p>Чтобы вечернее напоминание пришло вовремя</p>
+        </div>
+      </div>
+
+      <p class="notification-intro">Android может ограничивать работу приложений в фоне. Проверьте три пункта ниже — обычно это занимает меньше минуты.</p>
+
+      <ol class="setup-steps">
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">1</span>
+          <div class="setup-step-content">
+            <h3>Показ уведомлений</h3>
+            <p>Без этого разрешения FitFlow не сможет показать напоминание.</p>
+            <p class="setup-state setup-state-ok" id="setup-notifications-ok" hidden>✓ Уже разрешено</p>
+            <p class="setup-state setup-state-bad" id="setup-notifications-bad" hidden>✗ Запрещено — напоминание не придёт</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="notifications">Открыть настройку</button>
+          </div>
+        </li>
+
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">2</span>
+          <div class="setup-step-content">
+            <h3>Работа без ограничений батареи</h3>
+            <p>Иначе система может «заморозить» приложение, и напоминание опоздает.</p>
+            <p class="setup-state setup-state-ok" id="setup-battery-ok" hidden>✓ Уже разрешено</p>
+            <p class="setup-state setup-state-bad" id="setup-battery-bad" hidden>✗ Не разрешено — напоминание может опоздать</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="battery">Открыть настройку</button>
+          </div>
+        </li>
+
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">3</span>
+          <div class="setup-step-content">
+            <h3 id="setup-autostart-title">Автозапуск и работа в фоне</h3>
+            <p id="setup-autostart-hint">Разрешите FitFlow запускаться после перезагрузки телефона и работать в фоне.</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="autostart">Открыть настройку</button>
+          </div>
+        </li>
+      </ol>
+
+      <p class="vendor-note" id="setup-vendor-note">На «чистом» Android обычно достаточно первых двух пунктов.</p>
+
+      <div class="notification-test-box">
+        <h3>Проверить уведомление</h3>
+        <p>Отправит отдельное тестовое уведомление примерно через 5 секунд. Вечерний вопрос и его время не изменятся.</p>
+        <button class="btn btn-secondary" id="notification-test-btn" type="button">Отправить тест</button>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn" id="notifications-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /notifications-view -->
 
   </main>
 
@@ -277,13 +582,13 @@
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span>Статистика <i class="soon-badge">скоро</i></span>
+      <span>Статистика</span>
     </button>
     <button class="nav-item" data-nav="training" type="button">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M7 4v16M17 4v16M4 8.5h3M4 15.5h3M17 8.5h3M17 15.5h3M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      <span>Тренировки <i class="soon-badge">скоро</i></span>
+      <span>Активность</span>
     </button>
     <button class="nav-item" data-nav="settings" type="button">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -296,6 +601,20 @@
   </nav>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="activity-reminder-dialog" role="dialog" aria-modal="true" aria-labelledby="activity-reminder-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🌿</div>
+      <h2 id="activity-reminder-dialog-title">Спрашивать об активности вечером?</h2>
+      <p>Вечером FitFlow спросит, была ли сегодня прогулка, спорт или активный отдых — чтобы вы могли быстро зафиксировать это в приложении.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="activity-reminder-decline" type="button">Не сейчас</button>
+        <button class="btn btn-primary" id="activity-reminder-accept" type="button">Включить</button>
+      </div>
+      <p class="app-dialog-hint">Если выберете «Не сейчас», вечерние вопросы останутся выключенными. Их можно вручную включить позже: Настройки → Вечерняя активность.</p>
+    </section>
+  </div>
 
   <script src="app.js"></script>
 </body>

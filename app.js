@@ -297,6 +297,73 @@ const FOOD_DB = {
   'аджика': { kcal: 60 }, 'уксус': { kcal: 20 }, 'бальзамический уксус': { kcal: 88 },
   'хрен (приправа)': { kcal: 48 }, 'оливки зеленые': { kcal: 115 },
 
+  // ===== Дополнение v0.1.7: USDA FoodData Central / SR Legacy (public domain) =====
+  // Значения — средние на 100 г; новые записи помечены источником для документации.
+  'хумус': { kcal: 166, source: 'USDA FDC SR Legacy' },
+  'фалафель': { kcal: 333, source: 'USDA FDC SR Legacy' },
+  'тофу': { kcal: 76, source: 'USDA FDC SR Legacy' },
+  'темпе': { kcal: 193, source: 'USDA FDC SR Legacy' },
+  'сейтан': { kcal: 141, source: 'USDA FDC SR Legacy' },
+  'эдамаме': { kcal: 121, source: 'USDA FDC SR Legacy' },
+  'арахисовая паста': { kcal: 588, source: 'USDA FDC SR Legacy' },
+  'тахини': { kcal: 595, source: 'USDA FDC SR Legacy' },
+  'урбеч': { kcal: 595, source: 'USDA FDC SR Legacy' },
+  'нут вареный': { kcal: 164, source: 'USDA FDC SR Legacy' },
+  'чечевица вареная': { kcal: 116, source: 'USDA FDC SR Legacy' },
+  'фасоль вареная': { kcal: 127, source: 'USDA FDC SR Legacy' },
+  'маш вареный': { kcal: 105, source: 'USDA FDC SR Legacy' },
+  'киноа вареная': { kcal: 120, source: 'USDA FDC SR Legacy' },
+  'булгур вареный': { kcal: 83, source: 'USDA FDC SR Legacy' },
+  'полента': { kcal: 70, source: 'USDA FDC SR Legacy' },
+  'рисовая бумага': { kcal: 333, source: 'USDA FDC SR Legacy' },
+  'тортилья': { kcal: 312, source: 'USDA FDC SR Legacy' },
+  'багл': { kcal: 257, source: 'USDA FDC SR Legacy' },
+  'творожный сыр': { kcal: 250, source: 'USDA FDC SR Legacy' },
+  'сурими': { kcal: 95, source: 'USDA FDC SR Legacy' },
+  'сардины консервированные': { kcal: 208, source: 'USDA FDC SR Legacy' },
+  'анчоусы': { kcal: 210, source: 'USDA FDC SR Legacy' },
+  'кимчи': { kcal: 15, source: 'USDA FDC SR Legacy' },
+  'соленые огурцы': { kcal: 11, source: 'USDA FDC SR Legacy' },
+  'масло авокадо': { kcal: 884, source: 'USDA FDC SR Legacy' },
+  'кунжутное масло': { kcal: 884, source: 'USDA FDC SR Legacy' },
+  'льняное масло': { kcal: 884, source: 'USDA FDC SR Legacy' },
+  'кокосовое масло': { kcal: 862, source: 'USDA FDC SR Legacy' },
+  'инжир сушеный': { kcal: 249, source: 'USDA FDC SR Legacy' },
+  'ягоды годжи': { kcal: 349, source: 'USDA FDC SR Legacy' },
+  'клюква сушеная': { kcal: 308, source: 'USDA FDC SR Legacy' },
+  'маракуйя': { kcal: 97, source: 'USDA FDC SR Legacy' },
+  'личи': { kcal: 66, source: 'USDA FDC SR Legacy' },
+  'физалис': { kcal: 53, source: 'USDA FDC SR Legacy' },
+  'кокосовая мякоть': { kcal: 354, source: 'USDA FDC SR Legacy' },
+  'сельдерей стебель': { kcal: 16, source: 'USDA FDC SR Legacy' },
+  'кейл': { kcal: 49, source: 'USDA FDC SR Legacy' },
+  'нутовая мука': { kcal: 387, source: 'USDA FDC SR Legacy' },
+  'рисовый уксус': { kcal: 18, source: 'USDA FDC SR Legacy' },
+  'паста мисо': { kcal: 199, source: 'USDA FDC SR Legacy' },
+
+  // ===== Упакованные продукты: Open Food Facts (ODbL), значения усреднены =====
+  'протеин сывороточный': { kcal: 370, source: 'Open Food Facts (ODbL)' },
+  'изолят протеина': { kcal: 370, source: 'Open Food Facts (ODbL)' },
+  'протеиновый батончик': { kcal: 360, source: 'Open Food Facts (ODbL)' },
+  'протеиновый пудинг': { kcal: 80, source: 'Open Food Facts (ODbL)' },
+  'растительный йогурт': { kcal: 65, source: 'Open Food Facts (ODbL)' },
+  'мюсли без сахара': { kcal: 340, source: 'Open Food Facts (ODbL)' },
+  'гранола с шоколадом': { kcal: 460, source: 'Open Food Facts (ODbL)' },
+  'овсяное печенье': { kcal: 450, source: 'Open Food Facts (ODbL)' },
+  'цельнозерновой крекер': { kcal: 430, source: 'Open Food Facts (ODbL)' },
+  'рисовые хлебцы': { kcal: 387, source: 'Open Food Facts (ODbL)' },
+  'готовый смузи': { kcal: 55, source: 'Open Food Facts (ODbL)' },
+  'комбуча': { kcal: 13, source: 'Open Food Facts (ODbL)' },
+  'энергетик без сахара': { kcal: 3, source: 'Open Food Facts (ODbL)' },
+  'креатин': { kcal: 0, source: 'Open Food Facts (ODbL)' },
+  'шаверма': { kcal: 200, source: 'Open Food Facts (ODbL)' },
+  'кесадилья': { kcal: 268, source: 'Open Food Facts (ODbL)' },
+  'поке': { kcal: 150, source: 'Open Food Facts (ODbL)' },
+  'рамен': { kcal: 99, source: 'Open Food Facts (ODbL)' },
+  'фо бо': { kcal: 55, source: 'Open Food Facts (ODbL)' },
+  'паэлья': { kcal: 158, source: 'Open Food Facts (ODbL)' },
+  'тако': { kcal: 226, source: 'Open Food Facts (ODbL)' },
+
   // ===== Масла и жиры =====
   'сливочное масло': { kcal: 748 }, 'масло сливочное': { kcal: 748 },
   'растительное масло': { kcal: 884 }, 'оливковое масло': { kcal: 884 },
@@ -446,14 +513,276 @@ async function parseWithAI(text) {
    ============================================================ */
 const DEFAULTS = {
   water: { goal: 2500 },
-  food: { goal: 2000 }
+  food: { goal: 2000 },
+  reminders: { enabled: false, time: '20:00' },
+  morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
+  activitySettings: { weeklyGoalMinutes: 150 }
+};
+
+const ACTIVITY_REMINDER_PROMPT_KEY = 'fitflow:activity-reminder-prompt-seen';
+
+const MORNING_MOTIVATION_THEMES = {
+  mixed: 'Смешанная',
+  calm: 'Спокойный день',
+  health: 'Здоровье',
+  food: 'Питание',
+  activity: 'Активность'
+};
+
+const MORNING_MOTIVATION_MESSAGES = {
+  mixed: [
+    'Новый день — новая возможность позаботиться о себе',
+    'Маленький шаг сегодня важнее идеального плана завтра',
+    'Начните день в своём темпе, этого достаточно',
+    'Вы уже делаете важное — обращаете внимание на себя',
+    'Выберите одно посильное действие и сделайте его спокойно',
+    'Не нужно успеть всё, достаточно двигаться в нужную сторону',
+    'Пусть сегодня будет чуть больше заботы о себе',
+    'Утро — хорошее время выбрать то, что вас поддержит',
+    'Ваш темп имеет значение, не сравнивайте его с чужим',
+    'Сегодня можно начать заново, даже с самого малого шага',
+    'Замечайте то, что уже получается, а не только список дел',
+    'Пусть у этого дня будет простая и добрая цель'
+  ],
+  calm: [
+    'Не спешите: один спокойный шаг за другим — уже движение вперёд',
+    'Сегодня достаточно сделать то, что действительно важно именно вам',
+    'Начните день с воды, дыхания и доброго отношения к себе',
+    'Пауза — не слабость, а способ услышать себя',
+    'Разрешите себе идти в своём ритме',
+    'План на день может быть небольшим и всё равно полезным',
+    'Сначала забота о себе, потом всё остальное',
+    'Тишина и порядок внутри тоже часть хорошего дня',
+    'Вы не обязаны быть продуктивны каждую минуту',
+    'Мягкое начало дня может сделать его устойчивее',
+    'Отнеситесь к себе сегодня так, как отнеслись бы к другу',
+    'Выберите спокойный темп и сохраните его до вечера'
+  ],
+  health: [
+    'Забота о здоровье складывается из маленьких ежедневных решений',
+    'Ваше самочувствие важно, найдите сегодня немного времени для себя',
+    'Стакан воды, немного движения и отдых — хорошие основы дня',
+    'Слушайте тело: ему виднее, когда нужен отдых или движение',
+    'Полезная привычка начинается не с идеала, а с повторения',
+    'Регулярный сон и еда — это тоже вклад в ваше здоровье',
+    'Сегодня можно выбрать вариант, который добавит вам сил',
+    'Дышите глубже, расправьте плечи и начните день бережно',
+    'Здоровье — это не гонка, а поддержка себя каждый день',
+    'Пусть у вас найдётся время на воду, еду и короткую паузу',
+    'Хорошее самочувствие строится из простых вещей',
+    'Выберите сегодня то, за что тело скажет вам спасибо'
+  ],
+  food: [
+    'Не нужен идеальный рацион — достаточно внимательнее выбирать еду',
+    'Начните день с завтрака, который даст вам силы, а не чувство вины',
+    'Регулярность важнее строгих запретов',
+    'Еда — это энергия и забота, а не повод ругать себя',
+    'Старайтесь замечать голод и насыщение без спешки',
+    'Сегодня можно добавить к рациону что-то полезное и вкусное',
+    'Один сбалансированный приём пищи уже хороший шаг',
+    'Не делите еду на хорошую и плохую, ищите баланс',
+    'Планируйте питание так, чтобы у вас оставались силы на день',
+    'Достаточно сделать следующий выбор немного осознаннее',
+    'Ваш рацион не обязан быть идеальным, чтобы быть полезным',
+    'Пусть еда сегодня поддерживает вас, а не создаёт напряжение'
+  ],
+  activity: [
+    'Любая активность считается: прогулка тоже отличный выбор',
+    'Сегодня можно двигаться в своём ритме — даже 10 минут имеют значение',
+    'Выберите движение, которое приносит удовольствие',
+    'Необязательно идти в зал: прогулка и растяжка тоже забота о себе',
+    'Пара минут разминки может заметно изменить самочувствие',
+    'Движение помогает не только телу, но и настроению',
+    'Выберите сегодня активность, после которой станет легче',
+    'Лестница, прогулка или танец дома — всё это движение',
+    'Не сравнивайте свою активность с чужой, выбирайте подходящую вам',
+    'Пусть сегодня найдётся немного времени для тела',
+    'Даже короткая прогулка может стать хорошей перезагрузкой',
+    'Двигайтесь не ради отчёта, а ради ощущения жизни'
+  ]
+};
+
+const MORNING_MOTIVATION_ENDINGS = [
+  '.',
+  '. Пусть день начнётся спокойно.',
+  '. Выберите то, что поддержит вас.',
+  '. Спокойный темп тоже движение вперёд.',
+  '. Пусть это будет по-доброму к себе.'
+];
+
+
+function getMorningMotivationMessage(theme, sequenceIndex = 0) {
+  const messages = MORNING_MOTIVATION_MESSAGES[theme] || MORNING_MOTIVATION_MESSAGES.mixed;
+  const index = Math.abs(Math.floor(Number(sequenceIndex) || 0));
+  const base = messages[index % messages.length];
+  const ending = MORNING_MOTIVATION_ENDINGS[Math.floor(index / messages.length) % MORNING_MOTIVATION_ENDINGS.length];
+  return `${base}${ending}`;
+}
+
+function morningMotivationVariantsCount(theme) {
+  const messages = MORNING_MOTIVATION_MESSAGES[theme] || MORNING_MOTIVATION_MESSAGES.mixed;
+  return messages.length * MORNING_MOTIVATION_ENDINGS.length;
+}
+
+const ACTIVITY_TYPES = {
+  walk: { label: 'Прогулка', emoji: '🚶' },
+  cardio: { label: 'Кардио', emoji: '🏃' },
+  strength: { label: 'Силовая', emoji: '🏋️' },
+  stretch: { label: 'Растяжка', emoji: '🧘' },
+  leisure: { label: 'Активный отдых', emoji: '⛸️' },
+  other: { label: 'Другое', emoji: '💪' }
 };
 
 const state = {
   water: { date: todayKey(), total: 0, log: [], goal: DEFAULTS.water.goal },
   food: { date: todayKey(), items: [], goal: DEFAULTS.food.goal },
+  favoriteMeals: [],
+  dailyHistory: [],
+  workouts: [],
+  activityTemplates: [],
+  reminders: { ...DEFAULTS.reminders },
+  morningMotivation: { ...DEFAULTS.morningMotivation },
+  activitySettings: { ...DEFAULTS.activitySettings },
   theme: null
 };
+
+function isValidReminderTime(time) {
+  if (typeof time !== 'string' || !/^\d{2}:\d{2}$/.test(time)) return false;
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+}
+
+function normalizeReminderSettings() {
+  const reminders = state.reminders || {};
+  state.reminders = {
+    enabled: reminders.enabled === true,
+    time: isValidReminderTime(reminders.time) ? reminders.time : DEFAULTS.reminders.time
+  };
+}
+
+function normalizeMorningMotivation() {
+  const motivation = state.morningMotivation || {};
+  const theme = MORNING_MOTIVATION_THEMES[motivation.theme] ? motivation.theme : DEFAULTS.morningMotivation.theme;
+  const message = typeof motivation.message === 'string' && motivation.message.length > 0 && motivation.message.length <= 180
+    ? motivation.message
+    : getMorningMotivationMessage(theme, 0);
+  state.morningMotivation = {
+    enabled: motivation.enabled === true,
+    time: isValidReminderTime(motivation.time) ? motivation.time : DEFAULTS.morningMotivation.time,
+    theme,
+    message
+  };
+}
+
+function normalizeActivitySettings() {
+  const settings = state.activitySettings || {};
+  state.activitySettings = {
+    weeklyGoalMinutes: Math.min(1440, Math.max(30, Math.round(Number(settings.weeklyGoalMinutes) || DEFAULTS.activitySettings.weeklyGoalMinutes)))
+  };
+}
+
+function normalizeOptionalNote(value) {
+  const note = String(value || '').trim().replace(/\s+/g, ' ');
+  return note.length > 0 && note.length <= 120 ? note : null;
+}
+
+function normalizeActivityName(value) {
+  const name = String(value || '').trim().replace(/\s+/g, ' ');
+  return name.length >= 2 && name.length <= 60 ? name : null;
+}
+
+function normalizeFavoriteMeal(meal) {
+  if (!meal || typeof meal !== 'object') return null;
+  const name = normalizeActivityName(meal.name);
+  const kcal = Math.round(Number(meal.kcal));
+  if (!name || !Number.isFinite(kcal) || kcal < 1 || kcal > 5000) return null;
+  return { id: String(meal.id || uid()), name, kcal };
+}
+
+function normalizeFavoriteMeals() {
+  const ids = new Set();
+  state.favoriteMeals = (Array.isArray(state.favoriteMeals) ? state.favoriteMeals : [])
+    .map(normalizeFavoriteMeal)
+    .filter((meal) => meal && !ids.has(meal.id) && ids.add(meal.id))
+    .slice(0, 30);
+}
+
+function normalizeDailyHistory() {
+  const byDate = new Map();
+  (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).forEach((day) => {
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day.date)) return;
+    const normalized = {
+      date: day.date,
+      waterTotal: Math.max(0, Math.round(Number(day.waterTotal) || 0)),
+      waterGoal: Math.max(500, Math.round(Number(day.waterGoal) || DEFAULTS.water.goal)),
+      foodTotal: Math.max(0, Math.round(Number(day.foodTotal) || 0)),
+      foodGoal: Math.max(800, Math.round(Number(day.foodGoal) || DEFAULTS.food.goal)),
+      activityMinutes: Math.max(0, Math.round(Number(day.activityMinutes) || 0))
+    };
+    byDate.set(normalized.date, normalized);
+  });
+  state.dailyHistory = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
+}
+
+function recordDailySummary(date) {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const foodItems = state.food && state.food.date === date && Array.isArray(state.food.items) ? state.food.items : [];
+  const waterTotal = state.water && state.water.date === date ? Number(state.water.total) || 0 : 0;
+  const waterGoal = state.water && state.water.date === date ? state.water.goal : DEFAULTS.water.goal;
+  const foodGoal = state.food && state.food.date === date ? state.food.goal : DEFAULTS.food.goal;
+  const foodTotal = foodItems.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+  const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((workout) => workout.date === date)
+    .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
+
+  // Не создаём пустые дни, если пользователь в этот день ничего не отмечал.
+  if (waterTotal <= 0 && foodTotal <= 0 && activityMinutes <= 0) return;
+  const summary = { date, waterTotal, waterGoal, foodTotal, foodGoal, activityMinutes };
+  const history = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
+  const index = history.findIndex((day) => day.date === date);
+  if (index >= 0) history[index] = summary;
+  else history.push(summary);
+  state.dailyHistory = history;
+  normalizeDailyHistory();
+}
+
+function normalizeActivityTemplates() {
+  const templates = Array.isArray(state.activityTemplates) ? state.activityTemplates : [];
+  state.activityTemplates = templates
+    .filter((template) => template && typeof template === 'object'
+      && ACTIVITY_TYPES[template.type]
+      && normalizeActivityName(template.name)
+      && Number.isFinite(Number(template.durationMinutes))
+      && Number(template.durationMinutes) >= 5)
+    .map((template) => ({
+      id: String(template.id || uid()),
+      name: normalizeActivityName(template.name),
+      type: template.type,
+      durationMinutes: Math.min(1440, Math.round(Number(template.durationMinutes))),
+      createdAt: Number(template.createdAt) || Date.now()
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function normalizeWorkouts() {
+  const workouts = Array.isArray(state.workouts) ? state.workouts : [];
+  state.workouts = workouts
+    .filter((workout) => workout && typeof workout === 'object'
+      && /^\d{4}-\d{2}-\d{2}$/.test(workout.date)
+      && ACTIVITY_TYPES[workout.type]
+      && Number.isFinite(Number(workout.durationMinutes))
+      && Number(workout.durationMinutes) >= 5)
+    .map((workout) => ({
+      id: String(workout.id || uid()),
+      date: workout.date,
+      type: workout.type,
+      title: normalizeActivityName(workout.title) || null,
+      note: normalizeOptionalNote(workout.note),
+      durationMinutes: Math.min(1440, Math.round(Number(workout.durationMinutes))),
+      createdAt: Number(workout.createdAt) || Date.now()
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
 
 function loadState() {
   try {
@@ -462,16 +791,32 @@ function loadState() {
   } catch (e) { /* повреждённые данные — начинаем заново */ }
 
   const today = todayKey();
+  const previousWaterDate = state.water.date;
+  const previousFoodDate = state.food.date;
+  if (previousWaterDate !== today || previousFoodDate !== today) {
+    recordDailySummary(previousWaterDate !== today ? previousWaterDate : previousFoodDate);
+  }
   if (state.water.date !== today) {
     state.water = { date: today, total: 0, log: [], goal: state.water.goal || DEFAULTS.water.goal };
   }
   if (state.food.date !== today) {
     state.food = { date: today, items: [], goal: state.food.goal || DEFAULTS.food.goal };
   }
+  normalizeDailyHistory();
+  normalizeReminderSettings();
+  normalizeMorningMotivation();
+  normalizeActivitySettings();
+  normalizeFavoriteMeals();
+  normalizeWorkouts();
+  normalizeActivityTemplates();
+  if (previousWaterDate !== today || previousFoodDate !== today) {
+    try { localStorage.setItem('fitflow:state', JSON.stringify(state)); } catch (e) { /* localStorage недоступен */ }
+  }
 }
 
 function saveState() {
   try {
+    recordDailySummary(todayKey());
     localStorage.setItem('fitflow:state', JSON.stringify(state));
   } catch (e) {
     console.warn('Не удалось сохранить данные:', e);
@@ -535,10 +880,39 @@ function toggleTheme() {
    Рендер
    ============================================================ */
 const RING_CIRCUMFERENCE = 2 * Math.PI * 54;
+let activeStatsPeriod = 'week';
+let activeWaterDetailPeriod = 'week';
+let activeFoodDetailPeriod = 'week';
+
+function updateNativeWidget() {
+  if (typeof window === 'undefined' || !window.FitFlowExport
+      || typeof window.FitFlowExport.updateWidget !== 'function') return;
+  try {
+    const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
+      .filter((workout) => workout.date === todayKey())
+      .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
+    const foodTotal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+    window.FitFlowExport.updateWidget(JSON.stringify({
+      waterTotal: state.water.total,
+      waterGoal: state.water.goal,
+      foodTotal,
+      foodGoal: state.food.goal,
+      activityMinutes,
+      date: todayKey()
+    }));
+  } catch (e) {
+    console.warn('Не удалось обновить Android-виджет:', e);
+  }
+}
 
 function renderAll() {
   renderWater();
   renderFood();
+  renderStats();
+  renderTraining();
+  renderReminderSettings();
+  renderMorningMotivationSettings();
+  updateNativeWidget();
 }
 
 function renderWater() {
@@ -585,6 +959,138 @@ function renderFood() {
   }
 
   renderFoodList();
+  renderFavoriteMeals();
+}
+
+function statsDateKey(daysAgo) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - daysAgo);
+  const p = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
+
+function statsPeriodDays(period = activeStatsPeriod) {
+  if (period === 'day') return 1;
+  if (period === 'month') return 30;
+  return 7;
+}
+
+function currentDaySummary() {
+  return {
+    date: todayKey(),
+    waterTotal: state.water.total,
+    waterGoal: state.water.goal,
+    foodTotal: state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0),
+    foodGoal: state.food.goal,
+    activityMinutes: (Array.isArray(state.workouts) ? state.workouts : [])
+      .filter((workout) => workout.date === todayKey())
+      .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0)
+  };
+}
+
+function getStatsDays(period = activeStatsPeriod) {
+  const count = statsPeriodDays(period);
+  const historyByDate = new Map((Array.isArray(state.dailyHistory) ? state.dailyHistory : [])
+    .map((day) => [day.date, day]));
+  const days = [];
+  for (let offset = count - 1; offset >= 0; offset--) {
+    const date = statsDateKey(offset);
+    days.push(date === todayKey()
+      ? currentDaySummary()
+      : (historyByDate.get(date) || {
+        date, waterTotal: 0, waterGoal: DEFAULTS.water.goal,
+        foodTotal: 0, foodGoal: DEFAULTS.food.goal, activityMinutes: 0
+      }));
+  }
+  return days;
+}
+
+function statsDateLabel(dateKey, period) {
+  if (period === 'day') return 'сегодня';
+  return dateKey.slice(8, 10);
+}
+
+function formatActivityDuration(minutes) {
+  if (!minutes) return '0 мин';
+  return formatWorkoutDuration(minutes);
+}
+
+function renderStatsBars(container, days, valueKey, maxValue, period) {
+  const safeMax = Math.max(1, maxValue);
+  container.innerHTML = days.map((day) => {
+    const value = Number(day[valueKey]) || 0;
+    const height = Math.max(2, Math.min(100, (value / safeMax) * 100));
+    return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${Math.round(value)}">
+      <div class="stats-bar" style="height:${height}%"></div>
+      <span class="stats-bar-label">${statsDateLabel(day.date, period)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  if (typeof document === 'undefined') return;
+  const days = getStatsDays();
+  const period = activeStatsPeriod;
+  const waterTotal = days.reduce((sum, day) => sum + day.waterTotal, 0);
+  const waterGoal = days.reduce((sum, day) => sum + day.waterGoal, 0);
+  const foodTotal = days.reduce((sum, day) => sum + day.foodTotal, 0);
+  const foodGoal = days.reduce((sum, day) => sum + day.foodGoal, 0);
+  const activityMinutes = days.reduce((sum, day) => sum + day.activityMinutes, 0);
+  const count = days.length;
+
+  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  $('#stats-period-caption').textContent = captions[period];
+  $('#stats-water-total').textContent = `${fmt(waterTotal)} мл`;
+  $('#stats-water-hint').textContent = `${Math.round(waterGoal ? (waterTotal / waterGoal) * 100 : 0)}% от цели · в среднем ${fmt(waterTotal / count)} мл/день`;
+  $('#stats-food-total').textContent = `${fmt(foodTotal)} ккал`;
+  $('#stats-food-hint').textContent = `${Math.round(foodGoal ? (foodTotal / foodGoal) * 100 : 0)}% от цели · в среднем ${fmt(foodTotal / count)} ккал/день`;
+  $('#stats-activity-total').textContent = formatActivityDuration(activityMinutes);
+  $('#stats-activity-hint').textContent = activityMinutes
+    ? `В среднем ${formatActivityDuration(activityMinutes / count)} в день`
+    : 'Пока нет отмеченной активности';
+
+  renderStatsBars($('#stats-water-bars'), days, 'waterTotal', Math.max(...days.map((day) => day.waterGoal)), period);
+  renderStatsBars($('#stats-food-bars'), days, 'foodTotal', Math.max(...days.map((day) => day.foodGoal)), period);
+  renderStatsBars($('#stats-activity-bars'), days, 'activityMinutes', Math.max(...days.map((day) => day.activityMinutes), 30), period);
+  $$('#stats-periods button').forEach((button) =>
+    button.classList.toggle('active', button.dataset.statsPeriod === period));
+}
+
+function renderWaterDetails() {
+  if (typeof document === 'undefined') return;
+  const period = activeWaterDetailPeriod;
+  const days = getStatsDays(period);
+  const total = days.reduce((sum, day) => sum + day.waterTotal, 0);
+  const goal = days.reduce((sum, day) => sum + day.waterGoal, 0);
+  const achieved = days.filter((day) => day.waterTotal > 0 && day.waterTotal >= day.waterGoal).length;
+  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  $('#water-details-caption').textContent = captions[period];
+  $('#water-details-total').textContent = `${fmt(total)} мл`;
+  $('#water-details-average').textContent = `В среднем ${fmt(total / days.length)} мл в день · ${Math.round(goal ? total / goal * 100 : 0)}% от цели`;
+  $('#water-details-insight').textContent = achieved
+    ? `Цель по воде выполнена в ${achieved} из ${days.length} дней.`
+    : 'Добавляйте воду на Главной — здесь появится история выполнения цели.';
+  renderStatsBars($('#water-details-bars'), days, 'waterTotal', Math.max(...days.map((day) => day.waterGoal)), period);
+  $$('#water-detail-periods button').forEach((button) => button.classList.toggle('active', button.dataset.detailPeriod === period));
+}
+
+function renderFoodDetails() {
+  if (typeof document === 'undefined') return;
+  const period = activeFoodDetailPeriod;
+  const days = getStatsDays(period);
+  const total = days.reduce((sum, day) => sum + day.foodTotal, 0);
+  const goal = days.reduce((sum, day) => sum + day.foodGoal, 0);
+  const withinGoal = days.filter((day) => day.foodTotal > 0 && day.foodTotal <= day.foodGoal).length;
+  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  $('#food-details-caption').textContent = captions[period];
+  $('#food-details-total').textContent = `${fmt(total)} ккал`;
+  $('#food-details-average').textContent = `В среднем ${fmt(total / days.length)} ккал в день · ${Math.round(goal ? total / goal * 100 : 0)}% от цели`;
+  $('#food-details-insight').textContent = withinGoal
+    ? `Цель по калориям не превышена в ${withinGoal} из ${days.length} дней с записями.`
+    : 'Добавляйте питание на Главной — здесь появятся дневные итоги.';
+  renderStatsBars($('#food-details-bars'), days, 'foodTotal', Math.max(...days.map((day) => day.foodGoal)), period);
+  $$('#food-detail-periods button').forEach((button) => button.classList.toggle('active', button.dataset.detailPeriod === period));
 }
 
 function renderFoodList() {
@@ -674,6 +1180,73 @@ async function addFoodText(text) {
   toast(`Добавлено: ${items.map((i) => i.name).join(', ')} (+${fmt(totalKcal)} ккал)`);
 }
 
+function readManualMeal() {
+  const name = normalizeActivityName($('#manual-food-name').value);
+  const kcal = Math.round(Number(String($('#manual-food-kcal').value).replace(',', '.')));
+  if (!name || !Number.isFinite(kcal) || kcal < 1 || kcal > 5000) {
+    toast('Введите название и от 1 до 5 000 ккал');
+    return null;
+  }
+  return { name, kcal };
+}
+
+function addManualFood() {
+  const meal = readManualMeal();
+  if (!meal) return;
+  state.food.items.push({
+    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal
+  });
+  saveState();
+  $('#manual-food-name').value = '';
+  $('#manual-food-kcal').value = '';
+  renderFood();
+  toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
+}
+
+function saveFavoriteMeal() {
+  const meal = readManualMeal();
+  if (!meal) return;
+  state.favoriteMeals.unshift({ id: uid(), ...meal });
+  normalizeFavoriteMeals();
+  saveState();
+  renderFavoriteMeals();
+  toast(`«${meal.name}» сохранено в мои блюда`);
+}
+
+function addFavoriteMeal(id) {
+  const meal = state.favoriteMeals.find((item) => item.id === id);
+  if (!meal) return;
+  state.food.items.push({
+    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal
+  });
+  saveState();
+  renderFood();
+  toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
+}
+
+function removeFavoriteMeal(id) {
+  const meal = state.favoriteMeals.find((item) => item.id === id);
+  if (!meal) return;
+  state.favoriteMeals = state.favoriteMeals.filter((item) => item.id !== id);
+  saveState();
+  renderFavoriteMeals();
+  toast(`«${meal.name}» удалено из моих блюд`);
+}
+
+function renderFavoriteMeals() {
+  const container = $('#favorite-meals');
+  if (!container) return;
+  if (state.favoriteMeals.length === 0) {
+    container.innerHTML = '<span class="favorite-meals-empty">Сохраните своё блюдо, чтобы добавлять его одним нажатием.</span>';
+    return;
+  }
+  container.innerHTML = state.favoriteMeals.map((meal) => `
+    <span class="favorite-meal">
+      <button class="favorite-meal-use" type="button" data-favorite-meal="${meal.id}">${escapeHtml(meal.name)} · ${fmt(meal.kcal)} ккал</button>
+      <button class="favorite-meal-remove" type="button" data-remove-favorite="${meal.id}" aria-label="Удалить «${escapeHtml(meal.name)}» из моих блюд">×</button>
+    </span>`).join('');
+}
+
 function removeFood(id) {
   state.food.items = state.food.items.filter((it) => it.id !== id);
   saveState();
@@ -689,13 +1262,848 @@ function changeFoodGoal(delta) {
 }
 
 /* ============================================================
+   Активность: история, готовые варианты и связь с напоминанием
+   ============================================================ */
+let selectedActivityType = 'walk';
+
+function parseWorkoutDuration(raw) {
+  const normalized = String(raw || '').trim().replace(',', '.');
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const hours = Number(normalized);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return null;
+  const minutes = Math.round(hours * 60);
+  return minutes >= 5 ? minutes : null;
+}
+
+function formatWorkoutDuration(minutes) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  const hours = Math.floor(safeMinutes / 60);
+  const rest = safeMinutes % 60;
+  if (hours === 0) return `${rest} мин`;
+  if (rest === 0) return `${hours} ч`;
+  return `${hours} ч ${rest} мин`;
+}
+
+function getWorkoutsForDate(date = todayKey()) {
+  return state.workouts.filter((workout) => workout.date === date);
+}
+
+function activityCountText(count) {
+  const lastTwoDigits = count % 100;
+  const lastDigit = count % 10;
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return 'активностей';
+  if (lastDigit === 1) return 'активность';
+  if (lastDigit >= 2 && lastDigit <= 4) return 'активности';
+  return 'активностей';
+}
+
+function hasWorkoutToday() {
+  return getWorkoutsForDate().length > 0;
+}
+
+function renderActivityTypeSelection() {
+  $$('.workout-type-btn').forEach((button) => {
+    const selected = button.dataset.activityType === selectedActivityType;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-checked', String(selected));
+  });
+}
+
+function renderActivityTemplates() {
+  const list = $('#activity-templates');
+  if (!list) return;
+
+  if (state.activityTemplates.length === 0) {
+    list.innerHTML = '<p class="activity-template-empty">Пока нет готовых вариантов. Например: «Кардио 45 мин» или «Прогулка в парке».</p>';
+    return;
+  }
+
+  list.innerHTML = state.activityTemplates.map((template) => {
+    const type = ACTIVITY_TYPES[template.type] || ACTIVITY_TYPES.other;
+    return `
+      <li class="activity-template-item">
+        <button class="activity-template-use" type="button" data-use-template="${template.id}">
+          <span>${type.emoji} ${escapeHtml(template.name)}</span>
+          <small>${formatWorkoutDuration(template.durationMinutes)}</small>
+        </button>
+        <button class="activity-template-remove" type="button" data-remove-template="${template.id}" aria-label="Удалить готовый вариант «${escapeHtml(template.name)}»">×</button>
+      </li>`;
+  }).join('');
+}
+
+function renderTraining() {
+  if (typeof document === 'undefined') return;
+  const list = $('#training-list');
+  const total = $('#training-total');
+  if (!list || !total) return;
+
+  const workouts = getWorkoutsForDate();
+  const totalMinutes = workouts.reduce((sum, workout) => sum + workout.durationMinutes, 0);
+  if (workouts.length === 0) {
+    total.textContent = 'Сегодня активности пока нет';
+    list.innerHTML = '<li class="workout-empty">Выберите вид активности, укажите длительность и добавьте первую запись 🚶</li>';
+  } else {
+    total.textContent = `${workouts.length} ${activityCountText(workouts.length)} · ${formatWorkoutDuration(totalMinutes)}`;
+    list.innerHTML = workouts.map((workout) => {
+      const type = ACTIVITY_TYPES[workout.type] || ACTIVITY_TYPES.other;
+      const title = workout.title || type.label;
+      return `
+        <li class="workout-item" data-workout-id="${workout.id}">
+          <span class="workout-item-emoji" aria-hidden="true">${type.emoji}</span>
+          <div class="workout-item-info">
+            <p>${escapeHtml(title)}</p>
+            <span>${formatWorkoutDuration(workout.durationMinutes)}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
+          </div>
+          <button class="workout-item-remove" data-remove-workout="${workout.id}" type="button" aria-label="Удалить активность «${escapeHtml(title)}»">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </li>`;
+    }).join('');
+  }
+  const weeklyMinutes = getStatsDays('week').reduce((sum, day) => sum + day.activityMinutes, 0);
+  const weeklyGoal = state.activitySettings.weeklyGoalMinutes;
+  $('#weekly-activity-total').textContent = `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)}`;
+  $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
+  renderActivityTypeSelection();
+  renderActivityTemplates();
+}
+
+async function syncTrainingReminderForToday() {
+  if (!state.reminders.enabled) return true;
+  const result = await scheduleTrainingReminder({
+    skipToday: hasWorkoutToday(),
+    clearDelivered: hasWorkoutToday()
+  });
+  return result.ok;
+}
+
+async function addActivity(template = null) {
+  const durationInput = $('#workout-duration');
+  const durationMinutes = template ? template.durationMinutes : parseWorkoutDuration(durationInput.value);
+  if (!durationMinutes) {
+    toast('Укажите длительность от 5 минут до 24 часов: например, 1,5');
+    durationInput.focus();
+    return;
+  }
+
+  const type = template
+    ? template.type
+    : (ACTIVITY_TYPES[selectedActivityType] ? selectedActivityType : 'other');
+  const title = template ? template.name : null;
+  const note = template ? null : normalizeOptionalNote($('#activity-note').value);
+  state.workouts.unshift({
+    id: uid(),
+    date: todayKey(),
+    type,
+    title,
+    note,
+    durationMinutes,
+    createdAt: Date.now()
+  });
+  saveState();
+  if (!template) {
+    durationInput.value = '';
+    $('#activity-note').value = '';
+  }
+  renderTraining();
+
+  const reminderUpdated = await syncTrainingReminderForToday();
+  const reminderText = state.reminders.enabled
+    ? (reminderUpdated ? ' Напоминание на сегодня отменено.' : ' Не удалось обновить напоминание.')
+    : '';
+  const label = title || ACTIVITY_TYPES[type].label;
+  toast(`${label}: ${formatWorkoutDuration(durationMinutes)} добавлено.${reminderText}`);
+}
+
+function saveCurrentAsActivityTemplate() {
+  const nameInput = $('#activity-template-name');
+  const durationInput = $('#workout-duration');
+  const name = normalizeActivityName(nameInput.value);
+  const durationMinutes = parseWorkoutDuration(durationInput.value);
+  if (!name) {
+    toast('Введите название готового варианта: от 2 до 60 символов');
+    nameInput.focus();
+    return;
+  }
+  if (!durationMinutes) {
+    toast('Сначала укажите длительность: например, 0,5 или 1,5');
+    durationInput.focus();
+    return;
+  }
+
+  const type = ACTIVITY_TYPES[selectedActivityType] ? selectedActivityType : 'other';
+  state.activityTemplates.unshift({
+    id: uid(),
+    name,
+    type,
+    durationMinutes,
+    createdAt: Date.now()
+  });
+  saveState();
+  nameInput.value = '';
+  renderActivityTemplates();
+  toast(`Готовый вариант «${name}» сохранён`);
+}
+
+function changeWeeklyActivityGoal(delta) {
+  const next = Math.min(1440, Math.max(30, state.activitySettings.weeklyGoalMinutes + delta));
+  if (next === state.activitySettings.weeklyGoalMinutes) return;
+  state.activitySettings.weeklyGoalMinutes = next;
+  saveState();
+  renderTraining();
+}
+
+async function removeWorkout(id) {
+  const workout = state.workouts.find((item) => item.id === id);
+  if (!workout) return;
+  state.workouts = state.workouts.filter((item) => item.id !== id);
+  saveState();
+  renderTraining();
+
+  const reminderUpdated = await syncTrainingReminderForToday();
+  const reminderText = state.reminders.enabled && !hasWorkoutToday()
+    ? (reminderUpdated ? ' Напоминание снова активно.' : ' Не удалось обновить напоминание.')
+    : '';
+  toast(`Активность удалена.${reminderText}`);
+}
+
+function removeActivityTemplate(id) {
+  const template = state.activityTemplates.find((item) => item.id === id);
+  if (!template) return;
+  state.activityTemplates = state.activityTemplates.filter((item) => item.id !== id);
+  saveState();
+  renderActivityTemplates();
+  toast(`Готовый вариант «${template.name}» удалён`);
+}
+
+/* ============================================================
+   Вечернее напоминание об активности (Capacitor Local Notifications)
+   ============================================================ */
+const TRAINING_REMINDER_ID = 71001;
+const ACTIVITY_TEST_NOTIFICATION_ID = 71002;
+const MORNING_MOTIVATION_NOTIFICATION_BASE_ID = 71100;
+const MORNING_MOTIVATION_SCHEDULE_DAYS = 30;
+const TRAINING_REMINDER_CHANNEL = 'fitflow_training_reminders';
+const MORNING_MOTIVATION_CHANNEL = 'fitflow_morning_motivation';
+let activityNotificationListenerInstalled = false;
+
+const VENDOR_NOTIFICATION_HINTS = {
+  xiaomi: {
+    title: 'Автозапуск',
+    note: 'Xiaomi / Redmi / POCO: в открывшемся списке «Автозапуск» найдите FitFlow и включите переключатель. Затем: значок приложения → «О приложении» → «Экономия батареи» → «Без ограничений».'
+  },
+  redmi: {
+    title: 'Автозапуск',
+    note: 'Xiaomi / Redmi / POCO: в открывшемся списке «Автозапуск» найдите FitFlow и включите переключатель. Затем: значок приложения → «О приложении» → «Экономия батареи» → «Без ограничений».'
+  },
+  poco: {
+    title: 'Автозапуск',
+    note: 'Xiaomi / Redmi / POCO: в открывшемся списке «Автозапуск» найдите FitFlow и включите переключатель. Затем: значок приложения → «О приложении» → «Экономия батареи» → «Без ограничений».'
+  },
+  huawei: {
+    title: 'Запуск приложений',
+    note: 'Huawei / Honor: откройте «Запуск приложений», найдите FitFlow, выключите «Автоматически» и включите вручную автозапуск, косвенный запуск и работу в фоне.'
+  },
+  honor: {
+    title: 'Запуск приложений',
+    note: 'Huawei / Honor: откройте «Запуск приложений», найдите FitFlow, выключите «Автоматически» и включите вручную автозапуск, косвенный запуск и работу в фоне.'
+  },
+  oppo: {
+    title: 'Автозапуск',
+    note: 'OPPO / realme: включите «Автозапуск» для FitFlow, а в настройках экономии энергии выберите «Не ограничивать фоновую работу».'
+  },
+  realme: {
+    title: 'Автозапуск',
+    note: 'OPPO / realme: включите «Автозапуск» для FitFlow, а в настройках экономии энергии выберите «Не ограничивать фоновую работу».'
+  },
+  vivo: {
+    title: 'Фоновый запуск',
+    note: 'vivo / iQOO: разрешите FitFlow фоновый запуск с высоким потреблением и добавьте приложение в белый список энергопотребления.'
+  },
+  iqoo: {
+    title: 'Фоновый запуск',
+    note: 'vivo / iQOO: разрешите FitFlow фоновый запуск с высоким потреблением и добавьте приложение в белый список энергопотребления.'
+  },
+  samsung: {
+    title: 'Работа в фоне',
+    note: 'Samsung: откройте «Обслуживание устройства» → «Батарея» → «Ограничения в фоновом режиме» и не добавляйте FitFlow в приложения в режиме сна.'
+  },
+  meizu: {
+    title: 'Автозапуск',
+    note: 'Meizu: разрешите автозапуск и фоновую работу для FitFlow в настройках безопасности.'
+  },
+  asus: {
+    title: 'Автозапуск',
+    note: 'ASUS: включите FitFlow в «Диспетчере автозапуска».'
+  }
+};
+
+const DEFAULT_VENDOR_NOTIFICATION_HINT = {
+  title: 'Автозапуск и работа в фоне',
+  note: 'Откроются настройки приложения. Найдите пункты про батарею, автозапуск или фоновую работу и снимите ограничения для FitFlow. На «чистом» Android обычно достаточно первых двух шагов.'
+};
+
+function getLocalNotifications() {
+  if (typeof window === 'undefined' || !window.Capacitor || !window.Capacitor.Plugins) return null;
+  return window.Capacitor.Plugins.LocalNotifications || null;
+}
+
+function getNativeSettingsBridge() {
+  if (typeof window === 'undefined') return null;
+  const bridge = window.FitFlowExport || window.AquaExport;
+  return bridge && typeof bridge.openSettingsScreen === 'function' ? bridge : null;
+}
+
+function reminderTimeText(time) {
+  return isValidReminderTime(time) ? time : DEFAULTS.reminders.time;
+}
+
+function nextReminderDate(time, skipToday = false) {
+  const [hours, minutes] = reminderTimeText(time).split(':').map(Number);
+  const next = new Date();
+  next.setHours(hours, minutes, 0, 0);
+  if (skipToday || next <= new Date()) next.setDate(next.getDate() + 1);
+  return next;
+}
+
+function getVendorNotificationHint() {
+  const bridge = getNativeSettingsBridge();
+  let manufacturer = '';
+  try {
+    if (bridge && typeof bridge.getManufacturer === 'function') {
+      manufacturer = String(bridge.getManufacturer() || '').toLowerCase();
+    }
+  } catch (e) {
+    console.warn('Не удалось определить производителя телефона:', e);
+  }
+
+  for (const name of Object.keys(VENDOR_NOTIFICATION_HINTS)) {
+    if (manufacturer.includes(name)) return VENDOR_NOTIFICATION_HINTS[name];
+  }
+  return DEFAULT_VENDOR_NOTIFICATION_HINT;
+}
+
+function renderReminderSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#workout-reminder-toggle');
+  const timeInput = $('#workout-reminder-time');
+  const status = $('#workout-reminder-status');
+  if (!toggle || !timeInput || !status) return;
+
+  toggle.checked = state.reminders.enabled;
+  timeInput.value = reminderTimeText(state.reminders.time);
+  status.textContent = state.reminders.enabled
+    ? `Каждый день в ${reminderTimeText(state.reminders.time)}. Напоминание сохранено на телефоне.`
+    : 'Напоминание выключено.';
+}
+
+function renderMorningMotivationSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#morning-motivation-toggle');
+  const timeInput = $('#morning-motivation-time');
+  const themeSelect = $('#morning-motivation-theme');
+  const status = $('#morning-motivation-status');
+  if (!toggle || !timeInput || !themeSelect || !status) return;
+
+  const motivation = state.morningMotivation;
+  toggle.checked = motivation.enabled;
+  timeInput.value = motivation.time;
+  themeSelect.value = motivation.theme;
+  status.textContent = motivation.enabled
+    ? `Каждое утро в ${motivation.time} · тема: ${MORNING_MOTIVATION_THEMES[motivation.theme]}.`
+    : 'Утренние фразы выключены.';
+}
+
+async function ensureNotificationPermission(localNotifications) {
+  try {
+    let permission = await localNotifications.checkPermissions();
+    if (permission.display !== 'granted') {
+      permission = await localNotifications.requestPermissions();
+    }
+    return permission.display === 'granted';
+  } catch (e) {
+    console.warn('Не удалось запросить разрешение на уведомления:', e);
+    return false;
+  }
+}
+
+async function ensureTrainingReminderChannel(localNotifications) {
+  if (typeof localNotifications.createChannel !== 'function') return;
+  await localNotifications.createChannel({
+    id: TRAINING_REMINDER_CHANNEL,
+    name: 'FitFlow: активность',
+    description: 'Вечерние напоминания о прогулках, спорте и активном отдыхе',
+    importance: 5,
+    visibility: 1,
+    sound: 'default',
+    vibrates: true
+  });
+}
+
+async function removeDeliveredTrainingReminder(localNotifications = getLocalNotifications()) {
+  if (!localNotifications || typeof localNotifications.removeDeliveredNotifications !== 'function') return false;
+  try {
+    await localNotifications.removeDeliveredNotifications({ notifications: [{ id: TRAINING_REMINDER_ID }] });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function cancelTrainingReminder() {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) return false;
+  try {
+    await localNotifications.cancel({ notifications: [{ id: TRAINING_REMINDER_ID }] });
+    await removeDeliveredTrainingReminder(localNotifications);
+    return true;
+  } catch (e) {
+    // Уведомления с таким id может ещё не быть — это нормальная ситуация.
+    return false;
+  }
+}
+
+async function scheduleTrainingReminder({ skipToday = false, clearDelivered = false } = {}) {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) {
+    return { ok: false, message: 'Напоминания работают в Android-приложении, а не в браузере.' };
+  }
+
+  const allowed = await ensureNotificationPermission(localNotifications);
+  if (!allowed) {
+    return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминание.' };
+  }
+
+  try {
+    await ensureTrainingReminderChannel(localNotifications);
+    await cancelTrainingReminder();
+    if (clearDelivered) await removeDeliveredTrainingReminder(localNotifications);
+    await localNotifications.schedule({
+      notifications: [{
+        id: TRAINING_REMINDER_ID,
+        title: 'Была сегодня активность?',
+        body: 'Откройте FitFlow, чтобы отметить прогулку, спорт или активный отдых.',
+        schedule: {
+          at: nextReminderDate(state.reminders.time, skipToday),
+          repeats: true,
+          allowWhileIdle: true
+        },
+        channelId: TRAINING_REMINDER_CHANNEL,
+        smallIcon: 'ic_stat_icon',
+        iconColor: '#00696B',
+        autoCancel: true,
+        extra: { source: 'fitflow-training-reminder' }
+      }]
+    });
+    return { ok: true };
+  } catch (e) {
+    console.warn('Не удалось запланировать вечернее напоминание:', e);
+    return { ok: false, message: 'Не удалось запланировать напоминание. Откройте «Настроить уведомления» и проверьте разрешения.' };
+  }
+}
+
+function installActivityNotificationListener() {
+  const localNotifications = getLocalNotifications();
+  if (activityNotificationListenerInstalled || !localNotifications
+      || typeof localNotifications.addListener !== 'function') return;
+
+  try {
+    localNotifications.addListener('localNotificationActionPerformed', async (event) => {
+      const notification = event && event.notification;
+      if (!notification || notification.id !== TRAINING_REMINDER_ID) return;
+
+      await removeDeliveredTrainingReminder(localNotifications);
+      switchView('training');
+      toast('Была сегодня активность? Выберите вид и добавьте запись.');
+    });
+    activityNotificationListenerInstalled = true;
+  } catch (e) {
+    console.warn('Не удалось подключить обработчик вечернего вопроса:', e);
+  }
+}
+
+async function ensureMorningMotivationChannel(localNotifications) {
+  if (typeof localNotifications.createChannel !== 'function') return;
+  await localNotifications.createChannel({
+    id: MORNING_MOTIVATION_CHANNEL,
+    name: 'FitFlow: утренняя мотивация',
+    description: 'Короткие мотивирующие фразы в начале дня',
+    importance: 3,
+    visibility: 1,
+    sound: 'default',
+    vibrates: false
+  });
+}
+
+function getMorningMotivationNotificationIds() {
+  return Array.from(
+    { length: MORNING_MOTIVATION_SCHEDULE_DAYS },
+    (_, index) => MORNING_MOTIVATION_NOTIFICATION_BASE_ID + index
+  );
+}
+
+function daySequenceIndex(date) {
+  const localMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.floor(localMidnight.getTime() / 86400000);
+}
+
+function morningScheduleStart(time) {
+  return nextReminderDate(time);
+}
+
+async function cancelMorningMotivation(localNotifications = getLocalNotifications()) {
+  if (!localNotifications) return;
+  try {
+    await localNotifications.cancel({
+      notifications: getMorningMotivationNotificationIds().map((id) => ({ id }))
+    });
+  } catch (e) {
+    // Часть фраз может уже прийти или ещё не быть запланирована.
+  }
+}
+
+async function scheduleMorningMotivation({ requestPermission = true } = {}) {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) {
+    return { ok: false, message: 'Утренняя мотивация работает только в Android-приложении.' };
+  }
+
+  let allowed = false;
+  if (requestPermission) {
+    allowed = await ensureNotificationPermission(localNotifications);
+  } else {
+    try {
+      const permission = await localNotifications.checkPermissions();
+      allowed = permission.display === 'granted';
+    } catch (e) {
+      allowed = false;
+    }
+  }
+  if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы включить утренние фразы.' };
+
+  try {
+    await ensureMorningMotivationChannel(localNotifications);
+    await cancelMorningMotivation(localNotifications);
+    const motivation = state.morningMotivation;
+    const firstAt = morningScheduleStart(motivation.time);
+    const notifications = Array.from({ length: MORNING_MOTIVATION_SCHEDULE_DAYS }, (_, index) => {
+      const at = new Date(firstAt.getTime());
+      at.setDate(at.getDate() + index);
+      const message = getMorningMotivationMessage(motivation.theme, daySequenceIndex(at));
+      return {
+        id: MORNING_MOTIVATION_NOTIFICATION_BASE_ID + index,
+        title: 'Доброе утро ☀️',
+        body: message,
+        schedule: { at, allowWhileIdle: true },
+        channelId: MORNING_MOTIVATION_CHANNEL,
+        smallIcon: 'ic_stat_icon',
+        iconColor: '#00696B',
+        autoCancel: true,
+        extra: { source: 'fitflow-morning-motivation' }
+      };
+    });
+    motivation.message = notifications[0].body;
+    saveState();
+    await localNotifications.schedule({ notifications });
+    return { ok: true };
+  } catch (e) {
+    console.warn('Не удалось запланировать утреннюю мотивацию:', e);
+    return { ok: false, message: 'Не удалось включить утренние фразы. Проверьте разрешения Android.' };
+  }
+}
+
+async function refreshMorningMotivationScheduleOnLaunch() {
+  if (!state.morningMotivation.enabled || !getLocalNotifications()) return;
+  // При обычном открытии приложения не показываем повторный системный запрос.
+  // Если разрешение уже есть, обновляем окно из 30 будущих фраз.
+  await scheduleMorningMotivation({ requestPermission: false });
+}
+
+async function updateMorningMotivationEnabled(enabled) {
+  state.morningMotivation.enabled = enabled;
+  saveState();
+  renderMorningMotivationSettings();
+
+  if (!enabled) {
+    await cancelMorningMotivation();
+    toast('Утренние фразы выключены');
+    return;
+  }
+
+  const result = await scheduleMorningMotivation();
+  if (!result.ok) {
+    state.morningMotivation.enabled = false;
+    saveState();
+    renderMorningMotivationSettings();
+    toast(result.message);
+    return;
+  }
+  toast(`Утренняя фраза включена: каждый день в ${state.morningMotivation.time}`);
+}
+
+async function updateMorningMotivationTime(time) {
+  if (!isValidReminderTime(time)) {
+    renderMorningMotivationSettings();
+    toast('Укажите время в формате ЧЧ:ММ');
+    return;
+  }
+  state.morningMotivation.time = time;
+  saveState();
+  renderMorningMotivationSettings();
+  if (!state.morningMotivation.enabled) {
+    toast(`Время утренней фразы: ${time}`);
+    return;
+  }
+  const result = await scheduleMorningMotivation();
+  toast(result.ok ? `Утренняя фраза перенесена на ${time}` : result.message);
+}
+
+async function updateMorningMotivationTheme(theme) {
+  if (!MORNING_MOTIVATION_THEMES[theme]) return;
+  state.morningMotivation.theme = theme;
+  saveState();
+  renderMorningMotivationSettings();
+  if (!state.morningMotivation.enabled) {
+    toast(`Тема утренних фраз: ${MORNING_MOTIVATION_THEMES[theme]}`);
+    return;
+  }
+  const result = await scheduleMorningMotivation();
+  toast(result.ok ? 'Тема утренних фраз обновлена' : result.message);
+}
+
+async function cancelTestActivityNotification(localNotifications = getLocalNotifications()) {
+  if (!localNotifications) return;
+  try {
+    await localNotifications.cancel({ notifications: [{ id: ACTIVITY_TEST_NOTIFICATION_ID }] });
+  } catch (e) {
+    // Тест может ещё не быть запланирован — это нормально.
+  }
+}
+
+async function sendTestActivityNotification() {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) {
+    toast('Тест уведомления доступен только в Android-приложении');
+    return;
+  }
+
+  const allowed = await ensureNotificationPermission(localNotifications);
+  if (!allowed) {
+    toast('Разрешите уведомления Android, затем повторите тест');
+    return;
+  }
+
+  try {
+    await ensureTrainingReminderChannel(localNotifications);
+    await cancelTestActivityNotification(localNotifications);
+    await localNotifications.schedule({
+      notifications: [{
+        id: ACTIVITY_TEST_NOTIFICATION_ID,
+        title: 'Тест уведомлений FitFlow',
+        body: 'Если это сообщение пришло — уведомления настроены правильно ✓',
+        schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+        channelId: TRAINING_REMINDER_CHANNEL,
+        smallIcon: 'ic_stat_icon',
+        iconColor: '#00696B',
+        autoCancel: true,
+        extra: { source: 'fitflow-activity-test' }
+      }]
+    });
+    toast('Тестовое уведомление придёт примерно через 5 секунд');
+  } catch (e) {
+    console.warn('Не удалось отправить тестовое уведомление:', e);
+    toast('Не удалось отправить тест. Проверьте разрешения Android.');
+  }
+}
+
+async function updateTrainingReminderEnabled(enabled) {
+  state.reminders.enabled = enabled;
+  saveState();
+  renderReminderSettings();
+
+  if (!enabled) {
+    await cancelTrainingReminder();
+    toast('Вечернее напоминание выключено');
+    return;
+  }
+
+  const result = await scheduleTrainingReminder({ skipToday: hasWorkoutToday() });
+  if (!result.ok) {
+    state.reminders.enabled = false;
+    saveState();
+    renderReminderSettings();
+    toast(result.message);
+    return;
+  }
+
+  toast(`Напоминание включено: каждый день в ${reminderTimeText(state.reminders.time)}`);
+}
+
+async function updateTrainingReminderTime(time) {
+  if (!isValidReminderTime(time)) {
+    renderReminderSettings();
+    toast('Укажите время в формате ЧЧ:ММ');
+    return;
+  }
+
+  state.reminders.time = time;
+  saveState();
+  renderReminderSettings();
+
+  if (!state.reminders.enabled) {
+    toast(`Время напоминания: ${time}`);
+    return;
+  }
+
+  const result = await scheduleTrainingReminder({ skipToday: hasWorkoutToday() });
+  toast(result.ok
+    ? `Напоминание перенесено на ${time}`
+    : result.message);
+}
+
+function refreshNotificationSetupState() {
+  if (typeof document === 'undefined') return { notifications: false, battery: false };
+  const bridge = getNativeSettingsBridge();
+  let notifications = false;
+  let battery = false;
+
+  try {
+    if (bridge && typeof bridge.areNotificationsEnabled === 'function') {
+      notifications = Boolean(bridge.areNotificationsEnabled());
+    }
+  } catch (e) {
+    console.warn('Не удалось проверить разрешение на уведомления:', e);
+  }
+  try {
+    if (bridge && typeof bridge.isBatteryOptimizationIgnored === 'function') {
+      battery = Boolean(bridge.isBatteryOptimizationIgnored());
+    }
+  } catch (e) {
+    console.warn('Не удалось проверить оптимизацию батареи:', e);
+  }
+
+  const mark = (okSelector, badSelector, granted) => {
+    const ok = $(okSelector);
+    const bad = $(badSelector);
+    if (ok) ok.hidden = !granted;
+    // В браузере статус неизвестен: не показываем ошибку, которой там нет.
+    if (bad) bad.hidden = granted || !bridge;
+  };
+
+  mark('#setup-notifications-ok', '#setup-notifications-bad', notifications);
+  mark('#setup-battery-ok', '#setup-battery-bad', battery);
+
+  const hint = getVendorNotificationHint();
+  const title = $('#setup-autostart-title');
+  const note = $('#setup-autostart-hint');
+  const vendorNote = $('#setup-vendor-note');
+  if (title) title.textContent = hint.title;
+  if (note) note.textContent = 'Разрешает приложению запускаться после перезагрузки телефона и работать в фоне.';
+  if (vendorNote) vendorNote.textContent = hint.note;
+
+  return { notifications, battery };
+}
+
+function hasSeenActivityReminderPrompt() {
+  try {
+    return localStorage.getItem(ACTIVITY_REMINDER_PROMPT_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+function markActivityReminderPromptSeen() {
+  try {
+    localStorage.setItem(ACTIVITY_REMINDER_PROMPT_KEY, '1');
+  } catch (e) {
+    console.warn('Не удалось сохранить выбор напоминания:', e);
+  }
+}
+
+function closeActivityReminderPrompt() {
+  const dialog = $('#activity-reminder-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function maybeShowActivityReminderPrompt() {
+  // В браузере не спрашиваем: системное уведомление доступно только в Android APK.
+  if (state.reminders.enabled || hasSeenActivityReminderPrompt() || !getLocalNotifications()) return;
+
+  setTimeout(() => {
+    const dialog = $('#activity-reminder-dialog');
+    const activityView = $('#training-view');
+    if (!dialog || !activityView || activityView.hidden || state.reminders.enabled || hasSeenActivityReminderPrompt()) return;
+    dialog.hidden = false;
+  }, 250);
+}
+
+async function acceptActivityReminderPrompt() {
+  markActivityReminderPromptSeen();
+  closeActivityReminderPrompt();
+  await updateTrainingReminderEnabled(true);
+}
+
+function declineActivityReminderPrompt() {
+  markActivityReminderPromptSeen();
+  closeActivityReminderPrompt();
+  toast('Вечерние вопросы выключены. Их можно включить позже в Настройках.');
+}
+
+function openNativeNotificationSetting(which) {
+  const bridge = getNativeSettingsBridge();
+  if (!bridge) {
+    toast('Эта настройка открывается только в Android-приложении');
+    return;
+  }
+
+  const status = refreshNotificationSetupState();
+  if (which === 'notifications' && status.notifications) {
+    toast('Уведомления уже разрешены — открываем настройки Android');
+  } else if (which === 'battery' && status.battery) {
+    toast('Ограничения батареи уже сняты — открываем настройки Android');
+  }
+
+  try {
+    bridge.openSettingsScreen(which);
+  } catch (e) {
+    console.warn('Не удалось открыть экран системных настроек:', e);
+    toast('Не удалось открыть настройки Android. Откройте их вручную.');
+  }
+}
+
+/* ============================================================
    Экран Настройки: переключение, экспорт/импорт/сброс
    ============================================================ */
 function switchView(view) {
+  const isHome = view === 'home';
+  const isStats = view === 'stats';
+  const isWaterDetails = view === 'water-details';
+  const isFoodDetails = view === 'food-details';
+  const isTraining = view === 'training';
   const isSettings = view === 'settings';
-  $('#home-view').hidden = isSettings;
+  const isNotifications = view === 'notifications';
+
+  $('#home-view').hidden = !isHome;
+  $('#stats-view').hidden = !isStats;
+  $('#water-details-view').hidden = !isWaterDetails;
+  $('#food-details-view').hidden = !isFoodDetails;
+  $('#training-view').hidden = !isTraining;
   $('#settings-view').hidden = !isSettings;
-  $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.nav === view));
+  $('#notifications-view').hidden = !isNotifications;
+  $$('.nav-item').forEach((b) =>
+    b.classList.toggle('active', b.dataset.nav === (isNotifications ? 'settings' : ((isWaterDetails || isFoodDetails) ? 'stats' : view))));
+
+  if (isStats) renderStats();
+  if (isWaterDetails) renderWaterDetails();
+  if (isFoodDetails) renderFoodDetails();
+  if (isTraining) {
+    renderTraining();
+    maybeShowActivityReminderPrompt();
+  }
+  if (isNotifications) refreshNotificationSetupState();
+  window.scrollTo(0, 0);
 }
 
 function exportData() {
@@ -704,6 +2112,13 @@ function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     settings: { theme: getThemeMode() },
+    reminders: { enabled: state.reminders.enabled, time: state.reminders.time },
+    morningMotivation: { ...state.morningMotivation },
+    favoriteMeals: state.favoriteMeals,
+    dailyHistory: state.dailyHistory,
+    activitySettings: { ...state.activitySettings },
+    workouts: state.workouts,
+    activityTemplates: state.activityTemplates,
     water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
     food: { date: state.food.date, items: state.food.items, goal: state.food.goal }
   };
@@ -747,7 +2162,7 @@ if (typeof window !== 'undefined') {
 
 function importData(file) {
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result);
       if (!data || data.app !== 'fitflow') throw new Error('bad format');
@@ -771,20 +2186,103 @@ function importData(file) {
         state.food.goal = Math.min(10000, Math.max(800, Math.round(data.food.goal)));
       }
 
+      // Утренняя мотивация появилась в версии 0.1.9. Старые копии
+      // остаются совместимыми и не меняют текущую настройку.
+      if (data.morningMotivation && typeof data.morningMotivation === 'object') {
+        state.morningMotivation = { ...data.morningMotivation };
+        normalizeMorningMotivation();
+      }
+
+      if (Array.isArray(data.dailyHistory)) {
+        const dates = new Set(state.dailyHistory.map((day) => day.date));
+        data.dailyHistory.forEach((day) => {
+          if (day && !dates.has(day.date)) {
+            state.dailyHistory.push(day);
+            dates.add(day.date);
+          }
+        });
+        normalizeDailyHistory();
+      }
+
+      if (Array.isArray(data.favoriteMeals)) {
+        const existingIds = new Set(state.favoriteMeals.map((meal) => meal.id));
+        data.favoriteMeals.forEach((meal) => {
+          const normalized = normalizeFavoriteMeal(meal);
+          if (normalized && !existingIds.has(normalized.id)) {
+            state.favoriteMeals.push(normalized);
+            existingIds.add(normalized.id);
+          }
+        });
+        normalizeFavoriteMeals();
+      }
+
+      if (data.activitySettings && typeof data.activitySettings === 'object') {
+        state.activitySettings = { ...data.activitySettings };
+        normalizeActivitySettings();
+      }
+
+      // История тренировок сохраняется отдельно от дневных воды и еды.
+      // Объединяем записи по id, чтобы одна и та же копия не создавала дубликаты.
+      if (Array.isArray(data.workouts)) {
+        const existingIds = new Set(state.workouts.map((workout) => workout.id));
+        data.workouts.forEach((workout) => {
+          const id = workout && workout.id != null ? String(workout.id) : '';
+          if (workout && id && !existingIds.has(id)) {
+            state.workouts.push(workout);
+            existingIds.add(id);
+          }
+        });
+        normalizeWorkouts();
+      }
+
+      // Готовые варианты активности объединяются по id, как и история.
+      if (Array.isArray(data.activityTemplates)) {
+        const existingIds = new Set(state.activityTemplates.map((template) => template.id));
+        data.activityTemplates.forEach((template) => {
+          const id = template && template.id != null ? String(template.id) : '';
+          if (template && id && !existingIds.has(id)) {
+            state.activityTemplates.push(template);
+            existingIds.add(id);
+          }
+        });
+        normalizeActivityTemplates();
+      }
+
+      // Напоминание появилось в версии 0.1.2. Старые копии без этого блока
+      // остаются полностью совместимыми и просто не меняют текущую настройку.
+      if (data.reminders && typeof data.reminders === 'object') {
+        state.reminders = {
+          enabled: data.reminders.enabled === true,
+          time: data.reminders.time
+        };
+        normalizeReminderSettings();
+      }
+
       saveState();
       renderAll();
-      toast('Данные импортированы ✓');
+
+      let reminderNotice = '';
+      if (state.reminders.enabled && getLocalNotifications()) {
+        const result = await scheduleTrainingReminder({ skipToday: hasWorkoutToday() });
+        if (!result.ok) reminderNotice = ' Напоминание нужно включить заново.';
+      }
+      toast(`Данные импортированы ✓${reminderNotice}`);
     } catch (e) {
+      console.warn('Не удалось импортировать резервную копию:', e);
       toast('Не удалось прочитать файл резервной копии');
     }
   };
   reader.readAsText(file);
 }
 
-function resetAll() {
+async function resetAll() {
   if (!window.confirm('Удалить все данные FitFlow с этого устройства? Действие нельзя отменить.')) return;
+  await cancelTrainingReminder();
+  await cancelTestActivityNotification();
+  await cancelMorningMotivation();
   localStorage.removeItem('fitflow:state');
   localStorage.removeItem('fitflow:theme');
+  localStorage.removeItem(ACTIVITY_REMINDER_PROMPT_KEY);
   location.reload();
 }
 
@@ -825,6 +2323,8 @@ function init() {
   initTheme();
   renderGreeting();
   renderAll();
+  installActivityNotificationListener();
+  refreshMorningMotivationScheduleOnLaunch();
 
   // Тема
   $('#theme-toggle').addEventListener('click', toggleTheme);
@@ -850,6 +2350,15 @@ function init() {
   $$('.chip[data-quick]').forEach((btn) =>
     btn.addEventListener('click', () => addFoodText(btn.dataset.quick)));
 
+  $('#manual-food-add').addEventListener('click', addManualFood);
+  $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
+  $('#favorite-meals').addEventListener('click', (e) => {
+    const useButton = e.target.closest('[data-favorite-meal]');
+    if (useButton) return addFavoriteMeal(useButton.dataset.favoriteMeal);
+    const removeButton = e.target.closest('[data-remove-favorite]');
+    if (removeButton) removeFavoriteMeal(removeButton.dataset.removeFavorite);
+  });
+
   // Удаление из списка (делегирование)
   $('#food-list').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-remove]');
@@ -869,7 +2378,7 @@ function init() {
   $$('.nav-item').forEach((btn) => {
     btn.addEventListener('click', () => {
       const nav = btn.dataset.nav;
-      if (nav === 'home' || nav === 'settings') {
+      if (nav === 'home' || nav === 'stats' || nav === 'training' || nav === 'settings') {
         switchView(nav);
       } else {
         toast(`Раздел «${btn.textContent.trim().replace('скоро', '')}» появится в следующих итерациях`);
@@ -877,9 +2386,80 @@ function init() {
     });
   });
 
+  // Статистика: период меняется без перехода на другой экран
+  $$('#stats-periods button').forEach((button) =>
+    button.addEventListener('click', () => {
+      activeStatsPeriod = button.dataset.statsPeriod;
+      renderStats();
+    }));
+
+  $$('[data-open-detail]').forEach((button) =>
+    button.addEventListener('click', () => switchView(`${button.dataset.openDetail}-details`)));
+  $$('[data-back-to-stats]').forEach((button) =>
+    button.addEventListener('click', () => switchView('stats')));
+  $$('#water-detail-periods button').forEach((button) =>
+    button.addEventListener('click', () => {
+      activeWaterDetailPeriod = button.dataset.detailPeriod;
+      renderWaterDetails();
+    }));
+  $$('#food-detail-periods button').forEach((button) =>
+    button.addEventListener('click', () => {
+      activeFoodDetailPeriod = button.dataset.detailPeriod;
+      renderFoodDetails();
+    }));
+
+  // Активность и готовые варианты
+  $('#training-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    addActivity();
+  });
+  $$('.workout-type-btn').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      selectedActivityType = btn.dataset.activityType;
+      renderActivityTypeSelection();
+    }));
+  $('#weekly-goal-minus').addEventListener('click', () => changeWeeklyActivityGoal(-30));
+  $('#weekly-goal-plus').addEventListener('click', () => changeWeeklyActivityGoal(30));
+  $('#training-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove-workout]');
+    if (btn) removeWorkout(btn.dataset.removeWorkout);
+  });
+  $('#activity-template-save').addEventListener('click', saveCurrentAsActivityTemplate);
+  $('#activity-templates').addEventListener('click', (e) => {
+    const useButton = e.target.closest('[data-use-template]');
+    if (useButton) {
+      const template = state.activityTemplates.find((item) => item.id === useButton.dataset.useTemplate);
+      if (template) addActivity(template);
+      return;
+    }
+    const removeButton = e.target.closest('[data-remove-template]');
+    if (removeButton) removeActivityTemplate(removeButton.dataset.removeTemplate);
+  });
+
+  // Первый вход в «Активность»: выбор вечернего напоминания
+  $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
+  $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+
   // Настройки: тема
   $$('#theme-segmented button').forEach((btn) =>
     btn.addEventListener('click', () => setThemeMode(btn.dataset.themeMode)));
+
+  // Настройки: утренние фразы, вечерний вопрос и разрешения Android
+  $('#morning-motivation-toggle').addEventListener('change', (e) =>
+    updateMorningMotivationEnabled(e.target.checked));
+  $('#morning-motivation-time').addEventListener('change', (e) =>
+    updateMorningMotivationTime(e.target.value));
+  $('#morning-motivation-theme').addEventListener('change', (e) =>
+    updateMorningMotivationTheme(e.target.value));
+  $('#workout-reminder-toggle').addEventListener('change', (e) =>
+    updateTrainingReminderEnabled(e.target.checked));
+  $('#workout-reminder-time').addEventListener('change', (e) =>
+    updateTrainingReminderTime(e.target.value));
+  $('#notification-setup-btn').addEventListener('click', () => switchView('notifications'));
+  $('#notification-test-btn').addEventListener('click', sendTestActivityNotification);
+  $('#notifications-back-btn').addEventListener('click', () => switchView('settings'));
+  $$('[data-open-settings]').forEach((btn) =>
+    btn.addEventListener('click', () => openNativeNotificationSetting(btn.dataset.openSettings)));
 
   // Настройки: резервное копирование
   $('#export-btn').addEventListener('click', exportData);
@@ -889,6 +2469,13 @@ function init() {
     e.target.value = '';
   });
   $('#reset-btn').addEventListener('click', resetAll);
+
+  // После возврата из системных настроек обновляем статусы разрешений.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !$('#notifications-view').hidden) {
+      refreshNotificationSetupState();
+    }
+  });
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */
@@ -897,5 +2484,10 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB };
+  module.exports = {
+    parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
+    parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
+    getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget
+  };
 }

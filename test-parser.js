@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -55,7 +55,20 @@ const checks = [
   ['чернослив 40г', 0, 92],         // сухофрукты
   ['киноа 70г', 0, 258],            // крупы
   ['халва 50г', 0, 262],            // сладости
-  ['куриная печень 100г', 0, 136]   // субпродукты
+  ['куриная печень 100г', 0, 136],  // субпродукты
+  // Расширение v0.1.7: USDA FoodData Central / Open Food Facts
+  ['хумус 100г', 0, 166],
+  ['тофу 150г', 0, 114],
+  ['нут вареный 150г', 0, 246],
+  ['киноа вареная 200г', 0, 240],
+  ['арахисовая паста 30г', 0, 176],
+  ['протеиновый батончик 60г', 0, 216],
+  ['растительный йогурт 150г', 0, 98],
+  ['комбуча 250мл', 0, 33],
+  ['энергетик без сахара 500мл', 0, 15],
+  ['кимчи 200г', 0, 30],
+  ['рамен 300мл', 0, 297],
+  ['кесадилья 200г', 0, 536]
 ];
 for (const [input, idx, expectedKcal] of checks) {
   const res = parseMealText(input);
@@ -63,6 +76,57 @@ for (const [input, idx, expectedKcal] of checks) {
   const ok = got === expectedKcal;
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} ккал: ${input} => ${got} (ожидалось ${expectedKcal})`);
+}
+
+// Длительность тренировок: принимаем часы, десятичную точку и запятую.
+const durationChecks = [
+  ['0,5', 30, '30 мин'],
+  ['1', 60, '1 ч'],
+  ['1.5', 90, '1 ч 30 мин'],
+  ['2,25', 135, '2 ч 15 мин'],
+  ['0', null, null],
+  ['25', null, null]
+];
+for (const [input, expectedMinutes, expectedText] of durationChecks) {
+  const minutes = parseWorkoutDuration(input);
+  const text = minutes == null ? null : formatWorkoutDuration(minutes);
+  const ok = minutes === expectedMinutes && text === expectedText;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} активность: ${input} ч => ${minutes ?? '—'} мин${text ? ` (${text})` : ''}`);
+}
+
+const templateNameChecks = [
+  ['  Кардио   45 мин  ', 'Кардио 45 мин'],
+  ['⛸️ Коньки по выходным', '⛸️ Коньки по выходным'],
+  [' ', null],
+  ['а', null]
+];
+for (const [input, expected] of templateNameChecks) {
+  const got = normalizeActivityName(input);
+  const ok = got === expected;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} готовый вариант: «${input}» => ${got ?? '—'}`);
+}
+
+const morningThemes = ['mixed', 'calm', 'health', 'food', 'activity'];
+for (const theme of morningThemes) {
+  const variants = morningMotivationVariantsCount(theme);
+  const messages = new Set(Array.from({ length: variants }, (_, i) => getMorningMotivationMessage(theme, i)));
+  const ok = variants === 60 && messages.size === variants && [...messages].every((message) => message.length >= 15);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} утренние фразы: ${theme} => ${messages.size}/${variants} уникальных`);
+}
+
+const favoriteChecks = [
+  [{ id: 'fav1', name: '  Домашний   обед ', kcal: '450' }, 'Домашний обед', 450],
+  [{ id: 'fav2', name: 'x', kcal: 200 }, null, null],
+  [{ id: 'fav3', name: 'Перекус', kcal: 0 }, null, null]
+];
+for (const [input, expectedName, expectedKcal] of favoriteChecks) {
+  const meal = normalizeFavoriteMeal(input);
+  const ok = expectedName == null ? meal === null : meal && meal.name === expectedName && meal.kcal === expectedKcal;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} своё блюдо: ${input.name} => ${meal ? `${meal.name}: ${meal.kcal}` : '—'}`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

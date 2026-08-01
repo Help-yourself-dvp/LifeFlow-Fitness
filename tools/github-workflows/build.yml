@@ -1,5 +1,8 @@
 name: Build Native Android APK
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ '**' ]
@@ -51,7 +54,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 34/g' android/variables.gradle
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "0.1.1"/g' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "0.1.16"/g' android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           npx cap sync android
 
@@ -71,6 +74,7 @@ jobs:
 
           import android.app.AlarmManager;
           import android.content.Intent;
+          import android.content.SharedPreferences;
           import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
@@ -153,6 +157,30 @@ jobs:
                           @Override
                           public void run() {
                               openSettings(which);
+                          }
+                      });
+                  }
+
+                  /* Обновить компактный Android-виджет из WebView */
+                  @JavascriptInterface
+                  public void updateWidget(final String json) {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  JSONObject data = new JSONObject(json == null ? "{}" : json);
+                                  SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
+                                  prefs.edit()
+                                      .putInt("waterTotal", data.optInt("waterTotal", 0))
+                                      .putInt("waterGoal", data.optInt("waterGoal", 2500))
+                                      .putInt("foodTotal", data.optInt("foodTotal", 0))
+                                      .putInt("foodGoal", data.optInt("foodGoal", 2000))
+                                      .putInt("activityMinutes", data.optInt("activityMinutes", 0))
+                                      .putString("date", data.optString("date", ""))
+                                      .apply();
+                                  FitFlowWidgetProvider.updateAll(MainActivity.this);
+                              } catch (Exception e) {
+                              }
                           }
                       });
                   }
@@ -332,6 +360,64 @@ jobs:
           }
           EOF
 
+          cat > android/app/src/main/java/com/fitflow/app/FitFlowWidgetProvider.java << 'EOF'
+          package com.fitflow.app;
+
+          import android.app.PendingIntent;
+          import android.appwidget.AppWidgetManager;
+          import android.appwidget.AppWidgetProvider;
+          import android.content.ComponentName;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.widget.RemoteViews;
+
+          public class FitFlowWidgetProvider extends AppWidgetProvider {
+              public static void updateAll(Context context) {
+                  AppWidgetManager manager = AppWidgetManager.getInstance(context);
+                  ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
+                  int[] ids = manager.getAppWidgetIds(component);
+                  for (int id : ids) updateWidget(context, manager, id);
+              }
+
+              @Override
+              public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
+                  for (int id : ids) updateWidget(context, manager, id);
+              }
+
+              private static void updateWidget(Context context, AppWidgetManager manager, int id) {
+                  SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
+                  int water = prefs.getInt("waterTotal", 0);
+                  int waterGoal = prefs.getInt("waterGoal", 2500);
+                  int food = prefs.getInt("foodTotal", 0);
+                  int foodGoal = prefs.getInt("foodGoal", 2000);
+                  int activity = prefs.getInt("activityMinutes", 0);
+
+                  RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.fitflow_widget);
+                  views.setTextViewText(R.id.widget_water, "Вода: " + water + " / " + waterGoal + " мл");
+                  views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
+                  views.setTextViewText(R.id.widget_activity, "Активность: " + formatActivity(activity));
+
+                  Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+                  if (launch == null) launch = new Intent(context, MainActivity.class);
+                  launch.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  PendingIntent pending = PendingIntent.getActivity(context, 0, launch,
+                      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                  views.setOnClickPendingIntent(R.id.widget_root, pending);
+                  manager.updateAppWidget(id, views);
+              }
+
+              private static String formatActivity(int minutes) {
+                  if (minutes <= 0) return "0 мин";
+                  int hours = minutes / 60;
+                  int rest = minutes % 60;
+                  if (hours == 0) return minutes + " мин";
+                  if (rest == 0) return hours + " ч";
+                  return hours + " ч " + rest + " мин";
+              }
+          }
+          EOF
+
       - name: Patch manifest and icons
         run: |
           sudo apt-get update -qq
@@ -354,6 +440,16 @@ jobs:
               tag = f'    <uses-permission android:name="{p}" />\n'
               if p not in t:
                   t = t.replace('</manifest>', tag + '</manifest>')
+          receiver = (
+              '        <receiver android:name=".FitFlowWidgetProvider" android:exported="false">\n'
+              '            <intent-filter>\n'
+              '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
+              '            </intent-filter>\n'
+              '            <meta-data android:name="android.appwidget.provider" android:resource="@xml/fitflow_widget_info" />\n'
+              '        </receiver>\n'
+          )
+          if 'FitFlowWidgetProvider' not in t:
+              t = t.replace('</application>', receiver + '    </application>')
           man.write_text(t, encoding='utf-8')
 
           res = Path('android/app/src/main/res')
@@ -427,6 +523,34 @@ jobs:
               encoding='utf-8',
           )
 
+          layout = res / 'layout'
+          layout.mkdir(parents=True, exist_ok=True)
+          (layout / 'fitflow_widget.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    android:id="@+id/widget_root"\n'
+              '    android:layout_width="match_parent"\n'
+              '    android:layout_height="match_parent"\n'
+              '    android:background="#E8F5F4"\n'
+              '    android:orientation="vertical"\n'
+              '    android:padding="12dp">\n'
+              '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FitFlow · сегодня" android:textColor="#002021" android:textSize="16sp" android:textStyle="bold" />\n'
+              '    <TextView android:id="@+id/widget_water" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Вода: 0 / 2500 мл" android:textColor="#003738" android:textSize="13sp" />\n'
+              '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
+              '    <TextView android:id="@+id/widget_activity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Активность: 0 мин" android:textColor="#003738" android:textSize="13sp" />\n'
+              '</LinearLayout>\n', encoding='utf-8')
+          xml = res / 'xml'
+          xml.mkdir(parents=True, exist_ok=True)
+          (xml / 'fitflow_widget_info.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    android:minWidth="180dp"\n'
+              '    android:minHeight="110dp"\n'
+              '    android:updatePeriodMillis="0"\n'
+              '    android:initialLayout="@layout/fitflow_widget"\n'
+              '    android:resizeMode="horizontal|vertical"\n'
+              '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
+
           adaptive = (
               '<?xml version="1.0" encoding="utf-8"?>\n'
               '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
@@ -460,7 +584,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/FitFlow-v0.1.1-debug.apk
+             android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -468,15 +592,15 @@ jobs:
           name: FitFlow-APK
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.1-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.1-build${{ github.run_number }}
-          name: FitFlow 0.1.1 (build ${{ github.run_number }})
+          tag_name: v0.1.16-build${{ github.run_number }}
+          name: FitFlow 0.1.16 (build ${{ github.run_number }})
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.1-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
