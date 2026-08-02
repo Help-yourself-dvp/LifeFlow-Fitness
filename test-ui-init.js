@@ -10,7 +10,8 @@ const functions = [
   'acceptTerms', 'declineTerms', 'openPrivacyDialog', 'closePrivacyDialog',
   'openSourcesDialog', 'closeSourcesDialog', 'startVoiceEntry',
   'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry',
-  'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog'
+  'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog',
+  'requestAllProfilesImport', 'closeAllProfilesImportDialog', 'confirmAllProfilesImport'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -19,7 +20,8 @@ const ids = [
   'smart-entry-open', 'terms-accept', 'terms-decline',
   'profile-switcher', 'profile-list', 'profile-new-name',
   'home-active-profile', 'date-weekday', 'date-month',
-  'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list'
+  'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
+  'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm'
 ];
 
 let failed = 0;

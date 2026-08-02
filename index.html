@@ -567,7 +567,7 @@
           </button>
           <input type="file" id="import-file" accept="application/json,.json" hidden>
         </div>
-        <p class="settings-hint">Экспортируйте данные перед переустановкой приложения, а после установки — импортируйте сохранённый файл.</p>
+        <p class="settings-hint">Один экспорт сохраняет все локальные профили и их данные. При полном импорте текущие профили на устройстве будут заменены резервной копией.</p>
       </div>
 
       <div class="settings-group">
@@ -581,7 +581,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.49 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.50 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -733,6 +733,16 @@
       <h2 id="profile-rename-title">Переименовать профиль</h2>
       <input class="dialog-text-input" id="profile-rename-input" type="text" maxlength="40" placeholder="Название профиля">
       <div class="app-dialog-actions"><button class="btn btn-secondary" id="profile-rename-cancel" type="button">Отмена</button><button class="btn btn-primary" id="profile-rename-confirm" type="button">Сохранить</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="all-profiles-import-dialog" role="dialog" aria-modal="true" aria-labelledby="all-profiles-import-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">📦</div>
+      <h2 id="all-profiles-import-title">Восстановить все профили?</h2>
+      <p id="all-profiles-import-text">—</p>
+      <p class="app-dialog-hint">Текущие профили, их история, цели, питание, вода, активность и настройки на этом устройстве будут заменены данными из копии. Это нельзя отменить.</p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="all-profiles-import-cancel" type="button">Отмена</button><button class="btn btn-danger" id="all-profiles-import-confirm" type="button">Восстановить</button></div>
     </section>
   </div>
 

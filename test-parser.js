@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -171,6 +171,19 @@ const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'food|water'
   && normalizedHomeLayout.visible.food === true && normalizedHomeLayout.visible.water === false;
 if (!homeLayoutOk) failed++;
 console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана`);
+
+const allProfilesBackup = normalizeAllProfilesBackup({
+  scope: 'all-profiles', activeProfileId: 'wife', profiles: [
+    { id: 'default', name: 'Мой профиль', state: { water: { total: 250 } } },
+    { id: 'wife', name: 'Жена', state: { food: { items: [{ kcal: 300 }] } } },
+    { id: 'wife', name: 'Дубликат', state: {} }
+  ]
+});
+const allProfilesBackupOk = allProfilesBackup && allProfilesBackup.activeProfileId === 'wife'
+  && allProfilesBackup.profiles.length === 2 && allProfilesBackup.profiles[1].name === 'Жена'
+  && allProfilesBackup.profiles[1].state.food.items[0].kcal === 300;
+if (!allProfilesBackupOk) failed++;
+console.log(`${allProfilesBackupOk ? '✓' : '✗'} одна копия сохраняет все профили`);
 
 const morning = new Date(2026, 7, 2, 10, 0, 0);
 const reminderPolicy = [

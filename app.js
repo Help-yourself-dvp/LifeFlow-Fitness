@@ -3054,39 +3054,70 @@ function switchView(view) {
   window.scrollTo(0, 0);
 }
 
-function exportData() {
-  const backup = {
+function cloneForBackup(value) {
+  try { return JSON.parse(JSON.stringify(value)); } catch (e) { return null; }
+}
+
+function readProfileStateForBackup(id) {
+  if (id === profilesState.activeId) return cloneForBackup(state);
+  try {
+    const raw = localStorage.getItem(profileStateKey(id));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? cloneForBackup(parsed) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function createAllProfilesBackup() {
+  return {
     app: 'fitflow',
-    version: 1,
+    version: 2,
+    scope: 'all-profiles',
     exportedAt: new Date().toISOString(),
     settings: { theme: getThemeMode() },
-    profile: { id: profilesState.activeId, name: (profilesState.profiles.find((profile) => profile.id === profilesState.activeId) || {}).name || 'Мой профиль' },
-    reminders: { enabled: state.reminders.enabled, time: state.reminders.time },
-    mealReminders: { ...state.mealReminders, meals: state.mealReminders.meals.map((meal) => ({ ...meal })) },
-    customMealTypes: state.customMealTypes,
-    morningMotivation: { ...state.morningMotivation },
-    favoriteMeals: state.favoriteMeals,
-    dailyHistory: state.dailyHistory,
-    activitySettings: { ...state.activitySettings },
-    profileSettings: { ...state.profileSettings },
-    homeLayout: { order: [...state.homeLayout.order], visible: { ...state.homeLayout.visible } },
-    workouts: state.workouts,
-    activityTemplates: state.activityTemplates,
-    water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
-    food: { date: state.food.date, items: state.food.items, goal: state.food.goal }
+    activeProfileId: profilesState.activeId,
+    profiles: profilesState.profiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      state: readProfileStateForBackup(profile.id)
+    }))
   };
+}
+
+function normalizeAllProfilesBackup(data) {
+  if (!data || data.scope !== 'all-profiles' || !Array.isArray(data.profiles)) return null;
+  const ids = new Set();
+  const profiles = data.profiles
+    .map((profile) => ({
+      id: String(profile && profile.id || ''),
+      name: normalizeActivityName(profile && profile.name) || '',
+      state: profile && profile.state && typeof profile.state === 'object' ? cloneForBackup(profile.state) : null
+    }))
+    .filter((profile) => profile.id && profile.name && !ids.has(profile.id) && ids.add(profile.id))
+    .slice(0, 10);
+  if (!profiles.some((profile) => profile.id === 'default')) {
+    profiles.unshift({ id: 'default', name: 'Мой профиль', state: null });
+    if (profiles.length > 10) profiles.pop();
+  }
+  const activeProfileId = profiles.some((profile) => profile.id === data.activeProfileId) ? data.activeProfileId : profiles[0].id;
+  return { profiles, activeProfileId };
+}
+
+function exportData() {
+  const backup = createAllProfilesBackup();
   const json = JSON.stringify(backup, null, 2);
-  const fileName = `fitflow-backup-${todayKey()}.json`;
+  const fileName = `fitflow-all-profiles-${todayKey()}.json`;
 
   // 1. Android WebView (Capacitor/SAF мост через JavascriptInterface)
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.saveBackup === 'function') {
-      toast('Выберите папку для сохранения...');
+      toast(`Выберите папку для сохранения: ${backup.profiles.length} проф. в одной копии`);
       window.FitFlowExport.saveBackup(json, fileName);
       return;
     }
     if (window.AquaExport && typeof window.AquaExport.saveBackup === 'function') {
-      toast('Выберите папку для сохранения...');
+      toast(`Выберите папку для сохранения: ${backup.profiles.length} проф. в одной копии`);
       window.AquaExport.saveBackup(json, fileName);
       return;
     }
@@ -3104,7 +3135,60 @@ function exportData() {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
-  toast('Резервная копия сохранена');
+  toast(`Сохранена копия всех профилей: ${backup.profiles.length}`);
+}
+
+let pendingAllProfilesBackup = null;
+
+function requestAllProfilesImport(data) {
+  const normalized = normalizeAllProfilesBackup(data);
+  if (!normalized) { toast('Не удалось прочитать профили из резервной копии'); return; }
+  pendingAllProfilesBackup = { backup: data, normalized };
+  const names = normalized.profiles.map((profile) => `«${profile.name}»`).join(', ');
+  $('#all-profiles-import-text').textContent = `Копия содержит ${normalized.profiles.length} проф.: ${names}.`;
+  $('#all-profiles-import-dialog').hidden = false;
+}
+
+function closeAllProfilesImportDialog() {
+  pendingAllProfilesBackup = null;
+  $('#all-profiles-import-dialog').hidden = true;
+}
+
+function removeAllStoredProfileStates() {
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key === LEGACY_STATE_KEY || (key && key.startsWith('fitflow:state:'))) keys.push(key);
+  }
+  keys.forEach((key) => localStorage.removeItem(key));
+}
+
+async function confirmAllProfilesImport() {
+  const pending = pendingAllProfilesBackup;
+  if (!pending) return closeAllProfilesImportDialog();
+  closeAllProfilesImportDialog();
+  await cancelTrainingReminder();
+  await cancelMealReminders();
+  await cancelMorningMotivation();
+
+  removeAllStoredProfileStates();
+  profilesState = {
+    activeId: pending.normalized.activeProfileId,
+    profiles: pending.normalized.profiles.map(({ id, name }) => ({ id, name }))
+  };
+  normalizeProfiles();
+  saveProfiles();
+
+  pending.normalized.profiles.forEach((profile) => {
+    const key = profileStateKey(profile.id);
+    if (profile.state) localStorage.setItem(key, JSON.stringify(profile.state));
+    else localStorage.removeItem(key);
+  });
+
+  const theme = pending.backup.settings && pending.backup.settings.theme;
+  if (theme === 'light' || theme === 'dark') localStorage.setItem('fitflow:theme', theme);
+  else localStorage.removeItem('fitflow:theme');
+  location.reload();
 }
 
 if (typeof window !== 'undefined') {
@@ -3125,6 +3209,10 @@ function importData(file) {
     try {
       const data = JSON.parse(reader.result);
       if (!data || data.app !== 'fitflow') throw new Error('bad format');
+      if (data.scope === 'all-profiles') {
+        requestAllProfilesImport(data);
+        return;
+      }
 
       if (data.settings && data.settings.theme) setThemeMode(data.settings.theme);
 
@@ -3499,6 +3587,8 @@ function init() {
   $('#profile-rename-confirm').addEventListener('click', confirmRenameProfile);
   $('#profile-delete-cancel').addEventListener('click', closeDeleteProfileDialog);
   $('#profile-delete-confirm').addEventListener('click', confirmDeleteProfile);
+  $('#all-profiles-import-cancel').addEventListener('click', closeAllProfilesImportDialog);
+  $('#all-profiles-import-confirm').addEventListener('click', confirmAllProfilesImport);
   $('#profile-weight-save').addEventListener('click', saveProfileWeight);
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
@@ -3589,6 +3679,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup
   };
 }
