@@ -520,6 +520,7 @@ const DEFAULTS = {
 };
 
 const ACTIVITY_REMINDER_PROMPT_KEY = 'fitflow:activity-reminder-prompt-seen';
+const TERMS_ACCEPTED_KEY = 'fitflow:terms-accepted-v1';
 
 const MORNING_MOTIVATION_THEMES = {
   mixed: 'Смешанная',
@@ -2042,6 +2043,27 @@ function refreshNotificationSetupState() {
   return { notifications, battery };
 }
 
+function hasAcceptedTerms() {
+  try { return localStorage.getItem(TERMS_ACCEPTED_KEY) === '1'; } catch (e) { return false; }
+}
+
+function maybeShowTerms() {
+  if (hasAcceptedTerms()) return;
+  const dialog = $('#terms-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function acceptTerms() {
+  try { localStorage.setItem(TERMS_ACCEPTED_KEY, '1'); } catch (e) { console.warn('Не удалось сохранить принятие условий:', e); }
+  const dialog = $('#terms-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function declineTerms() {
+  const hint = $('#terms-decline-hint');
+  if (hint) hint.hidden = false;
+}
+
 function hasSeenActivityReminderPrompt() {
   try {
     return localStorage.getItem(ACTIVITY_REMINDER_PROMPT_KEY) === '1';
@@ -2330,6 +2352,7 @@ async function resetAll() {
   localStorage.removeItem('fitflow:state');
   localStorage.removeItem('fitflow:theme');
   localStorage.removeItem(ACTIVITY_REMINDER_PROMPT_KEY);
+  localStorage.removeItem(TERMS_ACCEPTED_KEY);
   location.reload();
 }
 
@@ -2500,6 +2523,8 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#terms-accept').addEventListener('click', acceptTerms);
+  $('#terms-decline').addEventListener('click', declineTerms);
   $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
   // Настройки: тема
@@ -2543,6 +2568,8 @@ function init() {
       refreshNotificationSetupState();
     }
   });
+
+  maybeShowTerms();
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */

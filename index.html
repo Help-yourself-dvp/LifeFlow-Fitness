@@ -99,7 +99,12 @@
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
           </button>
           <button class="chip" data-water="500" type="button">
-            <span class="chip-emoji" aria-hidden="true">🧴</span> +500 мл
+            <span class="chip-water-bottle" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M10 2h4v3l1.4 1.5v12.8A2.7 2.7 0 0 1 12.7 22h-1.4a2.7 2.7 0 0 1-2.7-2.7V6.5L10 5V2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <path d="M8.6 11.2h6.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </span> +500 мл
           </button>
           <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последний стакан">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -515,7 +520,7 @@
 
       <div class="settings-group">
         <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1.19 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+        <p class="settings-hint">FitFlow v0.1.20 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
         <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
       </div>
     </section>
@@ -620,6 +625,26 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="terms-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🛡️</div>
+      <h2 id="terms-dialog-title">Перед началом</h2>
+      <p>FitFlow помогает вести личные записи воды, питания и активности. Перед использованием подтвердите условия.</p>
+      <div class="terms-list">
+        <p><b>Информационный сервис.</b> Приложение не является медицинским сервисом и не заменяет врача, диетолога, тренера или психолога.</p>
+        <p><b>Данные приблизительны.</b> Калории, цели и подсказки носят справочный характер. Не используйте их для самодиагностики или лечения.</p>
+        <p><b>Личная ответственность.</b> Решения о здоровье, питании и нагрузках вы принимаете самостоятельно. При жалобах или заболеваниях обратитесь к специалисту.</p>
+        <p><b>Приватность.</b> Данные хранятся на этом устройстве. Сделайте резервную копию перед переустановкой приложения.</p>
+      </div>
+      <p class="app-dialog-hint">Продолжая, вы принимаете эти условия использования.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="terms-decline" type="button">Не принимаю</button>
+        <button class="btn btn-primary" id="terms-accept" type="button">Понимаю и принимаю</button>
+      </div>
+      <p class="terms-decline-hint" id="terms-decline-hint" hidden>Без принятия условий использовать приложение нельзя. Вы можете закрыть приложение.</p>
+    </section>
+  </div>
+
   <div class="app-dialog-backdrop" id="morning-theme-dialog" role="dialog" aria-modal="true" aria-labelledby="morning-theme-dialog-title" hidden>
     <section class="app-dialog theme-dialog">
       <div class="app-dialog-icon" aria-hidden="true">☀️</div>

@@ -1935,3 +1935,13 @@ html[data-theme="dark"] .segmented button.active {
   font-size: 0.84rem;
   font-weight: 800;
 }
+
+/* ---------- Условия использования ---------- */
+.chip-water-bottle { display: inline-grid; place-items: center; }
+.chip-water-bottle svg { width: 19px; height: 19px; }
+
+.terms-dialog { max-height: min(82dvh, 620px); overflow-y: auto; }
+.terms-list { display: grid; gap: 8px; margin-top: 14px; text-align: left; }
+.terms-list p { margin: 0; padding: 9px 10px; background: var(--md-sys-color-surface-container-high); border-radius: 12px; font-size: 0.78rem; line-height: 1.42; }
+.terms-list b { color: var(--md-sys-color-on-surface); }
+.terms-decline-hint { color: var(--md-sys-color-error) !important; font-weight: 700; }
