@@ -147,6 +147,16 @@ const smartDictionaryOk = smartDictionary.waterMl === 500 && smartDictionary.act
 if (!smartDictionaryOk) failed++;
 console.log(`${smartDictionaryOk ? '✓' : '✗'} справочник команд: велосипед, грешка и пол литра`);
 
+const drinkFood = parseMealText('компот 250 мл');
+const drinkFoodOk = drinkFood[0]?.kcal === 145;
+if (!drinkFoodOk) failed++;
+console.log(`${drinkFoodOk ? '✓' : '✗'} напиток в питании: компот 250 мл`);
+
+const smartDrink = parseSmartEntry('выпил 250 мл сока');
+const smartDrinkOk = smartDrink.waterMl === 0 && smartDrink.food.length === 1 && smartDrink.food[0].kcal === 113;
+if (!smartDrinkOk) failed++;
+console.log(`${smartDrinkOk ? '✓' : '✗'} быстрый ввод: сок относится к питанию, а не к воде`);
+
 const foodGroups = groupFoodItemsByMealType([
   { id: '1', name: 'овсянка', kcal: 280, mealTypeId: 'breakfast', mealTypeLabel: 'Завтрак' },
   { id: '2', name: 'банан', kcal: 105, mealTypeId: 'breakfast', mealTypeLabel: 'Завтрак' },

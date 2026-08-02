@@ -1913,7 +1913,7 @@ html[data-theme="dark"] .segmented button.active {
   transition: grid-template-rows 0.28s ease;
 }
 
-.collapsible-content > div { overflow: hidden; }
+.collapsible-content > div { min-height: 0; overflow: hidden; }
 .collapsible-content.is-open { grid-template-rows: 1fr; }
 .collapsible-content.is-open > div { padding: 0 1px; }
 
