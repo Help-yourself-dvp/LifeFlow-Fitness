@@ -414,11 +414,11 @@ function parseSmartEntry(text) {
     waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : (/^стакан/u.test(waterMatch[2]) ? 250 : 1)));
   }
   let activity = null;
-  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
+  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
   if (activityMatch) {
     const amount = Number(activityMatch[1].replace(',', '.'));
     const minutes = Math.round(amount * (/^час|^ч$/u.test(activityMatch[2]) ? 60 : 1));
-    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : (/плавал|бассейн/u.test(lower) ? 'other' : 'other');
+    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : (/плавал|бассейн/u.test(lower) ? 'swim' : (/(?:бегал|пробеж)/u.test(lower) ? 'cardio' : (/(?:тяж[её]л|силов)/u.test(lower) ? 'strength' : 'other')));
     if (minutes >= 5) activity = { type, durationMinutes: minutes };
   }
   const foodMatch = lower.match(/(?:съел(?:а)?|поел(?:а)?|съесть)\s+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?))|$)/iu);
@@ -734,7 +734,8 @@ function morningMotivationVariantsCount(theme) {
 
 const ACTIVITY_TYPES = {
   walk: { label: 'Прогулка', emoji: '🚶' },
-  cardio: { label: 'Кардио', emoji: '🏃' },
+  cardio: { label: 'Кардио / бег', emoji: '🏃' },
+  swim: { label: 'Плавание', emoji: '🏊' },
   strength: { label: 'Силовая', emoji: '🏋️' },
   stretch: { label: 'Растяжка', emoji: '🧘' },
   leisure: { label: 'Активный отдых', emoji: '⛸️' },

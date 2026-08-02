@@ -131,7 +131,7 @@ for (const [input, expectedName, expectedKcal] of favoriteChecks) {
 }
 
 const smart = parseSmartEntry('поплавов в бассейне 15 минут съел бана выпил 2 стакана воды');
-const smartOk = smart.waterMl === 500 && smart.activity && smart.activity.durationMinutes === 15 && smart.food.some((item) => item.name === 'банан');
+const smartOk = smart.waterMl === 500 && smart.activity && smart.activity.type === 'swim' && smart.activity.durationMinutes === 15 && smart.food.some((item) => item.name === 'банан');
 if (!smartOk) failed++;
 console.log(`${smartOk ? '✓' : '✗'} быстрый ввод: плавание, банан и 2 стакана воды`);
 
