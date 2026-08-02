@@ -467,6 +467,23 @@
 
       <div class="settings-group">
         <div class="settings-label-row">
+          <p class="settings-label">Напоминания о приёмах пищи</p>
+          <label class="switch" for="meal-reminders-toggle">
+            <input id="meal-reminders-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить напоминания о приёмах пищи</span>
+          </label>
+        </div>
+        <div class="settings-row meal-reminder-actions">
+          <button class="btn btn-secondary" id="meal-reminders-all" type="button">Выбрать все</button>
+          <button class="btn btn-secondary" id="meal-reminders-none" type="button">Снять все</button>
+        </div>
+        <div class="meal-reminders-list" id="meal-reminders-list"></div>
+        <p class="settings-hint" id="meal-reminders-status">Напоминания о питании выключены.</p>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
           <p class="settings-label">Вечерняя активность</p>
           <label class="switch" for="workout-reminder-toggle">
             <input id="workout-reminder-toggle" type="checkbox" role="switch" aria-describedby="workout-reminder-status">
@@ -518,7 +535,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.23 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.24 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <p class="settings-hint">Подробные лицензии и ссылки сохранены в файле DATA_SOURCES.md.</p>
           </div></div>

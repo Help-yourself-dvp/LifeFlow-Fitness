@@ -2008,3 +2008,11 @@ html[data-theme="dark"] .segmented button.active {
 .settings-about-block { margin-top: 0; }
 .settings-about-content { margin: 10px 12px; }
 .settings-about-content .settings-hint { margin-top: 8px; }
+
+/* ---------- Напоминания о приёмах пищи ---------- */
+.meal-reminder-actions .btn { padding: 8px 10px; font-size: 0.76rem; }
+.meal-reminders-list { display: grid; gap: 8px; margin-top: 10px; }
+.meal-reminder-row { display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: var(--md-sys-color-surface-container-high); border-radius: 13px; }
+.meal-reminder-row label { flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 700; }
+.meal-reminder-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
+.meal-reminder-row input[type="time"] { width: 96px; padding: 6px 7px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.8rem; font-weight: 700; }
