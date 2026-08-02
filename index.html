@@ -24,7 +24,7 @@
       </div>
       <div class="brand-text">
         <h1>FitFlow</h1>
-        <p id="date-label">—</p>
+        <p id="date-label" aria-label="Дата"><span id="date-weekday">—</span><span id="date-month">—</span></p>
       </div>
     </div>
 
@@ -66,6 +66,7 @@
     <section class="greeting">
       <p class="greeting-title" id="greeting-title">Доброе утро!</p>
       <p class="greeting-sub">Сегодня отличный день, чтобы заботиться о себе 💪</p>
+      <p class="greeting-profile"><span aria-hidden="true">👤</span><span>Профиль:</span><strong id="home-active-profile">Мой профиль</strong></p>
     </section>
 
     <!-- ===== Карточка: Вода ===== -->
@@ -571,7 +572,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.47 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.48 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>

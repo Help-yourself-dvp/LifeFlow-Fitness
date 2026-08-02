@@ -17,7 +17,8 @@ const ids = [
   'morning-motivation-theme', 'notification-setup-btn',
   'morning-message-dialog-ok', 'meal-reminders-toggle',
   'smart-entry-open', 'terms-accept', 'terms-decline',
-  'profile-switcher', 'profile-list', 'profile-new-name'
+  'profile-switcher', 'profile-list', 'profile-new-name',
+  'home-active-profile', 'date-weekday', 'date-month'
 ];
 
 let failed = 0;

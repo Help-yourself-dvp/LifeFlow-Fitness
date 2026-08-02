@@ -1023,14 +1023,16 @@ let expandedProfileId = null;
 function renderProfiles() {
   if (typeof document === 'undefined') return;
   const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
+  const name = active ? active.name : 'Мой профиль';
   const switcher = $('#profile-switcher');
   if (switcher) {
-    const name = active ? active.name : 'Мой профиль';
     switcher.title = `Текущий профиль: ${name}`;
     switcher.setAttribute('aria-label', `Выбрать профиль. Текущий: ${name}`);
   }
   const settingsName = $('#profile-settings-name');
-  if (settingsName) settingsName.textContent = active ? active.name : 'Мой профиль';
+  if (settingsName) settingsName.textContent = name;
+  const homeProfileName = $('#home-active-profile');
+  if (homeProfileName) homeProfileName.textContent = name;
   const list = $('#profile-list');
   if (!list) return;
 
@@ -3180,9 +3182,14 @@ function renderGreeting() {
   else if (h >= 18 && h < 23) greeting = 'Добрый вечер!';
 
   $('#greeting-title').textContent = greeting;
-  $('#date-label').textContent = new Intl.DateTimeFormat('ru-RU', {
-    weekday: 'long', day: 'numeric', month: 'long'
-  }).format(now);
+  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' }).format(now);
+  const dayAndMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
+  const dateLabel = $('#date-label');
+  const weekdayElement = $('#date-weekday');
+  const monthElement = $('#date-month');
+  if (weekdayElement) weekdayElement.textContent = weekday;
+  if (monthElement) monthElement.textContent = dayAndMonth;
+  if (dateLabel) dateLabel.setAttribute('aria-label', `${weekday}, ${dayAndMonth}`);
 }
 
 /* ============================================================

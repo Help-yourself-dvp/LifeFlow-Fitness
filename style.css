@@ -2127,3 +2127,26 @@ html[data-theme="dark"] .segmented button.active {
 .food-group-header span { flex: 0 0 auto; font-size: .76rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .food-group-items { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 7px; list-style: none; }
 .food-group-items .food-item { background: var(--md-sys-color-surface-container-high); }
+
+/* ---------- Шапка и контекст активного профиля ---------- */
+.topbar { gap: 6px; padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.brand { flex: 1 1 auto; min-width: 0; gap: 6px; }
+.brand-logo { flex: 0 0 36px; width: 36px; height: 36px; min-width: 36px; aspect-ratio: 1 / 1; margin-left: -3px; border-radius: 11px; transform: translateY(-2px); }
+.brand-text { min-width: 0; }
+.brand-text h1 { white-space: nowrap; }
+#date-label { display: grid; gap: 1px; line-height: 1.1; text-transform: capitalize; }
+#date-label span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#date-weekday { font-weight: 700; }
+#date-month { font-size: .72rem; }
+.topbar-actions { flex: 0 0 auto; gap: 4px; }
+.topbar-actions > button { display: grid; place-items: center; width: 36px; height: 36px; min-width: 36px; padding: 0; color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); border: 0; border-radius: 50%; }
+.topbar-actions > button:hover { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
+.topbar-actions > button svg { width: 20px; height: 20px; }
+.greeting-profile { display: flex; align-items: center; gap: 5px; margin-top: 8px; color: var(--md-sys-color-on-secondary-container); font-size: .78rem; line-height: 1.2; }
+.greeting-profile strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Параметры веса внутри профиля ---------- */
+.profile-card-energy { min-width: 0; max-width: 100%; }
+.profile-weight-row { min-width: 0; align-items: stretch; }
+.profile-weight-row .btn { flex: 0 0 auto; width: auto; min-width: max-content; padding: 10px 12px; white-space: nowrap; }
+.profile-card-energy .training-hint { max-width: 100%; overflow-wrap: anywhere; }
