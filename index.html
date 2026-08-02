@@ -571,7 +571,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.45 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.46 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -697,18 +697,11 @@
       <div class="app-dialog-icon" aria-hidden="true">👥</div>
       <h2 id="profiles-dialog-title">Профили на устройстве</h2>
       <p>Данные каждого профиля хранятся отдельно на этом телефоне.</p>
+      <p class="profiles-dialog-hint">Нажмите название, чтобы сразу перейти в профиль. Стрелка откроет его параметры.</p>
       <div class="profile-list" id="profile-list"></div>
       <div class="profile-add-row">
         <input id="profile-new-name" type="text" maxlength="40" placeholder="Например, Жена">
         <button class="btn btn-secondary" id="profile-add" type="button">Добавить</button>
-      </div>
-      <div class="profile-energy-settings">
-        <label for="profile-weight">Ваш вес, кг <span>(необязательно)</span></label>
-        <div class="profile-add-row">
-          <input id="profile-weight" type="text" inputmode="decimal" placeholder="Например, 70">
-          <button class="btn btn-secondary" id="profile-weight-save" type="button">Сохранить</button>
-        </div>
-        <p class="training-hint">Вес используется только для примерной оценки расхода энергии при активности и не меняет цель питания автоматически.</p>
       </div>
       <button class="btn btn-secondary theme-dialog-cancel" id="profiles-dialog-cancel" type="button">Закрыть</button>
     </section>

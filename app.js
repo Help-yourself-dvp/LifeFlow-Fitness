@@ -1017,6 +1017,9 @@ function normalizeWorkouts() {
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+// В списке всегда видны только имена: раскрыт может быть один профиль с его действиями.
+let expandedProfileId = null;
+
 function renderProfiles() {
   if (typeof document === 'undefined') return;
   const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
@@ -1028,27 +1031,65 @@ function renderProfiles() {
   }
   const settingsName = $('#profile-settings-name');
   if (settingsName) settingsName.textContent = active ? active.name : 'Мой профиль';
-  const weightInput = $('#profile-weight');
-  if (weightInput) weightInput.value = state.profileSettings.weightKg || '';
   const list = $('#profile-list');
   if (!list) return;
-  list.innerHTML = profilesState.profiles.map((profile) => `
-    <div class="profile-row">
-      <button type="button" data-profile-id="${profile.id}" class="${profile.id === profilesState.activeId ? 'active' : ''}">
-        <span>${escapeHtml(profile.name)}</span><span>${profile.id === profilesState.activeId ? '✓' : ''}</span>
-      </button>
-      <button class="profile-edit-btn" type="button" data-profile-rename="${profile.id}" aria-label="Переименовать профиль ${escapeHtml(profile.name)}">✎</button>
-      ${profile.id !== 'default' ? `<button class="profile-delete-btn" type="button" data-profile-delete="${profile.id}" aria-label="Удалить профиль ${escapeHtml(profile.name)}">×</button>` : ''}
-    </div>`).join('');
+
+  list.innerHTML = profilesState.profiles.map((profile, index) => {
+    const isActive = profile.id === profilesState.activeId;
+    const isOpen = profile.id === expandedProfileId;
+    const profileId = escapeHtml(profile.id);
+    const profileName = escapeHtml(profile.name);
+    const detailsId = `profile-details-${index}`;
+    const energySettings = isActive ? `
+      <div class="profile-energy-settings profile-card-energy">
+        <label for="profile-weight">Ваш вес, кг <span>(необязательно)</span></label>
+        <div class="profile-weight-row">
+          <input id="profile-weight" type="text" inputmode="decimal" value="${state.profileSettings.weightKg || ''}" placeholder="Например, 70">
+          <button class="btn btn-secondary" id="profile-weight-save" type="button">Сохранить</button>
+        </div>
+        <p class="training-hint">Вес используется только для примерной оценки расхода энергии при активности и не меняет цель питания автоматически.</p>
+      </div>` : '';
+    return `
+      <section class="profile-card ${isActive ? 'active' : ''}">
+        <div class="profile-card-header">
+          <button type="button" class="profile-select" data-profile-id="${profileId}" aria-label="${isActive ? 'Текущий профиль' : 'Перейти в профиль'}: ${profileName}">
+            <span class="profile-card-name">${profileName}</span>
+            <span class="profile-card-status">${isActive ? 'Текущий' : 'Перейти'}</span>
+          </button>
+          <button class="profile-expand-btn" type="button" data-profile-expand="${profileId}" aria-expanded="${isOpen}" aria-controls="${detailsId}" aria-label="${isOpen ? 'Свернуть' : 'Открыть'} параметры профиля ${profileName}">
+            <span aria-hidden="true">⌄</span>
+          </button>
+        </div>
+        <div class="profile-card-details" id="${detailsId}" ${isOpen ? '' : 'hidden'}>
+          <p>${isActive ? 'Это активный профиль. Его вес, цели, история и уведомления не смешиваются с другими профилями.' : 'Нажмите название выше, чтобы перейти в этот профиль. Его данные хранятся отдельно.'}</p>
+          <div class="profile-card-actions">
+            <button class="profile-edit-btn" type="button" data-profile-rename="${profileId}">Переименовать</button>
+            ${profile.id !== 'default' ? `<button class="profile-delete-btn" type="button" data-profile-delete="${profileId}">Удалить</button>` : ''}
+          </div>
+          ${energySettings}
+        </div>
+      </section>`;
+  }).join('');
+}
+
+function toggleProfileDetails(id) {
+  if (!profilesState.profiles.some((profile) => profile.id === id)) return;
+  expandedProfileId = expandedProfileId === id ? null : id;
+  renderProfiles();
 }
 
 function openProfilesDialog() {
+  expandedProfileId = null;
   renderProfiles();
   $('#profiles-dialog').hidden = false;
 }
-function closeProfilesDialog() { $('#profiles-dialog').hidden = true; }
+function closeProfilesDialog() {
+  expandedProfileId = null;
+  $('#profiles-dialog').hidden = true;
+}
 async function switchProfile(id) {
   if (!profilesState.profiles.some((profile) => profile.id === id)) return;
+  if (id === profilesState.activeId) { closeProfilesDialog(); return; }
   saveState();
   await cancelTrainingReminder();
   await cancelMealReminders();
@@ -3274,6 +3315,8 @@ function init() {
     if (deleteButton) return requestDeleteProfile(deleteButton.dataset.profileDelete);
     const renameButton = e.target.closest('[data-profile-rename]');
     if (renameButton) return requestRenameProfile(renameButton.dataset.profileRename);
+    const expandButton = e.target.closest('[data-profile-expand]');
+    if (expandButton) return toggleProfileDetails(expandButton.dataset.profileExpand);
     const button = e.target.closest('[data-profile-id]');
     if (button) switchProfile(button.dataset.profileId);
   });

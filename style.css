@@ -2090,3 +2090,32 @@ html[data-theme="dark"] .segmented button.active {
 .profile-settings-context span { font-size:1.05rem; }
 .profile-settings-context strong { display:block; color:var(--md-sys-color-on-secondary-container); font-size:.84rem; }
 .profile-settings-context small { display:block; margin-top:2px; color:var(--md-sys-color-on-secondary-container); font-size:.74rem; line-height:1.35; }
+
+/* ---------- Сворачиваемый список профилей ---------- */
+.profiles-dialog-hint { margin: 5px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; line-height: 1.4; }
+.profile-list { gap: 8px; }
+.profile-card { overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; background: var(--md-sys-color-surface-container-high); }
+.profile-card.active { border-color: var(--md-sys-color-primary); }
+.profile-card-header { display: flex; align-items: stretch; min-height: 52px; }
+.profile-card-header button { border: 0; border-radius: 0; }
+.profile-select { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; color: var(--md-sys-color-on-surface); background: transparent; font: inherit; font-size: .86rem; font-weight: 700; text-align: left; }
+.profile-card.active .profile-select { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.profile-card-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-card-status { flex: 0 0 auto; color: var(--md-sys-color-on-surface-variant); font-size: .72rem; font-weight: 700; }
+.profile-card.active .profile-card-status { color: var(--md-sys-color-on-primary-container); }
+.profile-expand-btn { display: grid; flex: 0 0 50px; place-items: center; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-high); font-size: 1.2rem; line-height: 1; transition: transform .2s ease; }
+.profile-card.active .profile-expand-btn { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.profile-expand-btn[aria-expanded="true"] { transform: rotate(180deg); }
+.profile-card-details { padding: 11px 12px 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.profile-card-details > p { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; line-height: 1.4; }
+.profile-card-actions { display: flex; gap: 7px; margin-top: 10px; }
+.profile-card-actions button { flex: 1; justify-content: center; min-height: 39px; padding: 8px 9px; border-radius: 10px; font-size: .77rem; }
+.profile-card-actions .profile-edit-btn { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
+.profile-card-actions .profile-delete-btn { color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); }
+.profile-card-energy { margin-top: 10px; }
+.profile-weight-row { display: flex; gap: 7px; }
+.profile-weight-row input { flex: 1; min-width: 0; padding: 10px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; font: inherit; font-size: .84rem; }
+.profile-weight-row .btn { padding: 10px; font-size: .78rem; }
+/* Не наследуем ширину и размер старых кнопок списка в новых карточках. */
+.profile-card-header button, .profile-card-actions button { width: auto; }
+.profile-card-actions .profile-edit-btn, .profile-card-actions .profile-delete-btn { flex: 1; width: auto; padding: 8px 9px; }

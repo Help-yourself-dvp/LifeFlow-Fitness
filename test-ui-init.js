@@ -9,13 +9,15 @@ const functions = [
   'showMorningMessageDialog', 'closeMorningMessageDialog',
   'acceptTerms', 'declineTerms', 'openPrivacyDialog', 'closePrivacyDialog',
   'openSourcesDialog', 'closeSourcesDialog', 'startVoiceEntry',
-  'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry'
+  'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry',
+  'toggleProfileDetails'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
   'morning-motivation-theme', 'notification-setup-btn',
   'morning-message-dialog-ok', 'meal-reminders-toggle',
-  'smart-entry-open', 'terms-accept', 'terms-decline'
+  'smart-entry-open', 'terms-accept', 'terms-decline',
+  'profile-switcher', 'profile-list', 'profile-new-name'
 ];
 
 let failed = 0;
