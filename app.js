@@ -1525,8 +1525,10 @@ function removeActivityTemplate(id) {
    ============================================================ */
 const TRAINING_REMINDER_ID = 71001;
 const ACTIVITY_TEST_NOTIFICATION_ID = 71002;
-const MEAL_REMINDER_NOTIFICATION_BASE_ID = 73000;
-const MEAL_REMINDER_CHANNEL = 'fitflow_meal_reminders_v2';
+const LEGACY_MEAL_REMINDER_NOTIFICATION_BASE_ID = 73000;
+const MEAL_REMINDER_NOTIFICATION_BASE_ID = 73200;
+const MEAL_REMINDER_SCHEDULE_DAYS = 14;
+const MEAL_REMINDER_CHANNEL = 'fitflow_meal_reminders_v3';
 const MORNING_MOTIVATION_NOTIFICATION_BASE_ID = 71100;
 const MORNING_MOTIVATION_SCHEDULE_DAYS = 30;
 const TRAINING_REMINDER_CHANNEL = 'fitflow_training_reminders';
@@ -1810,7 +1812,7 @@ function installActivityNotificationListener() {
         return;
       }
       if (notification.id >= MEAL_REMINDER_NOTIFICATION_BASE_ID
-          && notification.id < MEAL_REMINDER_NOTIFICATION_BASE_ID + MEAL_REMINDER_TYPES.length) {
+          && notification.id < MEAL_REMINDER_NOTIFICATION_BASE_ID + MEAL_REMINDER_TYPES.length * MEAL_REMINDER_SCHEDULE_DAYS) {
         switchView('home');
         setTimeout(() => $('#food-input').focus(), 250);
         const extra = notification.extra || {};
@@ -1843,7 +1845,12 @@ async function ensureMealReminderChannel(localNotifications) {
 }
 
 function mealReminderNotificationIds() {
-  return MEAL_REMINDER_TYPES.map((_, index) => MEAL_REMINDER_NOTIFICATION_BASE_ID + index);
+  const legacy = MEAL_REMINDER_TYPES.map((_, index) => LEGACY_MEAL_REMINDER_NOTIFICATION_BASE_ID + index);
+  const planned = Array.from(
+    { length: MEAL_REMINDER_TYPES.length * MEAL_REMINDER_SCHEDULE_DAYS },
+    (_, index) => MEAL_REMINDER_NOTIFICATION_BASE_ID + index
+  );
+  return [...legacy, ...planned];
 }
 
 async function cancelMealReminders(localNotifications = getLocalNotifications()) {
@@ -1851,30 +1858,47 @@ async function cancelMealReminders(localNotifications = getLocalNotifications())
   try { await localNotifications.cancel({ notifications: mealReminderNotificationIds().map((id) => ({ id })) }); } catch (e) { }
 }
 
-async function scheduleMealReminders() {
+async function scheduleMealReminders({ requestPermission = true } = {}) {
   const localNotifications = getLocalNotifications();
   if (!localNotifications) return { ok: false, message: 'Напоминания о питании работают только в Android-приложении.' };
-  const allowed = await ensureNotificationPermission(localNotifications);
+  let allowed = false;
+  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+  else {
+    try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { }
+  }
   if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминания о питании.' };
   try {
     await ensureMealReminderChannel(localNotifications);
     await cancelMealReminders(localNotifications);
-    const reminders = state.mealReminders;
-    const notifications = reminders.meals.filter((meal) => meal.enabled).map((meal, index) => ({
-      id: MEAL_REMINDER_NOTIFICATION_BASE_ID + MEAL_REMINDER_TYPES.findIndex((type) => type.id === meal.id),
-      title: `Пора записать: ${meal.label} · ${meal.time}`,
-      body: `Не забудьте добавить ваш ${meal.label.toLowerCase()} в FitFlow.`,
-      schedule: { at: nextReminderDate(meal.time), repeats: true, allowWhileIdle: true },
-      channelId: MEAL_REMINDER_CHANNEL,
-      smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
-      extra: { source: 'fitflow-meal-reminder', mealId: meal.id, mealLabel: meal.label }
-    }));
+    const notifications = [];
+    state.mealReminders.meals.filter((meal) => meal.enabled).forEach((meal) => {
+      const mealIndex = MEAL_REMINDER_TYPES.findIndex((type) => type.id === meal.id);
+      const firstAt = nextReminderDate(meal.time);
+      for (let dayIndex = 0; dayIndex < MEAL_REMINDER_SCHEDULE_DAYS; dayIndex++) {
+        const at = new Date(firstAt.getTime());
+        at.setDate(at.getDate() + dayIndex);
+        notifications.push({
+          id: MEAL_REMINDER_NOTIFICATION_BASE_ID + mealIndex * MEAL_REMINDER_SCHEDULE_DAYS + dayIndex,
+          title: `Пора записать: ${meal.label} · ${meal.time}`,
+          body: `Не забудьте добавить ваш ${meal.label.toLowerCase()} в FitFlow.`,
+          schedule: { at, allowWhileIdle: true },
+          channelId: MEAL_REMINDER_CHANNEL,
+          smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
+          extra: { source: 'fitflow-meal-reminder', mealId: meal.id, mealLabel: meal.label }
+        });
+      }
+    });
     if (notifications.length) await localNotifications.schedule({ notifications });
     return { ok: true };
   } catch (e) {
     console.warn('Не удалось запланировать напоминания о питании:', e);
     return { ok: false, message: 'Не удалось включить напоминания о питании. Проверьте разрешения Android.' };
   }
+}
+
+async function refreshMealRemindersOnLaunch() {
+  if (!state.mealReminders.enabled || !getLocalNotifications()) return;
+  await scheduleMealReminders({ requestPermission: false });
 }
 
 async function updateMealRemindersEnabled(enabled) {
@@ -2584,6 +2608,7 @@ function init() {
   renderAll();
   installActivityNotificationListener();
   refreshMorningMotivationScheduleOnLaunch();
+  refreshMealRemindersOnLaunch();
 
   // Тема
   $('#theme-toggle').addEventListener('click', toggleTheme);
