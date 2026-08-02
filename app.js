@@ -1522,6 +1522,54 @@ function applySelectedMealType(items) {
   return items.map((item) => ({ ...item, mealTypeId: type ? type.id : null, mealTypeLabel: type ? type.label : null }));
 }
 
+function groupFoodItemsByMealType(items, mealTypes = getMealTypes()) {
+  const groupsById = new Map();
+  const extraGroups = [];
+  const untyped = { id: '', label: 'Без типа', items: [] };
+  const knownTypes = new Map(mealTypes.map((type) => [type.id, { id: type.id, label: type.label, items: [] }]));
+
+  items.forEach((item) => {
+    const typeId = String(item.mealTypeId || '');
+    let group = knownTypes.get(typeId);
+    // Сохраняем читаемую старую метку при импорте, даже если тип позже исчез из списка.
+    if (!group && typeId && item.mealTypeLabel) {
+      group = groupsById.get(typeId);
+      if (!group) {
+        group = { id: typeId, label: String(item.mealTypeLabel).trim() || 'Другой приём пищи', items: [] };
+        groupsById.set(typeId, group);
+        extraGroups.push(group);
+      }
+    }
+    (group || untyped).items.push(item);
+  });
+
+  return [
+    ...[...knownTypes.values()].filter((group) => group.items.length > 0),
+    ...extraGroups.filter((group) => group.items.length > 0),
+    ...(untyped.items.length ? [untyped] : [])
+  ].map((group) => ({
+    ...group,
+    totalKcal: group.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0)
+  }));
+}
+
+function renderFoodItem(item) {
+  return `
+    <li class="food-item" data-id="${item.id}">
+      <span class="food-item-dot" aria-hidden="true">🍴</span>
+      <div class="food-item-info">
+        <p class="food-item-name">${escapeHtml(item.name)}</p>
+        <p class="food-item-desc">${escapeHtml(item.raw)}</p>
+      </div>
+      <span class="food-item-kcal">${fmt(item.kcal)}</span>
+      <button class="food-item-remove" data-remove="${item.id}" type="button" aria-label="Удалить ${escapeHtml(item.name)}">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </li>`;
+}
+
 function renderFoodList() {
   const list = $('#food-list');
   const { items } = state.food;
@@ -1532,19 +1580,15 @@ function renderFoodList() {
     return;
   }
 
-  list.innerHTML = items.map((it) => `
-    <li class="food-item" data-id="${it.id}">
-      <span class="food-item-dot" aria-hidden="true">🍴</span>
-      <div class="food-item-info">
-        <p class="food-item-name">${escapeHtml(it.name)}</p>
-        <p class="food-item-desc">${escapeHtml(it.raw)}${it.mealTypeLabel ? ` · ${escapeHtml(it.mealTypeLabel)}` : ''}</p>
+  list.innerHTML = groupFoodItemsByMealType(items).map((group) => `
+    <li class="food-group">
+      <div class="food-group-header">
+        <h3>${escapeHtml(group.label)}</h3>
+        <span aria-label="Итого ${fmt(group.totalKcal)} килокалорий">${fmt(group.totalKcal)} ккал</span>
       </div>
-      <span class="food-item-kcal">${fmt(it.kcal)}</span>
-      <button class="food-item-remove" data-remove="${it.id}" type="button" aria-label="Удалить">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <ul class="food-group-items" aria-label="${escapeHtml(group.label)}">
+        ${group.items.map(renderFoodItem).join('')}
+      </ul>
     </li>`).join('');
 }
 
@@ -3415,6 +3459,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType
   };
 }

@@ -2119,3 +2119,11 @@ html[data-theme="dark"] .segmented button.active {
 /* Не наследуем ширину и размер старых кнопок списка в новых карточках. */
 .profile-card-header button, .profile-card-actions button { width: auto; }
 .profile-card-actions .profile-edit-btn, .profile-card-actions .profile-delete-btn { flex: 1; width: auto; padding: 8px 9px; }
+
+/* ---------- Дневник питания по приёмам пищи ---------- */
+.food-group { list-style: none; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-low); }
+.food-group-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.food-group-header h3 { margin: 0; min-width: 0; font-size: .82rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-group-header span { flex: 0 0 auto; font-size: .76rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.food-group-items { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 7px; list-style: none; }
+.food-group-items .food-item { background: var(--md-sys-color-surface-container-high); }

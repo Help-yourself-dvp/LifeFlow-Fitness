@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -146,6 +146,22 @@ const smartDictionary = parseSmartEntry('велосипед 20 минут съе
 const smartDictionaryOk = smartDictionary.waterMl === 500 && smartDictionary.activities[0]?.type === 'bike' && smartDictionary.food.some((item) => item.name === 'гречка');
 if (!smartDictionaryOk) failed++;
 console.log(`${smartDictionaryOk ? '✓' : '✗'} справочник команд: велосипед, грешка и пол литра`);
+
+const foodGroups = groupFoodItemsByMealType([
+  { id: '1', name: 'овсянка', kcal: 280, mealTypeId: 'breakfast', mealTypeLabel: 'Завтрак' },
+  { id: '2', name: 'банан', kcal: 105, mealTypeId: 'breakfast', mealTypeLabel: 'Завтрак' },
+  { id: '3', name: 'борщ', kcal: 147, mealTypeId: 'lunch', mealTypeLabel: 'Обед' },
+  { id: '4', name: 'чай', kcal: 2 }
+], [
+  { id: 'breakfast', label: 'Завтрак' },
+  { id: 'lunch', label: 'Обед' }
+]);
+const foodGroupsOk = foodGroups.length === 3
+  && foodGroups[0].label === 'Завтрак' && foodGroups[0].items.length === 2 && foodGroups[0].totalKcal === 385
+  && foodGroups[1].label === 'Обед' && foodGroups[1].totalKcal === 147
+  && foodGroups[2].label === 'Без типа' && foodGroups[2].totalKcal === 2;
+if (!foodGroupsOk) failed++;
+console.log(`${foodGroupsOk ? '✓' : '✗'} питание сгруппировано по приёмам пищи`);
 
 const morning = new Date(2026, 7, 2, 10, 0, 0);
 const reminderPolicy = [
