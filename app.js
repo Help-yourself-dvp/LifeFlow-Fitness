@@ -134,7 +134,7 @@ const FOOD_DB = {
   'топленое молоко': { kcal: 84 }, 'кефир': { kcal: 40 }, 'ряженка': { kcal: 67 },
   'йогурт': { kcal: 72 }, 'греческий йогурт': { kcal: 73 }, 'йогурт питьевой': { kcal: 65 },
   'простокваша': { kcal: 53 }, 'айран': { kcal: 24 }, 'тан': { kcal: 24 },
-  'кумыс': { kcal: 50 }, 'снежок': { kcal: 79 }, 'сметана': { kcal: 210 },
+  'кумыс': { kcal: 50 }, 'снежок': { kcal: 79 }, 'сметана': { kcal: 210 }, 'сметаны': { kcal: 210 }, 'сметану': { kcal: 210 },
   'сметана 15%': { kcal: 158 }, 'сметана 20%': { kcal: 206 }, 'сливки': { kcal: 205 },
   'сливки 10%': { kcal: 118 }, 'сливки 20%': { kcal: 205 }, 'сливки 33%': { kcal: 337 },
   'сгущенка': { kcal: 320 }, 'вареная сгущенка': { kcal: 328 }, 'мороженое': { kcal: 230 },
@@ -490,10 +490,19 @@ function parseItem(text) {
     unit = amountMatch[2].toLowerCase().trim();
   }
 
+  // Поддержка разговорной формы «ложка сметаны» без цифры.
+  const implicitSpoon = !amountMatch && text.match(/^(?:столовая\s+|чайная\s+)?ложк[аиу]\s+(.+)$/iu);
+  if (implicitSpoon) {
+    amount = 1;
+    unit = 'ложка';
+  }
+
   // 2) Имя продукта — всё, что до числа
   let name = text;
   if (amountMatch) {
     name = text.slice(0, amountMatch.index);
+  } else if (implicitSpoon) {
+    name = implicitSpoon[1];
   }
   name = name
     .toLowerCase()
@@ -1658,7 +1667,9 @@ function removeActivityTemplate(id) {
 /* ============================================================
    Вечернее напоминание об активности (Capacitor Local Notifications)
    ============================================================ */
-const TRAINING_REMINDER_ID = 71001;
+const LEGACY_TRAINING_REMINDER_ID = 71001;
+const TRAINING_REMINDER_BASE_ID = 76000;
+const TRAINING_REMINDER_SCHEDULE_DAYS = 14;
 const ACTIVITY_TEST_NOTIFICATION_ID = 71002;
 const LEGACY_MEAL_REMINDER_NOTIFICATION_BASE_ID = 73000;
 const MEAL_REMINDER_NOTIFICATION_BASE_ID = 73200;
@@ -1845,61 +1856,67 @@ async function ensureTrainingReminderChannel(localNotifications) {
   });
 }
 
-async function removeDeliveredTrainingReminder(localNotifications = getLocalNotifications()) {
+function activityReminderId(dateKey) {
+  let hash = 2166136261;
+  for (let i = 0; i < dateKey.length; i++) { hash ^= dateKey.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return TRAINING_REMINDER_BASE_ID + ((hash >>> 0) % 900000);
+}
+
+function activityReminderIds() {
+  const ids = [LEGACY_TRAINING_REMINDER_ID];
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  for (let offset = 0; offset <= TRAINING_REMINDER_SCHEDULE_DAYS; offset++) {
+    const day = new Date(base.getTime()); day.setDate(day.getDate() + offset);
+    const date = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+    ids.push(activityReminderId(date));
+  }
+  return ids;
+}
+
+async function removeDeliveredTrainingReminder(localNotifications = getLocalNotifications(), id = null) {
   if (!localNotifications || typeof localNotifications.removeDeliveredNotifications !== 'function') return false;
   try {
-    await localNotifications.removeDeliveredNotifications({ notifications: [{ id: TRAINING_REMINDER_ID }] });
+    await localNotifications.removeDeliveredNotifications({ notifications: [{ id: id || LEGACY_TRAINING_REMINDER_ID }] });
     return true;
-  } catch (e) {
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
-async function cancelTrainingReminder() {
-  const localNotifications = getLocalNotifications();
+async function cancelTrainingReminder(localNotifications = getLocalNotifications()) {
   if (!localNotifications) return false;
   try {
-    await localNotifications.cancel({ notifications: [{ id: TRAINING_REMINDER_ID }] });
-    await removeDeliveredTrainingReminder(localNotifications);
+    await localNotifications.cancel({ notifications: activityReminderIds().map((id) => ({ id })) });
     return true;
-  } catch (e) {
-    // Уведомления с таким id может ещё не быть — это нормальная ситуация.
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
-async function scheduleTrainingReminder({ skipToday = false, clearDelivered = false } = {}) {
+async function scheduleTrainingReminder({ skipToday = false, clearDelivered = false, requestPermission = true } = {}) {
   const localNotifications = getLocalNotifications();
-  if (!localNotifications) {
-    return { ok: false, message: 'Напоминания работают в Android-приложении, а не в браузере.' };
-  }
-
-  const allowed = await ensureNotificationPermission(localNotifications);
-  if (!allowed) {
-    return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминание.' };
-  }
-
+  if (!localNotifications) return { ok: false, message: 'Напоминания работают в Android-приложении, а не в браузере.' };
+  let allowed = false;
+  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминание.' };
   try {
     await ensureTrainingReminderChannel(localNotifications);
-    await cancelTrainingReminder();
-    if (clearDelivered) await removeDeliveredTrainingReminder(localNotifications);
-    await localNotifications.schedule({
-      notifications: [{
-        id: TRAINING_REMINDER_ID,
+    await cancelTrainingReminder(localNotifications);
+    const firstAt = nextReminderDate(state.reminders.time, skipToday);
+    const notifications = [];
+    for (let dayIndex = 0; dayIndex < TRAINING_REMINDER_SCHEDULE_DAYS; dayIndex++) {
+      const at = new Date(firstAt.getTime()); at.setDate(at.getDate() + dayIndex);
+      const date = `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,'0')}-${String(at.getDate()).padStart(2,'0')}`;
+      if (hasWorkoutToday() && date === todayKey()) continue;
+      notifications.push({
+        id: activityReminderId(date),
         title: 'Была сегодня активность?',
         body: 'Откройте FitFlow, чтобы отметить прогулку, спорт или активный отдых.',
-        schedule: {
-          at: nextReminderDate(state.reminders.time, skipToday),
-          repeats: true,
-          allowWhileIdle: true
-        },
+        schedule: { at, allowWhileIdle: true },
         channelId: TRAINING_REMINDER_CHANNEL,
-        smallIcon: 'ic_stat_icon',
-        iconColor: '#00696B',
-        autoCancel: true,
+        smallIcon: 'ic_stat_icon', iconColor: '#00696B', autoCancel: true,
         extra: { source: 'fitflow-training-reminder' }
-      }]
-    });
+      });
+    }
+    if (notifications.length) await localNotifications.schedule({ notifications });
+    if (clearDelivered) await removeDeliveredTrainingReminder(localNotifications);
     return { ok: true };
   } catch (e) {
     console.warn('Не удалось запланировать вечернее напоминание:', e);
@@ -1907,28 +1924,9 @@ async function scheduleTrainingReminder({ skipToday = false, clearDelivered = fa
   }
 }
 
-function openMorningThemeDialog() {
-  const dialog = $('#morning-theme-dialog');
-  if (dialog) dialog.hidden = false;
-  renderMorningMotivationSettings();
-}
-
-function closeMorningThemeDialog() {
-  const dialog = $('#morning-theme-dialog');
-  if (dialog) dialog.hidden = true;
-}
-
-function showMorningMessageDialog(message) {
-  const dialog = $('#morning-message-dialog');
-  const text = $('#morning-message-dialog-text');
-  if (!dialog || !text) return;
-  text.textContent = message || 'Пусть сегодняшний день будет добрым к вам.';
-  dialog.hidden = false;
-}
-
-function closeMorningMessageDialog() {
-  const dialog = $('#morning-message-dialog');
-  if (dialog) dialog.hidden = true;
+async function refreshTrainingReminderOnLaunch() {
+  if (!state.reminders.enabled || !getLocalNotifications()) return;
+  await scheduleTrainingReminder({ skipToday: hasWorkoutToday(), requestPermission: false });
 }
 
 function installActivityNotificationListener() {
@@ -1940,13 +1938,13 @@ function installActivityNotificationListener() {
     localNotifications.addListener('localNotificationActionPerformed', async (event) => {
       const notification = event && event.notification;
       if (!notification) return;
-      if (notification.id === TRAINING_REMINDER_ID) {
-        await removeDeliveredTrainingReminder(localNotifications);
+      const extra = notification.extra || {};
+      if (extra.source === 'fitflow-training-reminder') {
+        await removeDeliveredTrainingReminder(localNotifications, notification.id);
         switchView('training');
         toast('Была сегодня активность? Выберите вид и добавьте запись.');
         return;
       }
-      const extra = notification.extra || {};
       if (extra.source === 'fitflow-meal-reminder') {
         switchView('home');
         selectedMealTypeId = extra.mealId || '';
@@ -2773,6 +2771,7 @@ function init() {
   installActivityNotificationListener();
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
+  refreshTrainingReminderOnLaunch();
 
   // Тема
   $('#theme-toggle').addEventListener('click', toggleTheme);
@@ -2827,8 +2826,6 @@ function init() {
   // Заглушки неактивных разделов
   $('#food-ai-badge').addEventListener('click', () =>
     toast('ИИ-разбор фраз: Gemini / DeepSeek / YandexGPT — подключим позже'));
-  $('#food-mic').addEventListener('click', () =>
-    toast('Голосовой ввод — скоро'));
 
   // Навигация
   $$('.nav-item').forEach((btn) => {
