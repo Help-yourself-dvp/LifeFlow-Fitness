@@ -18,8 +18,8 @@
     <div class="brand">
       <div class="brand-logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
-          <path d="M12 2.5c-4 4.2-6.5 7.6-6.5 10.6a6.5 6.5 0 0 0 13 0C18.5 10.1 16 6.7 12 2.5Z"
-                fill="currentColor"/>
+          <path d="M4 14.5c2.1-3.4 4.3-3.4 6.4 0s4.3 3.4 6.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M4 9.5c2.1-3.4 4.3-3.4 6.4 0s4.3 3.4 6.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </div>
       <div class="brand-text">
@@ -29,14 +29,12 @@
     </div>
 
     <div class="topbar-actions">
-      <span class="local-badge" title="Все данные хранятся локально">
+      <button class="privacy-help" id="privacy-help" type="button" aria-label="О приватности и работе без интернета" title="О приватности">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z"
-                stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <path d="m9 12 2 2 4-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </svg>
-        <span>Офлайн</span>
-      </span>
+      </button>
       <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Светлая / тёмная тема">
         <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
@@ -401,21 +399,17 @@
           <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
         </label>
 
-        <section class="collapsible-block">
-          <button class="collapsible-toggle" type="button" data-collapse-target="activity-template-create-content" aria-expanded="false">
-            <span>Сохранить как готовый вариант</span><span aria-hidden="true">⌄</span>
-          </button>
-          <div class="collapsible-content" id="activity-template-create-content"><div class="activity-template-create">
-            <label for="activity-template-name">Название для готового варианта</label>
-            <div class="activity-template-create-row">
-              <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
-              <button class="btn btn-secondary" id="activity-template-save" type="button">Сохранить</button>
-            </div>
-            <p class="training-hint">Используются выбранные вид и длительность выше.</p>
-          </div></div>
-        </section>
+        <label class="activity-save-template-toggle">
+          <input id="activity-save-template" type="checkbox">
+          <span>Одновременно сохранить как готовый вариант</span>
+        </label>
+        <div class="activity-template-inline" id="activity-template-inline">
+          <label for="activity-template-name">Название готового варианта</label>
+          <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
+          <p class="training-hint">Сохранится вместе с текущей записью, без повторного ввода времени.</p>
+        </div>
 
-        <button class="btn btn-primary training-add-btn" type="submit">Добавить активность</button>
+        <button class="btn btn-primary training-add-btn" type="submit">Сохранить активность</button>
       </form>
 
       <ul class="workout-list" id="training-list" aria-live="polite"></ul>
@@ -520,7 +514,7 @@
 
       <div class="settings-group">
         <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1.20 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+        <p class="settings-hint">FitFlow v0.1.21 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
         <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
       </div>
     </section>
@@ -620,28 +614,47 @@
     </button>
   </nav>
 
-  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Активность</button>
+  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Новая запись</button>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="terms-blocked-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-blocked-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⛔</div>
+      <h2 id="terms-blocked-title">Использование недоступно</h2>
+      <p>Для использования FitFlow необходимо принять условия. При следующем запуске они будут показаны снова.</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="terms-blocked-ok" type="button">ОК</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="privacy-dialog" role="dialog" aria-modal="true" aria-labelledby="privacy-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🛡️</div>
+      <h2 id="privacy-dialog-title">Приватность и работа без интернета</h2>
+      <p>FitFlow работает без обязательного Интернета. Вода, питание, активность, уведомления и резервные копии хранятся на вашем устройстве. Регистрация и аккаунт не требуются.</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="privacy-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
   <div class="app-dialog-backdrop" id="terms-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-dialog-title" hidden>
     <section class="app-dialog terms-dialog">
       <div class="app-dialog-icon" aria-hidden="true">🛡️</div>
-      <h2 id="terms-dialog-title">Перед началом</h2>
-      <p>FitFlow помогает вести личные записи воды, питания и активности. Перед использованием подтвердите условия.</p>
+      <h2 id="terms-dialog-title">Условия использования</h2>
+      <p>Перед использованием FitFlow ознакомьтесь с условиями и подтвердите их принятие.</p>
       <div class="terms-list">
-        <p><b>Информационный сервис.</b> Приложение не является медицинским сервисом и не заменяет врача, диетолога, тренера или психолога.</p>
-        <p><b>Данные приблизительны.</b> Калории, цели и подсказки носят справочный характер. Не используйте их для самодиагностики или лечения.</p>
-        <p><b>Личная ответственность.</b> Решения о здоровье, питании и нагрузках вы принимаете самостоятельно. При жалобах или заболеваниях обратитесь к специалисту.</p>
-        <p><b>Приватность.</b> Данные хранятся на этом устройстве. Сделайте резервную копию перед переустановкой приложения.</p>
+        <p><b>Справочный характер.</b> FitFlow предназначен только для личного учёта воды, питания и активности и не является медицинским изделием или услугой.</p>
+        <p><b>Нет медицинских рекомендаций.</b> Приложение не заменяет консультацию врача, диетолога, тренера, психолога или другого квалифицированного специалиста.</p>
+        <p><b>Приблизительность расчётов.</b> Калорийность, цели, графики, уведомления и иные сведения имеют информационный характер и не предназначены для диагностики, лечения или принятия решений при неотложных состояниях.</p>
+        <p><b>Ответственное использование.</b> Пользователь самостоятельно оценивает состояние здоровья и нагрузку. При жалобах, заболеваниях или сомнениях необходимо обратиться к специалисту.</p>
+        <p><b>Данные и резервные копии.</b> Записи хранятся на устройстве пользователя. Пользователь самостоятельно создаёт резервные копии перед переустановкой или заменой устройства.</p>
       </div>
-      <p class="app-dialog-hint">Продолжая, вы принимаете эти условия использования.</p>
+      <p class="app-dialog-hint">Нажатием «Понимаю и принимаю» вы подтверждаете ознакомление с условиями.</p>
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="terms-decline" type="button">Не принимаю</button>
         <button class="btn btn-primary" id="terms-accept" type="button">Понимаю и принимаю</button>
       </div>
-      <p class="terms-decline-hint" id="terms-decline-hint" hidden>Без принятия условий использовать приложение нельзя. Вы можете закрыть приложение.</p>
+      <p class="terms-decline-hint" id="terms-decline-hint" hidden>Без принятия условий использовать приложение нельзя.</p>
     </section>
   </div>
 

@@ -1945,3 +1945,63 @@ html[data-theme="dark"] .segmented button.active {
 .terms-list p { margin: 0; padding: 9px 10px; background: var(--md-sys-color-surface-container-high); border-radius: 12px; font-size: 0.78rem; line-height: 1.42; }
 .terms-list b { color: var(--md-sys-color-on-surface); }
 .terms-decline-hint { color: var(--md-sys-color-error) !important; font-weight: 700; }
+
+/* ---------- Уточнения активности, приватности и воды ---------- */
+.privacy-help {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 50%;
+}
+.privacy-help svg { width: 21px; height: 21px; }
+
+.chip-water-bottle {
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-radius: 8px;
+}
+.chip-water-bottle svg { width: 18px; height: 18px; }
+
+.training-form > .activity-templates-section { order: 10; }
+.training-form > .activity-save-template-toggle { order: 2; }
+.training-form > .activity-template-inline { order: 3; }
+.training-form > .training-add-btn { order: 1; }
+
+.activity-save-template-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.activity-save-template-toggle input { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
+.activity-template-inline {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.activity-template-inline > * { overflow: hidden; }
+.activity-template-inline.is-open { grid-template-rows: 1fr; }
+.activity-template-inline.is-open > * { margin-top: 2px; }
+.activity-template-inline label { color: var(--md-sys-color-on-surface-variant); font-size: 0.78rem; font-weight: 700; }
+.activity-template-inline input { margin-top: 6px; padding: 10px 11px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 13px; font: inherit; font-size: 0.84rem; }
+
+@media (max-width: 420px) {
+  .manual-food-row { flex-wrap: wrap; }
+  #manual-food-name { flex-basis: 100%; }
+  #manual-food-kcal { flex: 1; width: auto; }
+  .manual-food-section .settings-row { display: grid; grid-template-columns: 1fr; }
+  .manual-food-section .btn { width: 100%; white-space: normal; }
+  .collapsible-toggle span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .activity-template-create-row { flex-wrap: wrap; }
+  .activity-template-create-row input { flex-basis: 100%; }
+  .activity-template-create-row .btn { width: 100%; }
+}
+.activity-template-inline { display: block; max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+.activity-template-inline.is-open { max-height: 190px; }

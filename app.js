@@ -1395,6 +1395,13 @@ async function addActivity(template = null) {
     : (ACTIVITY_TYPES[selectedActivityType] ? selectedActivityType : 'other');
   const title = template ? template.name : null;
   const note = template ? null : normalizeOptionalNote($('#activity-note').value);
+  const saveAsTemplate = !template && $('#activity-save-template').checked;
+  const templateName = saveAsTemplate ? normalizeActivityName($('#activity-template-name').value) : null;
+  if (saveAsTemplate && !templateName) {
+    toast('Введите название готового варианта или выключите сохранение шаблона');
+    $('#activity-template-name').focus();
+    return;
+  }
   state.workouts.unshift({
     id: uid(),
     date: todayKey(),
@@ -1404,10 +1411,19 @@ async function addActivity(template = null) {
     durationMinutes,
     createdAt: Date.now()
   });
+  if (saveAsTemplate) {
+    state.activityTemplates.unshift({
+      id: uid(), name: templateName, type, durationMinutes, createdAt: Date.now()
+    });
+    normalizeActivityTemplates();
+  }
   saveState();
   if (!template) {
     durationInput.value = '';
     $('#activity-note').value = '';
+    $('#activity-save-template').checked = false;
+    $('#activity-template-name').value = '';
+    $('#activity-template-inline').classList.remove('is-open');
   }
   renderTraining();
 
@@ -2060,8 +2076,33 @@ function acceptTerms() {
 }
 
 function declineTerms() {
-  const hint = $('#terms-decline-hint');
-  if (hint) hint.hidden = false;
+  const terms = $('#terms-dialog');
+  const blocked = $('#terms-blocked-dialog');
+  if (terms) terms.hidden = true;
+  if (blocked) blocked.hidden = false;
+}
+
+function closeApplicationAfterTermsDecline() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.closeApp === 'function') {
+      window.FitFlowExport.closeApp();
+      return;
+    }
+  } catch (e) {
+    console.warn('Не удалось закрыть приложение:', e);
+  }
+  // В браузере окно нельзя гарантированно закрыть; условия останутся при следующем запуске.
+  try { window.close(); } catch (e) { }
+}
+
+function openPrivacyDialog() {
+  const dialog = $('#privacy-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closePrivacyDialog() {
+  const dialog = $('#privacy-dialog');
+  if (dialog) dialog.hidden = true;
 }
 
 function hasSeenActivityReminderPrompt() {
@@ -2508,7 +2549,10 @@ function init() {
     const btn = e.target.closest('[data-remove-workout]');
     if (btn) removeWorkout(btn.dataset.removeWorkout);
   });
-  $('#activity-template-save').addEventListener('click', saveCurrentAsActivityTemplate);
+  $('#activity-save-template').addEventListener('change', (e) => {
+    $('#activity-template-inline').classList.toggle('is-open', e.target.checked);
+    if (e.target.checked) $('#activity-template-name').focus();
+  });
   $('#activity-templates').addEventListener('click', (e) => {
     const useButton = e.target.closest('[data-use-template]');
     if (useButton) {
@@ -2525,6 +2569,9 @@ function init() {
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
   $('#terms-accept').addEventListener('click', acceptTerms);
   $('#terms-decline').addEventListener('click', declineTerms);
+  $('#terms-blocked-ok').addEventListener('click', closeApplicationAfterTermsDecline);
+  $('#privacy-help').addEventListener('click', openPrivacyDialog);
+  $('#privacy-dialog-ok').addEventListener('click', closePrivacyDialog);
   $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
   // Настройки: тема
