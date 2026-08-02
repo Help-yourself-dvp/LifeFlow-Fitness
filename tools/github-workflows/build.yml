@@ -210,6 +210,7 @@ jobs:
                                       .putInt("foodTotal", data.optInt("foodTotal", 0))
                                       .putInt("foodGoal", data.optInt("foodGoal", 2000))
                                       .putInt("activityMinutes", data.optInt("activityMinutes", 0))
+                                      .putString("profileName", data.optString("profileName", "Мой профиль"))
                                       .putString("date", data.optString("date", ""))
                                       .apply();
                                   FitFlowWidgetProvider.updateAll(MainActivity.this);
@@ -459,12 +460,15 @@ jobs:
                   int food = prefs.getInt("foodTotal", 0);
                   int foodGoal = prefs.getInt("foodGoal", 2000);
                   int activity = prefs.getInt("activityMinutes", 0);
+                  String profileName = prefs.getString("profileName", "Мой профиль");
+                  if (profileName == null || profileName.trim().length() == 0) profileName = "Мой профиль";
 
                   Bundle options = manager.getAppWidgetOptions(id);
                   int maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 180);
                   int maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110);
                   boolean large = maxWidth >= 250 || maxHeight >= 180;
                   RemoteViews views = new RemoteViews(context.getPackageName(), large ? R.layout.fitflow_widget_large : R.layout.fitflow_widget);
+                  views.setTextViewText(R.id.widget_profile, "Профиль: " + profileName);
                   views.setTextViewText(R.id.widget_water, "Вода: " + water + " / " + waterGoal + " мл");
                   views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
                   views.setProgressBar(R.id.widget_water_bar, 100, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)), false);
@@ -617,6 +621,7 @@ jobs:
               '    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"\n'
               '    android:background="@drawable/fitflow_widget_background" android:orientation="vertical" android:padding="14dp">\n'
               '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="11sp" android:fontFamily="sans-serif-medium" />\n'
+              '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="10sp" android:ellipsize="end" android:singleLine="true" />\n'
               '    <TextView android:id="@+id/widget_water" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Вода: 0 / 2500 мл" android:textColor="#002021" android:textSize="15sp" android:fontFamily="sans-serif-medium" />\n'
               '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
               '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
@@ -628,6 +633,7 @@ jobs:
               '    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"\n'
               '    android:background="@drawable/fitflow_widget_background" android:orientation="vertical" android:padding="16dp">\n'
               '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="12sp" android:fontFamily="sans-serif-medium" />\n'
+              '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="11sp" android:ellipsize="end" android:singleLine="true" />\n'
               '    <TextView android:id="@+id/widget_water" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="Вода: 0 / 2500 мл" android:textColor="#002021" android:textSize="16sp" android:fontFamily="sans-serif-medium" />\n'
               '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
               '    <TextView android:id="@+id/widget_water_pct" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0% цели" android:textColor="#00696B" android:textSize="12sp" />\n'

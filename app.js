@@ -1307,12 +1307,15 @@ function updateNativeWidget() {
       .filter((workout) => workout.date === todayKey())
       .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
     const foodTotal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+    const activeProfile = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
+    const profileName = String(activeProfile ? activeProfile.name : 'Мой профиль').slice(0, 40);
     window.FitFlowExport.updateWidget(JSON.stringify({
       waterTotal: state.water.total,
       waterGoal: state.water.goal,
       foodTotal,
       foodGoal: state.food.goal,
       activityMinutes,
+      profileName,
       date: todayKey()
     }));
   } catch (e) {
