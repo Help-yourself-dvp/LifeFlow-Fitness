@@ -142,6 +142,11 @@ const smartMultiOk = smartMulti.waterMl === 500 && smartMulti.activities.length 
 if (!smartMultiOk) failed++;
 console.log(`${smartMultiOk ? '✓' : '✗'} быстрый ввод: бег, плавание, банан, гречка и 2 стакана воды`);
 
+const smartDictionary = parseSmartEntry('велосипед 20 минут съел грешка выпил пол литра воды');
+const smartDictionaryOk = smartDictionary.waterMl === 500 && smartDictionary.activities[0]?.type === 'bike' && smartDictionary.food.some((item) => item.name === 'гречка');
+if (!smartDictionaryOk) failed++;
+console.log(`${smartDictionaryOk ? '✓' : '✗'} справочник команд: велосипед, грешка и пол литра`);
+
 const morning = new Date(2026, 7, 2, 10, 0, 0);
 const reminderPolicy = [
   [canScheduleReminderToday('15:30', false, morning), true, 'новое время сегодня'],

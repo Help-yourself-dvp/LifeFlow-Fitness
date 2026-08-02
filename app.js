@@ -401,15 +401,42 @@ function parseMealText(raw) {
   return parts.map(parseItem).filter(Boolean);
 }
 
+const COMMAND_DICTIONARY = {
+  corrections: [
+    [/поплавов|попловал|поплавал/giu, 'плавал'],
+    [/(^|\s)бана(?=\s|$)/giu, '$1банан'],
+    [/(^|\s)грешка(?=\s|$)/giu, '$1гречка'],
+    [/(^|\s)картошка(?=\s|$)/giu, '$1картофель'],
+    [/полтора\s+часа?/giu, '1.5 часа'],
+    [/пол\s+литра?/giu, '0.5 литра'],
+    [/(^|\s)(два|две)(?=\s+стакан)/giu, '$12'],
+    [/(^|\s)три(?=\s+стакан)/giu, '$13']
+  ],
+  activityTypes: [
+    { type: 'swim', pattern: /плавал|бассейн/u },
+    { type: 'cardio', pattern: /бегал|побегал|пробеж|кардио/u },
+    { type: 'strength', pattern: /тяж[её]л|силов/u },
+    { type: 'walk', pattern: /гуля|прош[её]л/u },
+    { type: 'bike', pattern: /велосипед|велопрогул/u },
+    { type: 'stretch', pattern: /растяжк|йог/u }
+  ]
+};
+
+function normalizeCommandText(text) {
+  return COMMAND_DICTIONARY.corrections.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), String(text || '').toLowerCase());
+}
+
+function detectActivityType(chunk) {
+  const found = COMMAND_DICTIONARY.activityTypes.find((entry) => entry.pattern.test(chunk));
+  return found ? found.type : 'other';
+}
+
 let pendingSmartEntry = null;
 
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
   if (!source) return { waterMl: 0, activities: [], activity: null, food: [] };
-  const lower = source.toLowerCase()
-    .replace(/поплавов|попловал|поплавал/giu, 'плавал')
-    .replace(/(^|\s)бана(?=\s|$)/giu, '$1банан')
-    .replace(/(^|\s)(два|две)(?=\s+стакан)/giu, '$12');
+  const lower = normalizeCommandText(source);
 
   let waterMl = 0;
   const waterMatch = lower.match(/(?:выпил(?:а)?|вода|воды)\D{0,24}(\d+(?:[.,]\d+)?)\s*(мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?)/iu);
@@ -419,17 +446,14 @@ function parseSmartEntry(text) {
   }
 
   const activities = [];
-  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
+  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
   let match;
   while ((match = activityPattern.exec(lower))) {
     const amount = Number(match[1].replace(',', '.'));
     const minutes = Math.round(amount * (/^час|^ч$/u.test(match[2]) ? 60 : 1));
     if (minutes < 5) continue;
     const chunk = match[0];
-    const type = /гуля|прош[её]л/u.test(chunk) ? 'walk'
-      : (/плавал|бассейн/u.test(chunk) ? 'swim'
-        : (/(?:бегал|побегал|пробеж)/u.test(chunk) ? 'cardio'
-          : (/(?:тяж[её]л|силов)/u.test(chunk) ? 'strength' : 'other')));
+    const type = detectActivityType(chunk);
     activities.push({ type, durationMinutes: minutes });
   }
 
@@ -797,6 +821,7 @@ const ACTIVITY_TYPES = {
   walk: { label: 'Прогулка', emoji: '🚶' },
   cardio: { label: 'Кардио / бег', emoji: '🏃' },
   swim: { label: 'Плавание', emoji: '🏊' },
+  bike: { label: 'Велосипед', emoji: '🚲' },
   strength: { label: 'Силовая', emoji: '🏋️' },
   stretch: { label: 'Растяжка', emoji: '🧘' },
   leisure: { label: 'Активный отдых', emoji: '⛸️' },
