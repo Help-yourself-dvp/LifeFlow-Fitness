@@ -167,6 +167,12 @@
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+        <button class="btn btn-ghost btn-mic" id="food-mic" type="button" title="Надиктовать запись" aria-label="Надиктовать запись">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="2.5" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </form>
 
       <p class="parse-error" id="food-error" hidden></p>
@@ -541,7 +547,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.29 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.30 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>

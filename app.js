@@ -425,6 +425,20 @@ function parseSmartEntry(text) {
   return { waterMl, activity, food };
 }
 
+function startVoiceEntry() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.startVoiceInput === 'function') {
+      toast('Говорите после сигнала. Можно назвать воду, еду и активность одной фразой.');
+      window.FitFlowExport.startVoiceInput();
+      return;
+    }
+  } catch (e) {
+    console.warn('Не удалось запустить голосовой ввод:', e);
+  }
+  openSmartVoiceHelp();
+  toast('Для голосового ввода нужна Android-сборка и офлайн-пакет распознавания речи.');
+}
+
 function openSmartEntry() {
   pendingSmartEntry = null;
   $('#smart-entry-preview').hidden = true;
@@ -2591,6 +2605,12 @@ if (typeof window !== 'undefined') {
   window.onBackupSaveResult = function (ok, message) {
     toast(message || (ok ? 'Резервная копия сохранена' : 'Сохранение отменено'));
   };
+  window.onVoiceInputResult = function (text) {
+    if (!text) { toast('Речь не распознана. Попробуйте ещё раз.'); return; }
+    openSmartEntry();
+    $('#smart-entry-input').value = text;
+    previewSmartEntry();
+  };
 }
 
 function importData(file) {
@@ -2796,6 +2816,7 @@ function init() {
   // Быстрые добавления
   $$('.chip[data-quick]').forEach((btn) =>
     btn.addEventListener('click', () => addFoodText(btn.dataset.quick)));
+  $('#food-mic').addEventListener('click', startVoiceEntry);
 
   $('#meal-type-picker').addEventListener('click', (e) => {
     const button = e.target.closest('[data-meal-type]');
