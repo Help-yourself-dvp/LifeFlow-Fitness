@@ -16,12 +16,12 @@
   <!-- ===== Шапка ===== -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand-logo" aria-hidden="true">
+      <button class="brand-logo" id="smart-entry-open" type="button" aria-label="Быстрый умный ввод" title="Быстрый умный ввод">
         <svg viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="8.7" stroke="currentColor" stroke-width="1.6"/>
           <path d="M4.9 12h3.2l1.8-4.2 3.1 8.2 2.1-4h3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-      </div>
+      </button>
       <div class="brand-text">
         <h1>FitFlow</h1>
         <p id="date-label">—</p>
@@ -200,8 +200,8 @@
             <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
           </div>
           <div class="settings-row">
-            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить вручную</button>
-            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Сохранить в мои блюда</button>
+            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить</button>
+            <button class="btn btn-secondary" id="manual-food-favorite" type="button">В мои блюда</button>
           </div>
         </div></div>
       </section>
@@ -547,7 +547,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.27 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.28 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -665,6 +665,36 @@
         <p><b>Важно.</b> У конкретного бренда, рецепта, размера порции и способа приготовления калорийность может отличаться. Всегда ориентируйтесь на этикетку продукта, если она доступна.</p>
       </div>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="sources-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="smart-entry-dialog" role="dialog" aria-modal="true" aria-labelledby="smart-entry-title" hidden>
+    <section class="app-dialog smart-entry-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✦</div>
+      <h2 id="smart-entry-title">Быстрый ввод</h2>
+      <p>Напишите одной фразой воду, еду и активность. FitFlow разложит понятные части по разделам и попросит подтверждение.</p>
+      <textarea id="smart-entry-input" rows="4" placeholder="Например: позанимался 45 минут, выпил 500 мл воды и съел банан"></textarea>
+      <button class="smart-help-btn" id="smart-voice-help-open" type="button">? О голосовом офлайн-вводе</button>
+      <div class="smart-preview" id="smart-entry-preview" hidden></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
+        <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
+      </div>
+      <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="smart-voice-help-dialog" role="dialog" aria-modal="true" aria-labelledby="smart-voice-help-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🎙️</div>
+      <h2 id="smart-voice-help-title">Голосовой ввод офлайн</h2>
+      <div class="terms-list">
+        <p><b>Лёгкий режим.</b> Распознаёт голос на устройстве и разбирает распространённые команды без тяжёлой модели.</p>
+        <p><b>Продвинутый режим.</b> Необязательная скачиваемая модель сможет понимать длинные свободные фразы и предлагать распределение действий.</p>
+        <p><b>Приватность.</b> После загрузки модели голос обрабатывается на устройстве, без VPN, регистрации и облачных запросов.</p>
+      </div>
+      <p class="app-dialog-hint">Голосовой режим появится после отдельного тестирования моделей. Сейчас доступен текстовый умный ввод.</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="smart-voice-help-ok" type="button">Понятно</button></div>
     </section>
   </div>
 

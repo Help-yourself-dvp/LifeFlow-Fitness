@@ -2029,3 +2029,14 @@ html[data-theme="dark"] .segmented button.active {
 .meal-type-custom-inline.is-open { display: flex; }
 .meal-type-custom-inline input { flex: 1; min-width: 0; padding: 8px 10px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 11px; font: inherit; font-size: 0.8rem; }
 @media (max-width:420px) { .meal-type-custom-inline { flex-wrap: wrap; } .meal-type-custom-inline input { flex-basis:100%; } .meal-type-custom-inline .btn { width:100%; } }
+
+/* ---------- Быстрый умный ввод ---------- */
+.brand-logo { border: 0; }
+.smart-entry-dialog { text-align: left; }
+.smart-entry-dialog h2, .smart-entry-dialog > p { text-align: center; }
+#smart-entry-input { width: 100%; margin-top: 14px; padding: 11px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; font: inherit; font-size: 0.85rem; resize: vertical; }
+.smart-help-btn { margin-top: 8px; color: var(--md-sys-color-primary); font-size: 0.78rem; font-weight: 700; }
+.smart-preview { display: grid; gap: 6px; margin-top: 12px; padding: 11px; background: var(--md-sys-color-primary-container); border-radius: 14px; font-size: 0.82rem; }
+.smart-preview p { margin: 0; }
+#smart-entry-save { width: 100%; margin-top: 10px; }
+@media (max-width:420px) { .manual-food-section { padding: 8px; } .manual-food-row input { padding: 9px 10px; } .manual-food-section .settings-row { gap: 6px; } }

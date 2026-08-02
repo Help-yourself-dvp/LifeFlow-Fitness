@@ -401,6 +401,79 @@ function parseMealText(raw) {
   return parts.map(parseItem).filter(Boolean);
 }
 
+let pendingSmartEntry = null;
+
+function parseSmartEntry(text) {
+  const source = String(text || '').trim();
+  if (!source) return { waterMl: 0, activity: null, food: [] };
+  const lower = source.toLowerCase();
+  let waterMl = 0;
+  const waterMatch = lower.match(/(?:выпил(?:а)?|вода|воды)\D{0,24}(\d+(?:[.,]\d+)?)\s*(мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?)/iu);
+  if (waterMatch) {
+    const amount = Number(waterMatch[1].replace(',', '.'));
+    waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : 1));
+  }
+  let activity = null;
+  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
+  if (activityMatch) {
+    const amount = Number(activityMatch[1].replace(',', '.'));
+    const minutes = Math.round(amount * (/^час|^ч$/u.test(activityMatch[2]) ? 60 : 1));
+    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : 'other';
+    if (minutes >= 5) activity = { type, durationMinutes: minutes };
+  }
+  const food = parseMealText(source).filter((item) => item.name !== 'вода');
+  return { waterMl, activity, food };
+}
+
+function openSmartEntry() {
+  pendingSmartEntry = null;
+  $('#smart-entry-preview').hidden = true;
+  $('#smart-entry-save').hidden = true;
+  $('#smart-entry-dialog').hidden = false;
+  setTimeout(() => $('#smart-entry-input').focus(), 100);
+}
+
+function closeSmartEntry() {
+  $('#smart-entry-dialog').hidden = true;
+  pendingSmartEntry = null;
+}
+
+function previewSmartEntry() {
+  const parsed = parseSmartEntry($('#smart-entry-input').value);
+  const lines = [];
+  if (parsed.waterMl > 0) lines.push(`💧 Вода: ${parsed.waterMl} мл`);
+  if (parsed.activity) lines.push(`🌿 Активность: ${formatWorkoutDuration(parsed.activity.durationMinutes)}`);
+  if (parsed.food.length) lines.push(`🍽️ Питание: ${parsed.food.map((item) => item.name).join(', ')} · ${fmt(parsed.food.reduce((sum, item) => sum + item.kcal, 0))} ккал`);
+  if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
+  pendingSmartEntry = parsed;
+  const preview = $('#smart-entry-preview');
+  preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}`;
+  preview.hidden = false;
+  $('#smart-entry-save').hidden = false;
+}
+
+async function saveSmartEntry() {
+  if (!pendingSmartEntry) return;
+  const parsed = pendingSmartEntry;
+  if (parsed.waterMl > 0) {
+    state.water.total += parsed.waterMl;
+    state.water.log.push({ ts: Date.now(), ml: parsed.waterMl });
+  }
+  if (parsed.food.length) state.food.items.push(...applySelectedMealType(parsed.food));
+  if (parsed.activity) state.workouts.unshift({
+    id: uid(), date: todayKey(), type: parsed.activity.type, title: null, note: 'Добавлено быстрым вводом', durationMinutes: parsed.activity.durationMinutes, createdAt: Date.now()
+  });
+  saveState();
+  renderAll();
+  await syncMealRemindersForToday();
+  await syncTrainingReminderForToday();
+  closeSmartEntry();
+  toast('Записи добавлены. Проверьте их в воде, питании и активности.');
+}
+
+function openSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = false; }
+function closeSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = true; }
+
 function parseItem(text) {
   if (!text) return null;
 
@@ -2839,6 +2912,12 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#smart-entry-open').addEventListener('click', openSmartEntry);
+  $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
+  $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
+  $('#smart-entry-save').addEventListener('click', saveSmartEntry);
+  $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
+  $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
   $('#terms-accept').addEventListener('click', acceptTerms);
   $('#terms-decline').addEventListener('click', declineTerms);
   $('#terms-blocked-ok').addEventListener('click', closeApplicationAfterTermsDecline);
@@ -2912,6 +2991,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry
   };
 }
