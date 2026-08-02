@@ -2112,6 +2112,16 @@ function openNativeNotificationSetting(which) {
 /* ============================================================
    Экран Настройки: переключение, экспорт/импорт/сброс
    ============================================================ */
+function setCollapsibleState(button, content, open) {
+  button.setAttribute('aria-expanded', String(open));
+  content.classList.toggle('is-open', open);
+}
+
+function updateActivityFab(isTraining) {
+  const fab = $('#activity-fab');
+  if (fab) fab.hidden = !isTraining;
+}
+
 function switchView(view) {
   const isHome = view === 'home';
   const isStats = view === 'stats';
@@ -2131,6 +2141,7 @@ function switchView(view) {
   $$('.nav-item').forEach((b) =>
     b.classList.toggle('active', b.dataset.nav === (isNotifications ? 'settings' : ((isWaterDetails || isFoodDetails) ? 'stats' : view))));
 
+  updateActivityFab(isTraining);
   if (isStats) renderStats();
   if (isWaterDetails) renderWaterDetails();
   if (isFoodDetails) renderFoodDetails();
@@ -2443,6 +2454,20 @@ function init() {
       activeFoodDetailPeriod = button.dataset.detailPeriod;
       renderFoodDetails();
     }));
+
+  // Раскрываемые дополнительные блоки
+  $$('.collapsible-toggle').forEach((button) => {
+    const content = $(`#${button.dataset.collapseTarget}`);
+    if (!content) return;
+    button.addEventListener('click', () =>
+      setCollapsibleState(button, content, button.getAttribute('aria-expanded') !== 'true'));
+  });
+
+  $('#activity-fab').addEventListener('click', () => {
+    const form = $('#training-form');
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => $('#workout-duration').focus(), 350);
+  });
 
   // Активность и готовые варианты
   $('#training-form').addEventListener('submit', (e) => {

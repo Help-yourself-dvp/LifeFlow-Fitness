@@ -174,22 +174,31 @@
 
       <p class="parse-error" id="food-error" hidden></p>
 
-      <div class="manual-food-section">
-        <p class="quick-label">Своё блюдо:</p>
-        <div class="manual-food-row">
-          <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
-          <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
-        </div>
-        <div class="settings-row">
-          <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить вручную</button>
-          <button class="btn btn-secondary" id="manual-food-favorite" type="button">Сохранить в мои блюда</button>
-        </div>
-      </div>
+      <section class="collapsible-block">
+        <button class="collapsible-toggle" type="button" data-collapse-target="manual-food-content" aria-expanded="false">
+          <span>Своё блюдо</span><span aria-hidden="true">⌄</span>
+        </button>
+        <div class="collapsible-content" id="manual-food-content"><div class="manual-food-section">
+          <p class="quick-label">Введите название и калории готового блюда.</p>
+          <div class="manual-food-row">
+            <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
+            <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
+          </div>
+          <div class="settings-row">
+            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить вручную</button>
+            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Сохранить в мои блюда</button>
+          </div>
+        </div></div>
+      </section>
 
-      <div class="quick-meals favorite-meals-section">
-        <span class="quick-label">Мои блюда:</span>
-        <div class="quick-chips" id="favorite-meals"></div>
-      </div>
+      <section class="collapsible-block">
+        <button class="collapsible-toggle" type="button" data-collapse-target="favorite-meals-content" aria-expanded="false">
+          <span>Мои блюда</span><span aria-hidden="true">⌄</span>
+        </button>
+        <div class="collapsible-content" id="favorite-meals-content"><div class="quick-meals favorite-meals-section">
+          <div class="quick-chips" id="favorite-meals"></div>
+        </div></div>
+      </section>
 
       <div class="quick-meals">
         <span class="quick-label">Быстрое добавление:</span>
@@ -353,10 +362,14 @@
       </div>
 
       <form id="training-form" class="training-form" autocomplete="off">
-        <div class="activity-templates-section">
-          <p class="training-field-label">Готовая активность</p>
-          <ul class="activity-template-list" id="activity-templates" aria-live="polite"></ul>
-        </div>
+        <section class="collapsible-block activity-templates-section">
+          <button class="collapsible-toggle" type="button" data-collapse-target="activity-templates-content" aria-expanded="false">
+            <span>Готовые варианты активности</span><span aria-hidden="true">⌄</span>
+          </button>
+          <div class="collapsible-content" id="activity-templates-content"><div>
+            <ul class="activity-template-list" id="activity-templates" aria-live="polite"></ul>
+          </div></div>
+        </section>
 
         <div>
           <p class="training-field-label">Вид активности</p>
@@ -383,14 +396,19 @@
           <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
         </label>
 
-        <div class="activity-template-create">
-          <label for="activity-template-name">Название для готового варианта</label>
-          <div class="activity-template-create-row">
-            <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
-            <button class="btn btn-secondary" id="activity-template-save" type="button">Сохранить как готовое</button>
-          </div>
-          <p class="training-hint">Сначала выберите вид и длительность, затем сохраните вариант для одного нажатия в следующий раз.</p>
-        </div>
+        <section class="collapsible-block">
+          <button class="collapsible-toggle" type="button" data-collapse-target="activity-template-create-content" aria-expanded="false">
+            <span>Сохранить как готовый вариант</span><span aria-hidden="true">⌄</span>
+          </button>
+          <div class="collapsible-content" id="activity-template-create-content"><div class="activity-template-create">
+            <label for="activity-template-name">Название для готового варианта</label>
+            <div class="activity-template-create-row">
+              <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
+              <button class="btn btn-secondary" id="activity-template-save" type="button">Сохранить</button>
+            </div>
+            <p class="training-hint">Используются выбранные вид и длительность выше.</p>
+          </div></div>
+        </section>
 
         <button class="btn btn-primary training-add-btn" type="submit">Добавить активность</button>
       </form>
@@ -497,7 +515,7 @@
 
       <div class="settings-group">
         <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1.18 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+        <p class="settings-hint">FitFlow v0.1.19 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
         <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
       </div>
     </section>
@@ -596,6 +614,8 @@
       <span>Настройки</span>
     </button>
   </nav>
+
+  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Активность</button>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

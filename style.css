@@ -1882,3 +1882,56 @@ html[data-theme="dark"] .segmented button.active {
 }
 
 .theme-dialog-cancel { width: 100%; margin-top: 12px; }
+
+/* ---------- Компактные раскрываемые блоки ---------- */
+.collapsible-block {
+  margin-top: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.collapsible-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 13px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.collapsible-toggle span:last-child { transition: transform 0.25s ease; }
+.collapsible-toggle[aria-expanded="true"] span:last-child { transform: rotate(180deg); }
+
+.collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+
+.collapsible-content > div { overflow: hidden; }
+.collapsible-content.is-open { grid-template-rows: 1fr; }
+.collapsible-content.is-open > div { padding: 0 1px; }
+
+.collapsible-content .manual-food-section { margin: 10px 0 0; }
+.collapsible-content .favorite-meals-section { margin: 10px 0; padding: 0 10px; }
+.collapsible-content .activity-template-create { margin: 10px; }
+.collapsible-content .activity-template-list { margin: 10px; }
+
+.activity-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(98px + env(safe-area-inset-bottom));
+  z-index: 40;
+  padding: 13px 16px;
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+  border-radius: 999px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
