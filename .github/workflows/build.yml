@@ -54,7 +54,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 34/g' android/variables.gradle
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "0.1.27"/g' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "0.1.31"/g' android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           npx cap sync android
 
@@ -76,6 +76,7 @@ jobs:
           import android.content.Intent;
           import android.content.SharedPreferences;
           import android.net.Uri;
+          import android.speech.RecognizerIntent;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.PowerManager;
@@ -90,10 +91,12 @@ jobs:
           import org.json.JSONObject;
 
           import java.io.OutputStream;
+          import java.util.ArrayList;
 
           public class MainActivity extends BridgeActivity {
 
               private static final int REQ_SAVE_BACKUP = 7301;
+              private static final int REQ_VOICE_INPUT = 7302;
               private String pendingBackupJson = null;
 
               @Override
@@ -161,6 +164,26 @@ jobs:
                       });
                   }
 
+                  /* Офлайн-предпочтительный системный голосовой ввод Android */
+                  @JavascriptInterface
+                  public void startVoiceInput() {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                                  intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                                  intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
+                                  intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
+                                  intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Расскажите о воде, еде и активности");
+                                  startActivityForResult(intent, REQ_VOICE_INPUT);
+                              } catch (Exception e) {
+                                  notifyVoiceResult("");
+                              }
+                          }
+                      });
+                  }
+
                   /* Закрыть приложение, если пользователь не принял условия */
                   @JavascriptInterface
                   public void closeApp() {
@@ -222,6 +245,18 @@ jobs:
 
               @Override
               protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  if (requestCode == REQ_VOICE_INPUT) {
+                      String text = "";
+                      try {
+                          if (resultCode == RESULT_OK && data != null) {
+                              ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                              if (results != null && !results.isEmpty()) text = results.get(0);
+                          }
+                      } catch (Exception e) {
+                      }
+                      notifyVoiceResult(text);
+                      return;
+                  }
                   if (requestCode == REQ_SAVE_BACKUP) {
                       String json = pendingBackupJson;
                       pendingBackupJson = null;
@@ -244,6 +279,21 @@ jobs:
                       return;
                   }
                   super.onActivityResult(requestCode, resultCode, data);
+              }
+
+              private void notifyVoiceResult(final String text) {
+                  runOnUiThread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              WebView wv = getBridge().getWebView();
+                              if (wv == null) return;
+                              String js = "window.onVoiceInputResult && window.onVoiceInputResult(" + JSONObject.quote(text) + ");";
+                              wv.evaluateJavascript(js, null);
+                          } catch (Exception e) {
+                          }
+                      }
+                  });
               }
 
               private void notifyBackupResult(final boolean ok, final String message) {
@@ -455,6 +505,7 @@ jobs:
           t = man.read_text(encoding='utf-8')
           perms = [
               'android.permission.POST_NOTIFICATIONS',
+              'android.permission.RECORD_AUDIO',
               'android.permission.SCHEDULE_EXACT_ALARM',
               'android.permission.USE_EXACT_ALARM',
               'android.permission.RECEIVE_BOOT_COMPLETED',
@@ -624,7 +675,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/FitFlow-v0.1.27-debug.apk
+             android/app/build/outputs/apk/debug/FitFlow-v0.1.31-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -632,15 +683,15 @@ jobs:
           name: FitFlow-APK
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.27-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.31-debug.apk
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.27-build${{ github.run_number }}
-          name: FitFlow 0.1.27 (build ${{ github.run_number }})
+          tag_name: v0.1.31-build${{ github.run_number }}
+          name: FitFlow 0.1.31 (build ${{ github.run_number }})
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.27-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.31-debug.apk
