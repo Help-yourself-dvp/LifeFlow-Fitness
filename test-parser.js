@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -184,6 +184,16 @@ const allProfilesBackupOk = allProfilesBackup && allProfilesBackup.activeProfile
   && allProfilesBackup.profiles[1].state.food.items[0].kcal === 300;
 if (!allProfilesBackupOk) failed++;
 console.log(`${allProfilesBackupOk ? '✓' : '✗'} одна копия сохраняет все профили`);
+
+const weightHistory = normalizeWeightHistory([
+  { date: '2026-07-30', weightKg: '71,2' },
+  { date: '2026-08-02', weightKg: 70.5 },
+  { date: '2026-08-02', weightKg: 70.4, updatedAt: 1 },
+  { date: '2026-08-03', weightKg: 70 }
+]);
+const weightHistoryOk = weightHistory.length === 2 && weightHistory[0].weightKg === 71.2 && weightHistory[1].weightKg === 70.4;
+if (!weightHistoryOk) failed++;
+console.log(`${weightHistoryOk ? '✓' : '✗'} история веса: дата, замена записи и допустимый диапазон`);
 
 const morning = new Date(2026, 7, 2, 10, 0, 0);
 const reminderPolicy = [

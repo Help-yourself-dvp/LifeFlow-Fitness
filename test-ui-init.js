@@ -11,7 +11,8 @@ const functions = [
   'openSourcesDialog', 'closeSourcesDialog', 'startVoiceEntry',
   'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry',
   'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog',
-  'requestAllProfilesImport', 'closeAllProfilesImportDialog', 'confirmAllProfilesImport'
+  'requestAllProfilesImport', 'closeAllProfilesImportDialog', 'confirmAllProfilesImport',
+  'renderWeightSettings', 'saveWeightFromSettings', 'removeWeightRecord'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -21,7 +22,8 @@ const ids = [
   'profile-switcher', 'profile-list', 'profile-new-name',
   'home-active-profile', 'date-weekday', 'date-month',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
-  'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm'
+  'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
+  'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list'
 ];
 
 let failed = 0;

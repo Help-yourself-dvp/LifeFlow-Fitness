@@ -665,7 +665,7 @@ const DEFAULTS = {
   reminders: { enabled: false, time: '20:00' },
   morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
   activitySettings: { weeklyGoalMinutes: 150 },
-  profileSettings: { weightKg: null },
+  profileSettings: { weightKg: null, weightHistory: [] },
   mealReminders: { enabled: false, meals: [] },
   customMealTypes: [],
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
@@ -844,7 +844,7 @@ const state = {
   reminders: { ...DEFAULTS.reminders },
   morningMotivation: { ...DEFAULTS.morningMotivation },
   activitySettings: { ...DEFAULTS.activitySettings },
-  profileSettings: { ...DEFAULTS.profileSettings },
+  profileSettings: { weightKg: null, weightHistory: [] },
   mealReminders: { ...DEFAULTS.mealReminders },
   customMealTypes: [],
   theme: null
@@ -906,10 +906,31 @@ function normalizeMorningMotivation() {
   };
 }
 
+function isValidWeightDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function normalizeWeightHistory(history) {
+  const entries = new Map();
+  (Array.isArray(history) ? history : []).forEach((entry) => {
+    const date = String(entry && entry.date || '');
+    const weight = Number(String(entry && entry.weightKg || '').replace(',', '.'));
+    if (!isValidWeightDate(date) || date > todayKey() || !Number.isFinite(weight) || weight < 25 || weight > 300) return;
+    entries.set(date, { date, weightKg: Math.round(weight * 10) / 10, updatedAt: Number(entry.updatedAt) || 0 });
+  });
+  return [...entries.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-1000);
+}
+
 function normalizeProfileSettings() {
   const profile = state.profileSettings || {};
   const weight = Number(String(profile.weightKg || '').replace(',', '.'));
-  state.profileSettings = { weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null };
+  state.profileSettings = {
+    weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null,
+    weightHistory: normalizeWeightHistory(profile.weightHistory)
+  };
 }
 
 function normalizeHomeLayoutValue(source) {
@@ -1186,12 +1207,18 @@ async function confirmDeleteProfile() {
 
 function saveProfileWeight() {
   const input = $('#profile-weight');
-  const weight = Number(String(input.value).replace(',', '.'));
-  if (!Number.isFinite(weight) || weight < 25 || weight > 300) { toast('Укажите вес от 25 до 300 кг или оставьте поле пустым'); return; }
-  state.profileSettings.weightKg = Math.round(weight * 10) / 10;
-  saveState();
-  renderTraining();
-  toast('Вес сохранён. Расход энергии будет показываться как оценка.');
+  const raw = String(input.value).trim();
+  if (!raw) {
+    state.profileSettings.weightKg = null;
+    saveState();
+    renderWeightSettings();
+    renderTraining();
+    toast('Вес для оценки активности очищен. История веса сохранена.');
+    return;
+  }
+  const weight = Number(raw.replace(',', '.'));
+  if (!saveWeightRecord(todayKey(), weight)) return;
+  toast('Вес за сегодня сохранён. Расход энергии будет показываться как оценка.');
 }
 
 function loadState() {
@@ -1298,6 +1325,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * 54;
 let activeStatsPeriod = 'week';
 let activeWaterDetailPeriod = 'week';
 let activeFoodDetailPeriod = 'week';
+let activeWeightPeriod = 'month';
 
 function updateNativeWidget() {
   if (typeof window === 'undefined' || !window.FitFlowExport
@@ -1326,6 +1354,7 @@ function updateNativeWidget() {
 function renderAll() {
   applyHomeLayout();
   renderHomeLayoutSettings();
+  renderWeightSettings();
   renderWater();
   renderFood();
   renderMealTypePicker();
@@ -1337,6 +1366,128 @@ function renderAll() {
   renderMealRemindersSettings();
   renderMorningMotivationSettings();
   updateNativeWidget();
+}
+
+function getWeightHistoryForPeriod(period = activeWeightPeriod) {
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory);
+  if (period === 'all') return history;
+  const days = period === 'week' ? 7 : 30;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+  const startKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+  return history.filter((entry) => entry.date >= startKey);
+}
+
+function formatWeightDate(dateKey) {
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${dateKey}T12:00:00`));
+}
+
+function renderWeightChart(history) {
+  const wrap = $('#weight-chart-wrap');
+  const chart = $('#weight-chart');
+  if (!wrap || !chart) return;
+  if (history.length === 0) { wrap.hidden = true; chart.innerHTML = ''; return; }
+
+  const width = 320, height = 150, left = 38, right = 12, top = 12, bottom = 28;
+  const values = history.map((entry) => entry.weightKg);
+  const rawMin = Math.min(...values), rawMax = Math.max(...values);
+  const padding = Math.max(rawMax - rawMin, 1) * 0.15;
+  const min = rawMin - padding, max = rawMax + padding;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const point = (entry, index) => {
+    const x = history.length === 1 ? left + plotWidth / 2 : left + (index / (history.length - 1)) * plotWidth;
+    const y = top + ((max - entry.weightKg) / (max - min)) * plotHeight;
+    return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+  };
+  const points = history.map(point);
+  const line = points.map((item) => `${item.x},${item.y}`).join(' ');
+  const label = (weight) => `${Number(weight.toFixed(1)).toLocaleString('ru-RU')} кг`;
+  const firstDate = formatWeightDate(history[0].date);
+  const lastDate = formatWeightDate(history[history.length - 1].date);
+  chart.setAttribute('aria-label', `График веса: от ${label(rawMin)} до ${label(rawMax)}, ${history.length} записей`);
+  chart.innerHTML = `
+    <line x1="${left}" y1="${top}" x2="${width - right}" y2="${top}" class="weight-grid" />
+    <line x1="${left}" y1="${top + plotHeight / 2}" x2="${width - right}" y2="${top + plotHeight / 2}" class="weight-grid" />
+    <line x1="${left}" y1="${top + plotHeight}" x2="${width - right}" y2="${top + plotHeight}" class="weight-grid" />
+    <text x="2" y="${top + 4}" class="weight-axis-label">${label(rawMax)}</text>
+    <text x="2" y="${top + plotHeight}" class="weight-axis-label">${label(rawMin)}</text>
+    ${history.length > 1 ? `<polyline points="${line}" class="weight-line" />` : ''}
+    ${points.map((item, index) => `<circle cx="${item.x}" cy="${item.y}" r="4" class="weight-point"><title>${formatWeightDate(history[index].date)} · ${label(history[index].weightKg)}</title></circle>`).join('')}
+    <text x="${left}" y="${height - 7}" class="weight-date-label">${escapeHtml(firstDate)}</text>
+    <text x="${width - right}" y="${height - 7}" text-anchor="end" class="weight-date-label">${escapeHtml(lastDate)}</text>`;
+  wrap.hidden = false;
+}
+
+function renderWeightSettings() {
+  const current = $('#weight-current');
+  const dateInput = $('#weight-history-date');
+  const weightInput = $('#weight-history-input');
+  const list = $('#weight-history-list');
+  if (!current || !dateInput || !weightInput || !list) return;
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory);
+  const currentWeight = state.profileSettings.weightKg;
+  current.textContent = currentWeight ? `Текущий вес для активности: ${Number(currentWeight).toLocaleString('ru-RU')} кг` : 'Вес для оценки активности пока не указан';
+  if (document.activeElement !== weightInput) weightInput.value = currentWeight || '';
+  if (!dateInput.value) dateInput.value = todayKey();
+
+  const periodHistory = getWeightHistoryForPeriod();
+  renderWeightChart(periodHistory);
+  const first = periodHistory[0];
+  const last = periodHistory[periodHistory.length - 1];
+  const hint = $('#weight-history-hint');
+  if (hint) {
+    if (!last) hint.textContent = 'Запишите вес, чтобы увидеть историю и график этого профиля.';
+    else if (periodHistory.length === 1) hint.textContent = `${formatWeightDate(last.date)} · ${Number(last.weightKg).toLocaleString('ru-RU')} кг. Добавьте следующую запись для динамики.`;
+    else {
+      const delta = Math.round((last.weightKg - first.weightKg) * 10) / 10;
+      const sign = delta > 0 ? '+' : '';
+      hint.textContent = `Изменение за период: ${sign}${Number(delta).toLocaleString('ru-RU')} кг · последняя запись ${formatWeightDate(last.date)}.`;
+    }
+  }
+  $$('#weight-periods button').forEach((button) => button.classList.toggle('active', button.dataset.weightPeriod === activeWeightPeriod));
+  list.innerHTML = history.slice().reverse().slice(0, 12).map((entry) => `
+    <li><span>${escapeHtml(formatWeightDate(entry.date))}</span><strong>${Number(entry.weightKg).toLocaleString('ru-RU')} кг</strong><button type="button" data-remove-weight="${entry.date}" aria-label="Удалить запись веса за ${escapeHtml(formatWeightDate(entry.date))}">×</button></li>`).join('') || '<li class="weight-history-empty">Записей веса пока нет.</li>';
+}
+
+function upsertWeightHistory(date, weightKg) {
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory).filter((entry) => entry.date !== date);
+  history.push({ date, weightKg: Math.round(weightKg * 10) / 10, updatedAt: Date.now() });
+  state.profileSettings.weightHistory = normalizeWeightHistory(history);
+}
+
+function saveWeightRecord(date, weight) {
+  if (!isValidWeightDate(date) || date > todayKey()) { toast('Укажите дату не позже сегодняшней'); return false; }
+  if (!Number.isFinite(weight) || weight < 25 || weight > 300) { toast('Укажите вес от 25 до 300 кг'); return false; }
+  upsertWeightHistory(date, weight);
+  if (date === todayKey()) state.profileSettings.weightKg = Math.round(weight * 10) / 10;
+  saveState();
+  renderWeightSettings();
+  renderProfiles();
+  renderTraining();
+  return true;
+}
+
+function saveWeightFromSettings() {
+  const date = $('#weight-history-date').value;
+  const weight = Number(String($('#weight-history-input').value).replace(',', '.'));
+  if (!saveWeightRecord(date, weight)) return;
+  toast(date === todayKey() ? 'Вес за сегодня сохранён' : 'Историческая запись веса сохранена');
+}
+
+function removeWeightRecord(date) {
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory).filter((entry) => entry.date !== date);
+  state.profileSettings.weightHistory = history;
+  if (date === todayKey()) {
+    const recordsToToday = history.filter((entry) => entry.date <= todayKey());
+    const latest = recordsToToday[recordsToToday.length - 1];
+    state.profileSettings.weightKg = latest ? latest.weightKg : null;
+  }
+  saveState();
+  renderWeightSettings();
+  renderProfiles();
+  renderTraining();
+  toast('Запись веса удалена');
 }
 
 function applyHomeLayout() {
@@ -3563,6 +3714,12 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#weight-form').addEventListener('submit', (e) => { e.preventDefault(); saveWeightFromSettings(); });
+  $$('#weight-periods button').forEach((button) => button.addEventListener('click', () => { activeWeightPeriod = button.dataset.weightPeriod; renderWeightSettings(); }));
+  $('#weight-history-list').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-remove-weight]');
+    if (button) removeWeightRecord(button.dataset.removeWeight);
+  });
   $('#home-layout-open').addEventListener('click', openHomeLayoutDialog);
   $('#home-layout-close').addEventListener('click', closeHomeLayoutDialog);
   $('#home-layout-list').addEventListener('change', (e) => {
@@ -3576,6 +3733,8 @@ function init() {
   $('#profile-switcher').addEventListener('click', openProfilesDialog);
   $('#profiles-dialog-cancel').addEventListener('click', closeProfilesDialog);
   $('#profile-list').addEventListener('click', (e) => {
+    const weightSaveButton = e.target.closest('#profile-weight-save');
+    if (weightSaveButton) return saveProfileWeight();
     const deleteButton = e.target.closest('[data-profile-delete]');
     if (deleteButton) return requestDeleteProfile(deleteButton.dataset.profileDelete);
     const renameButton = e.target.closest('[data-profile-rename]');
@@ -3592,7 +3751,6 @@ function init() {
   $('#profile-delete-confirm').addEventListener('click', confirmDeleteProfile);
   $('#all-profiles-import-cancel').addEventListener('click', closeAllProfilesImportDialog);
   $('#all-profiles-import-confirm').addEventListener('click', confirmAllProfilesImport);
-  $('#profile-weight-save').addEventListener('click', saveProfileWeight);
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
@@ -3682,6 +3840,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory
   };
 }

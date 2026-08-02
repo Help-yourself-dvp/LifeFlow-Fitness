@@ -468,6 +468,27 @@
         <div><strong id="profile-settings-name">Мой профиль</strong><small>Вес, цели, история и уведомления относятся к этому профилю.</small></div>
       </div>
 
+      <div class="settings-group weight-settings">
+        <div class="settings-label-row">
+          <div><p class="settings-label">Вес и динамика</p><p class="weight-current" id="weight-current">Вес пока не записан</p></div>
+        </div>
+        <form class="weight-form" id="weight-form" autocomplete="off">
+          <label class="weight-field" for="weight-history-date"><span>Дата</span><input id="weight-history-date" type="date" aria-label="Дата измерения веса"></label>
+          <label class="weight-field" for="weight-history-input"><span>Вес, кг</span><input id="weight-history-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
+          <button class="btn btn-secondary" type="submit">Записать</button>
+        </form>
+        <p class="settings-hint" id="weight-history-hint">Запись за сегодня также используется для примерной оценки расхода энергии при активности.</p>
+        <div class="segmented weight-periods" id="weight-periods" role="radiogroup" aria-label="Период графика веса">
+          <button type="button" data-weight-period="week">7 дней</button>
+          <button type="button" data-weight-period="month">30 дней</button>
+          <button type="button" data-weight-period="all">Всё время</button>
+        </div>
+        <div class="weight-chart-wrap" id="weight-chart-wrap" hidden>
+          <svg class="weight-chart" id="weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса"></svg>
+        </div>
+        <ul class="weight-history-list" id="weight-history-list"></ul>
+      </div>
+
       <div class="settings-group home-layout-settings">
         <div class="settings-label-row">
           <div><p class="settings-label">Карточки на Главной</p><p class="settings-hint" id="home-layout-status">—</p></div>
@@ -581,7 +602,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.51 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.52 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
