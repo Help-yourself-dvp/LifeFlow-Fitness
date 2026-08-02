@@ -404,10 +404,7 @@
           <span>Длительность</span>
           <span class="workout-duration-input-wrap">
             <input id="workout-duration" type="text" inputmode="decimal" placeholder="30" aria-describedby="workout-duration-hint">
-            <select id="workout-duration-unit" aria-label="Единица длительности">
-              <option value="minutes">мин</option>
-              <option value="hours">часы</option>
-            </select>
+            <button class="duration-unit-btn" id="workout-duration-unit" type="button" aria-haspopup="dialog"><span id="workout-duration-unit-label">мин</span><span aria-hidden="true">⌄</span></button>
           </span>
         </label>
         <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
@@ -513,10 +510,12 @@
           <input id="workout-reminder-time" class="time-input" type="time" value="20:00" aria-label="Время вечернего напоминания об активности">
         </div>
         <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
+      </div>
+
+      <div class="settings-group notification-settings-group">
+        <p class="settings-label">Настройки всех уведомлений</p>
         <button class="btn btn-secondary notification-setup-btn" id="notification-setup-btn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Настроить уведомления
         </button>
       </div>
@@ -552,7 +551,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.36 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.37 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -655,7 +654,7 @@
     </button>
   </nav>
 
-  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Новая запись</button>
+  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Запись</button>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -701,6 +700,28 @@
       </div>
       <p class="app-dialog-hint">Голосовой режим появится после отдельного тестирования моделей. Сейчас доступен текстовый умный ввод.</p>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="smart-voice-help-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="duration-unit-dialog" role="dialog" aria-modal="true" aria-labelledby="duration-unit-title" hidden>
+    <section class="app-dialog theme-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⏱️</div>
+      <h2 id="duration-unit-title">Единица длительности</h2>
+      <p>Выберите, в чём вводить длительность активности.</p>
+      <div class="theme-choice-list" id="duration-unit-choices">
+        <button type="button" data-duration-unit="minutes">Минуты</button>
+        <button type="button" data-duration-unit="hours">Часы</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="duration-unit-cancel" type="button">Отмена</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⚠️</div>
+      <h2 id="reset-dialog-title">Сбросить все данные?</h2>
+      <p>Будут удалены вода, питание, активность, избранные блюда, история и настройки. Это действие нельзя отменить.</p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="reset-dialog-cancel" type="button">Отмена</button><button class="btn btn-danger" id="reset-dialog-confirm" type="button">Сбросить</button></div>
     </section>
   </div>
 

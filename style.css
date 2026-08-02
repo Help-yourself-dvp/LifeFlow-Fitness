@@ -2045,3 +2045,6 @@ html[data-theme="dark"] .segmented button.active {
 .collapsible-content .manual-food-section .quick-label { display: block; padding-top: 2px; }
 .collapsible-content.is-open > div { overflow: visible; }
 .workout-duration-input-wrap select { width: 72px; padding: 7px 6px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.78rem; font-weight: 700; }
+.duration-unit-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 8px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-lowest); border:1px solid var(--md-sys-color-outline-variant); border-radius:9px; font:inherit; font-size:.78rem; font-weight:700; }
+.activity-fab { padding-left:12px; padding-right:12px; }
+.notification-settings-group { border-top:1px solid var(--md-sys-color-outline-variant); }

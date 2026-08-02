@@ -132,7 +132,7 @@ const FOOD_DB = {
   'дор блю': { kcal: 353 }, 'моцарелла': { kcal: 280 }, 'рикотта': { kcal: 174 },
   'маскарпоне': { kcal: 429 }, 'молоко': { kcal: 60 }, 'молоко 3.2%': { kcal: 59 },
   'топленое молоко': { kcal: 84 }, 'кефир': { kcal: 40 }, 'ряженка': { kcal: 67 },
-  'йогурт': { kcal: 72 }, 'греческий йогурт': { kcal: 73 }, 'йогурт питьевой': { kcal: 65 },
+  'йогурт 5%': { kcal: 92 }, 'йогурт 7%': { kcal: 110 }, 'йогурт': { kcal: 72 }, 'греческий йогурт': { kcal: 73 }, 'йогурт питьевой': { kcal: 65 },
   'простокваша': { kcal: 53 }, 'айран': { kcal: 24 }, 'тан': { kcal: 24 },
   'кумыс': { kcal: 50 }, 'снежок': { kcal: 79 }, 'сметана': { kcal: 210 }, 'сметаны': { kcal: 210 }, 'сметану': { kcal: 210 },
   'сметана 15%': { kcal: 158 }, 'сметана 20%': { kcal: 206 }, 'сливки': { kcal: 205 },
@@ -1080,6 +1080,7 @@ function renderAll() {
   renderMealTypePicker();
   renderStats();
   renderTraining();
+  renderDurationUnit();
   renderReminderSettings();
   renderMealRemindersSettings();
   renderMorningMotivationSettings();
@@ -1478,6 +1479,26 @@ function changeFoodGoal(delta) {
    Активность: история, готовые варианты и связь с напоминанием
    ============================================================ */
 let selectedActivityType = 'walk';
+let selectedDurationUnit = 'minutes';
+
+function renderDurationUnit() {
+  const label = $('#workout-duration-unit-label');
+  if (label) label.textContent = selectedDurationUnit === 'hours' ? 'часы' : 'мин';
+  $$('#duration-unit-choices button').forEach((button) => button.classList.toggle('active', button.dataset.durationUnit === selectedDurationUnit));
+}
+
+function openDurationUnitDialog() {
+  $('#duration-unit-dialog').hidden = false;
+  renderDurationUnit();
+}
+function closeDurationUnitDialog() { $('#duration-unit-dialog').hidden = true; }
+function setDurationUnit(unit) {
+  if (unit !== 'minutes' && unit !== 'hours') return;
+  selectedDurationUnit = unit;
+  closeDurationUnitDialog();
+  renderDurationUnit();
+  $('#workout-duration').placeholder = unit === 'hours' ? '0,5' : '30';
+}
 
 function parseWorkoutDuration(raw, unit = 'hours') {
   const normalized = String(raw || '').trim().replace(',', '.');
@@ -1595,7 +1616,7 @@ async function syncTrainingReminderForToday() {
 
 async function addActivity(template = null) {
   const durationInput = $('#workout-duration');
-  const durationMinutes = template ? template.durationMinutes : parseWorkoutDuration(durationInput.value, $('#workout-duration-unit').value);
+  const durationMinutes = template ? template.durationMinutes : parseWorkoutDuration(durationInput.value, selectedDurationUnit);
   if (!durationMinutes) {
     toast('Укажите длительность от 5 минут до 24 часов: например, 1,5');
     durationInput.focus();
@@ -1632,7 +1653,8 @@ async function addActivity(template = null) {
   saveState();
   if (!template) {
     durationInput.value = '';
-    $('#workout-duration-unit').value = 'minutes';
+    selectedDurationUnit = 'minutes';
+    renderDurationUnit();
     $('#activity-note').value = '';
     $('#activity-save-template').checked = false;
     $('#activity-template-name').value = '';
@@ -1652,7 +1674,7 @@ function saveCurrentAsActivityTemplate() {
   const nameInput = $('#activity-template-name');
   const durationInput = $('#workout-duration');
   const name = normalizeActivityName(nameInput.value);
-  const durationMinutes = parseWorkoutDuration(durationInput.value, $('#workout-duration-unit').value);
+  const durationMinutes = parseWorkoutDuration(durationInput.value, selectedDurationUnit);
   if (!name) {
     toast('Введите название готового варианта: от 2 до 60 символов');
     nameInput.focus();
@@ -2793,8 +2815,11 @@ function importData(file) {
   reader.readAsText(file);
 }
 
+function requestResetAll() { $('#reset-dialog').hidden = false; }
+function closeResetDialog() { $('#reset-dialog').hidden = true; }
+
 async function resetAll() {
-  if (!window.confirm('Удалить все данные FitFlow с этого устройства? Действие нельзя отменить.')) return;
+  closeResetDialog();
   await cancelTrainingReminder();
   await cancelTestActivityNotification();
   await cancelMorningMotivation();
@@ -2970,6 +2995,10 @@ function init() {
       selectedActivityType = btn.dataset.activityType;
       renderActivityTypeSelection();
     }));
+  $('#workout-duration-unit').addEventListener('click', openDurationUnitDialog);
+  $('#duration-unit-cancel').addEventListener('click', closeDurationUnitDialog);
+  $$('#duration-unit-choices button').forEach((button) =>
+    button.addEventListener('click', () => setDurationUnit(button.dataset.durationUnit)));
   $('#weekly-goal-minus').addEventListener('click', () => changeWeeklyActivityGoal(-30));
   $('#weekly-goal-plus').addEventListener('click', () => changeWeeklyActivityGoal(30));
   $('#training-list').addEventListener('click', (e) => {
@@ -3052,7 +3081,9 @@ function init() {
     if (e.target.files[0]) importData(e.target.files[0]);
     e.target.value = '';
   });
-  bindEvent('#reset-btn', 'click', resetAll);
+  bindEvent('#reset-btn', 'click', requestResetAll);
+  $('#reset-dialog-cancel').addEventListener('click', closeResetDialog);
+  $('#reset-dialog-confirm').addEventListener('click', resetAll);
 
   // После возврата из системных настроек обновляем статусы разрешений.
   document.addEventListener('visibilitychange', () => {
