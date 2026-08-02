@@ -687,9 +687,13 @@ function getMealTypes() {
 
 function normalizeMealReminders() {
   const source = state.mealReminders || {};
-  const map = new Map((Array.isArray(source.meals) ? source.meals : []).map((meal) => [meal.id, meal]));
+  // Версия 2 безопасно отключает старые повторяющиеся напоминания v0.1.24.
+  // Пользователь заново выбирает только нужные приёмы пищи.
+  const legacy = source.version !== 2;
+  const map = new Map((legacy ? [] : (Array.isArray(source.meals) ? source.meals : [])).map((meal) => [meal.id, meal]));
   state.mealReminders = {
-    enabled: source.enabled === true,
+    version: 2,
+    enabled: legacy ? false : source.enabled === true,
     meals: getMealTypes().map((type) => {
       const meal = map.get(type.id) || {};
       return { id: type.id, label: type.label, enabled: meal.enabled === true, time: isValidReminderTime(meal.time) ? meal.time : type.time };
