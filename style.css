@@ -2066,3 +2066,6 @@ html[data-theme="dark"] .segmented button.active {
 .activity-intensity { display:grid; gap:6px; }
 .activity-intensity .chip.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
 .energy-estimate { color:var(--md-sys-color-primary); font-weight:700; }
+.profile-list .profile-row { display:flex; gap:6px; }
+.profile-list .profile-row > button:first-child { flex:1; }
+.profile-list .profile-delete-btn { flex:0 0 40px; width:40px; padding:0; color:var(--md-sys-color-on-error-container); background:var(--md-sys-color-error-container); justify-content:center; font-size:1.1rem; }

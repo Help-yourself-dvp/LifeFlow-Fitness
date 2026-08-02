@@ -999,12 +999,17 @@ function renderProfiles() {
   if (label) label.textContent = active ? active.name : 'Мой профиль';
   const weightInput = $('#profile-weight');
   if (weightInput) weightInput.value = state.profileSettings.weightKg || '';
+  const currentName = $('#profile-current-name');
+  if (currentName) currentName.value = active ? active.name : '';
   const list = $('#profile-list');
   if (!list) return;
   list.innerHTML = profilesState.profiles.map((profile) => `
-    <button type="button" data-profile-id="${profile.id}" class="${profile.id === profilesState.activeId ? 'active' : ''}">
-      <span>${escapeHtml(profile.name)}</span><span>${profile.id === profilesState.activeId ? '✓' : ''}</span>
-    </button>`).join('');
+    <div class="profile-row">
+      <button type="button" data-profile-id="${profile.id}" class="${profile.id === profilesState.activeId ? 'active' : ''}">
+        <span>${escapeHtml(profile.name)}</span><span>${profile.id === profilesState.activeId ? '✓' : ''}</span>
+      </button>
+      ${profile.id !== 'default' ? `<button class="profile-delete-btn" type="button" data-profile-delete="${profile.id}" aria-label="Удалить профиль ${escapeHtml(profile.name)}">×</button>` : ''}
+    </div>`).join('');
 }
 
 function openProfilesDialog() {
@@ -1031,6 +1036,43 @@ function addProfile() {
   profilesState.profiles.push({ id, name });
   saveProfiles();
   switchProfile(id);
+}
+
+function renameCurrentProfile() {
+  const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
+  const name = normalizeActivityName($('#profile-current-name').value);
+  if (!active || !name) { toast('Введите название профиля'); return; }
+  active.name = name;
+  saveProfiles();
+  renderProfiles();
+  toast('Профиль переименован');
+}
+
+let pendingProfileDeleteId = null;
+function requestDeleteProfile(id) {
+  const profile = profilesState.profiles.find((item) => item.id === id);
+  if (!profile || profile.id === 'default') return;
+  pendingProfileDeleteId = id;
+  $('#profile-delete-text').textContent = `Профиль «${profile.name}» и все его данные будут удалены только с этого устройства. Это нельзя отменить.`;
+  $('#profile-delete-dialog').hidden = false;
+}
+function closeDeleteProfileDialog() { pendingProfileDeleteId = null; $('#profile-delete-dialog').hidden = true; }
+async function confirmDeleteProfile() {
+  const id = pendingProfileDeleteId;
+  const profile = profilesState.profiles.find((item) => item.id === id);
+  if (!profile) return closeDeleteProfileDialog();
+  profilesState.profiles = profilesState.profiles.filter((item) => item.id !== id);
+  localStorage.removeItem(profileStateKey(id));
+  const wasActive = profilesState.activeId === id;
+  if (wasActive) {
+    await cancelTrainingReminder(); await cancelMealReminders(); await cancelMorningMotivation();
+    profilesState.activeId = 'default';
+  }
+  saveProfiles();
+  closeDeleteProfileDialog();
+  if (wasActive) { location.reload(); return; }
+  renderProfiles();
+  toast('Профиль удалён');
 }
 
 function saveProfileWeight() {
@@ -3159,10 +3201,15 @@ function init() {
   $('#profile-switcher').addEventListener('click', openProfilesDialog);
   $('#profiles-dialog-cancel').addEventListener('click', closeProfilesDialog);
   $('#profile-list').addEventListener('click', (e) => {
+    const deleteButton = e.target.closest('[data-profile-delete]');
+    if (deleteButton) return requestDeleteProfile(deleteButton.dataset.profileDelete);
     const button = e.target.closest('[data-profile-id]');
     if (button) switchProfile(button.dataset.profileId);
   });
   $('#profile-add').addEventListener('click', addProfile);
+  $('#profile-rename').addEventListener('click', renameCurrentProfile);
+  $('#profile-delete-cancel').addEventListener('click', closeDeleteProfileDialog);
+  $('#profile-delete-confirm').addEventListener('click', confirmDeleteProfile);
   $('#profile-weight-save').addEventListener('click', saveProfileWeight);
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
