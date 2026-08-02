@@ -406,22 +406,23 @@ let pendingSmartEntry = null;
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
   if (!source) return { waterMl: 0, activity: null, food: [] };
-  const lower = source.toLowerCase();
+  const lower = source.toLowerCase().replace(/поплавов|попловал|поплавал/giu, 'плавал').replace(/(^|\s)бана(?=\s|$)/giu, '$1банан');
   let waterMl = 0;
-  const waterMatch = lower.match(/(?:выпил(?:а)?|вода|воды)\D{0,24}(\d+(?:[.,]\d+)?)\s*(мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?)/iu);
+  const waterMatch = lower.match(/(?:выпил(?:а)?|вода|воды)\D{0,24}(\d+(?:[.,]\d+)?)\s*(мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?)/iu);
   if (waterMatch) {
     const amount = Number(waterMatch[1].replace(',', '.'));
-    waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : 1));
+    waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : (/^стакан/u.test(waterMatch[2]) ? 250 : 1)));
   }
   let activity = null;
-  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
+  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
   if (activityMatch) {
     const amount = Number(activityMatch[1].replace(',', '.'));
     const minutes = Math.round(amount * (/^час|^ч$/u.test(activityMatch[2]) ? 60 : 1));
-    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : 'other';
+    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : (/плавал|бассейн/u.test(lower) ? 'other' : 'other');
     if (minutes >= 5) activity = { type, durationMinutes: minutes };
   }
-  const food = parseMealText(source).filter((item) => item.name !== 'вода');
+  const foodMatch = lower.match(/(?:съел(?:а)?|поел(?:а)?|съесть)\s+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?))|$)/iu);
+  const food = foodMatch ? parseMealText(foodMatch[1]).filter((item) => item.name !== 'вода') : [];
   return { waterMl, activity, food };
 }
 
@@ -2783,6 +2784,16 @@ function renderGreeting() {
 /* ============================================================
    Инициализация
    ============================================================ */
+function bindEvent(selector, eventName, handler) {
+  const element = $(selector);
+  if (!element) {
+    console.warn(`Не найден элемент ${selector}; остальная инициализация продолжается.`);
+    return null;
+  }
+  element.addEventListener(eventName, handler);
+  return element;
+}
+
 function init() {
   loadState();
   initTheme();
@@ -2794,7 +2805,7 @@ function init() {
   refreshTrainingReminderOnLaunch();
 
   // Тема
-  $('#theme-toggle').addEventListener('click', toggleTheme);
+  bindEvent('#theme-toggle', 'click', toggleTheme);
 
   // Вода
   $$('.chip[data-water]').forEach((btn) =>
@@ -2954,7 +2965,7 @@ function init() {
     updateMorningMotivationEnabled(e.target.checked));
   $('#morning-motivation-time').addEventListener('change', (e) =>
     updateMorningMotivationTime(e.target.value));
-  $('#morning-motivation-theme').addEventListener('click', openMorningThemeDialog);
+  bindEvent('#morning-motivation-theme', 'click', openMorningThemeDialog);
   $('#morning-theme-dialog-cancel').addEventListener('click', closeMorningThemeDialog);
   $$('#morning-theme-choices button').forEach((button) =>
     button.addEventListener('click', async () => {
@@ -2974,20 +2985,20 @@ function init() {
     updateTrainingReminderEnabled(e.target.checked));
   $('#workout-reminder-time').addEventListener('change', (e) =>
     updateTrainingReminderTime(e.target.value));
-  $('#notification-setup-btn').addEventListener('click', () => switchView('notifications'));
-  $('#notification-test-btn').addEventListener('click', sendTestActivityNotification);
+  bindEvent('#notification-setup-btn', 'click', () => switchView('notifications'));
+  bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
   $('#notifications-back-btn').addEventListener('click', () => switchView('settings'));
   $$('[data-open-settings]').forEach((btn) =>
     btn.addEventListener('click', () => openNativeNotificationSetting(btn.dataset.openSettings)));
 
   // Настройки: резервное копирование
-  $('#export-btn').addEventListener('click', exportData);
-  $('#import-btn').addEventListener('click', () => $('#import-file').click());
+  bindEvent('#export-btn', 'click', exportData);
+  bindEvent('#import-btn', 'click', () => $('#import-file').click());
   $('#import-file').addEventListener('change', (e) => {
     if (e.target.files[0]) importData(e.target.files[0]);
     e.target.value = '';
   });
-  $('#reset-btn').addEventListener('click', resetAll);
+  bindEvent('#reset-btn', 'click', resetAll);
 
   // После возврата из системных настроек обновляем статусы разрешений.
   document.addEventListener('visibilitychange', () => {

@@ -2040,3 +2040,7 @@ html[data-theme="dark"] .segmented button.active {
 .smart-preview p { margin: 0; }
 #smart-entry-save { width: 100%; margin-top: 10px; }
 @media (max-width:420px) { .manual-food-section { padding: 8px; } .manual-food-row input { padding: 9px 10px; } .manual-food-section .settings-row { gap: 6px; } }
+/* Ручное блюдо: без обрезания верхней строки внутри раскрываемого контейнера */
+.collapsible-content .manual-food-section { margin: 0; padding: 12px; border-radius: 0; }
+.collapsible-content .manual-food-section .quick-label { display: block; padding-top: 2px; }
+.collapsible-content.is-open > div { overflow: visible; }

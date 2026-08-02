@@ -48,7 +48,7 @@ npx serve .
 ## Тесты
 
 ```bash
-node test-parser.js    # тесты парсера, базы, активности и утренних фраз (69 проверок)
+node test-parser.js    # тесты парсера, базы, активности и утренних фраз (70 проверок)
 ```
 
 ## Структура
@@ -70,7 +70,7 @@ node test-parser.js    # тесты парсера, базы, активност
 
 Проект настроен на автоматическую сборку Android APK при каждом пуше в репозиторий:
 1. Во вкладке **Actions** на GitHub выберите workflow **Build Native Android APK** или откройте последний запуск.
-2. В разделе **Artifacts** скачайте архив **FitFlow-APK** (содержит `app-debug.apk` и `FitFlow-v0.1.31-debug.apk`).
+2. В разделе **Artifacts** скачайте архив **FitFlow-APK** (содержит `app-debug.apk` и `FitFlow-v0.1.32-debug.apk`).
 3. Для сохранения постоянной подписи (чтобы обновлять приложение поверх без удаления данных):
    - Запустите workflow **Generate Stable Debug Keystore** (вкладка Actions).
    - Скопируйте содержимое сгенерированного файла `debug.keystore.base64.txt` в секреты репозитория (**Settings → Secrets and variables → Actions**) под именем `DEBUG_KEYSTORE_BASE64`.
