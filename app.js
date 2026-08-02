@@ -442,7 +442,9 @@ function startVoiceEntry() {
 
 function openSmartEntry() {
   pendingSmartEntry = null;
+  $('#smart-entry-input').value = '';
   $('#smart-entry-preview').hidden = true;
+  $('#smart-entry-preview').innerHTML = '';
   $('#smart-entry-save').hidden = true;
   $('#smart-entry-dialog').hidden = false;
   setTimeout(() => $('#smart-entry-input').focus(), 100);
@@ -450,6 +452,10 @@ function openSmartEntry() {
 
 function closeSmartEntry() {
   $('#smart-entry-dialog').hidden = true;
+  $('#smart-entry-input').value = '';
+  $('#smart-entry-preview').hidden = true;
+  $('#smart-entry-preview').innerHTML = '';
+  $('#smart-entry-save').hidden = true;
   pendingSmartEntry = null;
 }
 
