@@ -16,12 +16,12 @@
   <!-- ===== Шапка ===== -->
   <header class="topbar">
     <div class="brand">
-      <button class="brand-logo" id="smart-entry-open" type="button" aria-label="Быстрый умный ввод" title="Быстрый умный ввод">
+      <div class="brand-logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="8.7" stroke="currentColor" stroke-width="1.6"/>
           <path d="M4.9 12h3.2l1.8-4.2 3.1 8.2 2.1-4h3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-      </button>
+      </div>
       <div class="brand-text">
         <h1>FitFlow</h1>
         <p id="date-label">—</p>
@@ -33,6 +33,13 @@
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
           <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="icon-btn smart-entry-header" id="smart-entry-open" type="button" aria-label="Быстрый ввод: голос или текст" title="Быстрый ввод: голос или текст">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="8.5" y="3" width="7" height="10.5" rx="3.5" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M5.5 11a6 6 0 0 0 12 0M12 17v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="m18.2 3.2.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z" fill="currentColor"/>
         </svg>
       </button>
       <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Светлая / тёмная тема">
@@ -167,12 +174,6 @@
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
-        <button class="btn btn-ghost btn-mic" id="food-mic" type="button" title="Надиктовать запись" aria-label="Надиктовать запись">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="9" y="2.5" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
       </form>
 
       <p class="parse-error" id="food-error" hidden></p>
@@ -547,7 +548,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.30 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.31 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -672,12 +673,13 @@
     <section class="app-dialog smart-entry-dialog">
       <div class="app-dialog-icon" aria-hidden="true">✦</div>
       <h2 id="smart-entry-title">Быстрый ввод</h2>
-      <p>Напишите одной фразой воду, еду и активность. FitFlow разложит понятные части по разделам и попросит подтверждение.</p>
+      <p>Напишите или надиктуйте одной фразой воду, еду и активность. FitFlow разложит понятные части по разделам и попросит подтверждение.</p>
       <textarea id="smart-entry-input" rows="4" placeholder="Например: позанимался 45 минут, выпил 500 мл воды и съел банан"></textarea>
       <button class="smart-help-btn" id="smart-voice-help-open" type="button">? О голосовом офлайн-вводе</button>
       <div class="smart-preview" id="smart-entry-preview" hidden></div>
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
+        <button class="btn btn-secondary" id="smart-entry-voice" type="button">🎙 Надиктовать</button>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
       <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>

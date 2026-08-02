@@ -2816,7 +2816,6 @@ function init() {
   // Быстрые добавления
   $$('.chip[data-quick]').forEach((btn) =>
     btn.addEventListener('click', () => addFoodText(btn.dataset.quick)));
-  $('#food-mic').addEventListener('click', startVoiceEntry);
 
   $('#meal-type-picker').addEventListener('click', (e) => {
     const button = e.target.closest('[data-meal-type]');
@@ -2933,6 +2932,7 @@ function init() {
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
+  $('#smart-entry-voice').addEventListener('click', startVoiceEntry);
   $('#smart-entry-save').addEventListener('click', saveSmartEntry);
   $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
   $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
