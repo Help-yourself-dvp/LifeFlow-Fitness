@@ -1026,6 +1026,8 @@ function renderProfiles() {
     switcher.title = `Текущий профиль: ${name}`;
     switcher.setAttribute('aria-label', `Выбрать профиль. Текущий: ${name}`);
   }
+  const settingsName = $('#profile-settings-name');
+  if (settingsName) settingsName.textContent = active ? active.name : 'Мой профиль';
   const weightInput = $('#profile-weight');
   if (weightInput) weightInput.value = state.profileSettings.weightKg || '';
   const list = $('#profile-list');
