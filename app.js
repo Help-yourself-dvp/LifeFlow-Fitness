@@ -1951,6 +1951,30 @@ async function refreshTrainingReminderOnLaunch() {
   await scheduleTrainingReminder({ skipToday: hasWorkoutToday(), requestPermission: false });
 }
 
+function openMorningThemeDialog() {
+  const dialog = $('#morning-theme-dialog');
+  if (dialog) dialog.hidden = false;
+  renderMorningMotivationSettings();
+}
+
+function closeMorningThemeDialog() {
+  const dialog = $('#morning-theme-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function showMorningMessageDialog(message) {
+  const dialog = $('#morning-message-dialog');
+  const text = $('#morning-message-dialog-text');
+  if (!dialog || !text) return;
+  text.textContent = message || 'Пусть сегодняшний день будет добрым к вам.';
+  dialog.hidden = false;
+}
+
+function closeMorningMessageDialog() {
+  const dialog = $('#morning-message-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function installActivityNotificationListener() {
   const localNotifications = getLocalNotifications();
   if (activityNotificationListenerInstalled || !localNotifications
