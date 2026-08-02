@@ -1841,3 +1841,44 @@ html[data-theme="dark"] .segmented button.active {
 .detail-insight { color: var(--md-sys-color-on-surface-variant); font-size: 0.8rem; }
 .detail-bars { height: 150px; }
 .detail-insight { margin-top: 10px; line-height: 1.45; }
+
+/* ---------- Выбор темы утренней мотивации ---------- */
+.theme-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 170px;
+  padding: 7px 9px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.theme-choice-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+  text-align: left;
+}
+
+.theme-choice-list button {
+  padding: 12px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 13px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.theme-choice-list button.active {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
+.theme-dialog-cancel { width: 100%; margin-top: 12px; }

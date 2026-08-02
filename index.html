@@ -438,16 +438,13 @@
           <label for="morning-motivation-time">Присылать каждый день в</label>
           <input id="morning-motivation-time" class="time-input" type="time" value="08:00" aria-label="Время утренней мотивации">
         </div>
-        <label class="motivation-theme-row" for="morning-motivation-theme">
+        <div class="motivation-theme-row">
           <span>Тема фраз</span>
-          <select id="morning-motivation-theme">
-            <option value="mixed">Смешанная</option>
-            <option value="calm">Спокойный день</option>
-            <option value="health">Здоровье</option>
-            <option value="food">Питание</option>
-            <option value="activity">Активность</option>
-          </select>
-        </label>
+          <button class="theme-picker-btn" id="morning-motivation-theme" type="button" aria-haspopup="dialog">
+            <span id="morning-motivation-theme-label">Смешанная</span>
+            <span aria-hidden="true">⌄</span>
+          </button>
+        </div>
         <p class="settings-hint" id="morning-motivation-status">Утренние фразы выключены.</p>
       </div>
 
@@ -500,7 +497,7 @@
 
       <div class="settings-group">
         <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1.17 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+        <p class="settings-hint">FitFlow v0.1.18 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
         <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
       </div>
     </section>
@@ -603,6 +600,22 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="morning-theme-dialog" role="dialog" aria-modal="true" aria-labelledby="morning-theme-dialog-title" hidden>
+    <section class="app-dialog theme-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">☀️</div>
+      <h2 id="morning-theme-dialog-title">Тема утренних фраз</h2>
+      <p>Выберите настроение, которое подходит вам сейчас.</p>
+      <div class="theme-choice-list" id="morning-theme-choices">
+        <button type="button" data-morning-theme="mixed">Смешанная</button>
+        <button type="button" data-morning-theme="calm">Спокойный день</button>
+        <button type="button" data-morning-theme="health">Здоровье</button>
+        <button type="button" data-morning-theme="food">Питание</button>
+        <button type="button" data-morning-theme="activity">Активность</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="morning-theme-dialog-cancel" type="button">Отмена</button>
+    </section>
+  </div>
+
   <div class="app-dialog-backdrop" id="morning-message-dialog" role="dialog" aria-modal="true" aria-labelledby="morning-message-dialog-title" hidden>
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">☀️</div>

@@ -1604,14 +1604,16 @@ function renderMorningMotivationSettings() {
   if (typeof document === 'undefined') return;
   const toggle = $('#morning-motivation-toggle');
   const timeInput = $('#morning-motivation-time');
-  const themeSelect = $('#morning-motivation-theme');
+  const themeLabel = $('#morning-motivation-theme-label');
   const status = $('#morning-motivation-status');
-  if (!toggle || !timeInput || !themeSelect || !status) return;
+  if (!toggle || !timeInput || !themeLabel || !status) return;
 
   const motivation = state.morningMotivation;
   toggle.checked = motivation.enabled;
   timeInput.value = motivation.time;
-  themeSelect.value = motivation.theme;
+  themeLabel.textContent = MORNING_MOTIVATION_THEMES[motivation.theme];
+  $$('#morning-theme-choices button').forEach((button) =>
+    button.classList.toggle('active', button.dataset.morningTheme === motivation.theme));
   status.textContent = motivation.enabled
     ? `Каждое утро в ${motivation.time} · тема: ${MORNING_MOTIVATION_THEMES[motivation.theme]}.`
     : 'Утренние фразы выключены.';
@@ -1703,6 +1705,17 @@ async function scheduleTrainingReminder({ skipToday = false, clearDelivered = fa
     console.warn('Не удалось запланировать вечернее напоминание:', e);
     return { ok: false, message: 'Не удалось запланировать напоминание. Откройте «Настроить уведомления» и проверьте разрешения.' };
   }
+}
+
+function openMorningThemeDialog() {
+  const dialog = $('#morning-theme-dialog');
+  if (dialog) dialog.hidden = false;
+  renderMorningMotivationSettings();
+}
+
+function closeMorningThemeDialog() {
+  const dialog = $('#morning-theme-dialog');
+  if (dialog) dialog.hidden = true;
 }
 
 function showMorningMessageDialog(message) {
@@ -2473,8 +2486,13 @@ function init() {
     updateMorningMotivationEnabled(e.target.checked));
   $('#morning-motivation-time').addEventListener('change', (e) =>
     updateMorningMotivationTime(e.target.value));
-  $('#morning-motivation-theme').addEventListener('change', (e) =>
-    updateMorningMotivationTheme(e.target.value));
+  $('#morning-motivation-theme').addEventListener('click', openMorningThemeDialog);
+  $('#morning-theme-dialog-cancel').addEventListener('click', closeMorningThemeDialog);
+  $$('#morning-theme-choices button').forEach((button) =>
+    button.addEventListener('click', async () => {
+      closeMorningThemeDialog();
+      await updateMorningMotivationTheme(button.dataset.morningTheme);
+    }));
   $('#workout-reminder-toggle').addEventListener('change', (e) =>
     updateTrainingReminderEnabled(e.target.checked));
   $('#workout-reminder-time').addEventListener('change', (e) =>
