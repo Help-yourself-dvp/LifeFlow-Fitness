@@ -54,7 +54,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 34/g' android/variables.gradle
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "0.1.16"/g' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "0.1.17"/g' android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           npx cap sync android
 
@@ -523,6 +523,14 @@ jobs:
               encoding='utf-8',
           )
 
+          (drawable / 'fitflow_widget_background.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+              '    <solid android:color="#E8F5F4"/>\n'
+              '    <corners android:radius="20dp"/>\n'
+              '    <stroke android:width="1dp" android:color="#7AA6A6"/>\n'
+              '</shape>\n', encoding='utf-8')
+
           layout = res / 'layout'
           layout.mkdir(parents=True, exist_ok=True)
           (layout / 'fitflow_widget.xml').write_text(
@@ -531,7 +539,7 @@ jobs:
               '    android:id="@+id/widget_root"\n'
               '    android:layout_width="match_parent"\n'
               '    android:layout_height="match_parent"\n'
-              '    android:background="#E8F5F4"\n'
+              '    android:background="@drawable/fitflow_widget_background"\n'
               '    android:orientation="vertical"\n'
               '    android:padding="12dp">\n'
               '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FitFlow · сегодня" android:textColor="#002021" android:textSize="16sp" android:textStyle="bold" />\n'
@@ -584,7 +592,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
+             android/app/build/outputs/apk/debug/FitFlow-v0.1.17-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -592,15 +600,15 @@ jobs:
           name: FitFlow-APK
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.17-debug.apk
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.16-build${{ github.run_number }}
-          name: FitFlow 0.1.16 (build ${{ github.run_number }})
+          tag_name: v0.1.17-build${{ github.run_number }}
+          name: FitFlow 0.1.17 (build ${{ github.run_number }})
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.16-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.17-debug.apk

@@ -818,6 +818,7 @@ function saveState() {
   try {
     recordDailySummary(todayKey());
     localStorage.setItem('fitflow:state', JSON.stringify(state));
+    updateNativeWidget();
   } catch (e) {
     console.warn('Не удалось сохранить данные:', e);
   }
@@ -1704,6 +1705,19 @@ async function scheduleTrainingReminder({ skipToday = false, clearDelivered = fa
   }
 }
 
+function showMorningMessageDialog(message) {
+  const dialog = $('#morning-message-dialog');
+  const text = $('#morning-message-dialog-text');
+  if (!dialog || !text) return;
+  text.textContent = message || 'Пусть сегодняшний день будет добрым к вам.';
+  dialog.hidden = false;
+}
+
+function closeMorningMessageDialog() {
+  const dialog = $('#morning-message-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function installActivityNotificationListener() {
   const localNotifications = getLocalNotifications();
   if (activityNotificationListenerInstalled || !localNotifications
@@ -1712,11 +1726,18 @@ function installActivityNotificationListener() {
   try {
     localNotifications.addListener('localNotificationActionPerformed', async (event) => {
       const notification = event && event.notification;
-      if (!notification || notification.id !== TRAINING_REMINDER_ID) return;
-
-      await removeDeliveredTrainingReminder(localNotifications);
-      switchView('training');
-      toast('Была сегодня активность? Выберите вид и добавьте запись.');
+      if (!notification) return;
+      if (notification.id === TRAINING_REMINDER_ID) {
+        await removeDeliveredTrainingReminder(localNotifications);
+        switchView('training');
+        toast('Была сегодня активность? Выберите вид и добавьте запись.');
+        return;
+      }
+      if (notification.id >= MORNING_MOTIVATION_NOTIFICATION_BASE_ID
+          && notification.id < MORNING_MOTIVATION_NOTIFICATION_BASE_ID + MORNING_MOTIVATION_SCHEDULE_DAYS) {
+        const extra = notification.extra || {};
+        showMorningMessageDialog(extra.message || notification.largeBody || notification.body);
+      }
     });
     activityNotificationListenerInstalled = true;
   } catch (e) {
@@ -1796,12 +1817,14 @@ async function scheduleMorningMotivation({ requestPermission = true } = {}) {
         id: MORNING_MOTIVATION_NOTIFICATION_BASE_ID + index,
         title: 'Доброе утро ☀️',
         body: message,
+        largeBody: message,
+        summaryText: 'FitFlow · утренняя мотивация',
         schedule: { at, allowWhileIdle: true },
         channelId: MORNING_MOTIVATION_CHANNEL,
         smallIcon: 'ic_stat_icon',
         iconColor: '#00696B',
         autoCancel: true,
-        extra: { source: 'fitflow-morning-motivation' }
+        extra: { source: 'fitflow-morning-motivation', message }
       };
     });
     motivation.message = notifications[0].body;
@@ -2439,6 +2462,7 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
   // Настройки: тема
   $$('#theme-segmented button').forEach((btn) =>
