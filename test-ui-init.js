@@ -10,7 +10,7 @@ const functions = [
   'acceptTerms', 'declineTerms', 'openPrivacyDialog', 'closePrivacyDialog',
   'openSourcesDialog', 'closeSourcesDialog', 'startVoiceEntry',
   'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry',
-  'toggleProfileDetails'
+  'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -18,7 +18,8 @@ const ids = [
   'morning-message-dialog-ok', 'meal-reminders-toggle',
   'smart-entry-open', 'terms-accept', 'terms-decline',
   'profile-switcher', 'profile-list', 'profile-new-name',
-  'home-active-profile', 'date-weekday', 'date-month'
+  'home-active-profile', 'date-weekday', 'date-month',
+  'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list'
 ];
 
 let failed = 0;

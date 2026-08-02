@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -162,6 +162,15 @@ const foodGroupsOk = foodGroups.length === 3
   && foodGroups[2].label === 'Без типа' && foodGroups[2].totalKcal === 2;
 if (!foodGroupsOk) failed++;
 console.log(`${foodGroupsOk ? '✓' : '✗'} питание сгруппировано по приёмам пищи`);
+
+const normalizedHomeLayout = normalizeHomeLayoutValue({
+  order: ['food', 'food', 'unknown'],
+  visible: { water: false, food: false }
+});
+const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'food|water'
+  && normalizedHomeLayout.visible.food === true && normalizedHomeLayout.visible.water === false;
+if (!homeLayoutOk) failed++;
+console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана`);
 
 const morning = new Date(2026, 7, 2, 10, 0, 0);
 const reminderPolicy = [

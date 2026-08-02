@@ -2150,3 +2150,22 @@ html[data-theme="dark"] .segmented button.active {
 .profile-weight-row { min-width: 0; align-items: stretch; }
 .profile-weight-row .btn { flex: 0 0 auto; width: auto; min-width: max-content; padding: 10px 12px; white-space: nowrap; }
 .profile-card-energy .training-hint { max-width: 100%; overflow-wrap: anywhere; }
+
+/* ---------- Настройка карточек Главной ---------- */
+.home-cards { display: contents; }
+.home-layout-settings .settings-label-row { align-items: flex-start; }
+.home-layout-settings .settings-label { margin-bottom: 0; }
+.home-layout-settings .settings-hint { margin-top: 3px; }
+.home-layout-open { flex: 0 0 auto; padding: 8px 10px; font-size: .76rem; }
+.home-layout-dialog { text-align: left; }
+.home-layout-dialog > h2, .home-layout-dialog > p { text-align: center; }
+.home-layout-list { display: grid; gap: 8px; margin-top: 14px; }
+.home-layout-row { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding: 10px; background: var(--md-sys-color-surface-container-high); border-radius: 13px; }
+.home-layout-card-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: .84rem; }
+.home-layout-card-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-layout-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.home-layout-order { display: flex; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; }
+.home-layout-order button { display: grid; place-items: center; width: 32px; height: 32px; color: var(--md-sys-color-on-surface-variant); font-weight: 800; }
+.home-layout-order button + button { border-left: 1px solid var(--md-sys-color-outline-variant); }
+.home-layout-order button:disabled { opacity: .35; }
+.home-layout-order button:not(:disabled):active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }

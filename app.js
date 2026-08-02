@@ -667,7 +667,8 @@ const DEFAULTS = {
   activitySettings: { weeklyGoalMinutes: 150 },
   profileSettings: { weightKg: null },
   mealReminders: { enabled: false, meals: [] },
-  customMealTypes: []
+  customMealTypes: [],
+  homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
 const MEAL_REMINDER_TYPES = [
@@ -676,6 +677,11 @@ const MEAL_REMINDER_TYPES = [
   { id: 'snack', label: 'Полдник', time: '16:00' },
   { id: 'dinner', label: 'Ужин', time: '19:00' },
   { id: 'lateSnack', label: 'Поздний перекус', time: '21:30' }
+];
+
+const HOME_CARDS = [
+  { id: 'water', label: 'Вода', icon: '💧' },
+  { id: 'food', label: 'Питание', icon: '🍽️' }
 ];
 
 const PROFILES_KEY = 'fitflow:profiles';
@@ -904,6 +910,25 @@ function normalizeProfileSettings() {
   const profile = state.profileSettings || {};
   const weight = Number(String(profile.weightKg || '').replace(',', '.'));
   state.profileSettings = { weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null };
+}
+
+function normalizeHomeLayoutValue(source) {
+  const layout = source && typeof source === 'object' ? source : {};
+  const knownIds = HOME_CARDS.map((card) => card.id);
+  const seen = new Set();
+  const order = (Array.isArray(layout.order) ? layout.order : [])
+    .map((id) => String(id))
+    .filter((id) => knownIds.includes(id) && !seen.has(id) && seen.add(id));
+  knownIds.forEach((id) => { if (!seen.has(id)) order.push(id); });
+
+  const rawVisible = layout.visible && typeof layout.visible === 'object' ? layout.visible : {};
+  const visible = Object.fromEntries(knownIds.map((id) => [id, rawVisible[id] !== false]));
+  if (!Object.values(visible).some(Boolean)) visible[order[0]] = true;
+  return { order, visible };
+}
+
+function normalizeHomeLayout() {
+  state.homeLayout = normalizeHomeLayoutValue(state.homeLayout);
 }
 
 function normalizeActivitySettings() {
@@ -1194,6 +1219,7 @@ function loadState() {
   normalizeMorningMotivation();
   normalizeActivitySettings();
   normalizeProfileSettings();
+  normalizeHomeLayout();
   normalizeFavoriteMeals();
   normalizeWorkouts();
   normalizeActivityTemplates();
@@ -1295,6 +1321,8 @@ function updateNativeWidget() {
 }
 
 function renderAll() {
+  applyHomeLayout();
+  renderHomeLayoutSettings();
   renderWater();
   renderFood();
   renderMealTypePicker();
@@ -1306,6 +1334,86 @@ function renderAll() {
   renderMealRemindersSettings();
   renderMorningMotivationSettings();
   updateNativeWidget();
+}
+
+function applyHomeLayout() {
+  if (typeof document === 'undefined') return;
+  const container = $('#home-cards');
+  if (!container) return;
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  state.homeLayout = layout;
+  layout.order.forEach((id) => {
+    const card = $(`#${id}-card`);
+    if (!card) return;
+    card.hidden = !layout.visible[id];
+    container.appendChild(card);
+  });
+}
+
+function renderHomeLayoutSettings() {
+  const status = $('#home-layout-status');
+  if (!status) return;
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  const visibleCount = Object.values(layout.visible).filter(Boolean).length;
+  status.textContent = `Показывается: ${visibleCount} из ${HOME_CARDS.length}`;
+}
+
+function renderHomeLayoutDialog() {
+  const list = $('#home-layout-list');
+  if (!list) return;
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  list.innerHTML = layout.order.map((id, index) => {
+    const card = HOME_CARDS.find((item) => item.id === id);
+    if (!card) return '';
+    return `<div class="home-layout-row">
+      <div class="home-layout-card-name"><span aria-hidden="true">${card.icon}</span><strong>${card.label}</strong></div>
+      <div class="home-layout-controls">
+        <label class="switch" title="Показывать ${card.label} на Главной">
+          <input type="checkbox" data-home-card-visible="${card.id}" ${layout.visible[card.id] ? 'checked' : ''}>
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="sr-only">Показывать ${card.label} на Главной</span>
+        </label>
+        <div class="home-layout-order" aria-label="Изменить порядок ${card.label}">
+          <button type="button" data-home-card-move="${card.id}" data-home-card-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Переместить ${card.label} выше">↑</button>
+          <button type="button" data-home-card-move="${card.id}" data-home-card-direction="1" ${index === layout.order.length - 1 ? 'disabled' : ''} aria-label="Переместить ${card.label} ниже">↓</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openHomeLayoutDialog() {
+  renderHomeLayoutDialog();
+  $('#home-layout-dialog').hidden = false;
+}
+function closeHomeLayoutDialog() { $('#home-layout-dialog').hidden = true; }
+
+function updateHomeCardVisibility(id, visible) {
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  if (!HOME_CARDS.some((card) => card.id === id)) return;
+  if (!visible && Object.values(layout.visible).filter(Boolean).length <= 1) {
+    toast('Оставьте хотя бы одну карточку на Главной');
+    renderHomeLayoutDialog();
+    return;
+  }
+  layout.visible[id] = visible;
+  state.homeLayout = layout;
+  saveState();
+  applyHomeLayout();
+  renderHomeLayoutSettings();
+  renderHomeLayoutDialog();
+}
+
+function moveHomeCard(id, direction) {
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  const from = layout.order.indexOf(id);
+  const to = from + Number(direction);
+  if (from < 0 || to < 0 || to >= layout.order.length) return;
+  [layout.order[from], layout.order[to]] = [layout.order[to], layout.order[from]];
+  state.homeLayout = layout;
+  saveState();
+  applyHomeLayout();
+  renderHomeLayoutDialog();
 }
 
 function renderWater() {
@@ -2961,6 +3069,7 @@ function exportData() {
     dailyHistory: state.dailyHistory,
     activitySettings: { ...state.activitySettings },
     profileSettings: { ...state.profileSettings },
+    homeLayout: { order: [...state.homeLayout.order], visible: { ...state.homeLayout.visible } },
     workouts: state.workouts,
     activityTemplates: state.activityTemplates,
     water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
@@ -3079,6 +3188,10 @@ function importData(file) {
       if (data.profileSettings && typeof data.profileSettings === 'object') {
         state.profileSettings = { ...data.profileSettings };
         normalizeProfileSettings();
+      }
+
+      if (data.homeLayout && typeof data.homeLayout === 'object') {
+        state.homeLayout = normalizeHomeLayoutValue(data.homeLayout);
       }
 
       if (data.activitySettings && typeof data.activitySettings === 'object') {
@@ -3359,6 +3472,16 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#home-layout-open').addEventListener('click', openHomeLayoutDialog);
+  $('#home-layout-close').addEventListener('click', closeHomeLayoutDialog);
+  $('#home-layout-list').addEventListener('change', (e) => {
+    const checkbox = e.target.closest('[data-home-card-visible]');
+    if (checkbox) updateHomeCardVisibility(checkbox.dataset.homeCardVisible, checkbox.checked);
+  });
+  $('#home-layout-list').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-home-card-move]');
+    if (button) moveHomeCard(button.dataset.homeCardMove, button.dataset.homeCardDirection);
+  });
   $('#profile-switcher').addEventListener('click', openProfilesDialog);
   $('#profiles-dialog-cancel').addEventListener('click', closeProfilesDialog);
   $('#profile-list').addEventListener('click', (e) => {
@@ -3466,6 +3589,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue
   };
 }
