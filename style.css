@@ -2060,9 +2060,6 @@ html[data-theme="dark"] .segmented button.active {
 .profile-add-row .btn { padding:10px; font-size:.78rem; }
 
 /* ---------- Оценка расхода энергии ---------- */
-.profile-energy-settings { display:grid; gap:6px; margin-top:14px; padding:10px; background:var(--md-sys-color-surface-container-high); border-radius:13px; text-align:left; }
-.profile-energy-settings label { color:var(--md-sys-color-on-surface-variant); font-size:.78rem; font-weight:700; }
-.profile-energy-settings label span { font-weight:500; }
 .activity-intensity { display:grid; gap:6px; }
 .activity-intensity .chip.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
 .energy-estimate { color:var(--md-sys-color-primary); font-weight:700; }
@@ -2112,10 +2109,6 @@ html[data-theme="dark"] .segmented button.active {
 .profile-card-actions button { flex: 1; justify-content: center; min-height: 39px; padding: 8px 9px; border-radius: 10px; font-size: .77rem; }
 .profile-card-actions .profile-edit-btn { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
 .profile-card-actions .profile-delete-btn { color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); }
-.profile-card-energy { margin-top: 10px; }
-.profile-weight-row { display: flex; gap: 7px; }
-.profile-weight-row input { flex: 1; min-width: 0; padding: 10px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; font: inherit; font-size: .84rem; }
-.profile-weight-row .btn { padding: 10px; font-size: .78rem; }
 /* Не наследуем ширину и размер старых кнопок списка в новых карточках. */
 .profile-card-header button, .profile-card-actions button { width: auto; }
 .profile-card-actions .profile-edit-btn, .profile-card-actions .profile-delete-btn { flex: 1; width: auto; padding: 8px 9px; }
@@ -2146,10 +2139,6 @@ html[data-theme="dark"] .segmented button.active {
 .greeting-profile strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Параметры веса внутри профиля ---------- */
-.profile-card-energy { min-width: 0; max-width: 100%; }
-.profile-weight-row { min-width: 0; align-items: stretch; }
-.profile-weight-row .btn { flex: 0 0 auto; width: auto; min-width: max-content; padding: 10px 12px; white-space: nowrap; }
-.profile-card-energy .training-hint { max-width: 100%; overflow-wrap: anywhere; }
 
 /* ---------- Настройка карточек Главной ---------- */
 .home-cards { display: contents; }
@@ -2192,3 +2181,21 @@ html[data-theme="dark"] .segmented button.active {
 .weight-history-list button { display: grid; place-items: center; width: 28px; height: 28px; color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); border-radius: 8px; font-size: 1rem; }
 .weight-history-list .weight-history-empty { display: block; text-align: center; color: var(--md-sys-color-on-surface-variant); }
 @media (max-width: 360px) { .weight-form { grid-template-columns: 1fr 1fr; } .weight-form .btn { grid-column: 1 / -1; } }
+
+/* ---------- Компактные действия воды ---------- */
+.water-actions { gap: 6px; }
+.water-actions .chip { min-width: 0; min-height: 38px; padding: 8px 10px; white-space: nowrap; }
+.water-actions .chip:not(.chip-danger) { flex: 1 1 0; font-size: .87rem; }
+.water-actions .chip-danger { flex: 0 0 auto; padding: 8px 9px; font-size: .74rem; }
+.water-actions .chip-danger svg { width: 15px; height: 15px; }
+
+/* ---------- Вес: Главная и Статистика ---------- */
+.weight-icon { color: var(--md-sys-color-on-tertiary-container); background: var(--md-sys-color-tertiary-container); }
+.weight-home-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.weight-home-body > div { min-width: 0; }
+#home-weight-current { display: block; color: var(--md-sys-color-on-surface); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+#home-weight-trend { margin-top: 2px; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; }
+.weight-home-add { flex: 0 0 auto; padding: 9px 11px; font-size: .78rem; }
+.weight-details-open { margin-top: 10px; }
+.weight-quick-form { display: grid; gap: 10px; margin-top: 14px; }
+.weight-quick-form .app-dialog-actions { margin-top: 2px; }

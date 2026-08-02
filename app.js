@@ -681,7 +681,8 @@ const MEAL_REMINDER_TYPES = [
 
 const HOME_CARDS = [
   { id: 'water', label: 'Вода', icon: '💧' },
-  { id: 'food', label: 'Питание', icon: '🍽️' }
+  { id: 'food', label: 'Питание', icon: '🍽️' },
+  { id: 'weight', label: 'Вес', icon: '⚖️' }
 ];
 
 const PROFILES_KEY = 'fitflow:profiles';
@@ -1088,15 +1089,6 @@ function renderProfiles() {
     const profileId = escapeHtml(profile.id);
     const profileName = escapeHtml(profile.name);
     const detailsId = `profile-details-${index}`;
-    const energySettings = isActive ? `
-      <div class="profile-energy-settings profile-card-energy">
-        <label for="profile-weight">Ваш вес, кг <span>(необязательно)</span></label>
-        <div class="profile-weight-row">
-          <input id="profile-weight" type="text" inputmode="decimal" value="${state.profileSettings.weightKg || ''}" placeholder="Например, 70">
-          <button class="btn btn-secondary" id="profile-weight-save" type="button">Сохранить</button>
-        </div>
-        <p class="training-hint">Вес используется только для примерной оценки расхода энергии при активности и не меняет цель питания автоматически.</p>
-      </div>` : '';
     return `
       <section class="profile-card ${isActive ? 'active' : ''}">
         <div class="profile-card-header">
@@ -1109,12 +1101,11 @@ function renderProfiles() {
           </button>
         </div>
         <div class="profile-card-details" id="${detailsId}" ${isOpen ? '' : 'hidden'}>
-          <p>${isActive ? 'Это активный профиль. Его вес, цели, история и уведомления не смешиваются с другими профилями.' : 'Нажмите название выше, чтобы перейти в этот профиль. Его данные хранятся отдельно.'}</p>
+          <p>${isActive ? 'Это активный профиль. Его вес, цели, история и уведомления не смешиваются с другими профилями. Вес и график находятся на Главной и в Статистике.' : 'Нажмите название выше, чтобы перейти в этот профиль. Его данные хранятся отдельно.'}</p>
           <div class="profile-card-actions">
             <button class="profile-edit-btn" type="button" data-profile-rename="${profileId}">Переименовать</button>
             ${profile.id !== 'default' ? `<button class="profile-delete-btn" type="button" data-profile-delete="${profileId}">Удалить</button>` : ''}
           </div>
-          ${energySettings}
         </div>
       </section>`;
   }).join('');
@@ -1203,22 +1194,6 @@ async function confirmDeleteProfile() {
   if (wasActive) { location.reload(); return; }
   renderProfiles();
   toast('Профиль удалён');
-}
-
-function saveProfileWeight() {
-  const input = $('#profile-weight');
-  const raw = String(input.value).trim();
-  if (!raw) {
-    state.profileSettings.weightKg = null;
-    saveState();
-    renderWeightSettings();
-    renderTraining();
-    toast('Вес для оценки активности очищен. История веса сохранена.');
-    return;
-  }
-  const weight = Number(raw.replace(',', '.'));
-  if (!saveWeightRecord(todayKey(), weight)) return;
-  toast('Вес за сегодня сохранён. Расход энергии будет показываться как оценка.');
 }
 
 function loadState() {
@@ -1355,6 +1330,7 @@ function renderAll() {
   applyHomeLayout();
   renderHomeLayoutSettings();
   renderWeightSettings();
+  renderWeightOverview();
   renderWater();
   renderFood();
   renderMealTypePicker();
@@ -1427,7 +1403,7 @@ function renderWeightSettings() {
   if (!current || !dateInput || !weightInput || !list) return;
   const history = normalizeWeightHistory(state.profileSettings.weightHistory);
   const currentWeight = state.profileSettings.weightKg;
-  current.textContent = currentWeight ? `Текущий вес для активности: ${Number(currentWeight).toLocaleString('ru-RU')} кг` : 'Вес для оценки активности пока не указан';
+  current.textContent = currentWeight ? `Текущий вес: ${Number(currentWeight).toLocaleString('ru-RU')} кг` : 'Вес пока не записан';
   if (document.activeElement !== weightInput) weightInput.value = currentWeight || '';
   if (!dateInput.value) dateInput.value = todayKey();
 
@@ -1450,6 +1426,45 @@ function renderWeightSettings() {
     <li><span>${escapeHtml(formatWeightDate(entry.date))}</span><strong>${Number(entry.weightKg).toLocaleString('ru-RU')} кг</strong><button type="button" data-remove-weight="${entry.date}" aria-label="Удалить запись веса за ${escapeHtml(formatWeightDate(entry.date))}">×</button></li>`).join('') || '<li class="weight-history-empty">Записей веса пока нет.</li>';
 }
 
+function renderWeightOverview() {
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory);
+  const currentWeight = state.profileSettings.weightKg;
+  const latest = history[history.length - 1];
+  const shownWeight = currentWeight || (latest ? latest.weightKg : null);
+  const first = history[0];
+  const delta = first && latest && history.length > 1 ? Math.round((latest.weightKg - first.weightKg) * 10) / 10 : null;
+  const deltaText = delta == null ? 'Записей веса пока нет' : `Изменение за всё время: ${delta > 0 ? '+' : ''}${Number(delta).toLocaleString('ru-RU')} кг`;
+
+  const homeCurrent = $('#home-weight-current');
+  const homeTrend = $('#home-weight-trend');
+  if (homeCurrent) homeCurrent.textContent = shownWeight ? `${Number(shownWeight).toLocaleString('ru-RU')} кг` : '—';
+  if (homeTrend) homeTrend.textContent = latest
+    ? (delta == null ? `Последняя запись: ${formatWeightDate(latest.date)}` : deltaText)
+    : 'Записей веса пока нет';
+
+  const statsTotal = $('#stats-weight-total');
+  const statsHint = $('#stats-weight-hint');
+  if (statsTotal) statsTotal.textContent = shownWeight ? `${Number(shownWeight).toLocaleString('ru-RU')} кг` : '—';
+  if (statsHint) statsHint.textContent = latest
+    ? (delta == null ? `Последняя запись: ${formatWeightDate(latest.date)}` : `${deltaText} · ${history.length} зап.`)
+    : 'Добавьте запись веса на Главной или откройте подробный график.';
+}
+
+function openQuickWeightDialog() {
+  $('#weight-quick-date').value = todayKey();
+  $('#weight-quick-input').value = state.profileSettings.weightKg || '';
+  $('#weight-quick-dialog').hidden = false;
+  setTimeout(() => $('#weight-quick-input').focus(), 100);
+}
+function closeQuickWeightDialog() { $('#weight-quick-dialog').hidden = true; }
+function saveQuickWeight() {
+  const date = $('#weight-quick-date').value;
+  const weight = Number(String($('#weight-quick-input').value).replace(',', '.'));
+  if (!saveWeightRecord(date, weight)) return;
+  closeQuickWeightDialog();
+  toast(date === todayKey() ? 'Вес за сегодня сохранён' : 'Историческая запись веса сохранена');
+}
+
 function upsertWeightHistory(date, weightKg) {
   const history = normalizeWeightHistory(state.profileSettings.weightHistory).filter((entry) => entry.date !== date);
   history.push({ date, weightKg: Math.round(weightKg * 10) / 10, updatedAt: Date.now() });
@@ -1463,6 +1478,8 @@ function saveWeightRecord(date, weight) {
   if (date === todayKey()) state.profileSettings.weightKg = Math.round(weight * 10) / 10;
   saveState();
   renderWeightSettings();
+  renderWeightOverview();
+  renderStats();
   renderProfiles();
   renderTraining();
   return true;
@@ -1485,6 +1502,8 @@ function removeWeightRecord(date) {
   }
   saveState();
   renderWeightSettings();
+  renderWeightOverview();
+  renderStats();
   renderProfiles();
   renderTraining();
   toast('Запись веса удалена');
@@ -1710,6 +1729,7 @@ function renderStats() {
   renderStatsBars($('#stats-activity-bars'), days, 'activityMinutes', Math.max(...days.map((day) => day.activityMinutes), 30), period);
   $$('#stats-periods button').forEach((button) =>
     button.classList.toggle('active', button.dataset.statsPeriod === period));
+  renderWeightOverview();
 }
 
 function renderWaterDetails() {
@@ -3182,6 +3202,7 @@ function switchView(view) {
   const isStats = view === 'stats';
   const isWaterDetails = view === 'water-details';
   const isFoodDetails = view === 'food-details';
+  const isWeightDetails = view === 'weight-details';
   const isTraining = view === 'training';
   const isSettings = view === 'settings';
   const isNotifications = view === 'notifications';
@@ -3190,16 +3211,18 @@ function switchView(view) {
   $('#stats-view').hidden = !isStats;
   $('#water-details-view').hidden = !isWaterDetails;
   $('#food-details-view').hidden = !isFoodDetails;
+  $('#weight-details-view').hidden = !isWeightDetails;
   $('#training-view').hidden = !isTraining;
   $('#settings-view').hidden = !isSettings;
   $('#notifications-view').hidden = !isNotifications;
   $$('.nav-item').forEach((b) =>
-    b.classList.toggle('active', b.dataset.nav === (isNotifications ? 'settings' : ((isWaterDetails || isFoodDetails) ? 'stats' : view))));
+    b.classList.toggle('active', b.dataset.nav === (isNotifications ? 'settings' : ((isWaterDetails || isFoodDetails || isWeightDetails) ? 'stats' : view))));
 
   updateActivityFab(isTraining);
   if (isStats) renderStats();
   if (isWaterDetails) renderWaterDetails();
   if (isFoodDetails) renderFoodDetails();
+  if (isWeightDetails) renderWeightSettings();
   if (isTraining) {
     renderTraining();
     maybeShowActivityReminderPrompt();
@@ -3715,6 +3738,9 @@ function init() {
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
   $('#weight-form').addEventListener('submit', (e) => { e.preventDefault(); saveWeightFromSettings(); });
+  $('#weight-quick-open').addEventListener('click', openQuickWeightDialog);
+  $('#weight-quick-cancel').addEventListener('click', closeQuickWeightDialog);
+  $('#weight-quick-form').addEventListener('submit', (e) => { e.preventDefault(); saveQuickWeight(); });
   $$('#weight-periods button').forEach((button) => button.addEventListener('click', () => { activeWeightPeriod = button.dataset.weightPeriod; renderWeightSettings(); }));
   $('#weight-history-list').addEventListener('click', (e) => {
     const button = e.target.closest('[data-remove-weight]');
@@ -3733,8 +3759,6 @@ function init() {
   $('#profile-switcher').addEventListener('click', openProfilesDialog);
   $('#profiles-dialog-cancel').addEventListener('click', closeProfilesDialog);
   $('#profile-list').addEventListener('click', (e) => {
-    const weightSaveButton = e.target.closest('#profile-weight-save');
-    if (weightSaveButton) return saveProfileWeight();
     const deleteButton = e.target.closest('[data-profile-delete]');
     if (deleteButton) return requestDeleteProfile(deleteButton.dataset.profileDelete);
     const renameButton = e.target.closest('[data-profile-rename]');

@@ -12,7 +12,8 @@ const functions = [
   'openSmartEntry', 'closeSmartEntry', 'previewSmartEntry', 'saveSmartEntry',
   'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog',
   'requestAllProfilesImport', 'closeAllProfilesImportDialog', 'confirmAllProfilesImport',
-  'renderWeightSettings', 'saveWeightFromSettings', 'removeWeightRecord'
+  'renderWeightSettings', 'saveWeightFromSettings', 'removeWeightRecord',
+  'renderWeightOverview', 'openQuickWeightDialog', 'closeQuickWeightDialog', 'saveQuickWeight'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -23,7 +24,8 @@ const ids = [
   'home-active-profile', 'date-weekday', 'date-month',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
-  'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list'
+  'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
+  'weight-card', 'home-weight-current', 'home-weight-trend', 'weight-details-view', 'weight-quick-open', 'weight-quick-dialog', 'weight-quick-form'
 ];
 
 let failed = 0;

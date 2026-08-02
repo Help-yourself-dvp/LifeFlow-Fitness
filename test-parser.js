@@ -167,8 +167,8 @@ const normalizedHomeLayout = normalizeHomeLayoutValue({
   order: ['food', 'food', 'unknown'],
   visible: { water: false, food: false }
 });
-const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'food|water'
-  && normalizedHomeLayout.visible.food === true && normalizedHomeLayout.visible.water === false;
+const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'food|water|weight'
+  && normalizedHomeLayout.visible.food === false && normalizedHomeLayout.visible.water === false && normalizedHomeLayout.visible.weight === true;
 if (!homeLayoutOk) failed++;
 console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана`);
 

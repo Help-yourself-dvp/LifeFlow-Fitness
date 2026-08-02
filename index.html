@@ -116,11 +116,11 @@
               </svg>
             </span> +500 мл
           </button>
-          <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последний стакан">
+          <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последнее добавление воды" title="Отменить последнее добавление воды">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 5v5h5M4.6 10a8 8 0 1 1-1.1 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            Отменить
+            Отмена
           </button>
         </div>
 
@@ -242,6 +242,21 @@
         </div>
       </div>
     </section>
+
+    <section class="card weight-home-card" id="weight-card" aria-labelledby="weight-home-title">
+      <div class="card-header">
+        <div class="card-icon weight-icon" aria-hidden="true">⚖️</div>
+        <div class="card-title-wrap">
+          <h2 id="weight-home-title">Вес</h2>
+          <p>Текущий вес и динамика профиля</p>
+        </div>
+      </div>
+      <div class="weight-home-body">
+        <div><strong id="home-weight-current">—</strong><p id="home-weight-trend">Записей веса пока нет</p></div>
+        <button class="btn btn-secondary weight-home-add" id="weight-quick-open" type="button">Записать</button>
+      </div>
+      <button class="stats-details-btn weight-details-open" type="button" data-open-detail="weight">График и история веса →</button>
+    </section>
     </div><!-- /home-cards -->
 
     <p class="privacy-note">
@@ -302,6 +317,15 @@
         <p id="stats-activity-hint">—</p>
         <div class="stats-bars" id="stats-activity-bars" aria-label="График активности"></div>
       </section>
+
+      <section class="stats-section stats-weight" aria-labelledby="stats-weight-title">
+        <div class="stats-section-head">
+          <h3 id="stats-weight-title">⚖️ Вес</h3>
+          <strong id="stats-weight-total">—</strong>
+        </div>
+        <p id="stats-weight-hint">—</p>
+        <button class="stats-details-btn" type="button" data-open-detail="weight">График и история веса →</button>
+      </section>
     </section>
   </div><!-- /stats-view -->
 
@@ -348,6 +372,35 @@
       <p class="detail-insight" id="food-details-insight">—</p>
     </section>
   </div><!-- /food-details-view -->
+
+  <!-- ===== Подробно: вес ===== -->
+  <div id="weight-details-view" hidden>
+    <section class="card detail-card stats-weight" aria-labelledby="weight-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon weight-icon" aria-hidden="true">⚖️</div>
+        <div class="card-title-wrap">
+          <h2 id="weight-details-title">Вес и динамика</h2>
+          <p id="weight-current">Вес пока не записан</p>
+        </div>
+      </div>
+      <form class="weight-form" id="weight-form" autocomplete="off">
+        <label class="weight-field" for="weight-history-date"><span>Дата</span><input id="weight-history-date" type="date" aria-label="Дата измерения веса"></label>
+        <label class="weight-field" for="weight-history-input"><span>Вес, кг</span><input id="weight-history-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
+        <button class="btn btn-secondary" type="submit">Записать</button>
+      </form>
+      <p class="settings-hint" id="weight-history-hint">Запись за сегодня также используется для примерной оценки расхода энергии при активности.</p>
+      <div class="segmented weight-periods" id="weight-periods" role="radiogroup" aria-label="Период графика веса">
+        <button type="button" data-weight-period="week">7 дней</button>
+        <button type="button" data-weight-period="month">30 дней</button>
+        <button type="button" data-weight-period="all">Всё время</button>
+      </div>
+      <div class="weight-chart-wrap" id="weight-chart-wrap" hidden>
+        <svg class="weight-chart" id="weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса"></svg>
+      </div>
+      <ul class="weight-history-list" id="weight-history-list"></ul>
+    </section>
+  </div><!-- /weight-details-view -->
 
   <!-- ===== Активность ===== -->
   <div id="training-view" hidden>
@@ -468,27 +521,6 @@
         <div><strong id="profile-settings-name">Мой профиль</strong><small>Вес, цели, история и уведомления относятся к этому профилю.</small></div>
       </div>
 
-      <div class="settings-group weight-settings">
-        <div class="settings-label-row">
-          <div><p class="settings-label">Вес и динамика</p><p class="weight-current" id="weight-current">Вес пока не записан</p></div>
-        </div>
-        <form class="weight-form" id="weight-form" autocomplete="off">
-          <label class="weight-field" for="weight-history-date"><span>Дата</span><input id="weight-history-date" type="date" aria-label="Дата измерения веса"></label>
-          <label class="weight-field" for="weight-history-input"><span>Вес, кг</span><input id="weight-history-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
-          <button class="btn btn-secondary" type="submit">Записать</button>
-        </form>
-        <p class="settings-hint" id="weight-history-hint">Запись за сегодня также используется для примерной оценки расхода энергии при активности.</p>
-        <div class="segmented weight-periods" id="weight-periods" role="radiogroup" aria-label="Период графика веса">
-          <button type="button" data-weight-period="week">7 дней</button>
-          <button type="button" data-weight-period="month">30 дней</button>
-          <button type="button" data-weight-period="all">Всё время</button>
-        </div>
-        <div class="weight-chart-wrap" id="weight-chart-wrap" hidden>
-          <svg class="weight-chart" id="weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса"></svg>
-        </div>
-        <ul class="weight-history-list" id="weight-history-list"></ul>
-      </div>
-
       <div class="settings-group home-layout-settings">
         <div class="settings-label-row">
           <div><p class="settings-label">Карточки на Главной</p><p class="settings-hint" id="home-layout-status">—</p></div>
@@ -602,7 +634,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.52 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.53 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -754,6 +786,19 @@
       <h2 id="profile-rename-title">Переименовать профиль</h2>
       <input class="dialog-text-input" id="profile-rename-input" type="text" maxlength="40" placeholder="Название профиля">
       <div class="app-dialog-actions"><button class="btn btn-secondary" id="profile-rename-cancel" type="button">Отмена</button><button class="btn btn-primary" id="profile-rename-confirm" type="button">Сохранить</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="weight-quick-dialog" role="dialog" aria-modal="true" aria-labelledby="weight-quick-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⚖️</div>
+      <h2 id="weight-quick-title">Записать вес</h2>
+      <p>Запись относится только к активному профилю.</p>
+      <form class="weight-quick-form" id="weight-quick-form" autocomplete="off">
+        <label class="weight-field" for="weight-quick-date"><span>Дата</span><input id="weight-quick-date" type="date" aria-label="Дата измерения веса"></label>
+        <label class="weight-field" for="weight-quick-input"><span>Вес, кг</span><input id="weight-quick-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="weight-quick-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
     </section>
   </div>
 
