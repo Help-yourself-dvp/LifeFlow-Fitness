@@ -2005,3 +2005,6 @@ html[data-theme="dark"] .segmented button.active {
 }
 .activity-template-inline { display: block; max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
 .activity-template-inline.is-open { max-height: 190px; }
+.settings-about-block { margin-top: 0; }
+.settings-about-content { margin: 10px 12px; }
+.settings-about-content .settings-hint { margin-top: 8px; }

@@ -513,9 +513,16 @@
       </div>
 
       <div class="settings-group">
-        <p class="settings-label">О приложении</p>
-        <p class="settings-hint">FitFlow v0.1.21 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
-        <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
+        <section class="collapsible-block settings-about-block">
+          <button class="collapsible-toggle" type="button" data-collapse-target="about-content" aria-expanded="false">
+            <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
+          </button>
+          <div class="collapsible-content" id="about-content"><div class="settings-about-content">
+            <p class="settings-hint">FitFlow v0.1.23 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
+            <p class="settings-hint">Подробные лицензии и ссылки сохранены в файле DATA_SOURCES.md.</p>
+          </div></div>
+        </section>
       </div>
     </section>
   </div><!-- /settings-view -->
