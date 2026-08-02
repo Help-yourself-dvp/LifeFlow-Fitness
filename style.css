@@ -2018,3 +2018,14 @@ html[data-theme="dark"] .segmented button.active {
 .meal-reminder-row input[type="time"] { width: 96px; padding: 6px 7px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.8rem; font-weight: 700; }
 .sources-open-btn { margin-top: 10px; padding: 8px 10px; font-size: 0.76rem; }
 .chip-water-bottle { color: var(--md-sys-color-primary) !important; background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent) !important; }
+
+/* ---------- Тип приёма пищи ---------- */
+.meal-type-section { margin-top: 14px; }
+.meal-type-section .quick-chips { margin-top: 7px; }
+.meal-type-chip.active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary); }
+.meal-type-custom-row { margin-top: 8px; }
+.meal-type-custom-row .btn { padding: 8px 10px; font-size: 0.76rem; }
+.meal-type-custom-inline { display: none; gap: 7px; margin-top: 8px; }
+.meal-type-custom-inline.is-open { display: flex; }
+.meal-type-custom-inline input { flex: 1; min-width: 0; padding: 8px 10px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 11px; font: inherit; font-size: 0.8rem; }
+@media (max-width:420px) { .meal-type-custom-inline { flex-wrap: wrap; } .meal-type-custom-inline input { flex-basis:100%; } .meal-type-custom-inline .btn { width:100%; } }

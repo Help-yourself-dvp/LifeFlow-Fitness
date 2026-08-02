@@ -517,7 +517,8 @@ const DEFAULTS = {
   reminders: { enabled: false, time: '20:00' },
   morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
   activitySettings: { weeklyGoalMinutes: 150 },
-  mealReminders: { enabled: false, meals: [] }
+  mealReminders: { enabled: false, meals: [] },
+  customMealTypes: []
 };
 
 const MEAL_REMINDER_TYPES = [
@@ -654,6 +655,7 @@ const state = {
   morningMotivation: { ...DEFAULTS.morningMotivation },
   activitySettings: { ...DEFAULTS.activitySettings },
   mealReminders: { ...DEFAULTS.mealReminders },
+  customMealTypes: [],
   theme: null
 };
 
@@ -671,12 +673,24 @@ function normalizeReminderSettings() {
   };
 }
 
+function normalizeCustomMealTypes() {
+  const ids = new Set();
+  state.customMealTypes = (Array.isArray(state.customMealTypes) ? state.customMealTypes : [])
+    .map((meal) => ({ id: String(meal.id || uid()), label: normalizeActivityName(meal.label) || '' }))
+    .filter((meal) => meal.label && !ids.has(meal.id) && ids.add(meal.id))
+    .slice(0, 20);
+}
+
+function getMealTypes() {
+  return [...MEAL_REMINDER_TYPES, ...state.customMealTypes];
+}
+
 function normalizeMealReminders() {
   const source = state.mealReminders || {};
   const map = new Map((Array.isArray(source.meals) ? source.meals : []).map((meal) => [meal.id, meal]));
   state.mealReminders = {
     enabled: source.enabled === true,
-    meals: MEAL_REMINDER_TYPES.map((type) => {
+    meals: getMealTypes().map((type) => {
       const meal = map.get(type.id) || {};
       return { id: type.id, label: type.label, enabled: meal.enabled === true, time: isValidReminderTime(meal.time) ? meal.time : type.time };
     })
@@ -827,6 +841,7 @@ function loadState() {
   }
   normalizeDailyHistory();
   normalizeReminderSettings();
+  normalizeCustomMealTypes();
   normalizeMealReminders();
   normalizeMorningMotivation();
   normalizeActivitySettings();
@@ -933,6 +948,7 @@ function updateNativeWidget() {
 function renderAll() {
   renderWater();
   renderFood();
+  renderMealTypePicker();
   renderStats();
   renderTraining();
   renderReminderSettings();
@@ -1119,6 +1135,44 @@ function renderFoodDetails() {
   $$('#food-detail-periods button').forEach((button) => button.classList.toggle('active', button.dataset.detailPeriod === period));
 }
 
+let selectedMealTypeId = '';
+
+function getSelectedMealType() {
+  return getMealTypes().find((type) => type.id === selectedMealTypeId) || null;
+}
+
+function renderMealTypePicker() {
+  const picker = $('#meal-type-picker');
+  if (!picker) return;
+  picker.innerHTML = [
+    '<button class="chip chip-sm meal-type-chip active" type="button" data-meal-type="">Без типа</button>',
+    ...getMealTypes().map((type) => `<button class="chip chip-sm meal-type-chip" type="button" data-meal-type="${type.id}">${escapeHtml(type.label)}</button>`)
+  ].join('');
+  $$('#meal-type-picker [data-meal-type]').forEach((button) =>
+    button.classList.toggle('active', button.dataset.mealType === selectedMealTypeId));
+}
+
+function addCustomMealType() {
+  const input = $('#custom-meal-type-name');
+  const label = normalizeActivityName(input.value);
+  if (!label) { toast('Введите название типа приёма пищи'); input.focus(); return; }
+  const id = `custom-${uid()}`;
+  state.customMealTypes.push({ id, label });
+  normalizeCustomMealTypes();
+  selectedMealTypeId = id;
+  input.value = '';
+  $('#custom-meal-type-inline').classList.remove('is-open');
+  saveState();
+  renderMealTypePicker();
+  renderMealRemindersSettings();
+  toast(`Тип «${label}» добавлен`);
+}
+
+function applySelectedMealType(items) {
+  const type = getSelectedMealType();
+  return items.map((item) => ({ ...item, mealTypeId: type ? type.id : null, mealTypeLabel: type ? type.label : null }));
+}
+
 function renderFoodList() {
   const list = $('#food-list');
   const { items } = state.food;
@@ -1134,7 +1188,7 @@ function renderFoodList() {
       <span class="food-item-dot" aria-hidden="true">🍴</span>
       <div class="food-item-info">
         <p class="food-item-name">${escapeHtml(it.name)}</p>
-        <p class="food-item-desc">${escapeHtml(it.raw)}</p>
+        <p class="food-item-desc">${escapeHtml(it.raw)}${it.mealTypeLabel ? ` · ${escapeHtml(it.mealTypeLabel)}` : ''}</p>
       </div>
       <span class="food-item-kcal">${fmt(it.kcal)}</span>
       <button class="food-item-remove" data-remove="${it.id}" type="button" aria-label="Удалить">
@@ -1199,10 +1253,12 @@ async function addFoodText(text) {
     return;
   }
 
+  items = applySelectedMealType(items);
   const totalKcal = items.reduce((s, it) => s + it.kcal, 0);
   state.food.items.push(...items);
   saveState();
   renderFood();
+  await syncMealRemindersForToday();
   toast(`Добавлено: ${items.map((i) => i.name).join(', ')} (+${fmt(totalKcal)} ккал)`);
 }
 
@@ -1216,16 +1272,17 @@ function readManualMeal() {
   return { name, kcal };
 }
 
-function addManualFood() {
+async function addManualFood() {
   const meal = readManualMeal();
   if (!meal) return;
   state.food.items.push({
-    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal
+    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal, ...applySelectedMealType([{}])[0]
   });
   saveState();
   $('#manual-food-name').value = '';
   $('#manual-food-kcal').value = '';
   renderFood();
+  await syncMealRemindersForToday();
   toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
 }
 
@@ -1239,14 +1296,15 @@ function saveFavoriteMeal() {
   toast(`«${meal.name}» сохранено в мои блюда`);
 }
 
-function addFavoriteMeal(id) {
+async function addFavoriteMeal(id) {
   const meal = state.favoriteMeals.find((item) => item.id === id);
   if (!meal) return;
   state.food.items.push({
-    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal
+    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция', kcal: meal.kcal, ...applySelectedMealType([{}])[0]
   });
   saveState();
   renderFood();
+  await syncMealRemindersForToday();
   toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
 }
 
@@ -1811,11 +1869,12 @@ function installActivityNotificationListener() {
         toast('Была сегодня активность? Выберите вид и добавьте запись.');
         return;
       }
-      if (notification.id >= MEAL_REMINDER_NOTIFICATION_BASE_ID
-          && notification.id < MEAL_REMINDER_NOTIFICATION_BASE_ID + MEAL_REMINDER_TYPES.length * MEAL_REMINDER_SCHEDULE_DAYS) {
+      const extra = notification.extra || {};
+      if (extra.source === 'fitflow-meal-reminder') {
         switchView('home');
+        selectedMealTypeId = extra.mealId || '';
+        renderMealTypePicker();
         setTimeout(() => $('#food-input').focus(), 250);
-        const extra = notification.extra || {};
         toast(`Запишите ${extra.mealLabel || 'приём пищи'} в дневник`);
         return;
       }
@@ -1844,13 +1903,30 @@ async function ensureMealReminderChannel(localNotifications) {
   });
 }
 
+function mealNotificationId(mealId, dateKey) {
+  const text = `${mealId}|${dateKey}`;
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return 900000000 + ((hash >>> 0) % 900000000);
+}
+
 function mealReminderNotificationIds() {
-  const legacy = MEAL_REMINDER_TYPES.map((_, index) => LEGACY_MEAL_REMINDER_NOTIFICATION_BASE_ID + index);
-  const planned = Array.from(
-    { length: MEAL_REMINDER_TYPES.length * MEAL_REMINDER_SCHEDULE_DAYS },
-    (_, index) => MEAL_REMINDER_NOTIFICATION_BASE_ID + index
-  );
-  return [...legacy, ...planned];
+  const legacy = Array.from({ length: MEAL_REMINDER_TYPES.length * MEAL_REMINDER_SCHEDULE_DAYS }, (_, index) => MEAL_REMINDER_NOTIFICATION_BASE_ID + index);
+  const ids = [];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  for (let offset = 0; offset <= MEAL_REMINDER_SCHEDULE_DAYS; offset++) {
+    const day = new Date(base.getTime());
+    day.setDate(day.getDate() + offset);
+    const pad = (value) => String(value).padStart(2, '0');
+    const date = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    getMealTypes().forEach((meal) => ids.push(mealNotificationId(meal.id, date)));
+  }
+  return [...legacy, ...ids];
+}
+
+function hasMealTypeOnDate(mealId, date = todayKey()) {
+  return state.food.items.some((item) => item.mealTypeId === mealId && state.food.date === date);
 }
 
 async function cancelMealReminders(localNotifications = getLocalNotifications()) {
@@ -1863,22 +1939,22 @@ async function scheduleMealReminders({ requestPermission = true } = {}) {
   if (!localNotifications) return { ok: false, message: 'Напоминания о питании работают только в Android-приложении.' };
   let allowed = false;
   if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
-  else {
-    try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { }
-  }
+  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
   if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминания о питании.' };
   try {
     await ensureMealReminderChannel(localNotifications);
     await cancelMealReminders(localNotifications);
     const notifications = [];
     state.mealReminders.meals.filter((meal) => meal.enabled).forEach((meal) => {
-      const mealIndex = MEAL_REMINDER_TYPES.findIndex((type) => type.id === meal.id);
       const firstAt = nextReminderDate(meal.time);
       for (let dayIndex = 0; dayIndex < MEAL_REMINDER_SCHEDULE_DAYS; dayIndex++) {
         const at = new Date(firstAt.getTime());
         at.setDate(at.getDate() + dayIndex);
+        const pad = (value) => String(value).padStart(2, '0');
+        const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+        if (hasMealTypeOnDate(meal.id, date)) continue;
         notifications.push({
-          id: MEAL_REMINDER_NOTIFICATION_BASE_ID + mealIndex * MEAL_REMINDER_SCHEDULE_DAYS + dayIndex,
+          id: mealNotificationId(meal.id, date),
           title: `Пора записать: ${meal.label} · ${meal.time}`,
           body: `Не забудьте добавить ваш ${meal.label.toLowerCase()} в FitFlow.`,
           schedule: { at, allowWhileIdle: true },
@@ -1894,6 +1970,11 @@ async function scheduleMealReminders({ requestPermission = true } = {}) {
     console.warn('Не удалось запланировать напоминания о питании:', e);
     return { ok: false, message: 'Не удалось включить напоминания о питании. Проверьте разрешения Android.' };
   }
+}
+
+async function syncMealRemindersForToday() {
+  if (!state.mealReminders.enabled) return;
+  await scheduleMealReminders();
 }
 
 async function refreshMealRemindersOnLaunch() {
@@ -2389,6 +2470,7 @@ function exportData() {
     settings: { theme: getThemeMode() },
     reminders: { enabled: state.reminders.enabled, time: state.reminders.time },
     mealReminders: { ...state.mealReminders, meals: state.mealReminders.meals.map((meal) => ({ ...meal })) },
+    customMealTypes: state.customMealTypes,
     morningMotivation: { ...state.morningMotivation },
     favoriteMeals: state.favoriteMeals,
     dailyHistory: state.dailyHistory,
@@ -2460,6 +2542,11 @@ function importData(file) {
       }
       if (data.food && typeof data.food.goal === 'number') {
         state.food.goal = Math.min(10000, Math.max(800, Math.round(data.food.goal)));
+      }
+
+      if (Array.isArray(data.customMealTypes)) {
+        state.customMealTypes = data.customMealTypes;
+        normalizeCustomMealTypes();
       }
 
       if (data.mealReminders && typeof data.mealReminders === 'object') {
@@ -2634,6 +2721,14 @@ function init() {
   $$('.chip[data-quick]').forEach((btn) =>
     btn.addEventListener('click', () => addFoodText(btn.dataset.quick)));
 
+  $('#meal-type-picker').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-meal-type]');
+    if (!button) return;
+    selectedMealTypeId = button.dataset.mealType;
+    renderMealTypePicker();
+  });
+  $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
+  $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
   $('#manual-food-add').addEventListener('click', addManualFood);
   $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
   $('#favorite-meals').addEventListener('click', (e) => {

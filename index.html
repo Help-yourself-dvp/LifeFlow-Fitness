@@ -177,6 +177,18 @@
 
       <p class="parse-error" id="food-error" hidden></p>
 
+      <div class="meal-type-section">
+        <span class="quick-label">Приём пищи:</span>
+        <div class="quick-chips" id="meal-type-picker"></div>
+        <div class="meal-type-custom-row">
+          <button class="btn btn-secondary" id="custom-meal-type-toggle" type="button">＋ Свой тип</button>
+          <div class="meal-type-custom-inline" id="custom-meal-type-inline">
+            <input id="custom-meal-type-name" type="text" maxlength="40" placeholder="Например, второй завтрак">
+            <button class="btn btn-secondary" id="custom-meal-type-save" type="button">Сохранить</button>
+          </div>
+        </div>
+      </div>
+
       <section class="collapsible-block">
         <button class="collapsible-toggle" type="button" data-collapse-target="manual-food-content" aria-expanded="false">
           <span>Своё блюдо</span><span aria-hidden="true">⌄</span>
@@ -535,7 +547,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.26 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.27 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
