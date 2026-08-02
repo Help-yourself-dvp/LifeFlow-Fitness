@@ -2058,3 +2058,11 @@ html[data-theme="dark"] .segmented button.active {
 .profile-add-row { display:flex; gap:7px; margin-top:12px; }
 .profile-add-row input { flex:1; min-width:0; padding:10px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:12px; font:inherit; font-size:.84rem; }
 .profile-add-row .btn { padding:10px; font-size:.78rem; }
+
+/* ---------- Оценка расхода энергии ---------- */
+.profile-energy-settings { display:grid; gap:6px; margin-top:14px; padding:10px; background:var(--md-sys-color-surface-container-high); border-radius:13px; text-align:left; }
+.profile-energy-settings label { color:var(--md-sys-color-on-surface-variant); font-size:.78rem; font-weight:700; }
+.profile-energy-settings label span { font-weight:500; }
+.activity-intensity { display:grid; gap:6px; }
+.activity-intensity .chip.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
+.energy-estimate { color:var(--md-sys-color-primary); font-weight:700; }

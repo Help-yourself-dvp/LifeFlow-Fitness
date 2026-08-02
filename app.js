@@ -497,7 +497,7 @@ async function saveSmartEntry() {
   }
   if (parsed.food.length) state.food.items.push(...applySelectedMealType(parsed.food));
   parsed.activities.forEach((activity) => state.workouts.unshift({
-    id: uid(), date: todayKey(), type: activity.type, title: null, note: 'Добавлено быстрым вводом', durationMinutes: activity.durationMinutes, createdAt: Date.now()
+    id: uid(), date: todayKey(), type: activity.type, title: null, note: 'Добавлено быстрым вводом', intensity: 'medium', durationMinutes: activity.durationMinutes, createdAt: Date.now()
   }));
   saveState();
   renderAll();
@@ -641,6 +641,7 @@ const DEFAULTS = {
   reminders: { enabled: false, time: '20:00' },
   morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
   activitySettings: { weeklyGoalMinutes: 150 },
+  profileSettings: { weightKg: null },
   mealReminders: { enabled: false, meals: [] },
   customMealTypes: []
 };
@@ -812,6 +813,7 @@ const state = {
   reminders: { ...DEFAULTS.reminders },
   morningMotivation: { ...DEFAULTS.morningMotivation },
   activitySettings: { ...DEFAULTS.activitySettings },
+  profileSettings: { ...DEFAULTS.profileSettings },
   mealReminders: { ...DEFAULTS.mealReminders },
   customMealTypes: [],
   theme: null
@@ -871,6 +873,12 @@ function normalizeMorningMotivation() {
     theme,
     message
   };
+}
+
+function normalizeProfileSettings() {
+  const profile = state.profileSettings || {};
+  const weight = Number(String(profile.weightKg || '').replace(',', '.'));
+  state.profileSettings = { weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null };
 }
 
 function normalizeActivitySettings() {
@@ -977,6 +985,7 @@ function normalizeWorkouts() {
       type: workout.type,
       title: normalizeActivityName(workout.title) || null,
       note: normalizeOptionalNote(workout.note),
+      intensity: ['low','medium','high'].includes(workout.intensity) ? workout.intensity : 'medium',
       durationMinutes: Math.min(1440, Math.round(Number(workout.durationMinutes))),
       createdAt: Number(workout.createdAt) || Date.now()
     }))
@@ -988,6 +997,8 @@ function renderProfiles() {
   const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
   const label = $('#profile-name');
   if (label) label.textContent = active ? active.name : 'Мой профиль';
+  const weightInput = $('#profile-weight');
+  if (weightInput) weightInput.value = state.profileSettings.weightKg || '';
   const list = $('#profile-list');
   if (!list) return;
   list.innerHTML = profilesState.profiles.map((profile) => `
@@ -1022,6 +1033,16 @@ function addProfile() {
   switchProfile(id);
 }
 
+function saveProfileWeight() {
+  const input = $('#profile-weight');
+  const weight = Number(String(input.value).replace(',', '.'));
+  if (!Number.isFinite(weight) || weight < 25 || weight > 300) { toast('Укажите вес от 25 до 300 кг или оставьте поле пустым'); return; }
+  state.profileSettings.weightKg = Math.round(weight * 10) / 10;
+  saveState();
+  renderTraining();
+  toast('Вес сохранён. Расход энергии будет показываться как оценка.');
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(profileStateKey());
@@ -1046,6 +1067,7 @@ function loadState() {
   normalizeMealReminders();
   normalizeMorningMotivation();
   normalizeActivitySettings();
+  normalizeProfileSettings();
   normalizeFavoriteMeals();
   normalizeWorkouts();
   normalizeActivityTemplates();
@@ -1152,6 +1174,7 @@ function renderAll() {
   renderMealTypePicker();
   renderStats();
   renderTraining();
+  renderActivityIntensity();
   renderDurationUnit();
   renderReminderSettings();
   renderMealRemindersSettings();
@@ -1551,6 +1574,7 @@ function changeFoodGoal(delta) {
    Активность: история, готовые варианты и связь с напоминанием
    ============================================================ */
 let selectedActivityType = 'walk';
+let selectedActivityIntensity = 'medium';
 let selectedDurationUnit = 'minutes';
 
 function renderDurationUnit() {
@@ -1638,6 +1662,21 @@ function renderActivityTemplates() {
   }).join('');
 }
 
+const ACTIVITY_MET = {
+  walk: { low: 2.5, medium: 3.5, high: 5 }, cardio: { low: 6, medium: 8, high: 10 },
+  swim: { low: 5, medium: 7, high: 9 }, strength: { low: 3.5, medium: 5, high: 6 },
+  stretch: { low: 2, medium: 2.5, high: 3 }, leisure: { low: 3, medium: 5, high: 7 }, other: { low: 3, medium: 5, high: 7 }
+};
+function estimateActivityKcal(workout) {
+  const weight = state.profileSettings.weightKg;
+  if (!weight || !workout) return null;
+  const met = (ACTIVITY_MET[workout.type] || ACTIVITY_MET.other)[workout.intensity || 'medium'];
+  return Math.round(met * weight * (workout.durationMinutes / 60));
+}
+function renderActivityIntensity() {
+  $$('#activity-intensity [data-intensity]').forEach((button) => button.classList.toggle('active', button.dataset.intensity === selectedActivityIntensity));
+}
+
 function renderTraining() {
   if (typeof document === 'undefined') return;
   const list = $('#training-list');
@@ -1659,7 +1698,7 @@ function renderTraining() {
           <span class="workout-item-emoji" aria-hidden="true">${type.emoji}</span>
           <div class="workout-item-info">
             <p>${escapeHtml(title)}</p>
-            <span>${formatWorkoutDuration(workout.durationMinutes)}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
+            <span>${formatWorkoutDuration(workout.durationMinutes)}${estimateActivityKcal(workout) != null ? ` · <span class="energy-estimate">~${estimateActivityKcal(workout)} ккал</span>` : ''}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
           </div>
           <button class="workout-item-remove" data-remove-workout="${workout.id}" type="button" aria-label="Удалить активность «${escapeHtml(title)}»">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1713,6 +1752,7 @@ async function addActivity(template = null) {
     type,
     title,
     note,
+    intensity: template ? 'medium' : selectedActivityIntensity,
     durationMinutes,
     createdAt: Date.now()
   });
@@ -2722,6 +2762,7 @@ function exportData() {
     favoriteMeals: state.favoriteMeals,
     dailyHistory: state.dailyHistory,
     activitySettings: { ...state.activitySettings },
+    profileSettings: { ...state.profileSettings },
     workouts: state.workouts,
     activityTemplates: state.activityTemplates,
     water: { date: state.water.date, total: state.water.total, log: state.water.log, goal: state.water.goal },
@@ -2835,6 +2876,11 @@ function importData(file) {
           }
         });
         normalizeFavoriteMeals();
+      }
+
+      if (data.profileSettings && typeof data.profileSettings === 'object') {
+        state.profileSettings = { ...data.profileSettings };
+        normalizeProfileSettings();
       }
 
       if (data.activitySettings && typeof data.activitySettings === 'object') {
@@ -3080,6 +3126,8 @@ function init() {
       selectedActivityType = btn.dataset.activityType;
       renderActivityTypeSelection();
     }));
+  $$('#activity-intensity [data-intensity]').forEach((button) =>
+    button.addEventListener('click', () => { selectedActivityIntensity = button.dataset.intensity; renderActivityIntensity(); }));
   $('#workout-duration-unit').addEventListener('click', openDurationUnitDialog);
   $('#duration-unit-cancel').addEventListener('click', closeDurationUnitDialog);
   $$('#duration-unit-choices button').forEach((button) =>
@@ -3115,6 +3163,7 @@ function init() {
     if (button) switchProfile(button.dataset.profileId);
   });
   $('#profile-add').addEventListener('click', addProfile);
+  $('#profile-weight-save').addEventListener('click', saveProfileWeight);
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
@@ -3197,6 +3246,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal
   };
 }
