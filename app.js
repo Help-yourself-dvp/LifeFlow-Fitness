@@ -995,12 +995,14 @@ function normalizeWorkouts() {
 function renderProfiles() {
   if (typeof document === 'undefined') return;
   const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
-  const label = $('#profile-name');
-  if (label) label.textContent = active ? active.name : 'Мой профиль';
+  const switcher = $('#profile-switcher');
+  if (switcher) {
+    const name = active ? active.name : 'Мой профиль';
+    switcher.title = `Текущий профиль: ${name}`;
+    switcher.setAttribute('aria-label', `Выбрать профиль. Текущий: ${name}`);
+  }
   const weightInput = $('#profile-weight');
   if (weightInput) weightInput.value = state.profileSettings.weightKg || '';
-  const currentName = $('#profile-current-name');
-  if (currentName) currentName.value = active ? active.name : '';
   const list = $('#profile-list');
   if (!list) return;
   list.innerHTML = profilesState.profiles.map((profile) => `
@@ -1008,6 +1010,7 @@ function renderProfiles() {
       <button type="button" data-profile-id="${profile.id}" class="${profile.id === profilesState.activeId ? 'active' : ''}">
         <span>${escapeHtml(profile.name)}</span><span>${profile.id === profilesState.activeId ? '✓' : ''}</span>
       </button>
+      <button class="profile-edit-btn" type="button" data-profile-rename="${profile.id}" aria-label="Переименовать профиль ${escapeHtml(profile.name)}">✎</button>
       ${profile.id !== 'default' ? `<button class="profile-delete-btn" type="button" data-profile-delete="${profile.id}" aria-label="Удалить профиль ${escapeHtml(profile.name)}">×</button>` : ''}
     </div>`).join('');
 }
@@ -1038,12 +1041,23 @@ function addProfile() {
   switchProfile(id);
 }
 
-function renameCurrentProfile() {
-  const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
-  const name = normalizeActivityName($('#profile-current-name').value);
-  if (!active || !name) { toast('Введите название профиля'); return; }
-  active.name = name;
+let pendingProfileRenameId = null;
+function requestRenameProfile(id) {
+  const profile = profilesState.profiles.find((item) => item.id === id);
+  if (!profile) return;
+  pendingProfileRenameId = id;
+  $('#profile-rename-input').value = profile.name;
+  $('#profile-rename-dialog').hidden = false;
+  setTimeout(() => $('#profile-rename-input').focus(), 100);
+}
+function closeRenameProfileDialog() { pendingProfileRenameId = null; $('#profile-rename-dialog').hidden = true; }
+function confirmRenameProfile() {
+  const profile = profilesState.profiles.find((item) => item.id === pendingProfileRenameId);
+  const name = normalizeActivityName($('#profile-rename-input').value);
+  if (!profile || !name) { toast('Введите название профиля'); return; }
+  profile.name = name;
   saveProfiles();
+  closeRenameProfileDialog();
   renderProfiles();
   toast('Профиль переименован');
 }
@@ -3203,11 +3217,14 @@ function init() {
   $('#profile-list').addEventListener('click', (e) => {
     const deleteButton = e.target.closest('[data-profile-delete]');
     if (deleteButton) return requestDeleteProfile(deleteButton.dataset.profileDelete);
+    const renameButton = e.target.closest('[data-profile-rename]');
+    if (renameButton) return requestRenameProfile(renameButton.dataset.profileRename);
     const button = e.target.closest('[data-profile-id]');
     if (button) switchProfile(button.dataset.profileId);
   });
   $('#profile-add').addEventListener('click', addProfile);
-  $('#profile-rename').addEventListener('click', renameCurrentProfile);
+  $('#profile-rename-cancel').addEventListener('click', closeRenameProfileDialog);
+  $('#profile-rename-confirm').addEventListener('click', confirmRenameProfile);
   $('#profile-delete-cancel').addEventListener('click', closeDeleteProfileDialog);
   $('#profile-delete-confirm').addEventListener('click', confirmDeleteProfile);
   $('#profile-weight-save').addEventListener('click', saveProfileWeight);
@@ -3278,6 +3295,11 @@ function init() {
     if (document.visibilityState === 'visible' && !$('#notifications-view').hidden) {
       refreshNotificationSetupState();
     }
+  });
+  document.addEventListener('focusin', (event) => {
+    const field = event.target;
+    if (!field || !field.matches || !field.matches('input, textarea')) return;
+    setTimeout(() => field.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
   });
 
   maybeShowTerms();

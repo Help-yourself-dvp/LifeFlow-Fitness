@@ -24,12 +24,14 @@
       </div>
       <div class="brand-text">
         <h1>FitFlow</h1>
-        <button class="profile-switcher" id="profile-switcher" type="button" aria-haspopup="dialog"><span id="profile-name">Мой профиль</span><span aria-hidden="true">⌄</span></button>
         <p id="date-label">—</p>
       </div>
     </div>
 
     <div class="topbar-actions">
+      <button class="profile-switcher" id="profile-switcher" type="button" aria-haspopup="dialog" aria-label="Выбрать профиль" title="Текущий профиль: Мой профиль">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 20c.8-3.5 3-5.3 6.5-5.3s5.7 1.8 6.5 5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <button class="privacy-help" id="privacy-help" type="button" aria-label="О приватности и работе без интернета" title="О приватности">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -561,7 +563,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.41 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.42 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -693,14 +695,7 @@
         <button class="btn btn-secondary" id="profile-add" type="button">Добавить</button>
       </div>
       <div class="profile-energy-settings">
-        <label for="profile-current-name">Название текущего профиля</label>
-        <div class="profile-add-row">
-          <input id="profile-current-name" type="text" maxlength="40" placeholder="Мой профиль">
-          <button class="btn btn-secondary" id="profile-rename" type="button">Переименовать</button>
-        </div>
-      </div>
-      <div class="profile-energy-settings">
-        <label for="profile-weight">Вес текущего профиля, кг <span>(необязательно)</span></label>
+        <label for="profile-weight">Ваш вес, кг <span>(необязательно)</span></label>
         <div class="profile-add-row">
           <input id="profile-weight" type="text" inputmode="decimal" placeholder="Например, 70">
           <button class="btn btn-secondary" id="profile-weight-save" type="button">Сохранить</button>
@@ -708,6 +703,15 @@
         <p class="training-hint">Вес используется только для примерной оценки расхода энергии при активности и не меняет цель питания автоматически.</p>
       </div>
       <button class="btn btn-secondary theme-dialog-cancel" id="profiles-dialog-cancel" type="button">Закрыть</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="profile-rename-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-rename-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✎</div>
+      <h2 id="profile-rename-title">Переименовать профиль</h2>
+      <input class="dialog-text-input" id="profile-rename-input" type="text" maxlength="40" placeholder="Название профиля">
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="profile-rename-cancel" type="button">Отмена</button><button class="btn btn-primary" id="profile-rename-confirm" type="button">Сохранить</button></div>
     </section>
   </div>
 
