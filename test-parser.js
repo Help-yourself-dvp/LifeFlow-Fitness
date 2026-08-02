@@ -135,5 +135,10 @@ const smartOk = smart.waterMl === 500 && smart.activity && smart.activity.type =
 if (!smartOk) failed++;
 console.log(`${smartOk ? '✓' : '✗'} быстрый ввод: плавание, банан и 2 стакана воды`);
 
+const smartMulti = parseSmartEntry('побегал 15 минут поплавала в бассейне 20 минут съел банан выпил два стакана воды съел тарелку гречки');
+const smartMultiOk = smartMulti.waterMl === 500 && smartMulti.activities.length === 2 && smartMulti.activities[0].type === 'cardio' && smartMulti.activities[1].type === 'swim' && smartMulti.food.length === 2 && smartMulti.food.some((item) => item.name === 'гречки');
+if (!smartMultiOk) failed++;
+console.log(`${smartMultiOk ? '✓' : '✗'} быстрый ввод: бег, плавание, банан, гречка и 2 стакана воды`);
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

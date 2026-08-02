@@ -403,11 +403,14 @@
         <label class="workout-duration-label" for="workout-duration">
           <span>Длительность</span>
           <span class="workout-duration-input-wrap">
-            <input id="workout-duration" type="text" inputmode="decimal" placeholder="1,5" aria-describedby="workout-duration-hint">
-            <span>ч</span>
+            <input id="workout-duration" type="text" inputmode="decimal" placeholder="30" aria-describedby="workout-duration-hint">
+            <select id="workout-duration-unit" aria-label="Единица длительности">
+              <option value="minutes">мин</option>
+              <option value="hours">часы</option>
+            </select>
           </span>
         </label>
-        <p class="training-hint" id="workout-duration-hint">Можно указать часы с дробью: 0,5 = 30 мин, 1,5 = 1 ч 30 мин.</p>
+        <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
 
         <label class="activity-note-label" for="activity-note">Заметка <span>(необязательно)</span>
           <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
@@ -549,7 +552,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.35 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.36 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>

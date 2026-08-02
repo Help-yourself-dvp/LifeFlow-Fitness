@@ -31,7 +31,7 @@ function uid() {
    ============================================================ */
 const FOOD_DB = {
   // ===== Крупы, каши, зерновые =====
-  'гречка': { kcal: 313 }, 'гречневая каша': { kcal: 110 },
+  'гречка': { kcal: 313 }, 'гречки': { kcal: 313 }, 'гречневая каша': { kcal: 110 },
   'рис': { kcal: 344 }, 'рис вареный': { kcal: 116 }, 'рисовый': { kcal: 116 },
   'бурый рис': { kcal: 111 }, 'рис басмати': { kcal: 116 },
   'овсянка': { kcal: 352 }, 'овсяная каша': { kcal: 88 }, 'геркулес': { kcal: 352 },
@@ -405,25 +405,40 @@ let pendingSmartEntry = null;
 
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
-  if (!source) return { waterMl: 0, activity: null, food: [] };
-  const lower = source.toLowerCase().replace(/поплавов|попловал|поплавал/giu, 'плавал').replace(/(^|\s)бана(?=\s|$)/giu, '$1банан');
+  if (!source) return { waterMl: 0, activities: [], activity: null, food: [] };
+  const lower = source.toLowerCase()
+    .replace(/поплавов|попловал|поплавал/giu, 'плавал')
+    .replace(/(^|\s)бана(?=\s|$)/giu, '$1банан')
+    .replace(/(^|\s)(два|две)(?=\s+стакан)/giu, '$12');
+
   let waterMl = 0;
   const waterMatch = lower.match(/(?:выпил(?:а)?|вода|воды)\D{0,24}(\d+(?:[.,]\d+)?)\s*(мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?)/iu);
   if (waterMatch) {
     const amount = Number(waterMatch[1].replace(',', '.'));
     waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : (/^стакан/u.test(waterMatch[2]) ? 250 : 1)));
   }
-  let activity = null;
-  const activityMatch = lower.match(/(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|активност[ьи])\D{0,30}(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/iu);
-  if (activityMatch) {
-    const amount = Number(activityMatch[1].replace(',', '.'));
-    const minutes = Math.round(amount * (/^час|^ч$/u.test(activityMatch[2]) ? 60 : 1));
-    const type = /гуля|прош[её]л/u.test(lower) ? 'walk' : (/плавал|бассейн/u.test(lower) ? 'swim' : (/(?:бегал|пробеж)/u.test(lower) ? 'cardio' : (/(?:тяж[её]л|силов)/u.test(lower) ? 'strength' : 'other')));
-    if (minutes >= 5) activity = { type, durationMinutes: minutes };
+
+  const activities = [];
+  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
+  let match;
+  while ((match = activityPattern.exec(lower))) {
+    const amount = Number(match[1].replace(',', '.'));
+    const minutes = Math.round(amount * (/^час|^ч$/u.test(match[2]) ? 60 : 1));
+    if (minutes < 5) continue;
+    const chunk = match[0];
+    const type = /гуля|прош[её]л/u.test(chunk) ? 'walk'
+      : (/плавал|бассейн/u.test(chunk) ? 'swim'
+        : (/(?:бегал|побегал|пробеж)/u.test(chunk) ? 'cardio'
+          : (/(?:тяж[её]л|силов)/u.test(chunk) ? 'strength' : 'other')));
+    activities.push({ type, durationMinutes: minutes });
   }
-  const foodMatch = lower.match(/(?:съел(?:а)?|поел(?:а)?|съесть)\s+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?))|$)/iu);
-  const food = foodMatch ? parseMealText(foodMatch[1]).filter((item) => item.name !== 'вода') : [];
-  return { waterMl, activity, food };
+
+  const food = [];
+  const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть)\s+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
+  while ((match = foodPattern.exec(lower))) {
+    food.push(...parseMealText(match[1]).filter((item) => item.name !== 'вода'));
+  }
+  return { waterMl, activities, activity: activities[0] || null, food };
 }
 
 function startVoiceEntry() {
@@ -463,7 +478,7 @@ function previewSmartEntry() {
   const parsed = parseSmartEntry($('#smart-entry-input').value);
   const lines = [];
   if (parsed.waterMl > 0) lines.push(`💧 Вода: ${parsed.waterMl} мл`);
-  if (parsed.activity) lines.push(`🌿 ${ACTIVITY_TYPES[parsed.activity.type].label}: ${formatWorkoutDuration(parsed.activity.durationMinutes)}`);
+  parsed.activities.forEach((activity) => lines.push(`🌿 ${ACTIVITY_TYPES[activity.type].label}: ${formatWorkoutDuration(activity.durationMinutes)}`));
   if (parsed.food.length) lines.push(`🍽️ Питание: ${parsed.food.map((item) => item.name).join(', ')} · ${fmt(parsed.food.reduce((sum, item) => sum + item.kcal, 0))} ккал`);
   if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
@@ -481,9 +496,9 @@ async function saveSmartEntry() {
     state.water.log.push({ ts: Date.now(), ml: parsed.waterMl });
   }
   if (parsed.food.length) state.food.items.push(...applySelectedMealType(parsed.food));
-  if (parsed.activity) state.workouts.unshift({
-    id: uid(), date: todayKey(), type: parsed.activity.type, title: null, note: 'Добавлено быстрым вводом', durationMinutes: parsed.activity.durationMinutes, createdAt: Date.now()
-  });
+  parsed.activities.forEach((activity) => state.workouts.unshift({
+    id: uid(), date: todayKey(), type: activity.type, title: null, note: 'Добавлено быстрым вводом', durationMinutes: activity.durationMinutes, createdAt: Date.now()
+  }));
   saveState();
   renderAll();
   await syncMealRemindersForToday();
@@ -513,9 +528,13 @@ function parseItem(text) {
 
   // Поддержка разговорной формы «ложка сметаны» без цифры.
   const implicitSpoon = !amountMatch && text.match(/^(?:столовая\s+|чайная\s+)?ложк[аиу]\s+(.+)$/iu);
+  const implicitPlate = !amountMatch && text.match(/^тарелк[ауи]\s+(.+)$/iu);
   if (implicitSpoon) {
     amount = 1;
     unit = 'ложка';
+  } else if (implicitPlate) {
+    amount = 1;
+    unit = 'порция';
   }
 
   // 2) Имя продукта — всё, что до числа
@@ -524,6 +543,8 @@ function parseItem(text) {
     name = text.slice(0, amountMatch.index);
   } else if (implicitSpoon) {
     name = implicitSpoon[1];
+  } else if (implicitPlate) {
+    name = implicitPlate[1];
   }
   name = name
     .toLowerCase()
@@ -1458,12 +1479,13 @@ function changeFoodGoal(delta) {
    ============================================================ */
 let selectedActivityType = 'walk';
 
-function parseWorkoutDuration(raw) {
+function parseWorkoutDuration(raw, unit = 'hours') {
   const normalized = String(raw || '').trim().replace(',', '.');
   if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
-  const hours = Number(normalized);
-  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return null;
-  const minutes = Math.round(hours * 60);
+  const value = Number(normalized);
+  const isHours = unit === 'hours';
+  if (!Number.isFinite(value) || value <= 0 || (isHours && value > 24) || (!isHours && value > 1440)) return null;
+  const minutes = Math.round(isHours ? value * 60 : value);
   return minutes >= 5 ? minutes : null;
 }
 
@@ -1573,7 +1595,7 @@ async function syncTrainingReminderForToday() {
 
 async function addActivity(template = null) {
   const durationInput = $('#workout-duration');
-  const durationMinutes = template ? template.durationMinutes : parseWorkoutDuration(durationInput.value);
+  const durationMinutes = template ? template.durationMinutes : parseWorkoutDuration(durationInput.value, $('#workout-duration-unit').value);
   if (!durationMinutes) {
     toast('Укажите длительность от 5 минут до 24 часов: например, 1,5');
     durationInput.focus();
@@ -1610,6 +1632,7 @@ async function addActivity(template = null) {
   saveState();
   if (!template) {
     durationInput.value = '';
+    $('#workout-duration-unit').value = 'minutes';
     $('#activity-note').value = '';
     $('#activity-save-template').checked = false;
     $('#activity-template-name').value = '';
@@ -1629,7 +1652,7 @@ function saveCurrentAsActivityTemplate() {
   const nameInput = $('#activity-template-name');
   const durationInput = $('#workout-duration');
   const name = normalizeActivityName(nameInput.value);
-  const durationMinutes = parseWorkoutDuration(durationInput.value);
+  const durationMinutes = parseWorkoutDuration(durationInput.value, $('#workout-duration-unit').value);
   if (!name) {
     toast('Введите название готового варианта: от 2 до 60 символов');
     nameInput.focus();
