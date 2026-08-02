@@ -24,6 +24,7 @@
       </div>
       <div class="brand-text">
         <h1>FitFlow</h1>
+        <button class="profile-switcher" id="profile-switcher" type="button" aria-haspopup="dialog"><span id="profile-name">Мой профиль</span><span aria-hidden="true">⌄</span></button>
         <p id="date-label">—</p>
       </div>
     </div>
@@ -551,7 +552,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.38 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.39 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -669,6 +670,20 @@
         <p><b>Важно.</b> У конкретного бренда, рецепта, размера порции и способа приготовления калорийность может отличаться. Всегда ориентируйтесь на этикетку продукта, если она доступна.</p>
       </div>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="sources-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="profiles-dialog" role="dialog" aria-modal="true" aria-labelledby="profiles-dialog-title" hidden>
+    <section class="app-dialog profiles-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">👥</div>
+      <h2 id="profiles-dialog-title">Профили на устройстве</h2>
+      <p>Данные каждого профиля хранятся отдельно на этом телефоне.</p>
+      <div class="profile-list" id="profile-list"></div>
+      <div class="profile-add-row">
+        <input id="profile-new-name" type="text" maxlength="40" placeholder="Например, Жена">
+        <button class="btn btn-secondary" id="profile-add" type="button">Добавить</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="profiles-dialog-cancel" type="button">Закрыть</button>
     </section>
   </div>
 

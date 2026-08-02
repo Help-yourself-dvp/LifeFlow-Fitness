@@ -653,6 +653,39 @@ const MEAL_REMINDER_TYPES = [
   { id: 'lateSnack', label: 'Поздний перекус', time: '21:30' }
 ];
 
+const PROFILES_KEY = 'fitflow:profiles';
+const LEGACY_STATE_KEY = 'fitflow:state';
+let profilesState = { activeId: 'default', profiles: [{ id: 'default', name: 'Мой профиль' }] };
+
+function profileStateKey(id = profilesState.activeId) {
+  return id === 'default' ? LEGACY_STATE_KEY : `fitflow:state:${id}`;
+}
+
+function normalizeProfiles() {
+  const source = profilesState || {};
+  const ids = new Set();
+  const profiles = (Array.isArray(source.profiles) ? source.profiles : [])
+    .map((profile) => ({ id: String(profile.id || uid()), name: normalizeActivityName(profile.name) || '' }))
+    .filter((profile) => profile.name && !ids.has(profile.id) && ids.add(profile.id))
+    .slice(0, 10);
+  if (!profiles.some((profile) => profile.id === 'default')) profiles.unshift({ id: 'default', name: 'Мой профиль' });
+  const activeId = profiles.some((profile) => profile.id === source.activeId) ? source.activeId : profiles[0].id;
+  profilesState = { activeId, profiles };
+}
+
+function loadProfiles() {
+  try {
+    const raw = localStorage.getItem(PROFILES_KEY);
+    if (raw) profilesState = JSON.parse(raw);
+  } catch (e) { }
+  normalizeProfiles();
+  try { localStorage.setItem(PROFILES_KEY, JSON.stringify(profilesState)); } catch (e) { }
+}
+
+function saveProfiles() {
+  try { localStorage.setItem(PROFILES_KEY, JSON.stringify(profilesState)); } catch (e) { }
+}
+
 const ACTIVITY_REMINDER_PROMPT_KEY = 'fitflow:activity-reminder-prompt-seen';
 const TERMS_ACCEPTED_KEY = 'fitflow:terms-accepted-v1';
 
@@ -950,9 +983,48 @@ function normalizeWorkouts() {
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+function renderProfiles() {
+  if (typeof document === 'undefined') return;
+  const active = profilesState.profiles.find((profile) => profile.id === profilesState.activeId);
+  const label = $('#profile-name');
+  if (label) label.textContent = active ? active.name : 'Мой профиль';
+  const list = $('#profile-list');
+  if (!list) return;
+  list.innerHTML = profilesState.profiles.map((profile) => `
+    <button type="button" data-profile-id="${profile.id}" class="${profile.id === profilesState.activeId ? 'active' : ''}">
+      <span>${escapeHtml(profile.name)}</span><span>${profile.id === profilesState.activeId ? '✓' : ''}</span>
+    </button>`).join('');
+}
+
+function openProfilesDialog() {
+  renderProfiles();
+  $('#profiles-dialog').hidden = false;
+}
+function closeProfilesDialog() { $('#profiles-dialog').hidden = true; }
+async function switchProfile(id) {
+  if (!profilesState.profiles.some((profile) => profile.id === id)) return;
+  saveState();
+  await cancelTrainingReminder();
+  await cancelMealReminders();
+  await cancelMorningMotivation();
+  profilesState.activeId = id;
+  saveProfiles();
+  location.reload();
+}
+function addProfile() {
+  const input = $('#profile-new-name');
+  const name = normalizeActivityName(input.value);
+  if (!name) { toast('Введите имя профиля'); input.focus(); return; }
+  if (profilesState.profiles.length >= 10) { toast('Можно добавить не более 10 профилей'); return; }
+  const id = `profile-${uid()}`;
+  profilesState.profiles.push({ id, name });
+  saveProfiles();
+  switchProfile(id);
+}
+
 function loadState() {
   try {
-    const raw = localStorage.getItem('fitflow:state');
+    const raw = localStorage.getItem(profileStateKey());
     if (raw) Object.assign(state, JSON.parse(raw));
   } catch (e) { /* повреждённые данные — начинаем заново */ }
 
@@ -978,14 +1050,14 @@ function loadState() {
   normalizeWorkouts();
   normalizeActivityTemplates();
   if (previousWaterDate !== today || previousFoodDate !== today) {
-    try { localStorage.setItem('fitflow:state', JSON.stringify(state)); } catch (e) { /* localStorage недоступен */ }
+    try { localStorage.setItem(profileStateKey(), JSON.stringify(state)); } catch (e) { /* localStorage недоступен */ }
   }
 }
 
 function saveState() {
   try {
     recordDailySummary(todayKey());
-    localStorage.setItem('fitflow:state', JSON.stringify(state));
+    localStorage.setItem(profileStateKey(), JSON.stringify(state));
     updateNativeWidget();
   } catch (e) {
     console.warn('Не удалось сохранить данные:', e);
@@ -2642,6 +2714,7 @@ function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     settings: { theme: getThemeMode() },
+    profile: { id: profilesState.activeId, name: (profilesState.profiles.find((profile) => profile.id === profilesState.activeId) || {}).name || 'Мой профиль' },
     reminders: { enabled: state.reminders.enabled, time: state.reminders.time },
     mealReminders: { ...state.mealReminders, meals: state.mealReminders.meals.map((meal) => ({ ...meal })) },
     customMealTypes: state.customMealTypes,
@@ -2836,6 +2909,8 @@ async function resetAll() {
   localStorage.removeItem('fitflow:theme');
   localStorage.removeItem(ACTIVITY_REMINDER_PROMPT_KEY);
   localStorage.removeItem(TERMS_ACCEPTED_KEY);
+  profilesState.profiles.forEach((profile) => localStorage.removeItem(profileStateKey(profile.id)));
+  localStorage.removeItem(PROFILES_KEY);
   location.reload();
 }
 
@@ -2882,10 +2957,12 @@ function bindEvent(selector, eventName, handler) {
 }
 
 function init() {
+  loadProfiles();
   loadState();
   initTheme();
   renderGreeting();
   renderAll();
+  renderProfiles();
   installActivityNotificationListener();
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
@@ -3031,6 +3108,13 @@ function init() {
   // Первый вход в «Активность»: выбор вечернего напоминания
   $('#activity-reminder-accept').addEventListener('click', acceptActivityReminderPrompt);
   $('#activity-reminder-decline').addEventListener('click', declineActivityReminderPrompt);
+  $('#profile-switcher').addEventListener('click', openProfilesDialog);
+  $('#profiles-dialog-cancel').addEventListener('click', closeProfilesDialog);
+  $('#profile-list').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-profile-id]');
+    if (button) switchProfile(button.dataset.profileId);
+  });
+  $('#profile-add').addEventListener('click', addProfile);
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
@@ -3113,6 +3197,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey
   };
 }

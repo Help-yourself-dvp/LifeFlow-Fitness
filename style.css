@@ -2048,3 +2048,13 @@ html[data-theme="dark"] .segmented button.active {
 .duration-unit-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 8px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-lowest); border:1px solid var(--md-sys-color-outline-variant); border-radius:9px; font:inherit; font-size:.78rem; font-weight:700; }
 .activity-fab { padding-left:12px; padding-right:12px; }
 .notification-settings-group { border-top:1px solid var(--md-sys-color-outline-variant); }
+
+/* ---------- Локальные профили ---------- */
+.profile-switcher { display:inline-flex; align-items:center; gap:4px; max-width:150px; margin-top:1px; padding:0; color:var(--md-sys-color-primary); font-size:.76rem; font-weight:700; }
+.profile-switcher span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.profile-list { display:grid; gap:7px; margin-top:14px; text-align:left; }
+.profile-list button { display:flex; align-items:center; justify-content:space-between; width:100%; padding:11px 12px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:13px; font-size:.85rem; font-weight:700; }
+.profile-list button.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
+.profile-add-row { display:flex; gap:7px; margin-top:12px; }
+.profile-add-row input { flex:1; min-width:0; padding:10px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:12px; font:inherit; font-size:.84rem; }
+.profile-add-row .btn { padding:10px; font-size:.78rem; }
