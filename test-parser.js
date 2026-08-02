@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -141,6 +141,18 @@ const smartMulti = parseSmartEntry('побегал 15 минут поплава�
 const smartMultiOk = smartMulti.waterMl === 500 && smartMulti.activities.length === 2 && smartMulti.activities[0].type === 'cardio' && smartMulti.activities[1].type === 'swim' && smartMulti.food.length === 2 && smartMulti.food.some((item) => item.name === 'гречки');
 if (!smartMultiOk) failed++;
 console.log(`${smartMultiOk ? '✓' : '✗'} быстрый ввод: бег, плавание, банан, гречка и 2 стакана воды`);
+
+const morning = new Date(2026, 7, 2, 10, 0, 0);
+const reminderPolicy = [
+  [canScheduleReminderToday('15:30', false, morning), true, 'новое время сегодня'],
+  [canScheduleReminderToday('09:30', false, morning), false, 'время уже прошло'],
+  [canScheduleReminderToday('15:30', true, morning), false, 'данные уже внесены']
+];
+for (const [got, expected, label] of reminderPolicy) {
+  const ok = got === expected;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} правило напоминания: ${label}`);
+}
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

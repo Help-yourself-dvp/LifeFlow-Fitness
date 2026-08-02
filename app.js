@@ -1819,6 +1819,14 @@ function reminderTimeText(time) {
   return isValidReminderTime(time) ? time : DEFAULTS.reminders.time;
 }
 
+function canScheduleReminderToday(time, hasDataForToday, now = new Date()) {
+  if (hasDataForToday || !isValidReminderTime(time)) return false;
+  const [hours, minutes] = time.split(':').map(Number);
+  const scheduled = new Date(now.getTime());
+  scheduled.setHours(hours, minutes, 0, 0);
+  return scheduled > now;
+}
+
 function nextReminderDate(time, skipToday = false) {
   const [hours, minutes] = reminderTimeText(time).split(':').map(Number);
   const next = new Date();
@@ -2384,7 +2392,7 @@ async function updateTrainingReminderEnabled(enabled) {
     return;
   }
 
-  const result = await scheduleTrainingReminder({ skipToday: hasWorkoutToday() });
+  const result = await scheduleTrainingReminder({ skipToday: hasWorkoutToday() }); // ручное время на будущее сегодня создаёт новый вопрос, если активности нет
   if (!result.ok) {
     state.reminders.enabled = false;
     saveState();
@@ -3105,6 +3113,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcKcal, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday
   };
 }
