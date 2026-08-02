@@ -2016,3 +2016,5 @@ html[data-theme="dark"] .segmented button.active {
 .meal-reminder-row label { flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 700; }
 .meal-reminder-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
 .meal-reminder-row input[type="time"] { width: 96px; padding: 6px 7px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.8rem; font-weight: 700; }
+.sources-open-btn { margin-top: 10px; padding: 8px 10px; font-size: 0.76rem; }
+.chip-water-bottle { color: var(--md-sys-color-primary) !important; background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent) !important; }

@@ -99,8 +99,8 @@
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
-                <path d="M10 2h4v3l1.4 1.5v12.8A2.7 2.7 0 0 1 12.7 22h-1.4a2.7 2.7 0 0 1-2.7-2.7V6.5L10 5V2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <path d="M8.6 11.2h6.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M10 2h4v3l1.4 1.5v12.8A2.7 2.7 0 0 1 12.7 22h-1.4a2.7 2.7 0 0 1-2.7-2.7V6.5L10 5V2Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                <path d="M8.9 13h6.2" stroke="var(--md-sys-color-on-primary)" stroke-width="1.7" stroke-linecap="round"/>
               </svg>
             </span> +500 мл
           </button>
@@ -535,9 +535,9 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.24 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow v0.1.25 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
-            <p class="settings-hint">Подробные лицензии и ссылки сохранены в файле DATA_SOURCES.md.</p>
+            <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
         </section>
       </div>
@@ -643,6 +643,19 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="sources-dialog" role="dialog" aria-modal="true" aria-labelledby="sources-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">ℹ️</div>
+      <h2 id="sources-dialog-title">Источники пищевых данных</h2>
+      <div class="terms-list">
+        <p><b>USDA FoodData Central / SR Legacy.</b> Открытая государственная база пищевой ценности. Данные добавлены как усреднённые справочные значения.</p>
+        <p><b>Open Food Facts.</b> Открытая база упакованных продуктов. Используется на условиях Open Database License (ODbL) с указанием источника.</p>
+        <p><b>Важно.</b> У конкретного бренда, рецепта, размера порции и способа приготовления калорийность может отличаться. Всегда ориентируйтесь на этикетку продукта, если она доступна.</p>
+      </div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="sources-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
   <div class="app-dialog-backdrop" id="terms-blocked-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-blocked-title" hidden>
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">⛔</div>

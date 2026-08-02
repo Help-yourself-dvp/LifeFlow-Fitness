@@ -678,7 +678,7 @@ function normalizeMealReminders() {
     enabled: source.enabled === true,
     meals: MEAL_REMINDER_TYPES.map((type) => {
       const meal = map.get(type.id) || {};
-      return { id: type.id, label: type.label, enabled: meal.enabled !== false, time: isValidReminderTime(meal.time) ? meal.time : type.time };
+      return { id: type.id, label: type.label, enabled: meal.enabled === true, time: isValidReminderTime(meal.time) ? meal.time : type.time };
     })
   };
 }
@@ -1526,7 +1526,7 @@ function removeActivityTemplate(id) {
 const TRAINING_REMINDER_ID = 71001;
 const ACTIVITY_TEST_NOTIFICATION_ID = 71002;
 const MEAL_REMINDER_NOTIFICATION_BASE_ID = 73000;
-const MEAL_REMINDER_CHANNEL = 'fitflow_meal_reminders';
+const MEAL_REMINDER_CHANNEL = 'fitflow_meal_reminders_v2';
 const MORNING_MOTIVATION_NOTIFICATION_BASE_ID = 71100;
 const MORNING_MOTIVATION_SCHEDULE_DAYS = 30;
 const TRAINING_REMINDER_CHANNEL = 'fitflow_training_reminders';
@@ -1862,7 +1862,7 @@ async function scheduleMealReminders() {
     const reminders = state.mealReminders;
     const notifications = reminders.meals.filter((meal) => meal.enabled).map((meal, index) => ({
       id: MEAL_REMINDER_NOTIFICATION_BASE_ID + MEAL_REMINDER_TYPES.findIndex((type) => type.id === meal.id),
-      title: `Пора записать: ${meal.label}`,
+      title: `Пора записать: ${meal.label} · ${meal.time}`,
       body: `Не забудьте добавить ваш ${meal.label.toLowerCase()} в FitFlow.`,
       schedule: { at: nextReminderDate(meal.time), repeats: true, allowWhileIdle: true },
       channelId: MEAL_REMINDER_CHANNEL,
@@ -2224,6 +2224,16 @@ function closeApplicationAfterTermsDecline() {
   }
   // В браузере окно нельзя гарантированно закрыть; условия останутся при следующем запуске.
   try { window.close(); } catch (e) { }
+}
+
+function openSourcesDialog() {
+  const dialog = $('#sources-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeSourcesDialog() {
+  const dialog = $('#sources-dialog');
+  if (dialog) dialog.hidden = true;
 }
 
 function openPrivacyDialog() {
@@ -2710,6 +2720,8 @@ function init() {
   $('#terms-blocked-ok').addEventListener('click', closeApplicationAfterTermsDecline);
   $('#privacy-help').addEventListener('click', openPrivacyDialog);
   $('#privacy-dialog-ok').addEventListener('click', closePrivacyDialog);
+  $('#sources-open').addEventListener('click', openSourcesDialog);
+  $('#sources-dialog-ok').addEventListener('click', closeSourcesDialog);
   $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
   // Настройки: тема
