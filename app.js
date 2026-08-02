@@ -1906,6 +1906,8 @@ const LEGACY_TRAINING_REMINDER_ID = 71001;
 const TRAINING_REMINDER_BASE_ID = 76000;
 const TRAINING_REMINDER_SCHEDULE_DAYS = 14;
 const ACTIVITY_TEST_NOTIFICATION_ID = 71002;
+const ACTIVITY_REMINDER_TEST_ID = 71003;
+const MEAL_REMINDER_TEST_ID = 74001;
 const LEGACY_MEAL_REMINDER_NOTIFICATION_BASE_ID = 73000;
 const MEAL_REMINDER_NOTIFICATION_BASE_ID = 73200;
 const MEAL_REMINDER_SCHEDULE_DAYS = 14;
@@ -2545,6 +2547,32 @@ async function sendTestActivityNotification() {
     toast('Тестовое уведомление придёт примерно через 5 секунд');
   } catch (e) {
     console.warn('Не удалось отправить тестовое уведомление:', e);
+    toast('Не удалось отправить тест. Проверьте разрешения Android.');
+  }
+}
+
+async function sendSpecificReminderTest(kind) {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) { toast('Тест доступен только в Android-приложении'); return; }
+  const allowed = await ensureNotificationPermission(localNotifications);
+  if (!allowed) { toast('Разрешите уведомления Android, затем повторите тест'); return; }
+  const isMeal = kind === 'meal';
+  const id = isMeal ? MEAL_REMINDER_TEST_ID : ACTIVITY_REMINDER_TEST_ID;
+  const channel = isMeal ? MEAL_REMINDER_CHANNEL : TRAINING_REMINDER_CHANNEL;
+  try {
+    if (isMeal) await ensureMealReminderChannel(localNotifications); else await ensureTrainingReminderChannel(localNotifications);
+    await localNotifications.cancel({ notifications: [{ id }] });
+    await localNotifications.schedule({ notifications: [{
+      id,
+      title: isMeal ? 'Тест: приём пищи' : 'Тест: вечерняя активность',
+      body: isMeal ? 'Канал питания работает правильно ✓' : 'Канал вечерней активности работает правильно ✓',
+      schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+      channelId: channel, smallIcon: 'ic_stat_icon', iconColor: isMeal ? '#FF9E3D' : '#00696B', autoCancel: true,
+      extra: { source: isMeal ? 'fitflow-meal-test' : 'fitflow-activity-test' }
+    }] });
+    toast('Тестовое уведомление придёт примерно через 5 секунд');
+  } catch (e) {
+    console.warn('Не удалось отправить тест уведомления:', e);
     toast('Не удалось отправить тест. Проверьте разрешения Android.');
   }
 }
@@ -3275,6 +3303,8 @@ function init() {
     updateTrainingReminderTime(e.target.value));
   bindEvent('#notification-setup-btn', 'click', () => switchView('notifications'));
   bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
+  bindEvent('#activity-reminder-test', 'click', () => sendSpecificReminderTest('activity'));
+  bindEvent('#meal-reminder-test', 'click', () => sendSpecificReminderTest('meal'));
   $('#notifications-back-btn').addEventListener('click', () => switchView('settings'));
   $$('[data-open-settings]').forEach((btn) =>
     btn.addEventListener('click', () => openNativeNotificationSetting(btn.dataset.openSettings)));
