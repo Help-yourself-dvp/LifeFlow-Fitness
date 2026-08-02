@@ -457,7 +457,7 @@ function previewSmartEntry() {
   const parsed = parseSmartEntry($('#smart-entry-input').value);
   const lines = [];
   if (parsed.waterMl > 0) lines.push(`💧 Вода: ${parsed.waterMl} мл`);
-  if (parsed.activity) lines.push(`🌿 Активность: ${formatWorkoutDuration(parsed.activity.durationMinutes)}`);
+  if (parsed.activity) lines.push(`🌿 ${ACTIVITY_TYPES[parsed.activity.type].label}: ${formatWorkoutDuration(parsed.activity.durationMinutes)}`);
   if (parsed.food.length) lines.push(`🍽️ Питание: ${parsed.food.map((item) => item.name).join(', ')} · ${fmt(parsed.food.reduce((sum, item) => sum + item.kcal, 0))} ккал`);
   if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
