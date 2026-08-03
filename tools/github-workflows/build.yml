@@ -54,7 +54,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 34/g' android/variables.gradle
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "0.1.53"/g' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "0.1.59"/g' android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           npx cap sync android
 
@@ -98,6 +98,8 @@ jobs:
               private static final int REQ_SAVE_BACKUP = 7301;
               private static final int REQ_VOICE_INPUT = 7302;
               private String pendingBackupJson = null;
+              private String pendingWidgetAction = null;
+              private String pendingWidgetAction = null;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -105,6 +107,100 @@ jobs:
                   requestExactAlarmPermission();
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
+                  Intent startIntent = getIntent();
+                  if (startIntent != null && startIntent.hasExtra("widget_action")) {
+                      pendingWidgetAction = startIntent.getStringExtra("widget_action");
+                  }
+                  Intent startIntent = getIntent();
+                  if (startIntent != null && startIntent.hasExtra("widget_action")) {
+                      pendingWidgetAction = startIntent.getStringExtra("widget_action");
+                  }
+              }
+
+              @Override
+              protected void onNewIntent(Intent intent) {
+                  super.onNewIntent(intent);
+                  if (intent != null && intent.hasExtra("widget_action")) {
+                      pendingWidgetAction = intent.getStringExtra("widget_action");
+                      processWidgetAction();
+                  }
+              }
+
+              @Override
+              public void onResume() {
+                  super.onResume();
+                  if (pendingWidgetAction != null) processWidgetAction();
+              }
+
+              private void processWidgetAction() {
+                  final String action = pendingWidgetAction;
+                  pendingWidgetAction = null;
+                  if (action == null) return;
+                  tryProcessWidgetAction(action, 0);
+              }
+
+              private void tryProcessWidgetAction(final String action, final int attempt) {
+                  runOnUiThread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              WebView wv = getBridge().getWebView();
+                              if (wv != null) {
+                                  wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
+                                  return;
+                              }
+                          } catch (Exception e) { }
+                          if (attempt < 15) {
+                              new android.os.Handler().postDelayed(new Runnable() {
+                                  @Override
+                                  public void run() { tryProcessWidgetAction(action, attempt + 1); }
+                              }, 200);
+                          }
+                      }
+                  });
+              }
+
+              @Override
+              protected void onNewIntent(Intent intent) {
+                  super.onNewIntent(intent);
+                  if (intent != null && intent.hasExtra("widget_action")) {
+                      pendingWidgetAction = intent.getStringExtra("widget_action");
+                      processWidgetAction();
+                  }
+              }
+
+              @Override
+              public void onResume() {
+                  super.onResume();
+                  if (pendingWidgetAction != null) processWidgetAction();
+              }
+
+              private void processWidgetAction() {
+                  final String action = pendingWidgetAction;
+                  pendingWidgetAction = null;
+                  if (action == null) return;
+                  tryProcessWidgetAction(action, 0);
+              }
+
+              private void tryProcessWidgetAction(final String action, final int attempt) {
+                  runOnUiThread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              WebView wv = getBridge().getWebView();
+                              if (wv != null) {
+                                  wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
+                                  return;
+                              }
+                          } catch (Exception e) { }
+                          if (attempt < 15) {
+                              new android.os.Handler().postDelayed(new Runnable() {
+                                  @Override
+                                  public void run() { tryProcessWidgetAction(action, attempt + 1); }
+                              }, 200);
+                          }
+                      }
+                  });
               }
 
               /* ===== Сохранение резервной копии через системное окно Android ===== */
@@ -485,6 +581,20 @@ jobs:
                   PendingIntent pending = PendingIntent.getActivity(context, 0, launch,
                       PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                   views.setOnClickPendingIntent(R.id.widget_root, pending);
+
+                  Intent waterBtn = new Intent(context, MainActivity.class);
+                  waterBtn.putExtra("widget_action", "add_water_250");
+                  waterBtn.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  PendingIntent waterPi = PendingIntent.getActivity(context, 1, waterBtn,
+                      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                  views.setOnClickPendingIntent(R.id.widget_water_btn, waterPi);
+
+                  Intent recordBtn = new Intent(context, MainActivity.class);
+                  recordBtn.putExtra("widget_action", "smart_entry");
+                  recordBtn.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  PendingIntent recordPi = PendingIntent.getActivity(context, 2, recordBtn,
+                      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                  views.setOnClickPendingIntent(R.id.widget_record_btn, recordPi);
                   manager.updateAppWidget(id, views);
               }
 
@@ -605,7 +715,37 @@ jobs:
               encoding='utf-8',
           )
 
-          (drawable / 'fitflow_widget_background.xml').write_text(
+          (drawable / 'fitflow_widget_btn_water.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+              '    <solid android:color="#00696B"/>\n'
+              '    <corners android:radius="12dp"/>\n'
+              '</shape>\n', encoding='utf-8')
+
+          (drawable / 'fitflow_widget_btn_secondary.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+              '    <solid android:color="#E0F2F1"/>\n'
+              '    <corners android:radius="12dp"/>\n'
+              '    <stroke android:width="1dp" android:color="#00696B"/>\n'
+              '</shape>\n', encoding='utf-8')
+
+          (drawable / 'fitflow_widget_btn_water.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+              '    <solid android:color="#00696B"/>\n'
+              '    <corners android:radius="12dp"/>\n'
+              '</shape>\n', encoding='utf-8')
+
+          (drawable / 'fitflow_widget_btn_secondary.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
+              '    <solid android:color="#E0F2F1"/>\n'
+              '    <corners android:radius="12dp"/>\n'
+              '    <stroke android:width="1dp" android:color="#00696B"/>\n'
+              '</shape>\n', encoding='utf-8')
+
+                    (drawable / 'fitflow_widget_background.xml').write_text(
               '<?xml version="1.0" encoding="utf-8"?>\n'
               '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
               '    <solid android:color="#E8F5F4"/>\n'
@@ -626,6 +766,10 @@ jobs:
               '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
               '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
               '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
+              '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n'
+              '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="11sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
+              '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="11sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
+              '    </LinearLayout>\n'
               '</LinearLayout>\n', encoding='utf-8')
           (layout / 'fitflow_widget_large.xml').write_text(
               '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -641,6 +785,10 @@ jobs:
               '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
               '    <TextView android:id="@+id/widget_food_pct" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0% цели" android:textColor="#8F4C00" android:textSize="12sp" />\n'
               '    <TextView android:id="@+id/widget_activity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Активность: 0 мин" android:textColor="#003738" android:textSize="14sp" android:fontFamily="sans-serif-medium" />\n'
+              '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">\n'
+              '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:text="+250 мл" android:textSize="12sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
+              '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginStart="5dp" android:text="📝 Записать" android:textSize="12sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
+              '    </LinearLayout>\n'
               '</LinearLayout>\n', encoding='utf-8')
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
@@ -687,7 +835,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/FitFlow-v0.1.53-debug.apk
+             android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -695,15 +843,15 @@ jobs:
           name: FitFlow-APK
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.53-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.53-build${{ github.run_number }}
-          name: FitFlow 0.1.53 (build ${{ github.run_number }})
+          tag_name: v0.1.59-build${{ github.run_number }}
+          name: FitFlow 0.1.59 (build ${{ github.run_number }})
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.53-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
