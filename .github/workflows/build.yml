@@ -99,7 +99,6 @@ jobs:
               private static final int REQ_VOICE_INPUT = 7302;
               private String pendingBackupJson = null;
               private String pendingWidgetAction = null;
-              private String pendingWidgetAction = null;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -111,53 +110,6 @@ jobs:
                   if (startIntent != null && startIntent.hasExtra("widget_action")) {
                       pendingWidgetAction = startIntent.getStringExtra("widget_action");
                   }
-                  Intent startIntent = getIntent();
-                  if (startIntent != null && startIntent.hasExtra("widget_action")) {
-                      pendingWidgetAction = startIntent.getStringExtra("widget_action");
-                  }
-              }
-
-              @Override
-              protected void onNewIntent(Intent intent) {
-                  super.onNewIntent(intent);
-                  if (intent != null && intent.hasExtra("widget_action")) {
-                      pendingWidgetAction = intent.getStringExtra("widget_action");
-                      processWidgetAction();
-                  }
-              }
-
-              @Override
-              public void onResume() {
-                  super.onResume();
-                  if (pendingWidgetAction != null) processWidgetAction();
-              }
-
-              private void processWidgetAction() {
-                  final String action = pendingWidgetAction;
-                  pendingWidgetAction = null;
-                  if (action == null) return;
-                  tryProcessWidgetAction(action, 0);
-              }
-
-              private void tryProcessWidgetAction(final String action, final int attempt) {
-                  runOnUiThread(new Runnable() {
-                      @Override
-                      public void run() {
-                          try {
-                              WebView wv = getBridge().getWebView();
-                              if (wv != null) {
-                                  wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
-                                  return;
-                              }
-                          } catch (Exception e) { }
-                          if (attempt < 15) {
-                              new android.os.Handler().postDelayed(new Runnable() {
-                                  @Override
-                                  public void run() { tryProcessWidgetAction(action, attempt + 1); }
-                              }, 200);
-                          }
-                      }
-                  });
               }
 
               @Override
