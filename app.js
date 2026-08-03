@@ -124,7 +124,28 @@ const FOOD_DB = {
   // ===== Молочные продукты =====
   'творог': { kcal: 121, p: 17, f: 5, c: 1.8 }, 'творог обезжиренный': { kcal: 71, p: 16, f: 0.3, c: 1.3 }, 'творог 5%': { kcal: 121, p: 17, f: 5, c: 1.8 },
   'творог 9%': { kcal: 169, p: 16.7, f: 9, c: 2 }, 'творожная масса': { kcal: 232, p: 12, f: 15, c: 12 },
-  'сырок глазированный': { kcal: 407, p: 8, f: 25, c: 35, per: 'шт' }, 'сырки глазированные': { kcal: 407, p: 8, f: 25, c: 35 },
+  // ===== Сырочки, творожные десерты и молочные сладости =====
+  'глазированный сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырок глазированный': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' },
+  'сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырки': { kcal: 407, p: 8, f: 25, c: 35 }, 'сырки глазированные': { kcal: 407, p: 8, f: 25, c: 35 },
+  'творожный сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырок творожный': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' },
+  'сырок с вареной сгущенкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' }, 'сырок с варёной сгущёнкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' },
+  'сырок в шоколаде': { kcal: 215, p: 4, f: 14, c: 17, per: 'шт' }, 'творожок': { kcal: 130, p: 8, f: 5, c: 13 },
+  'творожная масса': { kcal: 340, p: 7, f: 23, c: 26 }, 'творожный пудинг': { kcal: 150, p: 10, f: 4, c: 18 },
+  'молочный ломтик': { kcal: 118, p: 2.2, f: 7.8, c: 9.5, per: 'шт' }, 'йогурт питьевой с фруктами': { kcal: 75, p: 2.8, f: 1.5, c: 12 },
+  // ===== Новые готовые блюда, выпечка и салаты =====
+  'салат цезарь с курицей': { kcal: 180, p: 11, f: 12, c: 7 }, 'салат греческий': { kcal: 130, p: 4, f: 10, c: 6 },
+  'салат оливье': { kcal: 198, p: 6, f: 15, c: 10 }, 'селедка под шубой': { kcal: 193, p: 6, f: 13, c: 12 }, 'сельдь под шубой': { kcal: 193, p: 6, f: 13, c: 12 },
+  'винегрет': { kcal: 130, p: 2, f: 8, c: 12 }, 'салат из помидоров и огурцов': { kcal: 75, p: 1, f: 5, c: 6 },
+  'булочка с корицей': { kcal: 340, p: 6, f: 12, c: 52 }, 'булочка с маком': { kcal: 335, p: 7, f: 10, c: 54 },
+  'слойка с вишней': { kcal: 310, p: 4, f: 15, c: 40 }, 'слойка с ветчиной и сыром': { kcal: 320, p: 9, f: 18, c: 30 },
+  'сочник с творогом': { kcal: 275, p: 9, f: 11, c: 35 }, 'сочень с творогом': { kcal: 275, p: 9, f: 11, c: 35 },
+  'ватрушка с творогом': { kcal: 260, p: 9, f: 7, c: 40 }, 'ватрушка': { kcal: 260, p: 9, f: 7, c: 40 },
+  'пирожок с картошкой': { kcal: 210, p: 5, f: 8, c: 30 }, 'пирожок с капустой': { kcal: 190, p: 5, f: 7, c: 27 },
+  'пирожок с мясом': { kcal: 260, p: 10, f: 12, c: 28 }, 'пирожок с яблоком': { kcal: 215, p: 4, f: 7, c: 34 },
+  'гречка с курицей': { kcal: 145, p: 10, f: 3, c: 20 }, 'рис с курицей': { kcal: 155, p: 9, f: 3, c: 23 },
+  'картофельное пюре с котлетой': { kcal: 165, p: 7, f: 8, c: 16 }, 'макароны с котлетой': { kcal: 195, p: 8, f: 8, c: 22 },
+  'куриный суп с лапшой': { kcal: 65, p: 5, f: 2, c: 7 }, 'тыквенный суп-пюре': { kcal: 55, p: 1.5, f: 2.5, c: 7 },
+  'шоколадный батончик с нугой': { kcal: 450, p: 4, f: 20, c: 64 }, 'злаковый батончик': { kcal: 380, p: 6, f: 11, c: 65 },
   'сыр': { kcal: 352, p: 23, f: 29, c: 0 }, 'плавленый сыр': { kcal: 257, p: 16, f: 20, c: 3 }, 'брынза': { kcal: 260, p: 17.5, f: 20, c: 0 },
   'фета': { kcal: 264, p: 14, f: 21, c: 4 }, 'сулугуни': { kcal: 290, p: 20, f: 22, c: 0.5 }, 'адыгейский сыр': { kcal: 240, p: 18.5, f: 18, c: 1.5 },
   'пармезан': { kcal: 392, p: 35, f: 28, c: 0 }, 'гауда': { kcal: 356, p: 25, f: 28, c: 1 }, 'эдам': { kcal: 357, p: 25, f: 28, c: 1.4 },
@@ -1757,8 +1778,9 @@ function renderDayChecklist() {
   card.hidden = !state.dayChecklist.enabled;
   if (!state.dayChecklist.enabled) return;
 
-  const waterOk = state.water.total >= state.water.goal && state.water.goal > 0;
-  const foodOk = state.food.items.length > 0;
+  const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
+  const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+  const foodOk = state.food.items.length >= 3 || (foodKcal >= state.food.goal * 0.8 && state.food.goal > 0);
   const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
     .filter((w) => w.date === todayKey()).length > 0;
 
@@ -1767,12 +1789,16 @@ function renderDayChecklist() {
   const mood = state.dayMood.rating;
   const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
 
+  const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
+  const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
+  const activityText = activityOk ? 'отмечена' : 'сегодня без активности';
+
   card.innerHTML = `<div class="card checklist-card" aria-label="Чек-лист дня">
     <div class="checklist-header"><span>📋 Чек-лист дня</span></div>
     <div class="checklist-items">
-      <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл'}</span>
-      <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodOk ? 'записи есть' : 'ничего не добавлено'}</span>
-      <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityOk ? 'отмечена' : 'сегодня без активности'}</span>
+      <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>
+      <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>
+      <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
       <span class="checklist-item checklist-mood"><span class="checklist-icon" style="font-size:1.2rem">${mood ? emojis[mood] : '○'}</span> Самочувствие — ${mood ? emojis[mood] + ' ' + mood + '/5' : '<button class="btn btn-secondary mood-pick-btn" type="button" id="mood-pick-open" style="font-size:0.72rem;padding:4px 8px">Оценить день</button>'}</span>
     </div>
   </div>`;
@@ -4014,9 +4040,10 @@ if (typeof window !== 'undefined') {
     previewSmartEntry();
   };
   window.onWidgetAction = function (action) {
-    if (action === 'add_water_250') {
-      addWater(250);
-      toast('💧 +250 мл воды с виджета');
+    if (action && String(action).startsWith('add_water_')) {
+      const ml = Number(String(action).replace('add_water_', '')) || 250;
+      addWater(ml);
+      toast(`💧 +${ml} мл воды с виджета`);
     } else if (action === 'smart_entry') {
       openSmartEntry();
       toast('📝 Быстрый ввод открыт с виджета');

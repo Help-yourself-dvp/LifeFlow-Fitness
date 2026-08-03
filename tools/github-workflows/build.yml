@@ -54,7 +54,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 34/g' android/variables.gradle
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
-          sed -i 's/versionName "1.0"/versionName "0.1.59"/g' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "0.1.60"/g' android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           npx cap sync android
 
@@ -106,6 +106,7 @@ jobs:
                   requestExactAlarmPermission();
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
+                  checkPendingWidgetWaterAdd();
                   Intent startIntent = getIntent();
                   if (startIntent != null && startIntent.hasExtra("widget_action")) {
                       pendingWidgetAction = startIntent.getStringExtra("widget_action");
@@ -115,6 +116,7 @@ jobs:
               @Override
               protected void onNewIntent(Intent intent) {
                   super.onNewIntent(intent);
+                  checkPendingWidgetWaterAdd();
                   if (intent != null && intent.hasExtra("widget_action")) {
                       pendingWidgetAction = intent.getStringExtra("widget_action");
                       processWidgetAction();
@@ -124,7 +126,19 @@ jobs:
               @Override
               public void onResume() {
                   super.onResume();
+                  checkPendingWidgetWaterAdd();
                   if (pendingWidgetAction != null) processWidgetAction();
+              }
+
+              private void checkPendingWidgetWaterAdd() {
+                  try {
+                      SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
+                      final int pending = prefs.getInt("pendingWaterAdd", 0);
+                      if (pending > 0) {
+                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
+                          tryProcessWidgetAction("add_water_" + pending, 0);
+                      }
+                  } catch (Exception e) { }
               }
 
               private void processWidgetAction() {
@@ -534,10 +548,9 @@ jobs:
                       PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                   views.setOnClickPendingIntent(R.id.widget_root, pending);
 
-                  Intent waterBtn = new Intent(context, MainActivity.class);
-                  waterBtn.putExtra("widget_action", "add_water_250");
-                  waterBtn.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                  PendingIntent waterPi = PendingIntent.getActivity(context, 1, waterBtn,
+                  Intent waterBtn = new Intent(context, FitFlowWidgetProvider.class);
+                  waterBtn.setAction("com.fitflow.app.ADD_WATER_250");
+                  PendingIntent waterPi = PendingIntent.getBroadcast(context, 1, waterBtn,
                       PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
                   views.setOnClickPendingIntent(R.id.widget_water_btn, waterPi);
 
@@ -557,6 +570,21 @@ jobs:
                   if (hours == 0) return minutes + " мин";
                   if (rest == 0) return hours + " ч";
                   return hours + " ч " + rest + " мин";
+              }
+
+              @Override
+              public void onReceive(Context context, Intent intent) {
+                  super.onReceive(context, intent);
+                  if (intent != null && "com.fitflow.app.ADD_WATER_250".equals(intent.getAction())) {
+                      SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
+                      int waterTotal = prefs.getInt("waterTotal", 0) + 250;
+                      int pendingAdd = prefs.getInt("pendingWaterAdd", 0) + 250;
+                      prefs.edit()
+                          .putInt("waterTotal", waterTotal)
+                          .putInt("pendingWaterAdd", pendingAdd)
+                          .apply();
+                      updateAll(context);
+                  }
               }
           }
           EOF
@@ -771,7 +799,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-             android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
+             android/app/build/outputs/apk/debug/FitFlow-v0.1.60-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -779,15 +807,15 @@ jobs:
           name: FitFlow-APK
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.60-debug.apk
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/arena/'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.59-build${{ github.run_number }}
-          name: FitFlow 0.1.59 (build ${{ github.run_number }})
+          tag_name: v0.1.60-build${{ github.run_number }}
+          name: FitFlow 0.1.60 (build ${{ github.run_number }})
           generate_release_notes: true
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/FitFlow-v0.1.59-debug.apk
+            android/app/build/outputs/apk/debug/FitFlow-v0.1.60-debug.apk
