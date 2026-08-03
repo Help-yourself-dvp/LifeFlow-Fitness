@@ -197,11 +197,11 @@ console.log(`${allProfilesBackupOk ? '✓' : '✗'} одна копия сохр
 
 const weightHistory = normalizeWeightHistory([
   { date: '2026-07-30', weightKg: '71,2' },
-  { date: '2026-08-02', weightKg: 70.5 },
-  { date: '2026-08-02', weightKg: 70.4, updatedAt: 1 },
-  { date: '2026-08-03', weightKg: 70 }
+  { date: '2026-08-01', weightKg: 70.5 },
+  { date: '2026-08-01', weightKg: 70.4, updatedAt: 1 },
+  { date: '2026-08-02', weightKg: 70 }
 ]);
-const weightHistoryOk = weightHistory.length === 2 && weightHistory[0].weightKg === 71.2 && weightHistory[1].weightKg === 70.4;
+const weightHistoryOk = weightHistory.length === 3 && weightHistory[0].weightKg === 71.2 && weightHistory[1].weightKg === 70.4 && weightHistory[2].weightKg === 70;
 if (!weightHistoryOk) failed++;
 console.log(`${weightHistoryOk ? '✓' : '✗'} история веса: дата, замена записи и допустимый диапазон`);
 

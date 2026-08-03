@@ -602,6 +602,74 @@ html[data-theme="dark"] .icon-sun { display: none; }
   color: var(--md-sys-color-on-surface-variant);
 }
 
+/* ---------- Полоска БЖУ ---------- */
+.food-macros {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.macro-bar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.macro-bar-track {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface-container-highest);
+  margin-top: 2px;
+}
+
+.macro-bar-p { background: #4a9eff; height: 100%; transition: width 0.4s ease; }
+.macro-bar-f { background: #f0a040; height: 100%; transition: width 0.4s ease; }
+.macro-bar-c { background: #4caf50; height: 100%; transition: width 0.4s ease; }
+
+.manual-food-macros {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.manual-food-macros input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 8px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.manual-food-macros input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.food-item-macros {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  white-space: nowrap;
+}
+
+/* ---------- Чек-лист дня ---------- */
+#day-checklist-card { margin-bottom: 16px; }
+.checklist-card { padding: 14px 16px 12px; }
+.checklist-header { margin-bottom: 10px; font-size: 0.88rem; font-weight: 800; color: var(--md-sys-color-on-surface); }
+.checklist-items { display: grid; gap: 8px; }
+.checklist-item { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.checklist-item.done { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.checklist-icon { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 0.9rem; flex-shrink: 0; }
+.checklist-icon.done { background: var(--success); color: #fff; }
+.checklist-icon.pending { border: 2px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-outline-variant); }
+
 /* ---------- Форма ввода ---------- */
 .food-form {
   display: flex;
@@ -2199,3 +2267,18 @@ html[data-theme="dark"] .segmented button.active {
 .weight-details-open { margin-top: 10px; }
 .weight-quick-form { display: grid; gap: 10px; margin-top: 14px; }
 .weight-quick-form .app-dialog-actions { margin-top: 2px; }
+
+/* ---------- Оценка дня ---------- */
+.checklist-mood { display: flex; align-items: center; gap: 8px; padding: 10px 11px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.mood-pick-btn { flex-shrink: 0; }
+.mood-picker { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.mood-btn { display: grid; gap: 2px; justify-items: center; padding: 10px 8px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); transition: background 0.2s, border-color 0.2s; }
+.mood-btn:hover { background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary-container); }
+.mood-btn span { font-size: 1.5rem; }
+.mood-btn small { font-size: 0.7rem; font-weight: 700; }
+.stats-mood { margin-top: 10px; padding: 13px; background: var(--md-sys-color-secondary-container); border-radius: 16px; }
+.stats-mood h3 { font-size: 0.9rem; color: var(--md-sys-color-on-secondary-container); }
+.stats-mood p { margin-top: 4px; color: var(--md-sys-color-on-secondary-container); font-size: 0.78rem; line-height: 1.5; }
+.mood-correlation { display: inline-flex; gap: 6px; align-items: center; padding: 3px 8px; border-radius: 8px; background: var(--md-sys-color-surface-container-low); font-weight: 700; }
+.mood-correlation.good { color: var(--success); }
+.mood-correlation.bad { color: var(--md-sys-color-error); }
