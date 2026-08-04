@@ -38,7 +38,6 @@
           <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </svg>
       </button>
-      <button id="smart-entry-open" type="button" hidden></button>
       <button class="icon-btn ai-center-header" id="ai-center-open" type="button" aria-label="ИИ и быстрый ввод: рецепты, аналитика и голосовой ввод" title="ИИ и быстрый ввод FitFlow">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m12 3 2.1 5.3L19.5 10l-5.4 1.7L12 17l-2.1-5.3L4.5 10l5.4-1.7L12 3Z" fill="currentColor"/>
@@ -111,7 +110,6 @@
           <button class="chip" data-water="250" type="button">
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
           </button>
-          <button class="chip chip-voice" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">🎤</button>
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -182,7 +180,6 @@
           </svg>
           <input type="text" id="food-input" class="food-input" inputmode="text"
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
-          <button class="input-mic-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом">🎤</button>
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
       </form>
@@ -587,16 +584,18 @@
             <span class="sr-only">Включить утреннее мотивирующее уведомление</span>
           </label>
         </div>
-        <div class="reminder-time-row">
-          <label for="morning-motivation-time">Присылать каждый день в</label>
-          <input id="morning-motivation-time" class="time-input" type="time" value="08:00" aria-label="Время утренней мотивации">
-        </div>
-        <div class="motivation-theme-row">
-          <span>Тема фраз</span>
-          <button class="theme-picker-btn" id="morning-motivation-theme" type="button" aria-haspopup="dialog">
-            <span id="morning-motivation-theme-label">Смешанная</span>
-            <span aria-hidden="true">⌄</span>
-          </button>
+        <div id="morning-motivation-options" hidden>
+          <div class="reminder-time-row">
+            <label for="morning-motivation-time">Присылать каждый день в</label>
+            <input id="morning-motivation-time" class="time-input" type="time" value="08:00" aria-label="Время утренней мотивации">
+          </div>
+          <div class="motivation-theme-row">
+            <span>Тема фраз</span>
+            <button class="theme-picker-btn" id="morning-motivation-theme" type="button" aria-haspopup="dialog">
+              <span id="morning-motivation-theme-label">Смешанная</span>
+              <span aria-hidden="true">⌄</span>
+            </button>
+          </div>
         </div>
         <p class="settings-hint" id="morning-motivation-status">Утренние фразы выключены.</p>
       </div>
@@ -610,11 +609,13 @@
             <span class="sr-only">Включить напоминания о приёмах пищи</span>
           </label>
         </div>
-        <div class="settings-row meal-reminder-actions">
-          <button class="btn btn-secondary" id="meal-reminders-all" type="button">Выбрать все</button>
-          <button class="btn btn-secondary" id="meal-reminders-none" type="button">Снять все</button>
+        <div id="meal-reminders-options" hidden>
+          <div class="settings-row meal-reminder-actions">
+            <button class="btn btn-secondary" id="meal-reminders-all" type="button">Выбрать все</button>
+            <button class="btn btn-secondary" id="meal-reminders-none" type="button">Снять все</button>
+          </div>
+          <div class="meal-reminders-list" id="meal-reminders-list"></div>
         </div>
-        <div class="meal-reminders-list" id="meal-reminders-list"></div>
         <p class="settings-hint" id="meal-reminders-status">Напоминания о питании выключены.</p>
         <button class="btn btn-secondary reminder-test-btn" id="meal-reminder-test" type="button">Проверить напоминание о питании</button>
       </div>
@@ -628,15 +629,37 @@
             <span class="sr-only">Включить вечернее напоминание об активности</span>
           </label>
         </div>
-        <div class="reminder-time-row">
-          <label for="workout-reminder-time">Напоминать каждый день в</label>
-          <input id="workout-reminder-time" class="time-input" type="time" value="20:00" aria-label="Время вечернего напоминания об активности">
+        <div id="workout-reminder-options" hidden>
+          <div class="reminder-time-row">
+            <label for="workout-reminder-time">Напоминать каждый день в</label>
+            <input id="workout-reminder-time" class="time-input" type="time" value="20:00" aria-label="Время вечернего напоминания об активности">
+          </div>
         </div>
         <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
         <button class="btn btn-secondary reminder-test-btn" id="activity-reminder-test" type="button">Проверить вечернюю активность</button>
       </div>
 
-<div class="settings-group">        <p class="settings-label">Напоминания о воде</p>        <p class="settings-hint">Регулярные напоминания выпить воду в течение дня.</p>        <div class="settings-label-row">          <p class="settings-label">Включить напоминания</p>          <label class="switch" for="water-reminders-toggle">            <input id="water-reminders-toggle" type="checkbox" role="switch">            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>            <span class="sr-only">Включить напоминания о воде</span>          </label>        </div>        <p class="settings-label">Интервал</p>        <div class="segmented" id="water-interval-choices" role="radiogroup" aria-label="Интервал напоминаний о воде">          <button type="button" data-water-interval="60">60 мин</button>          <button class="active" type="button" data-water-interval="90">90 мин</button>          <button type="button" data-water-interval="120">120 мин</button>        </div>        <p class="settings-hint" id="water-reminders-status">Напоминания о воде выключены.</p>      </div>
+      <div class="settings-group">
+        <p class="settings-label">Напоминания о воде</p>
+        <p class="settings-hint">Регулярные напоминания выпить воду в течение дня.</p>
+        <div class="settings-label-row">
+          <p class="settings-label">Включить напоминания</p>
+          <label class="switch" for="water-reminders-toggle">
+            <input id="water-reminders-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить напоминания о воде</span>
+          </label>
+        </div>
+        <div id="water-reminders-options" hidden>
+          <p class="settings-label">Интервал</p>
+          <div class="segmented" id="water-interval-choices" role="radiogroup" aria-label="Интервал напоминаний о воде">
+            <button type="button" data-water-interval="60">60 мин</button>
+            <button class="active" type="button" data-water-interval="90">90 мин</button>
+            <button type="button" data-water-interval="120">120 мин</button>
+          </div>
+          <p class="settings-hint" id="water-reminders-status">Напоминания о воде выключены.</p>
+        </div>
+      </div>
       <div class="settings-group notification-settings-group">
         <p class="settings-label">Настройки всех уведомлений</p>
         <button class="btn btn-secondary notification-setup-btn" id="notification-setup-btn" type="button">
@@ -678,7 +701,16 @@
           <div class="settings-row" style="margin-top:10px">
             <button class="btn btn-secondary" id="ai-benchmark-btn" type="button">⚡ Тест эффективности (Бенчмарк)</button>
           </div>
-          <p class="settings-hint" id="ai-benchmark-status">Тест эффективности сравнивает скорость (токены/сек) и точность формата JSON в офлайне.</p>
+          <p class="settings-hint" id="ai-benchmark-status">Тест эффективности измеряет скорость и время отклика выбранной модели в офлайне.</p>
+          <div class="ai-model-box" style="margin-top:12px;border:1px solid var(--primary)">
+            <p class="settings-label" style="margin-top:0">💬 Проверочный запрос в выбранную модель</p>
+            <p class="settings-hint">Отправьте свой контрольный вопрос, чтобы убедиться, что модель реально работает:</p>
+            <div class="settings-row" style="margin-top:8px">
+              <input type="text" id="ai-test-query-input" class="form-input" placeholder="Например: сколько калорий в 100г овсянки?" style="flex:1">
+              <button class="btn btn-primary" id="ai-test-query-btn" type="button">⚡ Отправить</button>
+            </div>
+            <div id="ai-test-query-result" class="ai-result-box" style="margin-top:10px" hidden></div>
+          </div>
         </div>
       </div>
 
@@ -1056,6 +1088,7 @@
       </div>
       <div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
         <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick">⚡ Ввод</button>
+        <button id="ai-tab-photo-btn" type="button" role="tab" data-ai-tab="photo">📷 Фото еды</button>
         <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe">🥑 Рецепт</button>
         <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis">📊 Анализ</button>
         <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat">💬 Нутрициолог</button>
@@ -1113,6 +1146,11 @@
     </section>
   </div>
 
+  <div hidden>
+    <button id="smart-entry-open" type="button"></button>
+    <button id="food-voice-btn" type="button"></button>
+    <button id="water-voice-btn" type="button"></button>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

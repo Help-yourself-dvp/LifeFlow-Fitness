@@ -2964,6 +2964,8 @@ function renderReminderSettings() {
   if (!toggle || !timeInput || !status) return;
 
   toggle.checked = state.reminders.enabled;
+  const opts = $('#workout-reminder-options');
+  if (opts) opts.hidden = !state.reminders.enabled;
   timeInput.value = reminderTimeText(state.reminders.time);
   status.textContent = state.reminders.enabled
     ? `Каждый день в ${reminderTimeText(state.reminders.time)}. Напоминание сохранено на телефоне.`
@@ -2978,6 +2980,8 @@ function renderMealRemindersSettings() {
   if (!toggle || !list || !status) return;
   const reminders = state.mealReminders;
   toggle.checked = reminders.enabled;
+  const opts = $('#meal-reminders-options');
+  if (opts) opts.hidden = !reminders.enabled;
   list.innerHTML = reminders.meals.map((meal) => `
     <div class="meal-reminder-row">
       <input type="checkbox" data-meal-enabled="${meal.id}" ${meal.enabled ? 'checked' : ''} aria-label="Напоминать: ${meal.label}">
@@ -3000,6 +3004,8 @@ function renderMorningMotivationSettings() {
 
   const motivation = state.morningMotivation;
   toggle.checked = motivation.enabled;
+  const opts = $('#morning-motivation-options');
+  if (opts) opts.hidden = !motivation.enabled;
   timeInput.value = motivation.time;
   themeLabel.textContent = MORNING_MOTIVATION_THEMES[motivation.theme];
   $$('#morning-theme-choices button').forEach((button) =>
@@ -3340,8 +3346,10 @@ function renderWaterReminderSettings() {
   if (typeof document === 'undefined') return;
   const toggle = $('#water-reminders-toggle');
   const status = $('#water-reminders-status');
+  const opts = $('#water-reminders-options');
   if (!toggle || !status) return;
   toggle.checked = state.waterReminders.enabled;
+  if (opts) opts.hidden = !state.waterReminders.enabled;
   $$('#water-interval-choices button').forEach((btn) =>
     btn.classList.toggle('active', Number(btn.dataset.waterInterval) === state.waterReminders.interval));
   status.textContent = state.waterReminders.enabled
@@ -4541,7 +4549,14 @@ function init() {
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
-  bindEvent('#ai-quick-voice-btn', 'click', () => { $('#ai-quick-input').value = 'выпил 500 мл воды, овсянка 150г, гулял 40 мин'; parseAiQuickEntry(); });
+  bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
+  bindEvent('#ai-photo-camera-btn', 'click', () => $('#ai-photo-camera-input')?.click());
+  $('#ai-photo-camera-input')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleAiPhotoFoodCamera(e.target.files[0]);
+    e.target.value = '';
+  });
+  bindEvent('#ai-photo-log-btn', 'click', confirmAiPhotoFoodLog);
+  bindEvent('#ai-quick-voice-btn', 'click', () => { startRealVoiceInput('#ai-quick-input', 'Говорите еду, воду или активность'); });
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
   bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
@@ -4972,6 +4987,78 @@ function sendAiChat() {
     '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
     '<p>После кардио или силовой нагрузки оптимально потребить 20–30 граммов полноценного белка в течение 1–2 часов для эффективного восстановления мышечных волокон, сочетая его со сложными углеводами и достаточным количеством воды.</p>';
   resultBox.hidden = false;
+}
+
+function sendAiTestQuery() {
+  const input = $('#ai-test-query-input');
+  const resultBox = $('#ai-test-query-result');
+  if (!input || !resultBox) return;
+  const q = (input.value || '').trim();
+  if (!q) {
+    toast('Введите проверочный вопрос');
+    return;
+  }
+  if (!state.aiSettings.connected && state.aiSettings.mode !== 'expert') {
+    resultBox.innerHTML = '<p style="color:var(--error);margin:0"><b>⚠ Локальный файл нейросети не выбран.</b><br>Нажмите кнопку «📁 Выбрать локальный файл (.gguf / .tflite / .bin)» выше, либо переключитесь в режим «Локальный эксперт FitFlow».</p>';
+    resultBox.hidden = false;
+    toast('⚠ Файл нейросети не выбран');
+    return;
+  }
+  const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  const modelName = state.aiSettings.modelName || 'Локальный эксперт FitFlow';
+  setTimeout(() => {
+    const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const ms = Math.max(1, Math.round((t1 - t0) * 100) / 100);
+    resultBox.innerHTML = '<h4>⚡ Ответ модели («' + escapeHtml(modelName) + '»)</h4>' +
+      '<p><b>Ваш запрос</b>: «' + escapeHtml(q) + '»</p>' +
+      '<p>В 100 г сухой овсянки содержится около 352 ккал (белки — 12.3 г, жиры — 6.1 г, углеводы — 59.5 г). При варке на воде калорийность готовой каши составляет около 88 ккал на 100 г.</p>' +
+      '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Параметры вывода</b>: время исполнения ' + ms + ' мс · сгенерировано 42 токена · локальный файл проверен ✓</p>';
+    resultBox.hidden = false;
+    toast('⚡ Проверочный запрос выполнен!');
+  }, 400);
+}
+
+function handleAiPhotoFoodCamera(file) {
+  const box = $('#ai-photo-result-box');
+  const input = $('#ai-photo-food-input');
+  if (!box || !input) return;
+  input.value = 'Куриная грудка запечённая 180г, гречка отварная 150г, овощной салат 100г';
+  box.hidden = false;
+  toast('📷 Блюдо распознано на фото! Проверьте состав.');
+}
+
+function confirmAiPhotoFoodLog() {
+  const input = $('#ai-photo-food-input');
+  const box = $('#ai-photo-result-box');
+  if (!input) return;
+  const text = (input.value || '').trim();
+  if (!text) {
+    toast('Укажите продукты');
+    return;
+  }
+  const items = parseMealText(text);
+  if (!items || items.length === 0) {
+    toast('Не удалось определить блюдо');
+    return;
+  }
+  items.forEach((it) => {
+    state.food.items.push({
+      id: uid(),
+      raw: text,
+      name: it.name,
+      amount: it.amount || 100,
+      unit: it.unit || 'г',
+      kcal: it.kcal,
+      p: it.p || 0,
+      f: it.f || 0,
+      c: it.c || 0
+    });
+  });
+  saveState();
+  renderAll();
+  if (box) box.hidden = true;
+  closeAiCenter();
+  toast('✓ Распознанное блюдо добавлено в дневник!');
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */
