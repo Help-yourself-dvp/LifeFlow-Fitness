@@ -285,6 +285,23 @@
 
   <!-- ===== Статистика ===== -->
   <div id="stats-view" hidden>
+    <section class="card ai-stats-card" aria-labelledby="ai-stats-title">
+      <div class="card-header">
+        <div class="card-icon ai-stats-icon" aria-hidden="true">✨</div>
+        <div>
+          <h2 id="ai-stats-title">ИИ-аналитик FitFlow</h2>
+          <p class="card-subtitle">Умное подведение итогов, анализ привычек и самочувствия</p>
+        </div>
+      </div>
+      <div class="settings-row" style="margin:10px 0 12px">
+        <div class="segmented" id="ai-stats-period" role="radiogroup" aria-label="Период ИИ-анализа">
+          <button class="active" type="button" data-ai-stats-period="7">За неделю (7 дней)</button>
+          <button type="button" data-ai-stats-period="30">За месяц (30 дней)</button>
+        </div>
+        <button class="btn btn-primary" id="ai-stats-run-btn" type="button">✨ Анализ</button>
+      </div>
+      <div id="ai-stats-report-box" class="ai-result-box" hidden></div>
+    </section>
     <section class="card stats-card" aria-labelledby="stats-title">
       <div class="card-header">
         <div class="card-icon stats-icon" aria-hidden="true">
@@ -1047,10 +1064,20 @@
       </div>
       <!-- Вкладка 1: Рецепт из холодильника -->
       <div id="ai-tab-recipe" class="ai-tab-panel">
-        <p class="settings-hint" style="margin-top:0">Укажите продукты, которые у вас есть (например: <code>курица, гречка, помидоры, сыр</code>), и ИИ подберёт сбалансированное блюдо с точным расчётом БЖУ.</p>
+        <p class="settings-hint" style="margin-top:0">Укажите продукты или сфотографируйте их — ИИ подберёт рецепт, подстроенный под ваши персональные цели калорий и профиль.</p>
         <div class="settings-row" style="margin-bottom:10px">
           <input type="text" id="ai-recipe-input" class="form-input" placeholder="Какие продукты у вас есть?" style="flex:1">
+          <button class="btn btn-secondary" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты">📷 Фото</button>
           <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
+          <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
+        </div>
+        <div id="ai-recipe-photo-confirm" class="ai-result-box" style="border-color:var(--primary)" hidden>
+          <h4>📷 Продукты, распознанные на фото</h4>
+          <p class="settings-hint">Проверьте или скорректируйте состав и нажмите «Подтвердить», чтобы рассчитать персональный рецепт:</p>
+          <div class="settings-row" style="margin-top:8px">
+            <input type="text" id="ai-recipe-photo-ingredients" class="form-input" style="flex:1">
+            <button class="btn btn-primary" id="ai-recipe-photo-confirm-btn" type="button">✓ Подтвердить</button>
+          </div>
         </div>
         <div id="ai-recipe-result" class="ai-result-box" hidden></div>
       </div>

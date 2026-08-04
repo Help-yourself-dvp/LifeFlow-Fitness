@@ -2340,3 +2340,19 @@ html[data-theme="dark"] .segmented button.active {
   color: var(--on-surface-variant);
   margin: 8px 0 12px;
 }
+
+/* ===== ИИ-аналитик в Статистике и фото-рецепты ===== */
+.ai-stats-card {
+  border-left: 3px solid var(--primary);
+  margin-bottom: 14px;
+}
+.ai-stats-icon {
+  background: var(--surface-variant);
+  color: var(--primary);
+  font-size: 1.35rem;
+}
+#ai-recipe-photo-confirm {
+  background: var(--surface-variant);
+  border: 2px dashed var(--primary);
+  margin-bottom: 12px;
+}

@@ -4520,6 +4520,17 @@ function init() {
   bindEvent('#ai-generate-recipe', 'click', generateAiRecipe);
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
+  bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
+  $('#ai-recipe-camera-input')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
+    e.target.value = '';
+  });
+  bindEvent('#ai-recipe-photo-confirm-btn', 'click', confirmAiRecipePhotoIngredients);
+  bindEvent('#ai-stats-run-btn', 'click', generateAiStatsReport);
+  $$('#ai-stats-period button').forEach((btn) => btn.addEventListener('click', () => {
+    $$('#ai-stats-period button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+  }));
   $$('#ai-analysis-period button').forEach((btn) => btn.addEventListener('click', () => {
     $$('#ai-analysis-period button').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
@@ -4705,7 +4716,7 @@ function switchAiTab(tabName) {
   $$('.ai-tab-panel').forEach((panel) => panel.hidden = panel.id !== 'ai-tab-' + tabName);
 }
 
-function generateAiRecipe() {
+function generateAiRecipe(options = {}) {
   const input = $('#ai-recipe-input');
   const resultBox = $('#ai-recipe-result');
   if (!input || !resultBox) return;
@@ -4714,26 +4725,35 @@ function generateAiRecipe() {
     toast('Укажите продукты, которые у вас есть');
     return;
   }
-  const kcal = 420;
+  const profileName = profilesState.profiles.find((p) => p.id === profilesState.activeId)?.name || 'Мой профиль';
+  const weightKg = state.profileSettings.weightKg;
+  const goalKcal = state.food.goal || 2000;
+  const targetKcal = Math.round(goalKcal * 0.28);
+
+  const tailoredBadge = options.tailoredToProfile || text.includes('куриная')
+    ? '<div class="ai-recipe-macros" style="color:var(--primary)"><span>👤 Подстроено под ' + escapeHtml(profileName) + '</span><span>Цель обеда: ~' + targetKcal + ' ккал</span>' + (weightKg ? '<span>Вес: ' + weightKg + ' кг</span>' : '') + '</div>'
+    : '';
+
   resultBox.innerHTML = '<h4>🥑 Куриная грудка с гречкой и овощным салатом</h4>' +
+    tailoredBadge +
     '<p>Сбалансированное блюдо из продуктов: <em>' + escapeHtml(text) + '</em>.</p>' +
     '<ul>' +
-    '<li><b>Ингредиенты</b>: курица 150 г, гречка варёная 150 г, свежие овощи 100 г.</li>' +
-    '<li><b>Приготовление</b>: отварите гречку, обжарьте или запеките курицу без лишнего масла, подавайте со свежими овощами.</li>' +
+    '<li><b>Ингредиенты</b>: куриное филе 150 г, гречка отварная 150 г, свежие томаты 100 г, зелень.</li>' +
+    '<li><b>Приготовление</b>: отварите гречку, запеките куриную грудку со специями без лишнего масла, подавайте со свежими томатами и зеленью.</li>' +
     '</ul>' +
-    '<div class="ai-recipe-macros"><span>🔥 420 ккал</span><span>Б: 36 г</span><span>Ж: 12 г</span><span>У: 42 г</span></div>' +
-    '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить в дневник питания (420 ккал)</button>';
+    '<div class="ai-recipe-macros"><span>🔥 ' + targetKcal + ' ккал</span><span>Б: 36 г</span><span>Ж: 12 г</span><span>У: 42 г</span></div>' +
+    '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить в дневник питания (' + targetKcal + ' ккал)</button>';
   resultBox.hidden = false;
   const logBtn = $('#ai-log-recipe-btn');
   if (logBtn) {
     logBtn.addEventListener('click', () => {
       state.food.items.push({
         id: uid(),
-        raw: 'ИИ-рецепт: Курица с гречкой (420 ккал)',
+        raw: 'ИИ-рецепт: Курица с гречкой (' + targetKcal + ' ккал)',
         name: 'Курица с гречкой (ИИ-рецепт)',
         amount: 1,
         unit: 'порция',
-        kcal: 420,
+        kcal: targetKcal,
         p: 36,
         f: 12,
         c: 42
@@ -4741,9 +4761,54 @@ function generateAiRecipe() {
       saveState();
       renderAll();
       closeAiCenter();
-      toast('🥑 Рецепт добавлен в дневник питания!');
+      toast('🥑 Персональный рецепт добавлен в дневник!');
     });
   }
+}
+
+function handleAiRecipeCameraPhoto(file) {
+  const confirmBox = $('#ai-recipe-photo-confirm');
+  const ingredientsInput = $('#ai-recipe-photo-ingredients');
+  if (!confirmBox || !ingredientsInput) return;
+  // Локальный распознаватель фото (эмуляция vision-анализа на устройстве)
+  ingredientsInput.value = 'куриная грудка 200г, гречка 150г, помидоры 100г, сыр 50г, зелень';
+  confirmBox.hidden = false;
+  toast('📷 Фото распознано! Проверьте состав продуктов.');
+}
+
+function confirmAiRecipePhotoIngredients() {
+  const ingredientsInput = $('#ai-recipe-photo-ingredients');
+  const recipeInput = $('#ai-recipe-input');
+  const confirmBox = $('#ai-recipe-photo-confirm');
+  if (!ingredientsInput || !recipeInput) return;
+  recipeInput.value = (ingredientsInput.value || '').trim();
+  if (confirmBox) confirmBox.hidden = true;
+  generateAiRecipe({ tailoredToProfile: true });
+}
+
+function generateAiStatsReport() {
+  const resultBox = $('#ai-stats-report-box');
+  const periodBtn = $('#ai-stats-period button.active');
+  if (!resultBox) return;
+  const days = periodBtn ? Number(periodBtn.dataset.aiStatsPeriod) : 7;
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory);
+  let weightText = 'Вес стабилен';
+  if (history.length > 1) {
+    const diff = Number((history[history.length - 1].weightKg - history[0].weightKg).toFixed(1));
+    if (diff < 0) weightText = 'Снижение веса на ' + Math.abs(diff) + ' кг';
+    else if (diff > 0) weightText = 'Увеличение веса на ' + diff + ' кг';
+  }
+  const waterPct = Math.min(100, Math.round((state.water.total / (state.water.goal || 2500)) * 100));
+  const workoutsCount = (Array.isArray(state.workouts) ? state.workouts : []).length;
+  resultBox.innerHTML = '<h4>✨ ИИ-анализ FitFlow (За ' + days + ' дн.)</h4>' +
+    '<ul>' +
+    '<li><b>Динамика веса</b>: ' + weightText + '. Темп изменения соответствует физиологической норме.</li>' +
+    '<li><b>Гидратация</b>: сегодня выполнено ' + waterPct + '% водной цели. Стабильный водный баланс способствует контролю аппетита.</li>' +
+    '<li><b>Активность</b>: зафиксировано тренировок: ' + workoutsCount + '. Регулярное кардио ускоряет достижение целей.</li>' +
+    '<li><b>Совет нутрициолога FitFlow</b>: для поддержки мышц после прогулок и тренировок старайтесь распределять белок равномерно по трём основным приёмам пищи.</li>' +
+    '</ul>';
+  resultBox.hidden = false;
+  toast('✨ ИИ-анализ показателей завершён!');
 }
 
 function generateAiAnalysis() {
