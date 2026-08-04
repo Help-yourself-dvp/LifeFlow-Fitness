@@ -38,14 +38,8 @@
           <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
         </svg>
       </button>
-      <button class="icon-btn smart-entry-header" id="smart-entry-open" type="button" aria-label="Быстрый ввод: голос или текст" title="Быстрый ввод: голос или текст">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="8.5" y="3" width="7" height="10.5" rx="3.5" stroke="currentColor" stroke-width="1.8"/>
-          <path d="M5.5 11a6 6 0 0 0 12 0M12 17v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <path d="m18.2 3.2.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z" fill="currentColor"/>
-        </svg>
-      </button>
-      <button class="icon-btn ai-center-header" id="ai-center-open" type="button" aria-label="ИИ-помощник FitFlow: рецепты и анализ" title="ИИ-помощник FitFlow">
+      <button id="smart-entry-open" type="button" hidden></button>
+      <button class="icon-btn ai-center-header" id="ai-center-open" type="button" aria-label="ИИ и быстрый ввод: рецепты, аналитика и голосовой ввод" title="ИИ и быстрый ввод FitFlow">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m12 3 2.1 5.3L19.5 10l-5.4 1.7L12 17l-2.1-5.3L4.5 10l5.4-1.7L12 3Z" fill="currentColor"/>
           <path d="m19 15 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" fill="currentColor" opacity="0.75"/>
@@ -116,6 +110,9 @@
         <div class="water-actions">
           <button class="chip" data-water="250" type="button">
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
+          </button>
+          <button class="chip" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">
+            <span class="chip-emoji" aria-hidden="true">🎤</span> Голос
           </button>
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
@@ -188,6 +185,7 @@
           <input type="text" id="food-input" class="food-input" inputmode="text"
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
         </div>
+        <button class="btn btn-secondary icon-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом" style="margin-left:4px">🎤</button>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
       </form>
 
@@ -670,7 +668,7 @@
           <div id="ai-litert-box" class="ai-model-box" hidden>
             <p class="settings-hint" id="ai-model-status">○ Локальный файл модели LiteRT не подключён.</p>
             <div class="settings-row" style="margin-top:8px">
-              <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать файл (.tflite / .bin)</button>
+              <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать локальный файл (.gguf / .tflite / .bin)</button>
               <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
             </div>
             <div id="ai-progress-wrap" class="ai-progress-wrap" hidden>
@@ -1058,12 +1056,23 @@
         <button class="btn btn-secondary" id="ai-dialog-close" type="button" style="padding:4px 10px;font-size:1rem">×</button>
       </div>
       <div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
-        <button class="active" id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe">🥑 Рецепт</button>
+        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick">⚡ Ввод</button>
+        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe">🥑 Рецепт</button>
         <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis">📊 Анализ</button>
         <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat">💬 Нутрициолог</button>
       </div>
+      <!-- Вкладка 0: Быстрый ввод за день -->
+      <div id="ai-tab-quick" class="ai-tab-panel">
+        <p class="settings-hint" style="margin-top:0">Вводите или диктуйте одной фразой воду, еду и тренировки — умный парсер FitFlow сразу распределит их по категориям за день.</p>
+        <div class="settings-row" style="margin-bottom:10px">
+          <input type="text" id="ai-quick-input" class="form-input" placeholder="Например: выпил 500 мл воды, овсянка 150г, гулял 40 мин" style="flex:1">
+          <button class="btn btn-secondary" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом">🎤 Голос</button>
+          <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
+        </div>
+        <div id="ai-quick-result" class="ai-result-box" hidden></div>
+      </div>
       <!-- Вкладка 1: Рецепт из холодильника -->
-      <div id="ai-tab-recipe" class="ai-tab-panel">
+      <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
         <p class="settings-hint" style="margin-top:0">Укажите продукты или сфотографируйте их — ИИ подберёт рецепт, подстроенный под ваши персональные цели калорий и профиль.</p>
         <div class="settings-row" style="margin-bottom:10px">
           <input type="text" id="ai-recipe-input" class="form-input" placeholder="Какие продукты у вас есть?" style="flex:1">

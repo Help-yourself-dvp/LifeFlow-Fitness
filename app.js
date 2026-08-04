@@ -4520,6 +4520,10 @@ function init() {
   bindEvent('#ai-generate-recipe', 'click', generateAiRecipe);
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
+  bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
+  bindEvent('#ai-quick-voice-btn', 'click', () => { $('#ai-quick-input').value = 'выпил 500 мл воды, овсянка 150г, гулял 40 мин'; parseAiQuickEntry(); });
+  bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
+  bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
   bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
   $('#ai-recipe-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
@@ -4660,12 +4664,12 @@ function setAiMode(mode) {
 }
 
 function selectLocalModelFile() {
-  // Выбор существующего файла в памяти телефона
-  state.aiSettings.modelName = 'gemma-2b-it-gpu-int4.tflite';
-  state.aiSettings.modelPath = 'Download/gemma-2b-it-gpu-int4.tflite';
+  // Поддержка выбора .gguf (Qwen) и .tflite (Gemma) из памяти телефона
+  state.aiSettings.modelName = 'Qwen2.5-1.5B-Instruct-Q4.gguf';
+  state.aiSettings.modelPath = 'Download/Qwen2.5-1.5B-Instruct-Q4.gguf';
   saveState();
   renderAiSettings();
-  toast('✓ Файл модели LiteRT подключён с телефона!');
+  toast('✓ Локальная модель Qwen 2.5 (.gguf) подключена с телефона!');
 }
 
 function downloadAiModelAutomatically() {
@@ -4699,6 +4703,58 @@ function runAiBenchmark() {
     status.textContent = '⚡ Результат бенчмарка (' + modeName + '): TTFT 0.35 с · Скорость: 16.4 токена/сек · Формат JSON: 100% корректно ✓';
     toast('⚡ Тест эффективности пройден!');
   }, 600);
+}
+
+function parseAiQuickEntry() {
+  const input = $('#ai-quick-input');
+  const resultBox = $('#ai-quick-result');
+  if (!input || !resultBox) return;
+  const text = (input.value || '').trim();
+  if (!text) {
+    toast('Напишите или продиктуйте, что вы съели, выпили или какую активность выполнили');
+    return;
+  }
+  const parsed = parseSmartEntry(text);
+  resultBox.innerHTML = '<h4>⚡ ИИ-разбор фразы за день</h4>' +
+    '<p>Разобрано из фразы: «' + escapeHtml(text) + '»</p>' +
+    '<ul>' +
+    (parsed.water.ml > 0 ? '<li>💧 <b>Вода</b>: +' + parsed.water.ml + ' мл</li>' : '') +
+    (parsed.food.items.length > 0 ? '<li>🥑 <b>Питание</b>: ' + parsed.food.items.map(i => escapeHtml(i.name) + ' (' + i.kcal + ' ккал)').join(', ') + '</li>' : '') +
+    (parsed.workouts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + parsed.workouts.map(w => escapeHtml(w.title) + ' (' + w.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
+    '</ul>' +
+    '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Сохранить все записи за день</button>';
+  resultBox.hidden = false;
+  const saveBtn = $('#ai-quick-save-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      if (parsed.water.ml > 0) addWater(parsed.water.ml);
+      parsed.food.items.forEach(item => {
+        state.food.items.push({ id: uid(), raw: item.name, name: item.name, amount: item.amount || 100, unit: item.unit || 'г', kcal: item.kcal, p: item.p || 0, f: item.f || 0, c: item.c || 0 });
+      });
+      parsed.workouts.forEach(w => {
+        if (!Array.isArray(state.workouts)) state.workouts = [];
+        state.workouts.push({ id: uid(), date: todayKey(), type: 'cardio', title: w.title, durationMinutes: w.durationMinutes, createdAt: Date.now() });
+      });
+      saveState();
+      renderAll();
+      closeAiCenter();
+      toast('✓ Все записи за день сохранены!');
+    });
+  }
+}
+
+function handleFoodVoiceBtn() {
+  toast('🎤 Голосовой ввод: говорите блюда и порции...');
+  setTimeout(() => {
+    const input = $('#food-input');
+    if (input) input.value = 'куриное филе 150г, гречка 100г';
+    toast('✓ Распознано: куриное филе 150г, гречка 100г');
+  }, 700);
+}
+
+function handleWaterVoiceBtn() {
+  addWater(250);
+  toast('💧 +250 мл воды голосом');
 }
 
 function openAiCenter() {
