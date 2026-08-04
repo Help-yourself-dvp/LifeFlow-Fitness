@@ -2282,3 +2282,61 @@ html[data-theme="dark"] .segmented button.active {
 .mood-correlation { display: inline-flex; gap: 6px; align-items: center; padding: 3px 8px; border-radius: 8px; background: var(--md-sys-color-surface-container-low); font-weight: 700; }
 .mood-correlation.good { color: var(--success); }
 .mood-correlation.bad { color: var(--md-sys-color-error); }
+
+/* ===== ИИ-центр и Настройки ИИ FitFlow ===== */
+.ai-settings-group {
+  border-left: 3px solid var(--primary);
+}
+.ai-model-box {
+  background: var(--surface-variant);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+.ai-progress-wrap {
+  margin-top: 10px;
+}
+.ai-progress-bar {
+  background: var(--outline-variant);
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ai-progress-fill {
+  background: var(--primary);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.ai-result-box {
+  background: var(--surface-variant);
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.ai-result-box h4 {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-size: 1rem;
+}
+.ai-result-box ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.ai-result-box li {
+  margin-bottom: 4px;
+}
+.ai-recipe-card {
+  margin-top: 10px;
+}
+.ai-recipe-macros {
+  display: flex;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--on-surface-variant);
+  margin: 8px 0 12px;
+}
