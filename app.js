@@ -2087,6 +2087,7 @@ function renderWater() {
     : `из ${fmt(goal)} мл`;
 
   $('#water-undo').style.opacity = total > 0 ? '1' : '0.45';
+  renderDayChecklist();
 }
 
 function renderFood() {
@@ -2137,6 +2138,7 @@ function renderFood() {
 
   renderFoodList();
   renderFavoriteMeals();
+  renderDayChecklist();
 }
 
 function statsDateKey(daysAgo) {
@@ -2686,6 +2688,7 @@ function renderTraining() {
   $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
   renderActivityTypeSelection();
   renderActivityTemplates();
+  renderDayChecklist();
 }
 
 async function syncTrainingReminderForToday() {
