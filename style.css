@@ -2356,3 +2356,35 @@ html[data-theme="dark"] .segmented button.active {
   border: 2px dashed var(--primary);
   margin-bottom: 12px;
 }
+
+/* ===== Кнопки микрофона без ИИ и исправление вёрстки ===== */
+.input-mic-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.input-mic-btn:hover, .input-mic-btn:focus-visible {
+  color: var(--primary);
+  background: var(--surface-variant);
+}
+.food-form .food-input {
+  padding-right: 36px;
+}
+.water-actions .chip-voice {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  min-width: 38px;
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+}

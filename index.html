@@ -111,9 +111,7 @@
           <button class="chip" data-water="250" type="button">
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
           </button>
-          <button class="chip" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">
-            <span class="chip-emoji" aria-hidden="true">🎤</span> Голос
-          </button>
+          <button class="chip chip-voice" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">🎤</button>
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -184,8 +182,8 @@
           </svg>
           <input type="text" id="food-input" class="food-input" inputmode="text"
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
+          <button class="input-mic-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом">🎤</button>
         </div>
-        <button class="btn btn-secondary icon-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом" style="margin-left:4px">🎤</button>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
       </form>
 
@@ -670,6 +668,7 @@
             <div class="settings-row" style="margin-top:8px">
               <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать локальный файл (.gguf / .tflite / .bin)</button>
               <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
+              <input type="file" id="ai-model-file-input" accept=".gguf,.tflite,.bin,.onnx,*/*" hidden>
             </div>
             <div id="ai-progress-wrap" class="ai-progress-wrap" hidden>
               <div class="ai-progress-bar"><div id="ai-progress-fill" class="ai-progress-fill" style="width:0%"></div></div>
