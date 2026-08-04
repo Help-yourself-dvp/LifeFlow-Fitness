@@ -19,7 +19,7 @@ const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
   'morning-motivation-theme', 'notification-setup-btn',
   'morning-message-dialog-ok', 'meal-reminders-toggle',
-  'smart-entry-open', 'terms-accept', 'terms-decline',
+  'terms-accept', 'terms-decline',
   'profile-switcher', 'profile-list', 'profile-new-name',
   'home-active-profile', 'date-weekday', 'date-month',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',

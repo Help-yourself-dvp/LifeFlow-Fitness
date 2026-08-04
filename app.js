@@ -5004,18 +5004,26 @@ function sendAiTestQuery() {
     toast('⚠ Файл нейросети не выбран');
     return;
   }
-  const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  const modelName = state.aiSettings.modelName || 'Локальный эксперт FitFlow';
-  setTimeout(() => {
-    const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const ms = Math.max(1, Math.round((t1 - t0) * 100) / 100);
-    resultBox.innerHTML = '<h4>⚡ Ответ модели («' + escapeHtml(modelName) + '»)</h4>' +
-      '<p><b>Ваш запрос</b>: «' + escapeHtml(q) + '»</p>' +
-      '<p>В 100 г сухой овсянки содержится около 352 ккал (белки — 12.3 г, жиры — 6.1 г, углеводы — 59.5 г). При варке на воде калорийность готовой каши составляет около 88 ккал на 100 г.</p>' +
-      '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Параметры вывода</b>: время исполнения ' + ms + ' мс · сгенерировано 42 токена · локальный файл проверен ✓</p>';
+  if (state.aiSettings.mode === 'expert') {
+    resultBox.innerHTML = '<h4>⚡ Статус запроса («Локальный эксперт FitFlow JS»)</h4>' +
+      '<p><b>Ваш вопрос</b>: «' + escapeHtml(q) + '»</p>' +
+      '<p><b>⚠ Обратите внимание</b>: режим «Локальный эксперт FitFlow» — это встроенная база на 925+ продуктов и алгоритмы нутрициолога, а не нейросеть. Экспертная система не отвечает на общие вопросы (вроде «Столица России»), но умеет мгновенно рассчитывать рецепты, БЖУ и анализировать недельную/месячную статистику по правилам.</p>' +
+      '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Статус</b>: 100% офлайн и бесплатно · без вымыслов и заглушек</p>';
     resultBox.hidden = false;
-    toast('⚡ Проверочный запрос выполнен!');
-  }, 400);
+    toast('⚡ Ответ экспертной системы');
+    return;
+  }
+  // Режим выбора файла нейросети (.gguf / .tflite)
+  const fName = state.aiSettings.modelName || 'Файл модели';
+  const fSize = state.aiSettings.modelSize ? formatBytes(state.aiSettings.modelSize) : '';
+  resultBox.innerHTML = '<h4>⚡ Статус локальной модели («' + escapeHtml(fName) + '»)</h4>' +
+    '<p><b>Ваш запрос</b>: «' + escapeHtml(q) + '»</p>' +
+    '<p><b>⚠ Нативный движок вывода (.gguf / .tflite) ещё не интегрирован в APK</b>.<br>' +
+    'Выбран файл: <code>' + escapeHtml(fName) + '</code>' + (fSize ? ' (' + fSize + ')' : '') + '.<br>' +
+    'Система успешно считала имя и размер файла на телефоне через Android Storage Access Framework, однако само выполнение нейросети внутри APK находится в разработке (этап встраивания библиотеки Llama.cpp / LiteRT в Gradle-сборку).</p>' +
+    '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Статус</b>: файл подключён · нейросетевой инференс в разработке</p>';
+  resultBox.hidden = false;
+  toast('⚡ Статус модели отображён');
 }
 
 function handleAiPhotoFoodCamera(file) {

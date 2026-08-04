@@ -110,6 +110,7 @@
           <button class="chip" data-water="250" type="button">
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
           </button>
+          <button class="chip chip-voice" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">🎤</button>
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -180,6 +181,7 @@
           </svg>
           <input type="text" id="food-input" class="food-input" inputmode="text"
                  placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
+          <button class="input-mic-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом">🎤</button>
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
       </form>
@@ -1148,8 +1150,6 @@
 
   <div hidden>
     <button id="smart-entry-open" type="button"></button>
-    <button id="food-voice-btn" type="button"></button>
-    <button id="water-voice-btn" type="button"></button>
   </div>
   <script src="app.js"></script>
 </body>
