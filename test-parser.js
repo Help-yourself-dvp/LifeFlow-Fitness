@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -220,6 +220,30 @@ for (const [got, expected, label] of reminderPolicy) {
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} правило напоминания: ${label}`);
 }
+
+// Автовыбор типа приёма пищи по времени суток (Завтрак 06–13, Обед 13–16, Полдник 16–18, Ужин 18–22, Поздний перекус 22–06)
+const mealTimePolicy = [
+  [new Date(2026, 7, 5, 6, 0, 0), 'breakfast', '06:00 начало завтрака'],
+  [new Date(2026, 7, 5, 9, 30, 0), 'breakfast', '09:30 завтрак'],
+  [new Date(2026, 7, 5, 12, 59, 0), 'breakfast', '12:59 всё ещё завтрак'],
+  [new Date(2026, 7, 5, 13, 0, 0), 'lunch', '13:00 обед'],
+  [new Date(2026, 7, 5, 15, 59, 0), 'lunch', '15:59 конец обеда'],
+  [new Date(2026, 7, 5, 17, 15, 0), 'snack', '17:15 полдник'],
+  [new Date(2026, 7, 5, 19, 0, 0), 'dinner', '19:00 ужин'],
+  [new Date(2026, 7, 5, 21, 59, 0), 'dinner', '21:59 конец ужина'],
+  [new Date(2026, 7, 5, 23, 10, 0), 'lateSnack', '23:10 поздний перекус'],
+  [new Date(2026, 7, 5, 2, 30, 0), 'lateSnack', '02:30 ночь — поздний перекус'],
+  [new Date(2026, 7, 5, 5, 59, 0), 'lateSnack', '05:59 граница ночи']
+];
+for (const [date, expected, label] of mealTimePolicy) {
+  const got = getMealTypeIdByTime(date);
+  const ok = got === expected;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} автотип приёма пищи: ${label} → ${got}`);
+}
+const rangesOk = MEAL_TIME_RANGES.length === 5 && MEAL_TIME_RANGES.every((r) => r.fromMinutes < r.toMinutes);
+if (!rangesOk) failed++;
+console.log(`${rangesOk ? '✓' : '✗'} диапазоны приёмов пищи покрывают всё время без наложений`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

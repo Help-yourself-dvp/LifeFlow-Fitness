@@ -854,6 +854,7 @@ async function saveSmartEntry() {
     id: uid(), date: todayKey(), type: activity.type, title: null, note: 'Добавлено быстрым вводом', intensity: 'medium', durationMinutes: activity.durationMinutes, createdAt: Date.now()
   }));
   saveState();
+  resetMealTypeAfterSave();
   renderAll();
   await syncMealRemindersForToday();
   await syncTrainingReminderForToday();
@@ -1002,6 +1003,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
+const FITFLOW_VERSION = '0.2.6';
+
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
   { id: 'lunch', label: 'Обед', time: '13:00' },
@@ -1009,6 +1012,26 @@ const MEAL_REMINDER_TYPES = [
   { id: 'dinner', label: 'Ужин', time: '19:00' },
   { id: 'lateSnack', label: 'Поздний перекус', time: '21:30' }
 ];
+
+// Автовыбор типа приёма пищи по времени суток (диапазоны подтверждены пользователем):
+// Завтрак 06:00–12:59, Обед 13:00–15:59, Полдник 16:00–17:59,
+// Ужин 18:00–21:59, Поздний перекус 22:00–05:59.
+// Ручной выбор чипа всегда остаётся и действует до сохранения записи.
+const MEAL_TIME_RANGES = [
+  { id: 'breakfast', fromMinutes: 6 * 60, toMinutes: 13 * 60 },
+  { id: 'lunch', fromMinutes: 13 * 60, toMinutes: 16 * 60 },
+  { id: 'snack', fromMinutes: 16 * 60, toMinutes: 18 * 60 },
+  { id: 'dinner', fromMinutes: 18 * 60, toMinutes: 22 * 60 },
+  { id: 'lateSnack', fromMinutes: 22 * 60, toMinutes: 30 * 60 } // до 06:00 следующих суток
+];
+
+function getMealTypeIdByTime(date = new Date()) {
+  let minutes = date.getHours() * 60 + date.getMinutes();
+  if (minutes < 6 * 60) minutes += 24 * 60; // 00:00–05:59 относится к прошлому вечеру
+  const range = MEAL_TIME_RANGES.find((item) => minutes >= item.fromMinutes && minutes < item.toMinutes);
+  if (!range) return null;
+  return getMealTypes().some((type) => type.id === range.id) ? range.id : null;
+}
 
 const HOME_CARDS = [
   { id: 'water', label: 'Вода', icon: '💧' },
@@ -1730,6 +1753,7 @@ function renderAll() {
   renderDayChecklistSettings();
   renderDayChecklist();
   renderAiSettings();
+  applySettingsAccordion();
   updateNativeWidget();
 }
 
@@ -2290,12 +2314,27 @@ function renderFoodDetails() {
 }
 
 let selectedMealTypeId = '';
+let mealTypeTouched = false; // true после ручного выбора чипа; сбрасывается после сохранения записи
 
 function getSelectedMealType() {
   return getMealTypes().find((type) => type.id === selectedMealTypeId) || null;
 }
 
+function syncAutoMealType() {
+  if (mealTypeTouched) return;
+  const autoId = getMealTypeIdByTime();
+  if (autoId) selectedMealTypeId = autoId;
+}
+
+function resetMealTypeAfterSave() {
+  mealTypeTouched = false;
+  selectedMealTypeId = '';
+  syncAutoMealType();
+  renderMealTypePicker();
+}
+
 function renderMealTypePicker() {
+  syncAutoMealType();
   const picker = $('#meal-type-picker');
   if (!picker) return;
   picker.innerHTML = [
@@ -2314,6 +2353,7 @@ function addCustomMealType() {
   state.customMealTypes.push({ id, label });
   normalizeCustomMealTypes();
   selectedMealTypeId = id;
+  mealTypeTouched = true;
   input.value = '';
   $('#custom-meal-type-inline').classList.remove('is-open');
   saveState();
@@ -2459,6 +2499,7 @@ async function addFoodText(text) {
   const totalKcal = items.reduce((s, it) => s + it.kcal, 0);
   state.food.items.push(...items);
   saveState();
+  resetMealTypeAfterSave();
   renderFood();
   await syncMealRemindersForToday();
   toast(`Добавлено: ${items.map((i) => i.name).join(', ')} (+${fmt(totalKcal)} ккал)`);
@@ -2486,6 +2527,7 @@ async function addManualFood() {
     ...applySelectedMealType([{}])[0]
   });
   saveState();
+  resetMealTypeAfterSave();
   $('#manual-food-name').value = '';
   $('#manual-food-kcal').value = '';
   $('#manual-food-p').value = '';
@@ -2515,6 +2557,7 @@ async function addFavoriteMeal(id) {
     ...applySelectedMealType([{}])[0]
   });
   saveState();
+  resetMealTypeAfterSave();
   renderFood();
   await syncMealRemindersForToday();
   toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
@@ -3163,6 +3206,7 @@ function installActivityNotificationListener() {
       if (extra.source === 'fitflow-meal-reminder') {
         switchView('home');
         selectedMealTypeId = extra.mealId || '';
+        mealTypeTouched = !!selectedMealTypeId;
         renderMealTypePicker();
         setTimeout(() => $('#food-input').focus(), 250);
         toast(`Запишите ${extra.mealLabel || 'приём пищи'} в дневник`);
@@ -3874,6 +3918,54 @@ function setCollapsibleState(button, content, open) {
   content.classList.toggle('is-open', open);
 }
 
+/* ============================================================
+   Сворачиваемые разделы Настроек (шеврон у каждого тумблера)
+   Состояние запоминается глобально на устройстве (не входит
+   в резервную копию — это чисто интерфейсная настройка).
+   ============================================================ */
+const SETTINGS_ACCORDION_KEY = 'fitflow:settings-accordion';
+let settingsAccordionCollapsed = {};
+try {
+  settingsAccordionCollapsed = JSON.parse(localStorage.getItem(SETTINGS_ACCORDION_KEY)) || {};
+} catch (e) {
+  settingsAccordionCollapsed = {};
+}
+
+function applySettingsAccordion() {
+  $$('.settings-group-collapse').forEach((btn) => {
+    const optionsId = btn.dataset.collapseFor;
+    const options = optionsId ? document.getElementById(optionsId) : null;
+    if (!options) return;
+    const collapsed = !!settingsAccordionCollapsed[optionsId];
+    btn.classList.toggle('is-collapsed', collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    if (collapsed) {
+      options.hidden = true;
+      return;
+    }
+    const toggle = btn.closest('.settings-group')?.querySelector('input[role="switch"]');
+    if (toggle) options.hidden = !toggle.checked;
+  });
+}
+
+function bindSettingsAccordion() {
+  $$('.settings-group-collapse').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      const optionsId = btn.dataset.collapseFor;
+      if (!optionsId) return;
+      settingsAccordionCollapsed[optionsId] = !settingsAccordionCollapsed[optionsId];
+      try {
+        localStorage.setItem(SETTINGS_ACCORDION_KEY, JSON.stringify(settingsAccordionCollapsed));
+      } catch (e) { /* приватный режим — просто не запоминаем */ }
+      applySettingsAccordion();
+    }));
+  // После любого переключения тумблера в Настройках восстанавливаем
+  // свёрнутость поверх штатной логики hidden.
+  const settingsView = $('#settings-view');
+  if (settingsView) settingsView.addEventListener('change', () => applySettingsAccordion());
+  applySettingsAccordion();
+}
+
 function updateActivityFab(isTraining) {
   const fab = $('#activity-fab');
   if (fab) fab.hidden = !isTraining;
@@ -4325,6 +4417,8 @@ function init() {
   loadState();
   initTheme();
   renderGreeting();
+  const aboutVersion = $('#about-version');
+  if (aboutVersion) aboutVersion.textContent = `v${FITFLOW_VERSION}`;
   renderAll();
   renderProfiles();
   installActivityNotificationListener();
@@ -4361,6 +4455,7 @@ function init() {
     const button = e.target.closest('[data-meal-type]');
     if (!button) return;
     selectedMealTypeId = button.dataset.mealType;
+    mealTypeTouched = true;
     renderMealTypePicker();
   });
   $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
@@ -4428,6 +4523,8 @@ function init() {
     button.addEventListener('click', () =>
       setCollapsibleState(button, content, button.getAttribute('aria-expanded') !== 'true'));
   });
+
+  bindSettingsAccordion();
 
   $('#activity-fab').addEventListener('click', () => {
     const form = $('#training-form');
@@ -5064,6 +5161,7 @@ function confirmAiPhotoFoodLog() {
     });
   });
   saveState();
+  resetMealTypeAfterSave();
   renderAll();
   if (box) box.hidden = true;
   closeAiCenter();
@@ -5080,6 +5178,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES
   };
 }

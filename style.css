@@ -1012,6 +1012,51 @@ html[data-theme="dark"] .icon-sun { display: none; }
   text-align: center;
 }
 
+/* ИИ-центр: диалог строго в пределах экрана.
+   min-width: 0 у grid-элемента и перенос вкладок устраняют выпадение за край. */
+.ai-center-modal {
+  width: min(540px, 100%);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.ai-center-modal #ai-tabs { flex-wrap: wrap; }
+.ai-center-modal #ai-tabs button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 8px;
+  white-space: nowrap;
+}
+.ai-center-modal .settings-row { flex-wrap: wrap; }
+.ai-center-modal .settings-row .form-input { flex: 1 1 100%; }
+
+/* Шеврон сворачиваемых разделов Настроек */
+.settings-group-collapse {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.settings-group-collapse span {
+  display: block;
+  transition: transform 0.2s ease;
+}
+.settings-group-collapse:hover {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+.settings-group-collapse.is-collapsed span { transform: rotate(-90deg); }
+
 .app-dialog-icon {
   display: grid;
   place-items: center;

@@ -180,7 +180,7 @@
             <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <input type="text" id="food-input" class="food-input" inputmode="text"
-                 placeholder="Например: картофель 150г, котлета 1шт" aria-label="Что вы съели?">
+                 placeholder="Например: гречка 100г" aria-label="Что вы съели?">
           <button class="input-mic-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом">🎤</button>
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
@@ -580,6 +580,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Утренняя мотивация</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="morning-motivation-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
           <label class="switch" for="morning-motivation-toggle">
             <input id="morning-motivation-toggle" type="checkbox" role="switch" aria-describedby="morning-motivation-status">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -605,6 +606,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Напоминания о приёмах пищи</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="meal-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
           <label class="switch" for="meal-reminders-toggle">
             <input id="meal-reminders-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -625,6 +627,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Вечерняя активность</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="workout-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
           <label class="switch" for="workout-reminder-toggle">
             <input id="workout-reminder-toggle" type="checkbox" role="switch" aria-describedby="workout-reminder-status">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -646,6 +649,7 @@
         <p class="settings-hint">Регулярные напоминания выпить воду в течение дня.</p>
         <div class="settings-label-row">
           <p class="settings-label">Включить напоминания</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="water-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
           <label class="switch" for="water-reminders-toggle">
             <input id="water-reminders-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -676,6 +680,7 @@
             <p class="settings-label">✨ ИИ-помощник FitFlow</p>
             <p class="settings-hint">Локальный умный помощник для генерации рецептов, советов нутрициолога и анализа недели/месяца без интернета и без передачи данных.</p>
           </div>
+          <button class="settings-group-collapse" type="button" data-collapse-for="ai-settings-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
           <label class="switch" for="ai-toggle">
             <input id="ai-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -747,7 +752,7 @@
             <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow v0.1.59 · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.2.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -1083,7 +1088,7 @@
 
   <!-- ===== Модальное окно ИИ-центра FitFlow ===== -->
   <div class="app-dialog-backdrop" id="ai-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-center-title" hidden>
-    <section class="app-dialog ai-center-modal" style="max-width:540px;width:94%;text-align:left">
+    <section class="app-dialog ai-center-modal" style="text-align:left">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h2 id="ai-center-title" style="margin:0;font-size:1.15rem">✨ ИИ-помощник FitFlow</h2>
         <button class="btn btn-secondary" id="ai-dialog-close" type="button" style="padding:4px 10px;font-size:1rem">×</button>
