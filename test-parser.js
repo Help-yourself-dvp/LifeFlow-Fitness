@@ -263,5 +263,33 @@ const onceOk = buildWaterReminderTimes(90, '08:00', '22:00').every((t) => t >= 0
 if (!onceOk) failed++;
 console.log(`${onceOk ? '✓' : '✗'} все точки расписания воды в пределах суток`);
 
+// Быстрый ввод («Разобрать» в ИИ-центре): структура ответа и «голый» список продуктов
+const smartStructure = (() => {
+  const r = parseSmartEntry('100 мл воды, персик');
+  return r.waterMl === 100 && Array.isArray(r.food) && r.food.length === 1 && r.food[0].name === 'персик' && r.activities.length === 0;
+})();
+if (!smartStructure) failed++;
+console.log(`${smartStructure ? '✓' : '✗'} быстрый ввод: «100 мл воды, персик» → вода 100 мл + персик`);
+
+const smartCases = [
+  ['овсянка 150г, банан, гулял 40 мин', 0, ['овсянка', 'банан'], ['walk']],
+  ['съел яблоко', 0, ['яблоко'], []],
+  ['выпил 250 мл сока', 0, ['сока'], []],
+  ['пробежал 30 минут', 0, [], ['cardio']],
+  ['занимался йогой 25 минут, вода 300мл, персик 2шт', 300, ['персик'], ['stretch']],
+  ['бассейн 45 минут, творог 150г', 0, ['творог'], ['swim']],
+  ['вода 300мл', 300, [], []]
+];
+for (const [text, water, foodNames, actTypes] of smartCases) {
+  const r = parseSmartEntry(text);
+  const gotFood = r.food.map((f) => f.name);
+  const gotActs = r.activities.map((a) => a.type);
+  const ok = r.waterMl === water
+    && JSON.stringify(gotFood) === JSON.stringify(foodNames)
+    && JSON.stringify(gotActs) === JSON.stringify(actTypes);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} быстрый ввод: «${text}» → вода ${r.waterMl}, еда [${gotFood}], активность [${gotActs}]`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

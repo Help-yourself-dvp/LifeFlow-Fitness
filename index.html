@@ -233,10 +233,10 @@
             <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
           </div>
           <div class="settings-row">
-            <button class="btn btn-primary" id="manual-food-add" type="button">Записать сегодня</button>
-            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Только сохранить</button>
+            <button class="btn btn-primary" id="manual-food-add" type="button">Добавить запись</button>
+            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Добавить в Мои блюда</button>
           </div>
-          <p class="settings-hint" style="margin:0">«Записать сегодня» — блюдо сразу попадёт в дневник. «Только сохранить» — останется шаблоном в коллекции «Мои блюда» для быстрого добавления позже, в дневник сейчас не попадёт.</p>
+          <p class="settings-hint" style="margin:0">«Добавить запись» — блюдо попадёт в дневник сегодняшнего дня. «Добавить в Мои блюда» — сохранит блюдо как шаблон для быстрого выбора позже, без записи в дневник.</p>
         </div></div>
       </section>
 
@@ -770,7 +770,7 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.0</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.1</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -1119,7 +1119,7 @@
       </div>
       <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
       <div id="ai-tab-quick" class="ai-tab-panel">
-        <p class="settings-hint" style="margin-top:0">Напишите, надиктуйте 🎤 или сфотографируйте 📷 блюдо — умный парсер FitFlow разберёт воду, еду и активность и распределит их по разделам дня. Фото пока сохраняется как заметка: состав, калории и БЖУ считает локальная база из 925+ продуктов по описанию.</p>
+        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня. Можно и сфотографировать блюдо: пока фото хранится как заметка, а состав и калории считает встроенная база из 925+ продуктов по вашему описанию.</p>
         <div class="ai-input-stack">
           <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
           <div class="ai-actions-row">
@@ -1144,7 +1144,7 @@
       </div>
       <!-- Вкладка: Рецепт из холодильника -->
       <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Укажите продукты или сфотографируйте их — ИИ подберёт рецепт, подстроенный под ваши персональные цели калорий и профиль.</p>
+        <p class="settings-hint" style="margin-top:0">Перечислите продукты, которые есть дома, или сфотографируйте полку холодильника — FitFlow предложит блюдо из них с учётом вашей нормы калорий.</p>
         <div class="ai-input-stack">
           <textarea id="ai-recipe-input" class="form-input ai-textarea" rows="3" placeholder="Например: куриная грудка, рис, помидоры, сыр, яйца" aria-label="Какие продукты у вас есть?"></textarea>
           <div class="ai-actions-row">
@@ -1160,8 +1160,8 @@
           </div>
         </div>
         <div id="ai-recipe-photo-confirm" class="ai-result-box" style="border-color:var(--primary)" hidden>
-          <h4>📷 Продукты, распознанные на фото</h4>
-          <p class="settings-hint">Проверьте или скорректируйте состав и нажмите «Подтвердить», чтобы рассчитать персональный рецепт:</p>
+          <h4>Продукты на фото — проверьте список</h4>
+          <p class="settings-hint">Проверьте список продуктов и нажмите «Подтвердить» — FitFlow составит рецепт именно для вас:</p>
           <div class="ai-actions-row" style="margin-top:8px">
             <input type="text" id="ai-recipe-photo-ingredients" class="form-input" style="flex:1;min-width:0">
             <button class="btn btn-primary" id="ai-recipe-photo-confirm-btn" type="button">✓ Подтвердить</button>
@@ -1171,7 +1171,7 @@
       </div>
       <!-- Вкладка: Анализ моей недели / месяца -->
       <div id="ai-tab-analysis" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Умный анализ и подведение итогов на основе вашей реальной динамики веса, воды, активности и оценок самочувствия (😔😐😊).</p>
+        <p class="settings-hint" style="margin-top:0">FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
         <div class="ai-input-stack">
           <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
             <button class="active" type="button" data-ai-period="7">За неделю (7 дней)</button>
@@ -1186,7 +1186,7 @@
       </div>
       <!-- Вкладка: Вопрос нутрициологу -->
       <div id="ai-tab-chat" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Задайте любой свободный вопрос по питанию, водным нормам или тренировкам в офлайне — текстом или голосом 🎤.</p>
+        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами — ответ готовится прямо на телефоне, без интернета. Вопрос можно и надиктовать.</p>
         <div class="ai-input-stack">
           <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос нутрициологу"></textarea>
           <div class="ai-actions-row">

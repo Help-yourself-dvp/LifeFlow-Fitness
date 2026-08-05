@@ -792,6 +792,18 @@ function parseSmartEntry(text) {
     );
     food.push(...parseMealText(segment).filter((item) => item.name !== 'вода'));
   }
+  // Если глаголов «съел/выпил» не было — фраза может быть простым списком
+  // продуктов: «овсянка 150г, персик». Разбираем её тем же парсером,
+  // предварительно вырезав воду и активность, чтобы они не давали ложных
+  // продуктов (например, «нут» из слова «минут»).
+  if (food.length === 0) {
+    let rest = lower;
+    if (waterMatch) rest = rest.replace(waterMatch[0], ',');
+    if (activities.length) rest = rest.replace(activityPattern, ',');
+    if (rest.replace(/[\s,;.]/g, '').length > 0) {
+      food.push(...parseMealText(rest).filter((item) => item.name !== 'вода'));
+    }
+  }
   return { waterMl, activities, activity: activities[0] || null, food };
 }
 
@@ -1003,7 +1015,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.0';
+const FITFLOW_VERSION = '0.3.1';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2100,8 +2112,6 @@ const HOME_QUICKNAV_ITEMS = [
   }
 ];
 
-let homeQuicknavObserver = null;
-
 function renderHomeQuickNav() {
   if (typeof document === 'undefined') return;
   const nav = $('#home-quicknav');
@@ -2117,23 +2127,35 @@ function renderHomeQuickNav() {
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
-  bindHomeQuickNavObserver();
+  updateHomeQuickNavActive();
 }
 
-function bindHomeQuickNavObserver() {
-  const nav = typeof document !== 'undefined' ? $('#home-quicknav') : null;
-  if (homeQuicknavObserver) { homeQuicknavObserver.disconnect(); homeQuicknavObserver = null; }
-  if (!nav || nav.hidden || typeof IntersectionObserver === 'undefined') return;
+/* Активный чип — последний раздел, чья карточка прошла верхнюю зону экрана.
+   Работает надёжно и в конце страницы (карточка «Вес» тоже подсвечивается). */
+function updateHomeQuickNavActive() {
+  if (typeof document === 'undefined') return;
+  const nav = $('#home-quicknav');
+  if (!nav || nav.hidden) return;
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
-  const targets = chips.map((c) => document.getElementById(c.dataset.jump)).filter(Boolean);
-  if (!targets.length) return;
-  homeQuicknavObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === entry.target.id));
-    });
-  }, { rootMargin: '-35% 0px -58% 0px' });
-  targets.forEach((t) => homeQuicknavObserver.observe(t));
+  if (!chips.length) return;
+  const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
+  const threshold = topbarH + nav.offsetHeight + 48;
+  let activeId = null;
+  chips.forEach((chip) => {
+    const el = document.getElementById(chip.dataset.jump);
+    if (el && !el.hidden && el.getBoundingClientRect().top <= threshold) activeId = chip.dataset.jump;
+  });
+  chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
+}
+
+let quicknavScrollScheduled = false;
+function onHomeQuickNavScroll() {
+  if (quicknavScrollScheduled) return;
+  quicknavScrollScheduled = true;
+  requestAnimationFrame(() => {
+    quicknavScrollScheduled = false;
+    updateHomeQuickNavActive();
+  });
 }
 
 /* Высота шапки → сдвиг прилипающей панели перехода */
@@ -4829,10 +4851,14 @@ function init() {
     const chip = e.target.closest('[data-jump]');
     if (!chip) return;
     const target = document.getElementById(chip.dataset.jump);
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!target) return;
+    // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка
+    $$('#home-quicknav [data-jump]').forEach((c) => c.classList.toggle('active', c === chip));
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   syncQuickNavTop();
   window.addEventListener('resize', syncQuickNavTop);
+  window.addEventListener('scroll', onHomeQuickNavScroll, { passive: true });
   bindEvent('#mood-picker', 'click', (e) => {
     const btn = e.target.closest('[data-mood]');
     if (btn) { saveDayMood(Number(btn.dataset.mood)); $('#mood-dialog').hidden = true; }
@@ -5088,30 +5114,45 @@ function parseAiQuickEntry() {
     return;
   }
   const parsed = parseSmartEntry(text);
-  resultBox.innerHTML = '<h4>⚡ ИИ-разбор фразы за день</h4>' +
-    '<p>Разобрано из фразы: «' + escapeHtml(text) + '»</p>' +
+  const waterMl = Number(parsed.waterMl) || 0;
+  const foods = Array.isArray(parsed.food) ? parsed.food : [];
+  const acts = (Array.isArray(parsed.activities) ? parsed.activities : [])
+    .map((a) => ({ ...a, label: (ACTIVITY_TYPES[a.type] || ACTIVITY_TYPES.other).label }));
+
+  if (!waterMl && !foods.length && !acts.length) {
+    resultBox.innerHTML = '<h4>⚡ Разбор фразы</h4>' +
+      '<p>Пока ничего не удалось распознать. Попробуйте, например: «вода 300 мл, гречка 150 г, гулял 30 мин».</p>';
+    resultBox.hidden = false;
+    return;
+  }
+
+  resultBox.innerHTML = '<h4>⚡ Что удалось понять из фразы</h4>' +
+    '<p>«' + escapeHtml(text) + '»</p>' +
     '<ul>' +
-    (parsed.water.ml > 0 ? '<li>💧 <b>Вода</b>: +' + parsed.water.ml + ' мл</li>' : '') +
-    (parsed.food.items.length > 0 ? '<li>🥑 <b>Питание</b>: ' + parsed.food.items.map(i => escapeHtml(i.name) + ' (' + i.kcal + ' ккал)').join(', ') + '</li>' : '') +
-    (parsed.workouts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + parsed.workouts.map(w => escapeHtml(w.title) + ' (' + w.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
+    (waterMl > 0 ? '<li>💧 <b>Вода</b>: +' + fmt(waterMl) + ' мл</li>' : '') +
+    (foods.length > 0 ? '<li>🥑 <b>Питание</b>: ' + foods.map(i => escapeHtml(i.name) + ' (' + i.kcal + ' ккал)').join(', ') + '</li>' : '') +
+    (acts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + acts.map(a => escapeHtml(a.label) + ' (' + a.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
     '</ul>' +
-    '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Сохранить все записи за день</button>';
+    '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
   resultBox.hidden = false;
   const saveBtn = $('#ai-quick-save-btn');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
-      if (parsed.water.ml > 0) addWater(parsed.water.ml);
-      parsed.food.items.forEach(item => {
-        state.food.items.push({ id: uid(), raw: item.name, name: item.name, amount: item.amount || 100, unit: item.unit || 'г', kcal: item.kcal, p: item.p || 0, f: item.f || 0, c: item.c || 0 });
-      });
-      parsed.workouts.forEach(w => {
+      if (waterMl > 0) addWater(waterMl);
+      if (foods.length) state.food.items.push(...applySelectedMealType(foods));
+      acts.forEach((a) => {
         if (!Array.isArray(state.workouts)) state.workouts = [];
-        state.workouts.push({ id: uid(), date: todayKey(), type: 'cardio', title: w.title, durationMinutes: w.durationMinutes, createdAt: Date.now() });
+        state.workouts.unshift({
+          id: uid(), date: todayKey(), type: a.type, title: null,
+          note: 'Добавлено через ИИ-центр', intensity: 'medium',
+          durationMinutes: a.durationMinutes, createdAt: Date.now()
+        });
       });
       saveState();
+      resetMealTypeAfterSave();
       renderAll();
       closeAiCenter();
-      toast('✓ Все записи за день сохранены!');
+      toast('✓ Записи добавлены: вода, еда и активность уже в дневнике');
     });
   }
 }

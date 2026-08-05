@@ -1990,10 +1990,14 @@ html[data-theme="dark"] .segmented button.active {
   min-width: 0;
   max-width: 100%;
   margin-top: 14px;
-  padding: 12px;
+  padding: 16px 14px;
   background: var(--md-sys-color-surface-container-high);
   border-radius: 16px;
 }
+
+/* Текст не должен прилипать к скруглённым граням карточки */
+.manual-food-section > :first-child { margin-top: 0; }
+.manual-food-section > :last-child { margin-bottom: 0; }
 
 .manual-food-row {
   display: flex;
