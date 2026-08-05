@@ -734,11 +734,11 @@ const COMMAND_DICTIONARY = {
   ],
   activityTypes: [
     { type: 'swim', pattern: /плавал|бассейн|поплавал|плов(?:ец|чиха)|плавани/u },
-    { type: 'cardio', pattern: /бегал|побегал|пробеж|кардио|джоггинг|кросс/u },
+    { type: 'cardio', pattern: /бег\w*|пробеж|кардио|джоггинг|кросс/u },
     { type: 'strength', pattern: /тяж[её]л|силов|штанга|гантел|желез|качал|тренажер|тренажёр|фитнес/u },
     { type: 'walk', pattern: /гуля|прош[её]л|прогул|пеш(?:ком|очк)|ходил|походил|скандинав|ходьб/u },
     { type: 'bike', pattern: /велосипед|велопрогул|велотрен|сайкл|вело/u },
-    { type: 'stretch', pattern: /растяжк|йог|пилатес|стретчинг|гибкость/u },
+    { type: 'stretch', pattern: /растяжк|йог|пилатес|стретчинг|гибкость|зарядк|разминк/u },
     { type: 'leisure', pattern: /катался|катание|коньки|лыжи|сноуборд|танц(?:ы|ев)|актив(?:ный|но)/u },
   ]
 };
@@ -770,7 +770,9 @@ function parseSmartEntry(text) {
   }
 
   const activities = [];
-  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|ходьб\w*|плавал(?:а)?|плавани\w*|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
+  // Синонимы активности: глаголы («гулял», «бегал») и существительные
+  // («прогулка», «тренировка», «зарядка», «пешком», «кардио»).
+  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|тренировк\w*|гулял(?:а)?|прош[её]л(?:а)?|прогулк\w*|пешком|прогуля\w*|ходьб\w*|плавал(?:а)?|плавани\w*|бассейн|бег\w*|пробеж|кардио\w*|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|зарядк\w*|разминк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
   let match;
   while ((match = activityPattern.exec(lower))) {
     const amount = Number(match[1].replace(',', '.'));
@@ -1009,7 +1011,7 @@ const DEFAULTS = {
   reminders: { enabled: false, time: '20:00' },
   morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
   activitySettings: { weeklyGoalMinutes: 150 },
-  profileSettings: { weightKg: null, weightHistory: [] },
+  profileSettings: { weightKg: null, weightHistory: [], sex: null, ageYears: null, heightCm: null, activityLevel: null },
   mealReminders: { enabled: false, meals: [] },
   customMealTypes: [],
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
@@ -1019,7 +1021,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.2';
+const FITFLOW_VERSION = '0.3.3';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1215,7 +1217,7 @@ const state = {
   reminders: { ...DEFAULTS.reminders },
   morningMotivation: { ...DEFAULTS.morningMotivation },
   activitySettings: { ...DEFAULTS.activitySettings },
-  profileSettings: { weightKg: null, weightHistory: [] },
+  profileSettings: { ...DEFAULTS.profileSettings },
   mealReminders: { ...DEFAULTS.mealReminders },
   waterReminders: { ...DEFAULTS.waterReminders },
   dayChecklist: { ...DEFAULTS.dayChecklist },
@@ -1336,13 +1338,151 @@ function normalizeWeightHistory(history) {
   return [...entries.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-1000);
 }
 
+function clampOptionalInt(value, min, max) {
+  const num = Number(String(value ?? '').replace(',', '.'));
+  if (!Number.isFinite(num)) return null;
+  const rounded = Math.round(num);
+  return rounded >= min && rounded <= max ? rounded : null;
+}
+
+/* Необязательные сведения профиля (пол, возраст, рост, активность) —
+   нужны только для точных норм воды/калорий и хранятся локально. */
 function normalizeProfileSettings() {
   const profile = state.profileSettings || {};
   const weight = Number(String(profile.weightKg || '').replace(',', '.'));
+  const sex = profile.sex === 'female' || profile.sex === 'male' ? profile.sex : null;
+  const activityLevel = ['low', 'medium', 'high'].includes(profile.activityLevel) ? profile.activityLevel : null;
   state.profileSettings = {
     weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null,
-    weightHistory: normalizeWeightHistory(profile.weightHistory)
+    weightHistory: normalizeWeightHistory(profile.weightHistory),
+    sex,
+    ageYears: clampOptionalInt(profile.ageYears, 5, 120),
+    heightCm: clampOptionalInt(profile.heightCm, 80, 250),
+    activityLevel
   };
+}
+
+/* Личные нормы на день:
+   вода — ориентир 30 мл на кг веса с надбавкой за активность;
+   калории — формула Миффлина — Сан Жеора (если заполнены пол, возраст, рост)
+   с поправкой на активность; при неполных данных — честная упрощённая оценка. */
+const PROFILE_ACTIVITY_FACTORS = {
+  low: { kcal: 1.4, waterBonusMl: 0 },
+  medium: { kcal: 1.55, waterBonusMl: 250 },
+  high: { kcal: 1.7, waterBonusMl: 500 }
+};
+
+function roundToStep(value, step) { return Math.round(value / step) * step; }
+
+function computeProfileNorms() {
+  const profile = state.profileSettings || {};
+  const weight = Number(profile.weightKg);
+  if (!Number.isFinite(weight) || weight < 25 || weight > 300) return { ok: false, reason: 'weight' };
+  const factors = PROFILE_ACTIVITY_FACTORS[profile.activityLevel] || PROFILE_ACTIVITY_FACTORS.medium;
+  const waterMl = Math.min(5000, Math.max(1000, roundToStep(weight * 30 + factors.waterBonusMl, 50)));
+  const exact = Boolean(profile.sex && profile.ageYears && profile.heightCm);
+  let kcal;
+  if (exact) {
+    const bmr = 10 * weight + 6.25 * profile.heightCm - 5 * profile.ageYears + (profile.sex === 'male' ? 5 : -161);
+    kcal = bmr * factors.kcal;
+  } else {
+    // Упрощённая оценка «на кг веса», пока антропометрия не заполнена.
+    const perKg = profile.activityLevel === 'high' ? 33 : (profile.activityLevel === 'low' ? 25 : 29);
+    kcal = weight * perKg;
+  }
+  kcal = Math.min(5000, Math.max(1000, roundToStep(kcal, 50)));
+  return { ok: true, exact, waterMl, kcal };
+}
+
+/* Отрисовка блока «Профиль и цели» в Настройках: значения не затираем,
+   пока пользователь печатает в поле (фокус). */
+function renderProfileBasics() {
+  const profile = state.profileSettings || {};
+  const sexChoices = $('#profile-sex-choices');
+  if (sexChoices) {
+    $$('#profile-sex-choices button').forEach((btn) =>
+      btn.classList.toggle('active', profile.sex !== null && btn.dataset.profileSex === profile.sex));
+  }
+  const activityChoices = $('#profile-activity-choices');
+  if (activityChoices) {
+    $$('#profile-activity-choices button').forEach((btn) =>
+      btn.classList.toggle('active', profile.activityLevel !== null && btn.dataset.profileActivity === profile.activityLevel));
+  }
+  const ageInput = $('#profile-age-input');
+  if (ageInput && document.activeElement !== ageInput) ageInput.value = profile.ageYears || '';
+  const heightInput = $('#profile-height-input');
+  if (heightInput && document.activeElement !== heightInput) heightInput.value = profile.heightCm || '';
+  const termsStatus = $('#terms-status');
+  if (termsStatus) {
+    termsStatus.textContent = hasAcceptedTerms()
+      ? 'Условия использования приняты. Если вы не согласны с условиями, пожалуйста, прекратите использование приложения и удалите его с устройства.'
+      : 'Условия использования ещё не приняты — откройте их кнопкой выше и подтвердите согласие.';
+  }
+}
+
+function saveProfileBasicField(field, rawValue) {
+  if (field === 'ageYears') state.profileSettings.ageYears = clampOptionalInt(rawValue, 5, 120);
+  else if (field === 'heightCm') state.profileSettings.heightCm = clampOptionalInt(rawValue, 80, 250);
+  else return;
+  saveState();
+  renderProfileBasics();
+}
+
+function toggleProfileChoice(kind, value) {
+  const key = kind === 'sex' ? 'sex' : 'activityLevel';
+  // Повторное нажатие на тот же вариант снимает выбор (поле необязательное).
+  state.profileSettings[key] = state.profileSettings[key] === value ? null : value;
+  saveState();
+  renderProfileBasics();
+}
+
+/* Диалог «Мои нормы на день»: показ расчёта и применение к целям */
+let pendingProfileNorms = null;
+
+function openNormsDialog() {
+  const norms = computeProfileNorms();
+  if (!norms.ok) {
+    toast('Для расчёта нормы нужен текущий вес — добавьте его на карточке «Вес» на Главной.');
+    return;
+  }
+  pendingProfileNorms = norms;
+  const text = $('#norms-dialog-text');
+  if (text) text.innerHTML = '💧 Вода: <b>' + fmt(norms.waterMl) + ' мл</b><br>🔥 Калории: <b>' + fmt(norms.kcal) + ' ккал</b>';
+  const hint = $('#norms-dialog-hint');
+  if (hint) {
+    hint.textContent = norms.exact
+      ? 'Расчёт по формуле Миффлина — Сан Жеора с учётом пола, возраста, роста, веса и активности. Это ориентир для поддержания веса, а не врачебная рекомендация.'
+      : 'Пока использована упрощённая оценка по весу' + (state.profileSettings && state.profileSettings.activityLevel ? ' и активности' : '') + '. Заполните пол, возраст и рост в «Профиль и цели» — расчёт станет точнее (формула Миффлина — Сан Жеора).';
+  }
+  const dialog = $('#norms-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeNormsDialog() {
+  const dialog = $('#norms-dialog');
+  if (dialog) dialog.hidden = true;
+  pendingProfileNorms = null;
+}
+
+function applyNormsDialog() {
+  const norms = pendingProfileNorms;
+  if (!norms) { closeNormsDialog(); return; }
+  state.water.goal = norms.waterMl;
+  state.food.goal = norms.kcal;
+  saveState();
+  closeNormsDialog();
+  renderAll();
+  toast('Нормы применены: вода ' + fmt(norms.waterMl) + ' мл, калории ' + fmt(norms.kcal) + ' ккал.');
+}
+
+function openMethodologyDialog() {
+  const dialog = $('#methodology-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeMethodologyDialog() {
+  const dialog = $('#methodology-dialog');
+  if (dialog) dialog.hidden = true;
 }
 
 function normalizeHomeLayoutValue(source) {
@@ -1777,6 +1917,7 @@ function renderAll() {
   renderDayChecklistSettings();
   renderDayChecklist();
   renderAiSettings();
+  renderProfileBasics();
   applySettingsAccordion();
   updateNativeWidget();
 }
@@ -2608,6 +2749,10 @@ function renderFoodList() {
 }
 
 function escapeHtml(s) {
+  if (typeof document === 'undefined') {
+    // Режим Node (тесты парсера): ручная замена без DOM.
+    return String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
   const div = document.createElement('div');
   div.textContent = s;
   return div.innerHTML;
@@ -4018,16 +4163,40 @@ function hasAcceptedTerms() {
   try { return localStorage.getItem(TERMS_ACCEPTED_KEY) === '1'; } catch (e) { return false; }
 }
 
+/* Режим «только просмотр»: условия можно перечитать из раздела «О приложении»,
+   тогда кнопка «Не принимаю» скрыта, а основная кнопка просто закрывает окно. */
+let termsViewOnly = false;
+
+function openTermsDialog(viewOnly = false) {
+  termsViewOnly = viewOnly;
+  const dialog = $('#terms-dialog');
+  if (!dialog) return;
+  const declineBtn = $('#terms-decline');
+  const acceptBtn = $('#terms-accept');
+  const hint = dialog.querySelector('.app-dialog-hint');
+  if (declineBtn) declineBtn.hidden = viewOnly;
+  if (acceptBtn) acceptBtn.textContent = viewOnly ? 'Закрыть' : 'Понимаю и принимаю';
+  if (hint) {
+    hint.textContent = viewOnly
+      ? 'Вы уже приняли эти условия. Если вы не согласны с ними, пожалуйста, прекратите использование приложения и удалите его с устройства.'
+      : 'Нажатием «Понимаю и принимаю» вы подтверждаете ознакомление с условиями.';
+  }
+  dialog.hidden = false;
+}
+
 function maybeShowTerms() {
   if (hasAcceptedTerms()) return;
-  const dialog = $('#terms-dialog');
-  if (dialog) dialog.hidden = false;
+  openTermsDialog(false);
 }
 
 function acceptTerms() {
-  try { localStorage.setItem(TERMS_ACCEPTED_KEY, '1'); } catch (e) { console.warn('Не удалось сохранить принятие условий:', e); }
+  if (!termsViewOnly) {
+    try { localStorage.setItem(TERMS_ACCEPTED_KEY, '1'); } catch (e) { console.warn('Не удалось сохранить принятие условий:', e); }
+  }
+  termsViewOnly = false;
   const dialog = $('#terms-dialog');
   if (dialog) dialog.hidden = true;
+  renderProfileBasics();
 }
 
 function declineTerms() {
@@ -4905,6 +5074,18 @@ function init() {
   $('#privacy-dialog-ok').addEventListener('click', closePrivacyDialog);
   $('#sources-open').addEventListener('click', openSourcesDialog);
   $('#sources-dialog-ok').addEventListener('click', closeSourcesDialog);
+  $('#methodology-open').addEventListener('click', openMethodologyDialog);
+  $('#methodology-dialog-ok').addEventListener('click', closeMethodologyDialog);
+  $('#terms-open').addEventListener('click', () => openTermsDialog(true));
+  $('#norms-calc-btn').addEventListener('click', openNormsDialog);
+  $('#norms-dialog-apply').addEventListener('click', applyNormsDialog);
+  $('#norms-dialog-cancel').addEventListener('click', closeNormsDialog);
+  $$('#profile-sex-choices button').forEach((btn) =>
+    btn.addEventListener('click', () => toggleProfileChoice('sex', btn.dataset.profileSex || null)));
+  $$('#profile-activity-choices button').forEach((btn) =>
+    btn.addEventListener('click', () => toggleProfileChoice('activity', btn.dataset.profileActivity || null)));
+  $('#profile-age-input').addEventListener('change', (e) => saveProfileBasicField('ageYears', e.target.value));
+  $('#profile-height-input').addEventListener('change', (e) => saveProfileBasicField('heightCm', e.target.value));
   $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
   // Чек-лист дня
@@ -4933,7 +5114,7 @@ function init() {
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
     e.target.value = '';
   });
-  bindEvent('#ai-recipe-photo-confirm-btn', 'click', confirmAiRecipePhotoIngredients);
+
   bindEvent('#ai-stats-run-btn', 'click', generateAiStatsReport);
   $$('#ai-stats-period button').forEach((btn) => btn.addEventListener('click', () => {
     $$('#ai-stats-period button').forEach((b) => b.classList.remove('active'));
@@ -5241,74 +5422,113 @@ function switchAiTab(tabName) {
   $$('.ai-tab-panel').forEach((panel) => panel.hidden = panel.id !== 'ai-tab-' + tabName);
 }
 
-function generateAiRecipe(options = {}) {
+/* Рецепт собирается из РЕАЛЬНО перечисленных продуктов: названия и питательность
+   берутся из локальной базы 925+ продуктов, советы — из категорий набора. */
+const RECIPE_CATEGORY_RULES = [
+  { id: 'protein', label: 'белковая основа', pattern: /куриц|грудк|филе|индейк|говядин|свинин|телятин|мяс|фарш|рыб|треск|минтай|лосос|сёмг|семг|форел|тунец|горбуш|креветк|кальмар|яиц|яйц|творог|фасол|чечевиц|нут|боб|соя/iu },
+  { id: 'grain', label: 'гарнир', pattern: /гречк|рис|овсянк|булгур|перловк|макарон|паст|картоф|картош|пшен|кускус|киноа|хлеб|лаваш|батат|пюре|геркулес|пшено/iu },
+  { id: 'veg', label: 'овощи, зелень и фрукты', pattern: /помидор|томат|огур|капуст|салат|перец|морков|лук|чеснок|кабач|баклажан|броккол|шпинат|зелен|укроп|петрушк|банан|яблок|груш|ягод|апельсин|свёкл|свекл|тыкв/iu },
+  { id: 'dairy', label: 'молочное', pattern: /молок|кефир|йогурт|сыр|сметан|ряженк|сливк/iu },
+  { id: 'fat', label: 'заправка', pattern: /масл|авокадо|орех|семеч|майонез/iu }
+];
+
+const RECIPE_STEP_BY_CATEGORY = {
+  protein: 'белковую основу отварите, потушите или запеките без лишнего масла (курица/рыба — 20–25 мин при 180°)',
+  grain: 'гарнир отварите до готовности (крупы: вода 1:2, 12–15 мин; картофель — 20 мин)',
+  veg: 'овощи и зелень нарежьте салатом или припустите 5–7 минут',
+  dairy: 'молочное подайте рядом или используйте как лёгкий соус',
+  fat: 'заправку добавьте в конце — 1 чайной ложки масла обычно достаточно'
+};
+
+function capitalizeFirst(text) {
+  const s = String(text || '');
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/* Простое склонение для заголовков рецептов («рис»→«рисом», «гречка»→«гречкой»).
+   Это стилистика заголовка — на расчёты не влияет. */
+function toInstrumental(name) {
+  const s = String(name || '');
+  if (/ка$/u.test(s)) return s.slice(0, -2) + 'кой';
+  if (/а$/u.test(s)) return s.slice(0, -1) + 'ой';
+  if (/я$/u.test(s)) return s.slice(0, -1) + 'ей';
+  if (/ь$/u.test(s)) return s.slice(0, -1) + 'ью';
+  return s + 'ом';
+}
+
+function generateAiRecipe() {
   const input = $('#ai-recipe-input');
   const resultBox = $('#ai-recipe-result');
   if (!input || !resultBox) return;
   const text = (input.value || '').trim();
   if (!text) {
-    toast('Укажите продукты, которые у вас есть');
+    toast('Перечислите продукты, которые у вас есть');
     return;
   }
-  const profileName = profilesState.profiles.find((p) => p.id === profilesState.activeId)?.name || 'Мой профиль';
-  const weightKg = state.profileSettings.weightKg;
+  const items = parseMealText(text);
+  if (!items.length) {
+    resultBox.innerHTML = '<h4>🥑 Рецепт из ваших продуктов</h4>' +
+      '<p>Пока не узнал продукты в списке «' + escapeHtml(text) + '». Попробуйте простые названия через запятую: «курица, рис, помидор» или «яйца, творог, огурец» — база знает 925+ продуктов.</p>';
+    resultBox.hidden = false;
+    return;
+  }
+  const categoryOf = (name) => {
+    const rule = RECIPE_CATEGORY_RULES.find((r) => r.pattern.test(name));
+    return rule ? rule.id : null;
+  };
+  const catSet = new Set(items.map((i) => categoryOf(i.name)).filter(Boolean));
+  const protein = items.find((i) => categoryOf(i.name) === 'protein');
+  const grain = items.find((i) => categoryOf(i.name) === 'grain');
+  const veg = items.find((i) => categoryOf(i.name) === 'veg');
+  let title;
+  if (protein && grain) title = capitalizeFirst(protein.name) + ' с ' + toInstrumental(grain.name) + (veg ? ' и ' + toInstrumental(veg.name) : '');
+  else if (protein && veg) title = capitalizeFirst(protein.name) + ' с ' + toInstrumental(veg.name);
+  else if (items.some((i) => /яиц|яйц/iu.test(i.name))) title = 'Завтрак из яиц с ' + toInstrumental((veg || items[0]).name);
+  else title = 'Блюдо из ваших продуктов';
+  const totals = items.reduce((acc, i) => ({ kcal: acc.kcal + i.kcal, p: acc.p + i.p, f: acc.f + i.f, c: acc.c + i.c }), { kcal: 0, p: 0, f: 0, c: 0 });
+  const steps = [...catSet].map((id) => RECIPE_STEP_BY_CATEGORY[id]).filter(Boolean);
+  if (!steps.length) steps.push('подготовьте продукты привычным способом — варка, запекание или свежая подача');
   const goalKcal = state.food.goal || 2000;
-  const targetKcal = Math.round(goalKcal * 0.28);
-
-  const tailoredBadge = options.tailoredToProfile || text.includes('куриная')
-    ? '<div class="ai-recipe-macros" style="color:var(--primary)"><span>👤 Подстроено под ' + escapeHtml(profileName) + '</span><span>Цель обеда: ~' + targetKcal + ' ккал</span>' + (weightKg ? '<span>Вес: ' + weightKg + ' кг</span>' : '') + '</div>'
-    : '';
-
-  resultBox.innerHTML = '<h4>🥑 Куриная грудка с гречкой и овощным салатом</h4>' +
-    tailoredBadge +
-    '<p>Сбалансированное блюдо из продуктов: <em>' + escapeHtml(text) + '</em>.</p>' +
+  const portionTarget = Math.round(goalKcal * 0.3);
+  const fullnessNote = totals.kcal >= portionTarget
+    ? 'По калорийности это полноценный приём пищи (ориентир — около ' + fmt(portionTarget) + ' ккал, ~30% дневной цели).'
+    : 'Это лёгкий набор (' + fmt(Math.round(totals.kcal)) + ' ккал при ориентире ~' + fmt(portionTarget) + ' ккал на приём пищи) — при нужде добавьте гарнир или хлеб.';
+  resultBox.innerHTML = '<h4>🥑 ' + escapeHtml(title) + '</h4>' +
+    '<p>Собрано из вашего списка: <em>' + escapeHtml(items.map((i) => i.name).join(', ')) + '</em>.</p>' +
     '<ul>' +
-    '<li><b>Ингредиенты</b>: куриное филе 150 г, гречка отварная 150 г, свежие томаты 100 г, зелень.</li>' +
-    '<li><b>Приготовление</b>: отварите гречку, запеките куриную грудку со специями без лишнего масла, подавайте со свежими томатами и зеленью.</li>' +
+    steps.map((s, idx) => '<li><b>Шаг ' + (idx + 1) + '</b>: ' + escapeHtml(s) + '.</li>').join('') +
+    '<li><b>Подача</b>: сначала белок и овощи, гарнир — по голоду; соль и соусы — умеренно.</li>' +
     '</ul>' +
-    '<div class="ai-recipe-macros"><span>🔥 ' + targetKcal + ' ккал</span><span>Б: 36 г</span><span>Ж: 12 г</span><span>У: 42 г</span></div>' +
-    '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить в дневник питания (' + targetKcal + ' ккал)</button>';
+    '<div class="ai-recipe-macros"><span>🔥 ' + fmt(Math.round(totals.kcal)) + ' ккал</span><span>Б: ' + fmt(Math.round(totals.p)) + ' г</span><span>Ж: ' + fmt(Math.round(totals.f)) + ' г</span><span>У: ' + fmt(Math.round(totals.c)) + ' г</span></div>' +
+    '<p class="settings-hint" style="margin:8px 0 0">Калорийность и БЖУ посчитаны по локальной базе; для продуктов без веса — из расчёта 100 г.</p>' +
+    '<p class="settings-hint" style="margin:6px 0 0">' + escapeHtml(fullnessNote) + '</p>' +
+    '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить эти продукты в дневник (' + fmt(Math.round(totals.kcal)) + ' ккал)</button>';
   resultBox.hidden = false;
   const logBtn = $('#ai-log-recipe-btn');
   if (logBtn) {
     logBtn.addEventListener('click', () => {
-      state.food.items.push({
-        id: uid(),
-        raw: 'ИИ-рецепт: Курица с гречкой (' + targetKcal + ' ккал)',
-        name: 'Курица с гречкой (ИИ-рецепт)',
-        amount: 1,
-        unit: 'порция',
-        kcal: targetKcal,
-        p: 36,
-        f: 12,
-        c: 42
-      });
+      const diaryItems = items.map((i) => ({
+        ...i,
+        amount: i.amount == null ? 100 : i.amount,
+        unit: i.amount == null ? 'г' : i.unit
+      }));
+      state.food.items.push(...applySelectedMealType(diaryItems));
       saveState();
+      resetMealTypeAfterSave();
       renderAll();
       closeAiCenter();
-      toast('🥑 Персональный рецепт добавлен в дневник!');
+      toast('🥑 Продукты из рецепта добавлены в дневник!');
     });
   }
 }
 
-function handleAiRecipeCameraPhoto(file) {
-  const confirmBox = $('#ai-recipe-photo-confirm');
-  const ingredientsInput = $('#ai-recipe-photo-ingredients');
-  if (!confirmBox || !ingredientsInput) return;
-  // Локальный распознаватель фото (эмуляция vision-анализа на устройстве)
-  ingredientsInput.value = 'куриная грудка 200г, гречка 150г, помидоры 100г, сыр 50г, зелень';
-  confirmBox.hidden = false;
-  toast('📷 Фото распознано! Проверьте состав продуктов.');
-}
 
-function confirmAiRecipePhotoIngredients() {
-  const ingredientsInput = $('#ai-recipe-photo-ingredients');
+/* Честный фото-режим рецепта: без выдуманного «распознавания». Пока нейросети
+   в приложении нет, фото служит напоминанием, а продукты перечисляются текстом. */
+function handleAiRecipeCameraPhoto(file) {
   const recipeInput = $('#ai-recipe-input');
-  const confirmBox = $('#ai-recipe-photo-confirm');
-  if (!ingredientsInput || !recipeInput) return;
-  recipeInput.value = (ingredientsInput.value || '').trim();
-  if (confirmBox) confirmBox.hidden = true;
-  generateAiRecipe({ tailoredToProfile: true });
+  if (recipeInput) recipeInput.focus();
+  toast('📷 Фото сделано! Распознавание продуктов по фото появится с нейросетью. Пока перечислите их текстом — рецепт соберу сразу.');
 }
 
 /* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
@@ -5390,6 +5610,122 @@ function generateAiAnalysis() {
   bindAiReportClose(resultBox);
 }
 
+/* Нутрициолог-эксперт по правилам: тематические ответы + данные из базы продуктов.
+   Никаких «одинаковых» ответов — если тема неизвестна, честно говорим об этом. */
+const AI_CHAT_RULES = [
+  {
+    pattern: /вод|пить|гидрат/iu,
+    answer: () => {
+      const goal = state.water.goal || 2500;
+      const weight = state.profileSettings.weightKg;
+      const norm = weight ? ' Ориентир — примерно 30 мл на кг веса: для ' + weight + ' кг это около ' + fmt(Math.round(weight * 30 / 50) * 50) + ' мл в день.' : ' Ориентир — примерно 30 мл на кг веса в день; укажите вес на Главной — подскажу точнее.';
+      return 'Ваша дневная цель в FitFlow — ' + fmt(goal) + ' мл.' + norm + ' Распределяйте равномерно: стакан утром, по стакану между приёмами пищи и после активности. Жажда — уже сигнал лёгкого дефицита, лучше пить понемногу заранее.';
+    }
+  },
+  {
+    pattern: /белк|протеин|мышц/iu,
+    answer: () => {
+      const weight = state.profileSettings.weightKg;
+      const range = weight ? ' Для веса ' + weight + ' кг это примерно ' + Math.round(weight * 1.2) + '–' + Math.round(weight * 1.8) + ' г в день.' : '';
+      return 'Норма белка — примерно 1,2–1,8 г на кг веса в день (при регулярных тренировках — ближе к верхней границе).' + range + ' Распределяйте по 20–40 г на приём пищи: творог, яйца, курица, рыба, бобовые. В FitFlow белок по дню виден в карточке «Питание» (Б/Ж/У).';
+    }
+  },
+  {
+    pattern: /похуд|сброс|вес|диет|дефицит/iu,
+    answer: () => {
+      const goal = state.food.goal || 2000;
+      return 'Мягкий дефицит — это минус 10–20% от нормы поддержания, без голодовок: ваша дневная цель сейчас ' + fmt(goal) + ' ккал. Что работает: белок в каждом приёме пищи, овощи на половину тарелки, вода по цели и 7–10 тысяч шагов. Взвешивайтесь 1–2 раза в неделю утром и смотрите тренд на графике «Вес», а не на разовые цифры.';
+    }
+  },
+  {
+    pattern: /трениров|кардио|силов|бег|плавани|спорт/iu,
+    answer: () => 'До тренировки за 1,5–2 часа — сложные углеводы и немного белка (каша с яйцом, тост с сыром). После — 20–30 г белка в течение пары часов плюс углеводы для восстановления (курица с рисом, творог с бананом). Воду — до, во время небольшими глотками и после.'
+  },
+  {
+    pattern: /завтрак/iu,
+    answer: () => 'Хороший завтрак держит сытость 3–4 часа: белок (яйца, творог, йогурт) + сложные углеводы (овсянка, цельнозерновой хлеб) + фрукт или овощ. Если нет аппетита утром — начните с воды и лёгкого перекуса, полноценный завтрак можно сдвинуть на час позже.'
+  },
+  {
+    pattern: /кофе|кофеин|чай/iu,
+    answer: () => 'Кофе нормален: 1–3 чашки в день, последняя — за 6–8 часов до сна. В дневник воды кофе можно не записывать, но пара стаканов чистой воды в дополнение к кофе — хорошая привычка. Сахар в кофе — записывайте в питание, он «невидимо» добавляет 20–30 ккал на ложку.'
+  },
+  {
+    pattern: /ужин|на ночь|вечер/iu,
+    answer: () => 'Ужин — за 2–3 часа до сна: белок + овощи (рыба с салатом, творог с огурцом и зеленью). Тяжёлые и сладкие блюда на ночь ухудшают сон и утренний вес «из-за воды» — это нормальная колеблющаяся цифра, а не жир.'
+  },
+  {
+    pattern: /сахар|сладк|десерт|шоколад/iu,
+    answer: () => 'Сладкое не запрещено — важна доза: ориентир — до 10% дневных калорий (при цели ' + fmt(state.food.goal || 2000) + ' ккал это ~' + fmt(Math.round((state.food.goal || 2000) * 0.1)) + ' ккал). Лучше сразу после еды, а не на голодный желудок, и записывайте в дневник — так сладости остаются осознанными, а не «случайными».'
+  },
+  {
+    pattern: /калори|ккал|энерги/iu,
+    answer: () => 'Ваша дневная цель — ' + fmt(state.food.goal || 2000) + ' ккал. Точную норму можно рассчитать в Настройках → «Профиль и цели»: заполните пол, возраст, рост и активность — FitFlow предложит норму по формуле Миффлина — Сан Жеора.'
+  },
+  {
+    pattern: /сон|спать|устал/iu,
+    answer: () => 'Сон напрямую влияет на аппетит и вес: недосып повышает тягу к сладкому и сытному. Цельтесь в 7–9 часов; лёгкий ужин за 2–3 часа до сна и отказ от кофеина во второй половине дня — самые рабочие шаги.'
+  },
+  {
+    pattern: /овощ|фрукт|клетчатк|овощи/i,
+    answer: () => 'Ориентир — 400–500 г овощей и фруктов в день, половина тарелки в основных приёмах. Они дают сытость при малой калорийности — лучший союзник и при похудении, и для пищеварения.'
+  },
+  {
+    pattern: /перекус|голод|аппетит/iu,
+    answer: () => 'Рабочие перекусы — белковые или с клетчаткой: творог, яйцо, горсть орехов, яблоко, йогурт без сахара. Если «голод» возникает вскоре после еды — сначала стакан воды и пауза 10 минут: часто это жажда или привычка.'
+  }
+];
+
+function buildAiChatAnswer(text) {
+  const lower = text.toLowerCase();
+  // Продукты из базы: ищем с границами слов и простыми словоформами
+  // («гречке» → «гречка»), чтобы «сколько» не давало ложных «кола/соль».
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const keyMatcher = (key) => {
+    const stem = /[аяоеийы]$/u.test(key) ? key.slice(0, -1) : key;
+    return new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
+  };
+  const foundKeys = Object.keys(FOOD_DB)
+    .filter((key) => key.length >= 4 && keyMatcher(key).test(lower))
+    .sort((a, b) => b.length - a.length)
+    .filter((key, idx, arr) => !arr.some((other, j) => j < idx && other.includes(key)))
+    .filter((key, idx, arr) => {
+      const item = FOOD_DB[key];
+      const sig = item.kcal + '|' + item.p + '|' + item.f + '|' + item.c;
+      return !arr.some((other, j) => {
+        if (j >= idx) return false;
+        const o = FOOD_DB[other];
+        return (o.kcal + '|' + o.p + '|' + o.f + '|' + o.c) === sig;
+      });
+    })
+    .slice(0, 4);
+  // Факты о продукте спрашивают явно: «сколько ... калорий/белка в твороге».
+  const wantsFacts = /сколько|скільки/iu.test(lower) && /калори|ккал|бжу|белк|протеин|углевод|жир/iu.test(lower);
+  const buildProductTable = () => {
+    const rows = foundKeys.map((key) => {
+      const item = FOOD_DB[key];
+      return '<li><b>' + escapeHtml(key) + '</b> (за 100 г): ' + Math.round(item.kcal) + ' ккал · Б ' + item.p + ' · Ж ' + item.f + ' · У ' + item.c + '</li>';
+    }).join('');
+    return '<ul>' + rows + '</ul>' +
+      '<p>Данные — из локальной базы FitFlow (925+ продуктов). Чтобы записать блюдо в дневник, откройте вкладку «Ввод» и напишите, например: «' + escapeHtml(foundKeys[0]) + ' 150 г».</p>';
+  };
+  // 1) «Что приготовить…» — направляем в реальный генератор рецептов.
+  if (/приготов|рецепт|сготов|блюдо|из чего/iu.test(lower)) {
+    const known = foundKeys.length
+      ? ' В вашем списке я уже вижу знакомые продукты: <b>' + foundKeys.map((k) => escapeHtml(k)).join(', ') + '</b>.'
+      : '';
+    return '<p>Откройте вкладку «Рецепт» в ИИ-центре и перечислите продукты через запятую — я соберу блюдо именно из них и посчитаю калории и БЖУ по локальной базе.' + known + '</p>';
+  }
+  // 2) Прямой вопрос о показателях продукта — таблица из базы.
+  if (foundKeys.length && wantsFacts) return buildProductTable();
+  // 3) Тематический совет по правилам.
+  const rule = AI_CHAT_RULES.find((r) => r.pattern.test(lower));
+  if (rule) return '<p>' + escapeHtml(rule.answer()) + '</p>';
+  // 4) Продукт назван без явного вопроса — всё равно покажем его показатели.
+  if (foundKeys.length) return buildProductTable();
+  // 5) Честный ответ, что тема пока не покрыта.
+  return '<p>Я — офлайн-эксперт на правилах (не нейросеть): уверенно отвечаю про воду, белок, похудение, питание до и после тренировки, завтрак и ужин, кофе, сладкое, сон, рецепты из ваших продуктов и показатели продуктов из базы (например, напишите название продукта). Эту тему пока не понял — переформулируйте проще или задайте другой вопрос.</p>';
+}
+
 function sendAiChat() {
   const input = $('#ai-chat-input');
   const resultBox = $('#ai-chat-result');
@@ -5401,7 +5737,7 @@ function sendAiChat() {
   }
   resultBox.innerHTML = '<h4>💬 Ответ ИИ-нутрициолога FitFlow</h4>' +
     '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
-    '<p>После кардио или силовой нагрузки оптимально потребить 20–30 граммов полноценного белка в течение 1–2 часов для эффективного восстановления мышечных волокон, сочетая его со сложными углеводами и достаточным количеством воды.</p>';
+    buildAiChatAnswer(text);
   resultBox.hidden = false;
 }
 
@@ -5461,6 +5797,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer
   };
 }

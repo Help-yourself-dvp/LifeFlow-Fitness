@@ -274,6 +274,14 @@ console.log(`${smartStructure ? '✓' : '✗'} быстрый ввод: «100 м
 const smartCases = [
   ['овсянка 150г, банан, гулял 40 мин', 0, ['овсянка', 'банан'], ['walk']],
   ['100 мл воды, персик, ходьба 10 мин', 100, ['персик'], ['walk']],
+  ['100 мл воды, персик, прогулка 10 мин', 100, ['персик'], ['walk']],
+  ['прогулка 10 мин', 0, [], ['walk']],
+  ['пешком 20 мин', 0, [], ['walk']],
+  ['тренировка 40 мин', 0, [], ['other']],
+  ['занимался спортом 30 мин', 0, [], ['other']],
+  ['кардио 25 мин', 0, [], ['cardio']],
+  ['бег 15 мин', 0, [], ['cardio']],
+  ['зарядка 15 мин', 0, [], ['stretch']],
   ['съел яблоко', 0, ['яблоко'], []],
   ['выпил 250 мл сока', 0, ['сока'], []],
   ['100 мл сока', 0, ['сока'], []],
@@ -294,6 +302,24 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && JSON.stringify(gotActs) === JSON.stringify(actTypes);
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} быстрый ввод: «${text}» → вода ${r.waterMl}, еда [${gotFood}], активность [${gotActs}]`);
+}
+
+// Нутрициолог-эксперт: тематические ответы, продукты из базы и честный фолбэк
+{
+  const { buildAiChatAnswer } = require('./app.js');
+  const chatCases = [
+    ['сколько воды пить в день', ['мл', 'цель']],
+    ['сколько белка нужно в день', ['белк', 'г']],
+    ['что съесть после тренировки', ['белка']],
+    ['сколько калорий в гречке', ['гречка', 'ккал']],
+    ['чем полезны квантовые флюктуации', ['офлайн-эксперт']]
+  ];
+  for (const [question, needles] of chatCases) {
+    const answer = buildAiChatAnswer(question);
+    const ok = needles.every((needle) => answer.toLowerCase().includes(needle.toLowerCase()));
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} нутрициолог: «${question}» → содержит [${needles}]`);
+  }
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

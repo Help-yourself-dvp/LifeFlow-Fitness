@@ -13,7 +13,11 @@ const functions = [
   'toggleProfileDetails', 'openHomeLayoutDialog', 'closeHomeLayoutDialog',
   'requestAllProfilesImport', 'closeAllProfilesImportDialog', 'confirmAllProfilesImport',
   'renderWeightSettings', 'saveWeightFromSettings', 'removeWeightRecord',
-  'renderWeightOverview', 'openQuickWeightDialog', 'closeQuickWeightDialog', 'saveQuickWeight'
+  'renderWeightOverview', 'openQuickWeightDialog', 'closeQuickWeightDialog', 'saveQuickWeight',
+  'openTermsDialog', 'openMethodologyDialog', 'closeMethodologyDialog',
+  'renderProfileBasics', 'toggleProfileChoice', 'saveProfileBasicField',
+  'computeProfileNorms', 'openNormsDialog', 'closeNormsDialog', 'applyNormsDialog',
+  'generateAiRecipe', 'buildAiChatAnswer', 'sendAiChat', 'handleAiRecipeCameraPhoto'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -25,7 +29,11 @@ const ids = [
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
   'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
-  'weight-card', 'home-weight-current', 'home-weight-trend', 'weight-details-view', 'weight-quick-open', 'weight-quick-dialog', 'weight-quick-form'
+  'weight-card', 'home-weight-current', 'home-weight-trend', 'weight-details-view', 'weight-quick-open', 'weight-quick-dialog', 'weight-quick-form',
+  'methodology-open', 'methodology-dialog', 'methodology-dialog-ok', 'terms-open', 'terms-status',
+  'profile-sex-choices', 'profile-activity-choices', 'profile-age-input', 'profile-height-input', 'profile-basics-options',
+  'norms-calc-btn', 'norms-dialog', 'norms-dialog-text', 'norms-dialog-hint', 'norms-dialog-apply', 'norms-dialog-cancel',
+  'stats-periods', 'ai-generate-recipe', 'ai-send-chat'
 ];
 
 let failed = 0;

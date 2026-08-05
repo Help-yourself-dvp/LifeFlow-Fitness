@@ -315,6 +315,13 @@
       </div>
       <div id="ai-stats-report-box" class="ai-result-box" hidden></div>
     </section>
+    <!-- Период статистики вынесен из карточки: у .card overflow:hidden,
+         который ломал position:sticky, и панель уезжала при прокрутке. -->
+    <div class="segmented stats-periods" id="stats-periods" role="radiogroup" aria-label="Период статистики">
+      <button type="button" data-stats-period="day">Сегодня</button>
+      <button class="active" type="button" data-stats-period="week">7 дней</button>
+      <button type="button" data-stats-period="month">30 дней</button>
+    </div>
     <section class="card stats-card" aria-labelledby="stats-title">
       <div class="card-header">
         <div class="card-icon stats-icon" aria-hidden="true">
@@ -326,12 +333,6 @@
           <h2 id="stats-title">Статистика</h2>
           <p id="stats-period-caption">Итоги за 7 дней</p>
         </div>
-      </div>
-
-      <div class="segmented stats-periods" id="stats-periods" role="radiogroup" aria-label="Период статистики">
-        <button type="button" data-stats-period="day">Сегодня</button>
-        <button class="active" type="button" data-stats-period="week">7 дней</button>
-        <button type="button" data-stats-period="month">30 дней</button>
       </div>
 
       <section class="stats-section stats-water" aria-labelledby="stats-water-title">
@@ -570,6 +571,41 @@
         <div><strong id="profile-settings-name">Мой профиль</strong><small>Вес, цели, история и уведомления относятся к этому профилю.</small></div>
       </div>
 
+      <div class="settings-group profile-basics-group">
+        <div class="settings-label-row">
+          <div>
+            <p class="settings-label">Профиль и цели</p>
+            <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, хранятся только на вашем устройстве и никуда не передаются.</p>
+          </div>
+          <button class="settings-group-collapse" type="button" data-collapse-for="profile-basics-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+        <div id="profile-basics-options">
+          <p class="settings-label">Пол</p>
+          <div class="segmented" id="profile-sex-choices" role="radiogroup" aria-label="Пол">
+            <button type="button" data-profile-sex="female">Женский</button>
+            <button type="button" data-profile-sex="male">Мужской</button>
+          </div>
+          <p class="settings-hint">Повторное нажатие на выбранный вариант снимает выбор.</p>
+          <div class="profile-basics-row">
+            <label for="profile-age-input">Возраст, лет</label>
+            <input id="profile-age-input" class="form-input" type="number" inputmode="numeric" min="5" max="120" placeholder="—">
+          </div>
+          <div class="profile-basics-row">
+            <label for="profile-height-input">Рост, см</label>
+            <input id="profile-height-input" class="form-input" type="number" inputmode="numeric" min="80" max="250" placeholder="—">
+          </div>
+          <p class="settings-label" style="margin-top:10px">Средняя активность</p>
+          <div class="segmented" id="profile-activity-choices" role="radiogroup" aria-label="Средняя активность">
+            <button type="button" data-profile-activity="low">Низкая</button>
+            <button type="button" data-profile-activity="medium">Умеренная</button>
+            <button type="button" data-profile-activity="high">Высокая</button>
+          </div>
+          <p class="settings-hint">Низкая — в основном сидячий день. Умеренная — прогулки или тренировки 2–4 раза в неделю. Высокая — занятия спортом почти каждый день или физическая работа.</p>
+          <button class="btn btn-secondary" id="norms-calc-btn" type="button">Рассчитать мои нормы воды и калорий</button>
+          <p class="settings-hint">Дневные цели можно в любой момент подстроить вручную кнопками −/+ на карточках «Вода» и «Питание» на Главной.</p>
+        </div>
+      </div>
+
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Чек-лист дня</p>
@@ -773,22 +809,14 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.2</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.3</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
-            <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
-            <section class="collapsible-block" style="margin-top:10px">
-              <button class="collapsible-toggle" type="button" data-collapse-target="methodology-content" aria-expanded="false">
-                <span>Методика расчётов</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </button>
-              <div class="collapsible-content" id="methodology-content"><div class="settings-about-content">
-                <p class="settings-hint"><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 925+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
-                <p class="settings-hint"><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
-                <p class="settings-hint"><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
-                <p class="settings-hint"><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
-                <p class="settings-hint"><b>Локальный эксперт и анализ.</b> Разделы «Анализ» и «Вопрос нутрициологу» работают по заранее заданным правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо. Если в дневнике мало записей, выводы честно помечаются как общие. Настоящая нейросетевая модель (с ответами на любые вопросы и распознаванием еды по фото) добавится в следующих версиях.</p>
-                <p class="settings-hint"><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
-              </div></div>
-            </section>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
+              <button class="btn btn-secondary" id="methodology-open" type="button">Методика расчётов</button>
+              <button class="btn btn-secondary" id="terms-open" type="button">Условия использования</button>
+            </div>
+            <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
           </div></div>
         </section>
       </div>
@@ -904,6 +932,36 @@
         <p><b>Важно.</b> У конкретного бренда, рецепта, размера порции и способа приготовления калорийность может отличаться. Всегда ориентируйтесь на этикетку продукта, если она доступна.</p>
       </div>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="sources-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="methodology-dialog" role="dialog" aria-modal="true" aria-labelledby="methodology-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🧮</div>
+      <h2 id="methodology-dialog-title">Методика расчётов</h2>
+      <div class="terms-list">
+        <p><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 925+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
+        <p><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
+        <p><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
+        <p><b>Личные нормы воды и калорий.</b> Вода — ориентир ~30 мл на кг веса с надбавкой при высокой активности. Калории — формула Миффлина — Сан Жеора (пол, возраст, рост, вес) с поправкой на среднюю активность; если данные не заполнены, используется упрощённая оценка по весу. Расчёт выполняется на устройстве в Настройках → «Профиль и цели».</p>
+        <p><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
+        <p><b>Локальный эксперт и анализ.</b> Разделы «Анализ», «Рецепт» и «Вопрос нутрициологу» работают по правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо: рецепт собирается из реально перечисленных продуктов, ответы чата строятся по тематическим правилам и базе продуктов. Если в дневнике мало записей, выводы честно помечаются как общие. Настоящая нейросетевая модель (с ответами на любые вопросы и распознаванием еды по фото) добавится в следующих версиях.</p>
+        <p><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
+      </div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="methodology-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="norms-dialog" role="dialog" aria-modal="true" aria-labelledby="norms-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🎯</div>
+      <h2 id="norms-dialog-title">Мои нормы на день</h2>
+      <p id="norms-dialog-text" style="font-size:1.05rem;text-align:center">—</p>
+      <p class="app-dialog-hint" id="norms-dialog-hint">—</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="norms-dialog-cancel" type="button">Отмена</button>
+        <button class="btn btn-primary" id="norms-dialog-apply" type="button">Применить</button>
+      </div>
     </section>
   </div>
 
@@ -1173,14 +1231,6 @@
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
             <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
-          </div>
-        </div>
-        <div id="ai-recipe-photo-confirm" class="ai-result-box" style="border-color:var(--primary)" hidden>
-          <h4>Продукты на фото — проверьте список</h4>
-          <p class="settings-hint">Проверьте список продуктов и нажмите «Подтвердить» — FitFlow составит рецепт именно для вас:</p>
-          <div class="ai-actions-row" style="margin-top:8px">
-            <input type="text" id="ai-recipe-photo-ingredients" class="form-input" style="flex:1;min-width:0">
-            <button class="btn btn-primary" id="ai-recipe-photo-confirm-btn" type="button">✓ Подтвердить</button>
           </div>
         </div>
         <div id="ai-recipe-result" class="ai-result-box" hidden></div>
