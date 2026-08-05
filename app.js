@@ -606,13 +606,43 @@ const UNIT_MAP = {
   'кг': 1000, 'килограмм': 1000,
   'мл': 1, 'мл.': 1, 'миллилитр': 1,
   'л': 1000, 'литр': 1,
-  'стакан': 250, 'стакана': 250, 'стаканов': 250, 'чашка': 200, 'чашки': 200,
+  'стакан': 250, 'стакана': 250, 'стаканов': 250, 'стакану': 250,
+  'чашка': 200, 'чашки': 200, 'чашку': 200,
+  'кружка': 200, 'кружки': 200, 'кружку': 200,
+  'тарелка': 200, 'тарелки': 200, 'тарелку': 200, 'тарелок': 200,
+  'миска': 200, 'миски': 200, 'миску': 200, 'мисок': 200,
+  'пиала': 200, 'пиалы': 200, 'пиалу': 200,
   'ст.л': 20, 'ст. л': 20, 'ст.л.': 20, 'ст л': 20, 'столовая ложка': 20,
   'ч.л': 7, 'ч. л': 7, 'ч.л.': 7, 'ч л': 7, 'чайная ложка': 7,
   'порция': 200, 'порции': 200, 'порций': 200,
-  'ложка': 15, 'ложки': 15, 'ложек': 15
+  'ложка': 15, 'ложки': 15, 'ложек': 15, 'ложку': 15,
+  'горсть': 30, 'щепотка': 2
 };
+/* Доли «на глаз» без точного веса в базе: общепринятые ориентиры.
+   Кусок ≈ 100 г (кусок пиццы/торта), ломоть/долька ≈ 30 г (хлеб, лимон).
+   В превью быстрого ввода эту оценку показываем явно («≈ 300 г»), чтобы
+   расчёт всегда был прозрачным. Для продуктов с per:'шт' считаем по штукам. */
+const SLICE_UNIT_GRAMS = { 'кусок': 100, 'ломоть': 30, 'долька': 30 };
 const PIECE_UNITS = new Set(['шт', 'шт.', 'штук', 'штука', 'штуки', 'штук.']);
+
+/* Канонизация единицы из регулярки: склонения → базовая форма. */
+function canonicalUnit(unitRaw) {
+  const u = String(unitRaw || '').toLowerCase().trim();
+  if (/^кусо|^куск/u.test(u)) return 'кусок';
+  if (/^ломот|^ломт/u.test(u)) return 'ломоть';
+  if (/^дольк/u.test(u)) return 'долька';
+  if (/^горст/u.test(u)) return 'горсть';
+  if (/^щепотк/u.test(u)) return 'щепотка';
+  if (/^штук|^шт/u.test(u)) return 'шт';
+  if (/^тарелк/u.test(u)) return 'тарелка';
+  if (/^миск/u.test(u)) return 'миска';
+  if (/^кружк/u.test(u)) return 'кружка';
+  if (/^чашк/u.test(u)) return 'чашка';
+  if (/^стакан/u.test(u)) return 'стакан';
+  if (/^порци/u.test(u)) return 'порция';
+  if (/^ложк/u.test(u)) return 'ложка';
+  return u;
+}
 
 /* ============================================================
    Парсер текста: «картофель 150г, котлета 1шт»
@@ -622,7 +652,10 @@ function parseMealText(raw) {
   // Разделители: запятая/точка с запятой перед буквой, «и» между словами,
   // тире/дефисы. \b не используем — в JS он не понимает кириллицу.
   const parts = raw
-    .split(/\s*[,;]\s*(?=[а-яёa-z])|\s+и\s+|[\s\u00A0]?[–—][\s\u00A0]?/iu)
+    // Запятая/точка с запятой — всегда разделитель, кроме десятичной запятой
+    // между цифрами («1,5»). Раньше запятая перед ЧИСЛОМ не разделяла список,
+    // из-за чего «суши 5 шт, 3 куска пиццы» слипалось в один продукт.
+    .split(/\s*(?:[,;](?!\d)|(?<!\d)[,;])\s*|\s+и\s+|[\s\u00A0]?[–—][\s\u00A0]?/iu)
     // Голосовой ввод оставляет висючие запятые/точки — чистим края сегмента,
     // иначе ломаются якорные разборы («сока стакан, », «…минут.»).
     .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, ''))
@@ -679,7 +712,7 @@ const COMMAND_DICTIONARY = {
     [/чашечка(?=\s)/giu, 'чашка'],
     [/тарелочка(?=\s)/giu, 'тарелка'],
     [/мисочка(?=\s)/giu, 'миска'],
-    [/кусочек(?=\s)/giu, 'кусок'],
+    [/кусоч(?:ек|ка|ки|ку|ке)(?=\s|$|[,.;])/giu, 'кусок'],
     [/ломтик(?=\s)/giu, 'ломоть'],
     [/горстка|горсточка(?=\s)/giu, 'горсть'],
     [/щепотка|щепоточка(?=\s)/giu, 'щепотка'],
@@ -796,7 +829,7 @@ function parseSmartEntry(text) {
   const activities = [];
   // Синонимы активности: глаголы («гулял», «бегал») и существительные
   // («прогулка», «тренировка», «зарядка», «пешком», «кардио»).
-  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|тренировк\w*|гулял(?:а)?|прош[её]л(?:а)?|прогулк\w*|пешком|прогуля\w*|ходьб\w*|плавал(?:а)?|плавани\w*|бассейн|бег\w*|пробеж|кардио\w*|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|зарядк\w*|разминк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
+  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|тренировк\w*|гулял(?:а)?|прош[её]л(?:а)?|прогулк\w*|пешком|прогуля\w*|ходьб\w*|ходил(?:а)?|сходил(?:а)?|плавал(?:а)?|плавани\w*|бассейн|бегал(?:а)?|катал(?:ся|ась)|бег\w*|пробеж|кардио\w*|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|зарядк\w*|разминк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
   let match;
   while ((match = activityPattern.exec(lower))) {
     const amount = Number(match[1].replace(',', '.'));
@@ -809,7 +842,7 @@ function parseSmartEntry(text) {
 
   const food = [];
   // [\s,]+ — после глагола допускаем запятую (её могла вставить нормализация ёмкостей).
-  const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть|выпил(?:а)?|выпить)[\s,]+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
+  const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть|выпил(?:а)?|выпить)[\s,]+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|ходил(?:а)?|сходил(?:а)?|катал(?:ся|ась)|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
   while ((match = foodPattern.exec(lower))) {
     // В речи количество часто стоит первым: «выпил 250 мл сока».
     // Переставляем его в понятный локальному парсеру вид «сока 250 мл».
@@ -831,7 +864,7 @@ function parseSmartEntry(text) {
     rest = rest.replace(activityPattern, ',');
     // Граница слова \b для кириллицы не работает — используем lookahead.
     rest = rest.replace(/\d+(?:[.,]\d+)?\s*(?:мин(?:ут[аы]?)?|час(?:а|ов)?|ч)(?![а-яёa-z])/giu, ',');
-    rest = rest.replace(/(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?|кг|гр|грамм(?:а|ов)?|шт\.?|штук\w*))\s+([а-яёa-z]+)/giu, '$2 $1');
+    rest = rest.replace(/(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|литр(?:а|ов)?|л(?![а-яё])|стакан(?:а|ов)?|кг|гр|грамм(?:а|ов)?|шт\.?|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*))\s+([а-яёa-z]+)/giu, '$2 $1');
     if (rest.replace(/[\s,;.]/g, '').length > 0) {
       food.push(...parseMealText(rest).filter((item) => item.name !== 'вода'));
     }
@@ -872,12 +905,36 @@ function closeSmartEntry() {
   pendingSmartEntry = null;
 }
 
+/* Прозрачная расшифровка позиции питания: сколько граммов/штук принято
+   в расчёт и во сколько ккал это оценено. Без неё «суши 5 шт — 350 ккал»
+   выглядело загадкой (за 1 шт или за 5?). */
+function describeFoodItemLine(item) {
+  let amountText;
+  if (item.amount == null) {
+    amountText = item.perPiece ? '1 шт' : '≈ 100 г';
+  } else if (PIECE_UNITS.has(item.unit)) {
+    amountText = item.amount + ' шт' + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
+    if (item.perPiece && item.amount > 1) amountText += ' (по ' + fmt(Math.round(item.kcal / item.amount)) + ' ккал/шт)';
+  } else if (Object.prototype.hasOwnProperty.call(SLICE_UNIT_GRAMS, item.unit)) {
+    amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
+  } else if (item.unit === 'г' || item.unit === 'мл') {
+    amountText = item.amount + ' ' + item.unit;
+  } else {
+    amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
+  }
+  return item.name + ' ' + amountText + ' — ' + fmt(Math.round(item.kcal)) + ' ккал';
+}
+
 function previewSmartEntry() {
   const parsed = parseSmartEntry($('#smart-entry-input').value);
   const lines = [];
   if (parsed.waterMl > 0) lines.push(`💧 Вода: ${parsed.waterMl} мл`);
   parsed.activities.forEach((activity) => lines.push(`🌿 ${ACTIVITY_TYPES[activity.type].label}: ${formatWorkoutDuration(activity.durationMinutes)}`));
-  if (parsed.food.length) lines.push(`🍽️ Питание: ${parsed.food.map((item) => item.name).join(', ')} · ${fmt(parsed.food.reduce((sum, item) => sum + item.kcal, 0))} ккал`);
+  if (parsed.food.length) {
+    const total = parsed.food.reduce((sum, item) => sum + item.kcal, 0);
+    lines.push(`🍽️ Питание · всего ${fmt(Math.round(total))} ккал:`);
+    parsed.food.forEach((item) => lines.push('▫️ ' + describeFoodItemLine(item)));
+  }
   if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
   const preview = $('#smart-entry-preview');
@@ -912,9 +969,11 @@ function closeSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = true; }
 function parseItem(text) {
   if (!text) return null;
 
-  // 1) Ищем количество: число + единица (картофель 150 г)
+  // 1) Ищем количество: число + единица (картофель 150 г, пицца 3 куска)
+  // Границы (?![а-яёa-z]) у коротких единиц обязательны: иначе «л» съедал бы
+  // начало слова «ложки», а «г» — начало «горсти».
   const amountMatch = text.match(
-    /(\d+[.,]?\d*)\s*(кг|гр?а?м?м?о?в?|мл\.?|л|шт\.?|штук\w*|ст\.?\s*л\.?|ч\.?\s*л\.?|стакан\w*|чашк\w*|порци\w*|ложк\w*)/iu
+    /(\d+[.,]?\d*)\s*(кг|мл\.?(?![а-яёa-z])|ст\.?\s*л\.?|ч\.?\s*л\.?|стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*|порци[а-яё]*|ложк[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*|штук[а-яё]*|шт\.?(?![а-яёa-z])|гр?а?м?м?о?в?(?![а-яёa-z])|л(?![а-яёa-z]))/iu
   );
 
   let amount = null;
@@ -922,7 +981,7 @@ function parseItem(text) {
 
   if (amountMatch) {
     amount = parseFloat(amountMatch[1].replace(',', '.'));
-    unit = amountMatch[2].toLowerCase().trim();
+    unit = canonicalUnit(amountMatch[2]);
   }
 
   // Поддержка разговорной формы «ложка сметаны» без цифры.
@@ -937,10 +996,10 @@ function parseItem(text) {
   }
 
   // Разговорная ёмкость ПОСЛЕ продукта без цифры: «сока стакан», «суп тарелка»,
-  // «молоко литр» — считаем 1 единицей. Ёмкости без известного веса
-  // (бутылка, банка, пакет) сюда не входят — для них честнее «без количества».
+  // «молоко литр», «торт кусок» — считаем 1 единицей. Ёмкости без известного
+  // веса (бутылка, банка, пакет) сюда не входят — для них честнее «без количества».
   const implicitContainer = !amountMatch && !implicitSpoon && !implicitPlate
-    ? text.match(/^(.+?)\s+(стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*|литр[а-яё]*|л)$/iu)
+    ? text.match(/^(.+?)\s+(стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*|литр[а-яё]*|л|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*)$/iu)
     : null;
   if (implicitContainer) {
     const rawUnit = implicitContainer[2].toLowerCase();
@@ -948,19 +1007,32 @@ function parseItem(text) {
     unit = rawUnit.startsWith('стакан') ? 'стакан'
       : (rawUnit.startsWith('чашк') || rawUnit.startsWith('кружк')) ? 'чашка'
       : (rawUnit.startsWith('литр') || rawUnit === 'л') ? 'л'
-      : 'порция';
+      : (rawUnit.startsWith('тарелк') || rawUnit.startsWith('миск') || rawUnit.startsWith('пиал')) ? 'порция'
+      : canonicalUnit(rawUnit); // кусок / ломоть / долька
+  }
+  // И наоборот: ёмкость/доля ПЕРЕД продуктом без цифры — «кусок торта», «ломоть хлеба».
+  const implicitSliceLead = !amountMatch && !implicitSpoon && !implicitPlate && !implicitContainer
+    ? text.match(/^(кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*)\s+(.+)$/iu)
+    : null;
+  if (implicitSliceLead) {
+    amount = 1;
+    unit = canonicalUnit(implicitSliceLead[1]);
   }
 
-  // 2) Имя продукта — всё, что до числа
+  // 2) Имя продукта — всё, что до числа. Если число стоит первым
+  // («3 куска пиццы», «100 г курицы») — продукт идёт ПОСЛЕ единицы.
   let name = text;
   if (amountMatch) {
     name = text.slice(0, amountMatch.index);
+    if (!name.trim()) name = text.slice(amountMatch.index + amountMatch[0].length);
   } else if (implicitSpoon) {
     name = implicitSpoon[1];
   } else if (implicitPlate) {
     name = implicitPlate[1];
   } else if (implicitContainer) {
     name = implicitContainer[1];
+  } else if (implicitSliceLead) {
+    name = implicitSliceLead[2];
   }
   name = name
     .toLowerCase()
@@ -984,6 +1056,8 @@ function parseItem(text) {
     name: product.key,
     amount,
     unit: unit || 'г',
+    grams: nutrition.grams,
+    perPiece: PIECE_UNITS.has((unit || '').toLowerCase().trim()) && product.per === 'шт',
     kcal: nutrition.kcal,
     p: nutrition.p,
     f: nutrition.f,
@@ -991,12 +1065,35 @@ function parseItem(text) {
   };
 }
 
+/* Поиск продукта по базе. Универсальные правила вместо частных заплаток:
+   — только ЦЕЛЫЕ слова (границы слова: «сок» не находится внутри «куСОК»);
+   — простая морфология: у ключа отбрасываем конечную гласную и допускаем
+     окончание до 3 букв («пиццы/пиццу/пицце» → «пицца», «мяса» → «мясо»);
+   — при совпадении нескольких ключей побеждает самый длинный.
+   Эскейпинг и кэш ключей — чтобы не пересобирать список при каждом поиске. */
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const FOOD_KEYS_BY_LENGTH = Object.keys(FOOD_DB).sort((a, b) => b.length - a.length);
+
 function lookupProduct(name) {
-  const keys = Object.keys(FOOD_DB).sort((a, b) => b.length - a.length);
-  for (const key of keys) {
-    if (name.includes(key)) {
-      return { key, ...FOOD_DB[key] };
-    }
+  const text = String(name || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  if (!text) return null;
+  // Точное совпадение — приоритет над морфологией: «персик» → «персик»,
+  // а не более длинный соседний ключ «персики».
+  if (Object.prototype.hasOwnProperty.call(FOOD_DB, text)) return { key: text, ...FOOD_DB[text] };
+  // Пользователь пишет «ё» и «е» как удобно («мёд»/«мед») — сравниваем
+  // в единой е-форме и текст, и ключи.
+  const textE = text.replace(/ё/g, 'е');
+  if (Object.prototype.hasOwnProperty.call(FOOD_DB, textE)) return { key: textE, ...FOOD_DB[textE] };
+  for (const key of FOOD_KEYS_BY_LENGTH) {
+    const keyE = key.replace(/ё/g, 'е');
+    // Стем: отсекаем конечную гласную («пицца»→«пицц») или мягкий знак
+    // («миндаль»→«миндал» для «миндаля», «соль»→«сол» для «соли»).
+    let stem = keyE;
+    const cut = keyE.replace(/[аеёиоуыэюя]+$/u, '');
+    if (cut !== keyE && cut.length >= 3) stem = cut;
+    else if (keyE.endsWith('ь') && keyE.length > 3) stem = keyE.slice(0, -1);
+    const pattern = new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
+    if (pattern.test(textE)) return { key, ...FOOD_DB[key] };
   }
   return null;
 }
@@ -1004,14 +1101,28 @@ function lookupProduct(name) {
 function calcNutrition(product, amount, unit) {
   const normUnit = (unit || '').toLowerCase().trim();
   const isPiece = PIECE_UNITS.has(normUnit);
+  const isSlice = Object.prototype.hasOwnProperty.call(SLICE_UNIT_GRAMS, normUnit);
   const perPiece = product.per === 'шт';
 
   const factor = (() => {
-    if (amount == null) return perPiece ? 1 : 1; // порция: 100 г или 1 шт
-    if (isPiece) return perPiece ? amount : 0.7 * amount; // 70 г на штуку
+    if (amount == null) return 1; // порция по умолчанию: 100 г или 1 шт
+    if (isPiece) return perPiece ? amount : 0.7 * amount; // ~70 г на штуку
+    if (isSlice) return perPiece ? amount : (SLICE_UNIT_GRAMS[normUnit] * amount) / 100;
     if (normUnit === 'кг') return 10 * amount;
     if (normUnit === 'л') return 10 * amount;
     return ((UNIT_MAP[normUnit] || 1) * amount) / 100;
+  })();
+
+  // Оценка веса порции в граммах — для прозрачного превью («≈ 300 г»).
+  // null, когда вес зависит от конкретного продукта (штуки без известной массы).
+  const grams = (() => {
+    if (amount == null) return perPiece ? null : 100;
+    if (isPiece) return perPiece ? null : Math.round(70 * amount);
+    if (isSlice) return perPiece ? null : SLICE_UNIT_GRAMS[normUnit] * amount;
+    if (normUnit === 'кг') return 1000 * amount;
+    if (normUnit === 'л') return 1000 * amount;
+    if (UNIT_MAP[normUnit]) return UNIT_MAP[normUnit] * amount;
+    return null;
   })();
 
   const roundMacro = (v) => Math.round((v || 0) * factor * 10) / 10;
@@ -1019,7 +1130,8 @@ function calcNutrition(product, amount, unit) {
     kcal: Math.round((product.kcal || 0) * factor),
     p: roundMacro(product.p),
     f: roundMacro(product.f),
-    c: roundMacro(product.c)
+    c: roundMacro(product.c),
+    grams
   };
 }
 
@@ -1060,11 +1172,11 @@ const DEFAULTS = {
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
   dayMood: { date: null, rating: null },
-  aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '' },
+  aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [] },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.4';
+const FITFLOW_VERSION = '0.3.5';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1347,9 +1459,13 @@ function normalizeAiSettings() {
   const ai = state.aiSettings || {};
   state.aiSettings = {
     enabled: !!ai.enabled,
-    mode: (ai.mode === 'litert' || ai.mode === 'expert') ? ai.mode : 'expert',
+    mode: ['litert', 'expert', 'cloud'].includes(ai.mode) ? ai.mode : 'expert',
     modelPath: typeof ai.modelPath === 'string' ? ai.modelPath : '',
-    modelName: typeof ai.modelName === 'string' ? ai.modelName : ''
+    modelName: typeof ai.modelName === 'string' ? ai.modelName : '',
+    cloudProvider: Object.prototype.hasOwnProperty.call(CLOUD_PROVIDERS, ai.cloudProvider) ? ai.cloudProvider : 'gemini',
+    cloudKey: typeof ai.cloudKey === 'string' ? ai.cloudKey : '',
+    cloudModel: typeof ai.cloudModel === 'string' ? ai.cloudModel : '',
+    cloudModels: Array.isArray(ai.cloudModels) ? ai.cloudModels.filter((m) => typeof m === 'string').slice(0, 8) : []
   };
 }
 
@@ -4416,7 +4532,38 @@ function bindSettingsAccordion() {
   // свёрнутость поверх штатной логики hidden.
   const settingsView = $('#settings-view');
   if (settingsView) settingsView.addEventListener('change', () => applySettingsAccordion());
+  SETTINGS_SUBVIEWS.forEach((sub) => {
+    const subEl = $(`#${sub}-view`);
+    if (subEl) subEl.addEventListener('change', () => applySettingsAccordion());
+  });
   applySettingsAccordion();
+}
+
+/* Пока открыт любой модальный диалог, фон НЕ прокручивается (ни колесом,
+   ни свайпом) — иначе под «тихим» диалогом видно движущийся ползунок страницы.
+   Если содержимое диалога длинное — прокручивается сам диалог (overscroll
+   удерживаем внутри). Работает универсально для всех текущих и будущих
+   диалогов через MutationObserver. */
+function bindDialogScrollLock() {
+  const dialogs = $$('.app-dialog-backdrop');
+  if (!dialogs.length || typeof MutationObserver === 'undefined') return;
+  const sync = () => {
+    const anyOpen = dialogs.some((d) => !d.hidden);
+    document.documentElement.classList.toggle('dialog-open', anyOpen);
+  };
+  dialogs.forEach((dialog) => new MutationObserver(sync).observe(dialog, { attributes: true, attributeFilter: ['hidden'] }));
+  sync();
+}
+
+/* Подэкраны настроек (схема В): на первом уровне — компактное меню строк,
+   каждый раздел — отдельный экран с «← Назад к настройкам». */
+const SETTINGS_SUBVIEWS = ['settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about'];
+
+function bindSettingsMenu() {
+  $$('.settings-menu-btn').forEach((btn) =>
+    btn.addEventListener('click', () => btn.dataset.settingsView && switchView(btn.dataset.settingsView)));
+  $$('.settings-back-btn').forEach((btn) =>
+    btn.addEventListener('click', () => switchView('settings')));
 }
 
 function updateActivityFab(isTraining) {
@@ -4433,6 +4580,7 @@ function switchView(view) {
   const isTraining = view === 'training';
   const isSettings = view === 'settings';
   const isNotifications = view === 'notifications';
+  const isSettingsSub = SETTINGS_SUBVIEWS.includes(view);
 
   $('#home-view').hidden = !isHome;
   $('#stats-view').hidden = !isStats;
@@ -4442,8 +4590,13 @@ function switchView(view) {
   $('#training-view').hidden = !isTraining;
   $('#settings-view').hidden = !isSettings;
   $('#notifications-view').hidden = !isNotifications;
+  SETTINGS_SUBVIEWS.forEach((sub) => {
+    const el = $(`#${sub}-view`);
+    if (el) el.hidden = view !== sub;
+  });
+  const navKey = (isNotifications || isSettingsSub) ? 'settings' : ((isWaterDetails || isFoodDetails || isWeightDetails) ? 'stats' : view);
   $$('.nav-item').forEach((b) =>
-    b.classList.toggle('active', b.dataset.nav === (isNotifications ? 'settings' : ((isWaterDetails || isFoodDetails || isWeightDetails) ? 'stats' : view))));
+    b.classList.toggle('active', b.dataset.nav === navKey));
 
   updateActivityFab(isTraining);
   if (isStats) renderStats();
@@ -4455,6 +4608,8 @@ function switchView(view) {
     maybeShowActivityReminderPrompt();
   }
   if (isNotifications) refreshNotificationSetupState();
+  if (view === 'settings-ai') renderAiSettings();
+  if (isSettings || isSettingsSub) applySettingsAccordion();
   window.scrollTo(0, 0);
 }
 
@@ -5007,6 +5162,8 @@ function init() {
   });
 
   bindSettingsAccordion();
+  bindDialogScrollLock();
+  bindSettingsMenu();
 
   $('#activity-fab').addEventListener('click', () => {
     const form = $('#training-form');
@@ -5189,6 +5346,31 @@ function init() {
   bindEvent('#ai-select-btn', 'click', selectLocalModelFile);
   bindEvent('#ai-download-btn', 'click', downloadAiModelAutomatically);
   bindEvent('#ai-benchmark-btn', 'click', runAiBenchmark);
+  // Облачный ИИ (BYOK)
+  $$('#ai-cloud-provider button').forEach((btn) => btn.addEventListener('click', () => setCloudProvider(btn.dataset.cloudProvider)));
+  $('#ai-cloud-key')?.addEventListener('change', (e) => {
+    state.aiSettings.cloudKey = String(e.target.value || '').trim();
+    const status = $('#ai-cloud-status');
+    if (status) status.textContent = '';
+    saveState();
+    renderAiSettings();
+  });
+  $('#ai-cloud-model')?.addEventListener('change', (e) => {
+    state.aiSettings.cloudModel = String(e.target.value || '').trim();
+    saveState();
+  });
+  bindEvent('#ai-cloud-check', 'click', checkCloudConnection);
+  bindEvent('#ai-cloud-clear', 'click', () => {
+    state.aiSettings.cloudKey = '';
+    state.aiSettings.cloudModel = '';
+    state.aiSettings.cloudModels = [];
+    saveState();
+    const keyInput = $('#ai-cloud-key');
+    if (keyInput) keyInput.value = '';
+    const status = $('#ai-cloud-status');
+    if (status) status.textContent = '○ Ключ удалён. Приложение работает локально.';
+    toast('Ключ облачного ИИ удалён');
+  });
 
   // Настройки: тема
   $$('#theme-segmented button').forEach((btn) =>
@@ -5226,7 +5408,7 @@ function init() {
   bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
   bindEvent('#activity-reminder-test', 'click', () => sendSpecificReminderTest('activity'));
   bindEvent('#meal-reminder-test', 'click', () => sendSpecificReminderTest('meal'));
-  $('#notifications-back-btn').addEventListener('click', () => switchView('settings'));
+  $('#notifications-back-btn').addEventListener('click', () => switchView('settings-notifications'));
   $$('[data-open-settings]').forEach((btn) =>
     btn.addEventListener('click', () => openNativeNotificationSetting(btn.dataset.openSettings)));
 
@@ -5272,6 +5454,7 @@ function renderAiSettings() {
   const options = $('#ai-settings-options');
   const modeBtns = $$('#ai-mode-choices button');
   const litertBox = $('#ai-litert-box');
+  const cloudBox = $('#ai-cloud-box');
   const statusEl = $('#ai-model-status');
   if (!toggle || !options) return;
 
@@ -5282,6 +5465,7 @@ function renderAiSettings() {
     btn.classList.toggle('active', btn.dataset.aiMode === state.aiSettings.mode);
   });
   if (litertBox) litertBox.hidden = state.aiSettings.mode !== 'litert';
+  if (cloudBox) cloudBox.hidden = state.aiSettings.mode !== 'cloud';
 
   if (statusEl) {
     if (state.aiSettings.modelPath) {
@@ -5289,6 +5473,29 @@ function renderAiSettings() {
     } else {
       statusEl.textContent = '○ Локальный файл модели LiteRT не подключён.';
     }
+  }
+
+  // Облачный блок: провайдер, поле модели (только для совместимых с OpenAI),
+  // подсказка по ключу. Поля не перезаписываем, пока в них печатают.
+  const def = getCloudProviderDef();
+  $$('#ai-cloud-provider button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.cloudProvider === state.aiSettings.cloudProvider);
+  });
+  const keyInput = $('#ai-cloud-key');
+  if (keyInput && document.activeElement !== keyInput) keyInput.value = state.aiSettings.cloudKey || '';
+  const modelInput = $('#ai-cloud-model');
+  if (modelInput) {
+    modelInput.closest('.profile-basics-row').hidden = !!def.autoModel;
+    if (document.activeElement !== modelInput) modelInput.value = state.aiSettings.cloudModel || '';
+    modelInput.placeholder = def.autoModel ? 'выберется автоматически' : (def.defaultModel || '');
+  }
+  const hintEl = $('#ai-cloud-hint');
+  if (hintEl) hintEl.textContent = def.hint;
+  const cloudStatus = $('#ai-cloud-status');
+  if (cloudStatus && !cloudStatus.textContent) {
+    cloudStatus.textContent = getCloudKey()
+      ? 'Ключ сохранён. Нажмите «Проверить подключение» — подберём модель.'
+      : '○ Ключ не задан — облако выключено, всё работает локально.';
   }
 }
 
@@ -5303,7 +5510,20 @@ function setAiMode(mode) {
   state.aiSettings.mode = mode;
   saveState();
   renderAiSettings();
-  toast(mode === 'expert' ? 'Режим: Локальный эксперт FitFlow' : 'Режим: Gemma LiteRT (~1.3 ГБ)');
+  toast(mode === 'expert' ? 'Режим: локальные факты + рецепты (офлайн)'
+    : mode === 'cloud' ? 'Режим: облачная нейросеть (онлайн, ваш ключ)'
+    : 'Режим: Gemma LiteRT (~1.3 ГБ)');
+}
+
+function setCloudProvider(provider) {
+  state.aiSettings.cloudProvider = provider;
+  // У каждого провайдера своя модель — старую не тащим.
+  state.aiSettings.cloudModel = '';
+  state.aiSettings.cloudModels = [];
+  const status = $('#ai-cloud-status');
+  if (status) status.textContent = '';
+  saveState();
+  renderAiSettings();
 }
 
 function selectLocalModelFile() {
@@ -5352,6 +5572,21 @@ function downloadAiModelAutomatically() {
 function runAiBenchmark() {
   const status = $('#ai-benchmark-status');
   if (!status) return;
+  if (state.aiSettings.mode === 'cloud') {
+    if (!isCloudAiReady()) {
+      status.textContent = '⚠ Облачный ИИ не настроен: вставьте ключ выше и нажмите «Проверить подключение».';
+      return;
+    }
+    status.textContent = '⚡ Измеряю время отклика облачной нейросети…';
+    const t0 = Date.now();
+    callCloudAi('', 'Ответь одним словом: ок.', {}).then((out) => {
+      const ms = Date.now() - t0;
+      status.textContent = '⚡ Облако (' + out.modelLabel + '): первый ответ за ' + (ms / 1000).toFixed(2) + ' с · Текущая модель будет обновляться автоматически при смене линейки.';
+    }).catch((err) => {
+      status.textContent = '⚡ Облако недоступно: ' + cloudErrorText(err);
+    });
+    return;
+  }
   if (!state.aiSettings.connected && state.aiSettings.mode !== 'expert') {
     status.textContent = '⚠ Файл нейросети не подключён. Сначала выберите файл модели (.gguf / .tflite) или включите режим «Локальный эксперт FitFlow».';
     toast('⚠ Сначала выберите файл модели');
@@ -5403,7 +5638,7 @@ function parseAiQuickEntry() {
     '<p>«' + escapeHtml(text) + '»</p>' +
     '<ul>' +
     (waterMl > 0 ? '<li>💧 <b>Вода</b>: +' + fmt(waterMl) + ' мл</li>' : '') +
-    (foods.length > 0 ? '<li>🥑 <b>Питание</b>: ' + foods.map(i => escapeHtml(i.name) + ' (' + i.kcal + ' ккал)').join(', ') + '</li>' : '') +
+    (foods.length > 0 ? '<li>🥑 <b>Питание</b>:<br>' + foods.map(i => escapeHtml(describeFoodItemLine(i))).join('<br>') + '</li>' : '') +
     (acts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + acts.map(a => escapeHtml(a.label) + ' (' + a.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
     '</ul>' +
     '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
@@ -5559,12 +5794,15 @@ function generateAiRecipe() {
   const fullnessNote = totals.kcal >= portionTarget
     ? 'По калорийности это полноценный приём пищи (ориентир — около ' + fmt(portionTarget) + ' ккал, ~30% дневной цели).'
     : 'Это лёгкий набор (' + fmt(Math.round(totals.kcal)) + ' ккал при ориентире ~' + fmt(portionTarget) + ' ккал на приём пищи) — при нужде добавьте гарнир или хлеб.';
+  const stepsBoxId = 'ai-recipe-steps-box';
   resultBox.innerHTML = '<h4>🥑 ' + escapeHtml(title) + '</h4>' +
     '<p>Собрано из вашего списка: <em>' + escapeHtml(items.map((i) => i.name).join(', ')) + '</em>.</p>' +
+    '<div id="' + stepsBoxId + '">' +
     '<ul>' +
     steps.map((s, idx) => '<li><b>Шаг ' + (idx + 1) + '</b>: ' + escapeHtml(s) + '.</li>').join('') +
     '<li><b>Подача</b>: сначала белок и овощи, гарнир — по голоду; соль и соусы — умеренно.</li>' +
     '</ul>' +
+    '</div>' +
     '<div class="ai-recipe-macros"><span>🔥 ' + fmt(Math.round(totals.kcal)) + ' ккал</span><span>Б: ' + fmt(Math.round(totals.p)) + ' г</span><span>Ж: ' + fmt(Math.round(totals.f)) + ' г</span><span>У: ' + fmt(Math.round(totals.c)) + ' г</span></div>' +
     '<p class="settings-hint" style="margin:8px 0 0; font-weight:600">Калории и БЖУ указаны на весь набор (' + escapeHtml(volumeText) + ') — после приготовления масса блюда будет близка к этому весу. Продукты без веса посчитаны как 100 г.</p>' +
     '<p class="settings-hint" style="margin:6px 0 0">' + escapeHtml(fullnessNote) + '</p>' +
@@ -5586,15 +5824,93 @@ function generateAiRecipe() {
       toast('🥑 Продукты из рецепта добавлены в дневник!');
     });
   }
+  // Облачное усиление: нейросеть пишет человечный текст рецепта, а цифры
+  // КБЖУ и объём остаются наши, посчитанные локально (нейросети не доверяем).
+  if (isCloudAiReady()) {
+    const stepsBox = resultBox.querySelector('#' + stepsBoxId);
+    if (stepsBox) {
+      stepsBox.insertAdjacentHTML('beforebegin', '<p class="settings-hint" id="ai-recipe-cloud-note">☁ Уточняю текст рецепта у нейросети…</p>');
+      const listText = items.map((i) => i.name + (i.grams ? ' ~' + Math.round(i.grams) + ' г' : (i.amount ? ' ×' + i.amount : ''))).join(', ');
+      const sysText = 'Ты пишешь короткий практичный рецепт из продуктов пользователя. Формат: 1) аппетитное название жирным, 2) шаги нумерованным списком (до 6 шагов), 3) один короткий совет. НЕ пиши калории и БЖУ — их считает приложение. Русский язык, до 150 слов.';
+      const userText = 'Продукты: ' + listText + '. Объём набора ~' + volumeText + '. Напиши рецепт.';
+      callCloudAi(sysText, userText, {}).then((out) => {
+        const note = resultBox.querySelector('#ai-recipe-cloud-note');
+        if (note) note.remove();
+        stepsBox.innerHTML = mdLiteToHtml(out.text) +
+          '<p class="settings-hint" style="margin:6px 0 0">☁ Текст рецепта: ' + escapeHtml(out.modelLabel) + ' · цифры посчитаны локально по вашей базе.</p>';
+      }).catch((err) => {
+        const note = resultBox.querySelector('#ai-recipe-cloud-note');
+        if (note) note.textContent = '☁ Нейросеть недоступна (' + cloudErrorText(err) + ') — ниже локальная версия рецепта.';
+      });
+    }
+  }
 }
 
+/* Общее распознавание фото через зрение нейросети (Gemini). */
+function readImageAsBase64(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      resolve({ base64: String(dataUrl).split(',')[1], mimeType: 'image/jpeg' });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось прочитать фото')); };
+    img.src = url;
+  });
+}
 
-/* Честный фото-режим рецепта: без выдуманного «распознавания». Пока нейросети
-   в приложении нет, фото служит напоминанием, а продукты перечисляются текстом. */
+/* Заполнить поле списком продуктов с фото и выполнить onFilled (рецепт/разбор). */
+function recognizeFoodPhoto(file, targetInput, statusHost, onFilled) {
+  toast('☁ Отправляю фото в нейросеть…');
+  if (statusHost) {
+    statusHost.innerHTML = '<p>☁ Распознаю продукты на фото…</p>';
+    statusHost.hidden = false;
+  }
+  readImageAsBase64(file, 1024)
+    .then((img) => callCloudAi(
+      'Ты анализируешь фото. Верни ТОЛЬКО список продуктов через запятую на русском языке, без нумерации и пояснений. Если это одно готовое блюдо — назови его (например «борщ» или «суши 6 штук»). Оценивай количество привычными единицами (г, мл, шт, кусков), если его видно.',
+      'Что на фото?',
+      { image: img }
+    ))
+    .then((out) => {
+      const list = String(out.text).replace(/\s+/g, ' ').replace(/[.;!\s]+$/, '').trim();
+      if (!list) throw new Error('На фото не удалось найти продукты');
+      if (targetInput) targetInput.value = list;
+      if (statusHost) statusHost.hidden = true;
+      toast('☁ Распознано: ' + list.slice(0, 60) + (list.length > 60 ? '…' : ''));
+      if (typeof onFilled === 'function') onFilled(list);
+    })
+    .catch((err) => {
+      if (statusHost) {
+        statusHost.innerHTML = '<p style="color:var(--error)">☁ ' + escapeHtml(cloudErrorText(err)) + '</p>' +
+          '<p class="settings-hint">Пока можно перечислить продукты текстом — база FitFlow посчитает их локально.</p>';
+        statusHost.hidden = false;
+      }
+    });
+}
+
 function handleAiRecipeCameraPhoto(file) {
   const recipeInput = $('#ai-recipe-input');
+  const resultBox = $('#ai-recipe-result');
+  if (isCloudAiReady() && getCloudProviderDef().vision) {
+    recognizeFoodPhoto(file, recipeInput, resultBox, () => generateAiRecipe());
+    return;
+  }
   if (recipeInput) recipeInput.focus();
-  toast('📷 Фото сделано! Распознавание продуктов по фото появится с нейросетью. Пока перечислите их текстом — рецепт соберу сразу.');
+  if (isCloudAiReady() && !getCloudProviderDef().vision) {
+    toast('📷 У выбранного провайдера нет распознавания фото. Для фото выберите Gemini, либо перечислите продукты текстом.');
+    return;
+  }
+  toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
 }
 
 /* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
@@ -5674,89 +5990,272 @@ function generateAiAnalysis() {
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
   bindAiReportClose(resultBox);
+  // Облачное дополнение: короткий живой комментарий нейросети под фактами.
+  if (isCloudAiReady()) {
+    const hostId = 'ai-analysis-cloud-note';
+    resultBox.insertAdjacentHTML('beforeend', '<div id="' + hostId + '"><p class="settings-hint">☁ Спрашиваю короткий вывод у нейросети…</p></div>');
+    const summary = 'Период анализа: ' + days + ' дн. Дневник ведётся ' + diaryDays + ' дн. ' + weightText + '. '
+      + 'Вода сегодня: ' + waterPct + '% цели. ' + buildCloudDayContext();
+    callCloudAi(
+      'Ты — нутрициолог FitFlow. По статистике пользователя дай короткий (до 80 слов) живой комментарий: 1–2 конкретных наблюдения и 1 совет на завтра. Без общих фраз и без цифр, которых нет во входных данных. Русский язык.',
+      summary, {}
+    ).then((out) => {
+      const host = resultBox.querySelector('#' + hostId);
+      if (host) host.innerHTML = mdLiteToHtml(out.text) +
+        '<p class="settings-hint" style="margin:4px 0 0">☁ Комментарий: ' + escapeHtml(out.modelLabel) + ' · цифры выше посчитаны локально.</p>';
+    }).catch((err) => {
+      const host = resultBox.querySelector('#' + hostId);
+      if (host) host.innerHTML = '<p class="settings-hint">☁ Нейросеть недоступна (' + escapeHtml(cloudErrorText(err)) + ').</p>';
+    });
+  }
 }
 
-/* Нутрициолог-эксперт по правилам: тематические ответы + данные из базы продуктов.
-   Никаких «одинаковых» ответов — если тема неизвестна, честно говорим об этом. */
-const AI_CHAT_RULES = [
-  {
-    // Специальный случай раньше общих правил: «что пить перед сном — чай или кофе»
-    pattern: /перед сном|кофе.{0,25}(сон|ночь)|(сон|ночь|вечер).{0,25}кофе|чай.{0,25}(сон|ночь)|(сон|ночь).{0,25}чай/iu,
-    answer: () => 'Перед сном — без кофеина: кофе лучше пить не позднее чем за 6–8 часов до сна, а крепкий чёрный или зелёный чай содержит примерно половину кофеиновой нагрузки чашки кофе. Лучший вечерний вариант — травяной чай (ромашка, мята) или вода комнатной температуры. Если тянет на кофе именно вечером — попробуйте декофеинизированный.'
+/* ============================================================
+   Облачный ИИ (опционально, BYOK — «принеси свой ключ»).
+   Приложение по-прежнему полностью офлайн-first: облако включается
+   только пользователем и только его ключом, который хранится на
+   устройстве (localStorage, как и все данные FitFlow).
+   Поддерживаются:
+   — Google Gemini (бесплатный ключ AI Studio; модель выбираем сами
+     по списку доступных для ключа, чтобы переживать переименования);
+   — OpenAI-совместимые API: DeepSeek и OpenRouter (работают из РФ).
+   ============================================================ */
+const CLOUD_PROVIDERS = {
+  gemini: {
+    id: 'gemini',
+    label: 'Google Gemini',
+    hint: 'Ключ берётся бесплатно: aistudio.google.com → «Get API key». Есть дневные лимиты бесплатного тарифа; модель подберём автоматически по вашему ключу. Учтите: доступ API зависит от региона, тексты запросов уходят на серверы Google.',
+    vision: true,
+    autoModel: true
   },
-  {
-    pattern: /вод|пить|гидрат/iu,
-    answer: () => {
-      const goal = state.water.goal || 2500;
-      const weight = state.profileSettings.weightKg;
-      const norm = weight ? ' Ориентир — примерно 30 мл на кг веса: для ' + weight + ' кг это около ' + fmt(Math.round(weight * 30 / 50) * 50) + ' мл в день.' : ' Ориентир — примерно 30 мл на кг веса в день; укажите вес на Главной — подскажу точнее.';
-      return 'Ваша дневная цель в FitFlow — ' + fmt(goal) + ' мл.' + norm + ' Распределяйте равномерно: стакан утром, по стакану между приёмами пищи и после активности. Жажда — уже сигнал лёгкого дефицита, лучше пить понемногу заранее.';
-    }
+  deepseek: {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    hint: 'Ключ: platform.deepseek.com → API Keys (платно, недорого). Работает без VPN, фото не распознаёт.',
+    vision: false,
+    autoModel: false,
+    baseUrl: 'https://api.deepseek.com',
+    defaultModel: 'deepseek-chat'
   },
-  {
-    pattern: /белк|протеин|мышц/iu,
-    answer: () => {
-      const weight = state.profileSettings.weightKg;
-      const range = weight ? ' Для веса ' + weight + ' кг это примерно ' + Math.round(weight * 1.2) + '–' + Math.round(weight * 1.8) + ' г в день.' : '';
-      return 'Норма белка — примерно 1,2–1,8 г на кг веса в день (при регулярных тренировках — ближе к верхней границе).' + range + ' Распределяйте по 20–40 г на приём пищи: творог, яйца, курица, рыба, бобовые. В FitFlow белок по дню виден в карточке «Питание» (Б/Ж/У).';
-    }
-  },
-  {
-    pattern: /похуд|сброс|вес|диет|дефицит/iu,
-    answer: () => {
-      const goal = state.food.goal || 2000;
-      return 'Мягкий дефицит — это минус 10–20% от нормы поддержания, без голодовок: ваша дневная цель сейчас ' + fmt(goal) + ' ккал. Что работает: белок в каждом приёме пищи, овощи на половину тарелки, вода по цели и 7–10 тысяч шагов. Взвешивайтесь 1–2 раза в неделю утром и смотрите тренд на графике «Вес», а не на разовые цифры.';
-    }
-  },
-  {
-    pattern: /трениров|кардио|силов|бег|плавани|спорт/iu,
-    answer: () => 'До тренировки за 1,5–2 часа — сложные углеводы и немного белка (каша с яйцом, тост с сыром). После — 20–30 г белка в течение пары часов плюс углеводы для восстановления (курица с рисом, творог с бананом). Воду — до, во время небольшими глотками и после.'
-  },
-  {
-    pattern: /завтрак/iu,
-    answer: () => 'Хороший завтрак держит сытость 3–4 часа: белок (яйца, творог, йогурт) + сложные углеводы (овсянка, цельнозерновой хлеб) + фрукт или овощ. Если нет аппетита утром — начните с воды и лёгкого перекуса, полноценный завтрак можно сдвинуть на час позже.'
-  },
-  {
-    pattern: /кофе|кофеин|чай/iu,
-    answer: () => 'Кофе нормален: 1–3 чашки в день, последняя — за 6–8 часов до сна. В дневник воды кофе можно не записывать, но пара стаканов чистой воды в дополнение к кофе — хорошая привычка. Сахар в кофе — записывайте в питание, он «невидимо» добавляет 20–30 ккал на ложку.'
-  },
-  {
-    pattern: /ужин|на ночь|вечер/iu,
-    answer: () => 'Ужин — за 2–3 часа до сна: белок + овощи (рыба с салатом, творог с огурцом и зеленью). Тяжёлые и сладкие блюда на ночь ухудшают сон и утренний вес «из-за воды» — это нормальная колеблющаяся цифра, а не жир.'
-  },
-  {
-    pattern: /сахар|сладк|десерт|шоколад/iu,
-    answer: () => 'Сладкое не запрещено — важна доза: ориентир — до 10% дневных калорий (при цели ' + fmt(state.food.goal || 2000) + ' ккал это ~' + fmt(Math.round((state.food.goal || 2000) * 0.1)) + ' ккал). Лучше сразу после еды, а не на голодный желудок, и записывайте в дневник — так сладости остаются осознанными, а не «случайными».'
-  },
-  {
-    pattern: /калори|ккал|энерги/iu,
-    answer: () => 'Ваша дневная цель — ' + fmt(state.food.goal || 2000) + ' ккал. Точную норму можно рассчитать в Настройках → «Профиль и цели»: заполните пол, возраст, рост и активность — FitFlow предложит норму по формуле Миффлина — Сан Жеора.'
-  },
-  {
-    pattern: /сон|спать|устал/iu,
-    answer: () => 'Сон напрямую влияет на аппетит и вес: недосып повышает тягу к сладкому и сытному. Цельтесь в 7–9 часов; лёгкий ужин за 2–3 часа до сна и отказ от кофеина во второй половине дня — самые рабочие шаги.'
-  },
-  {
-    pattern: /овощ|фрукт|клетчатк|овощи/i,
-    answer: () => 'Ориентир — 400–500 г овощей и фруктов в день, половина тарелки в основных приёмах. Они дают сытость при малой калорийности — лучший союзник и при похудении, и для пищеварения.'
-  },
-  {
-    pattern: /перекус|голод|аппетит/iu,
-    answer: () => 'Рабочие перекусы — белковые или с клетчаткой: творог, яйцо, горсть орехов, яблоко, йогурт без сахара. Если «голод» возникает вскоре после еды — сначала стакан воды и пауза 10 минут: часто это жажда или привычка.'
+  openrouter: {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    hint: 'Ключ: openrouter.ai → Keys. Есть бесплатные модели (метка «free»); название модели можно изменить ниже. Фото не распознаёт.',
+    vision: false,
+    autoModel: false,
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'deepseek/deepseek-chat-v3-0324:free'
   }
+};
+
+/* Запасной список на случай, если список моделей по ключу не загрузился.
+   Алиасы *-latest и цепочка версий переживают обновления линейки. */
+const GEMINI_FALLBACK_MODELS = [
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash-preview',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash'
 ];
 
-function buildAiChatAnswer(text) {
+function getCloudKey() {
+  return (state.aiSettings.cloudKey || '').trim();
+}
+
+function getCloudProviderDef() {
+  return CLOUD_PROVIDERS[state.aiSettings.cloudProvider] || CLOUD_PROVIDERS.gemini;
+}
+
+function isCloudAiReady() {
+  return state.aiSettings.mode === 'cloud' && getCloudKey().length >= 8;
+}
+
+/* Кандидатные модели Gemini: сначала выбранная/закэшированная, затем список,
+   полученный по ключу, затем безопасные алиасы. */
+function geminiModelCandidates() {
+  const seen = new Set();
+  const list = [state.aiSettings.cloudModel, ...(state.aiSettings.cloudModels || []), ...GEMINI_FALLBACK_MODELS]
+    .filter((m) => m && !seen.has(m) && seen.add(m));
+  return list;
+}
+
+function geminiScoreModelName(name) {
+  const n = String(name || '');
+  if (!/^gemini-/.test(n)) return -1;
+  if (/embedding|aqa|imagen|-image|image-|tts|robotics|computer-use|nano-banana|deepthink|omni/i.test(n)) return -1;
+  let score = 0;
+  if (/flash-lite/i.test(n)) score += 16;
+  else if (/flash/i.test(n)) score += 12;
+  else if (/pro/i.test(n)) score += 5;
+  const ver = n.match(/gemini-(\d+(?:\.\d+)?)/i);
+  if (ver) score += parseFloat(ver[1]) * 10;
+  if (/latest/i.test(n)) score += 30;
+  if (/preview|exp/i.test(n)) score -= 6;
+  return score;
+}
+
+async function geminiListModels(key) {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const names = (Array.isArray(data.models) ? data.models : [])
+    .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+    .map((m) => String(m.name || '').replace(/^models\//, ''));
+  return names;
+}
+
+/* Одна попытка вызова Gemini generateContent (текст + опционально картинка). */
+async function geminiCallModel(model, key, systemText, userText, image, history) {
+  const parts = [];
+  if (systemText) parts.push({ text: systemText + '\n\n' });
+  parts.push({ text: userText });
+  if (image) parts.push({ inlineData: { mimeType: image.mimeType || 'image/jpeg', data: image.base64 } });
+  const contents = (Array.isArray(history) ? history.slice(-6) : [])
+    .concat([{ role: 'user', parts }]);
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/' + model + ':generateContent?key=' + encodeURIComponent(key), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents, generationConfig: { temperature: 0.6, maxOutputTokens: 1400 } })
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch (e) { /* тело не обязательно JSON */ }
+    const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  const text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [])
+    .map((p) => p.text || '').join('').trim();
+  if (!text) throw new Error('Пустой ответ модели');
+  return text;
+}
+
+async function cloudCallGemini(systemText, userText, options) {
+  const key = getCloudKey();
+  const candidates = geminiModelCandidates();
+  let lastError = null;
+  for (const model of candidates) {
+    try {
+      const text = await geminiCallModel(model, key, systemText, userText, options && options.image, options && options.history);
+      if (state.aiSettings.cloudModel !== model) {
+        state.aiSettings.cloudModel = model;
+        saveState();
+      }
+      return { text, modelLabel: 'Gemini · ' + model };
+    } catch (err) {
+      lastError = err;
+      // 404/400 — модели нет или недоступна: пробуем следующую из списка.
+      if (err.status === 404 || err.status === 400) continue;
+      throw err;
+    }
+  }
+  throw lastError || new Error('Нет доступной модели Gemini для этого ключа');
+}
+
+async function cloudCallOpenAiCompat(systemText, userText, options) {
+  const def = getCloudProviderDef();
+  const model = (state.aiSettings.cloudModel || def.defaultModel).trim();
+  const messages = [];
+  if (systemText) messages.push({ role: 'system', content: systemText });
+  (Array.isArray(options && options.history) ? options.history.slice(-6) : []).forEach((turn) => {
+    messages.push({ role: turn.role === 'model' ? 'assistant' : 'user', content: turn.parts.map((p) => p.text || '').join('') });
+  });
+  messages.push({ role: 'user', content: userText });
+  const res = await fetch(def.baseUrl + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + getCloudKey()
+    },
+    body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 1400 })
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch (e) { /* не JSON */ }
+    const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  const text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+  if (!text) throw new Error('Пустой ответ модели');
+  return { text, modelLabel: def.label + ' · ' + model };
+}
+
+/* Единая точка входа в облако. */
+async function callCloudAi(systemText, userText, options) {
+  if (!isCloudAiReady()) throw new Error('Облачный ИИ не настроен');
+  const def = getCloudProviderDef();
+  if (def.id === 'gemini') return cloudCallGemini(systemText, userText, options);
+  return cloudCallOpenAiCompat(systemText, userText, options);
+}
+
+/* Человеческие ошибки вместо «HTTP 403: ...». */
+function cloudErrorText(err) {
+  const msg = String((err && err.message) || err || 'неизвестная ошибка');
+  if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(msg) && !/HTTP/.test(msg)) return 'Нет соединения: проверьте интернет и попробуйте снова.';
+  if (/401|403|API_KEY_INVALID|PERMISSION_DENIED|Unauthenticated/i.test(msg)) return 'Ключ отклонён провайдером: проверьте, что ключ скопирован полностью, без пробелов.';
+  if (/User location is not supported|location|region/i.test(msg)) return 'Этот провайдер недоступен из вашего региона — попробуйте DeepSeek или OpenRouter.';
+  if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'Исчерпан лимит запросов (минутный или дневной). Подождите немного или смените модель/провайдера.';
+  const status = msg.match(/HTTP (\d+)/);
+  if (status) return 'Провайдер вернул ошибку ' + status[1] + ': ' + msg.replace(/^HTTP \d+:?\s*/, '').slice(0, 160);
+  return msg.slice(0, 200);
+}
+
+/* Проверка подключения из Настроек: реальный вызов провайдера. */
+async function checkCloudConnection() {
+  const statusEl = $('#ai-cloud-status');
+  if (!statusEl) return true;
+  if (getCloudKey().length < 8) {
+    statusEl.textContent = '✗ Сначала вставьте ключ.';
+    return false;
+  }
+  statusEl.textContent = '… Проверяю подключение…';
+  try {
+    if (getCloudProviderDef().id === 'gemini') {
+      const names = await geminiListModels(getCloudKey());
+      const scored = names.map((n) => ({ n, s: geminiScoreModelName(n) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+      if (!scored.length) throw new Error('HTTP 404: для ключа нет текстовых моделей Gemini');
+      state.aiSettings.cloudModels = scored.map((x) => x.n).slice(0, 6);
+      state.aiSettings.cloudModel = scored[0].n;
+      saveState();
+      statusEl.textContent = '✓ Подключено: ' + scored[0].n + ' (обновится автоматически при смене моделей)';
+      return true;
+    }
+    const out = await callCloudAi('', 'Ответь одним словом: работает.', {});
+    state.aiSettings.cloudModel = (state.aiSettings.cloudModel || getCloudProviderDef().defaultModel).trim();
+    saveState();
+    statusEl.textContent = '✓ Подключено: ' + out.modelLabel;
+    return true;
+  } catch (err) {
+    statusEl.textContent = '✗ ' + cloudErrorText(err);
+    return false;
+  }
+}
+
+/* Найденные в вопросе продукты из локальной базы — опора для ответов (RAG),
+   чтобы нейросеть опиралась на НАШИ данные, а не на средние из интернета. */
+/* Поверхностные формы глаголов, которые «маскируются» под продукты при
+   стем-поиске («пить» ≈ «питы»): короткие стемы с такой формой отсекаем. */
+const AI_CHAT_VERB_FORMS = new Set(['пить', 'пей', 'пейте', 'попей', 'выпей', 'попейте', 'купить', 'сидеть', 'спать', 'спите', 'спи', 'бить', 'жить', 'дарить', 'лить', 'кушать']);
+
+function findProductsInText(text) {
   const lower = text.toLowerCase();
-  // Продукты из базы: ищем с границами слов и простыми словоформами
-  // («гречке» → «гречка»), чтобы «сколько» не давало ложных «кола/соль».
-  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const keyMatcher = (key) => {
     const stem = /[аяоеийы]$/u.test(key) ? key.slice(0, -1) : key;
-    return new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
+    if (stem.length >= 4) {
+      return new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu').test(lower);
+    }
+    // Короткий стем (кофе, мясо): проверяем, что совпавшее слово — не глагол.
+    const m = lower.match(new RegExp('(^|[^а-яёa-z0-9])(' + escapeRegExp(stem) + '[а-яё]{0,3})($|[^а-яёa-z0-9])', 'iu'));
+    if (!m) return false;
+    return !AI_CHAT_VERB_FORMS.has((m[2] || '').toLowerCase());
   };
-  const foundKeys = Object.keys(FOOD_DB)
-    .filter((key) => key.length >= 4 && keyMatcher(key).test(lower))
+  return Object.keys(FOOD_DB)
+    .filter((key) => key.length >= 4 && keyMatcher(key))
     .sort((a, b) => b.length - a.length)
     .filter((key, idx, arr) => !arr.some((other, j) => j < idx && other.includes(key)))
     .filter((key, idx, arr) => {
@@ -5768,8 +6267,84 @@ function buildAiChatAnswer(text) {
         return (o.kcal + '|' + o.p + '|' + o.f + '|' + o.c) === sig;
       });
     })
-    .slice(0, 4);
-  // Факты о продукте спрашивают явно: «сколько ... калорий/белка в твороге».
+    .slice(0, 6);
+}
+
+/* Снимок дня пользователя для персонализации ответа нейросети. */
+function buildCloudDayContext() {
+  const parts = [];
+  parts.push('Цель воды: ' + fmt(state.water.goal || 2500) + ' мл, выпито сегодня ' + fmt(state.water.total) + ' мл.');
+  const food = state.food.items || [];
+  const kcal = food.reduce((s, i) => s + (i.kcal || 0), 0);
+  const p = food.reduce((s, i) => s + (i.p || 0), 0);
+  const f = food.reduce((s, i) => s + (i.f || 0), 0);
+  const c = food.reduce((s, i) => s + (i.c || 0), 0);
+  parts.push('Цель калорий: ' + fmt(state.food.goal || 2000) + ' ккал, съедено сегодня ' + fmt(Math.round(kcal)) + ' ккал (Б ' + fmt(Math.round(p)) + ' / Ж ' + fmt(Math.round(f)) + ' / У ' + fmt(Math.round(c)) + ' г).');
+  const w = state.profileSettings.weightKg;
+  if (w) parts.push('Текущий вес: ' + w + ' кг.');
+  const acts = (state.workouts || []).filter((a) => a.date === todayKey());
+  if (acts.length) parts.push('Активность сегодня: ' + acts.map((a) => ((ACTIVITY_TYPES[a.type] || ACTIVITY_TYPES.other).label) + ' ' + a.durationMinutes + ' мин').join(', ') + '.');
+  return parts.join('\n');
+}
+
+const CLOUD_NUTRITIONIST_SYSTEM = 'Ты — ИИ-помощник и нутрициолог в приложении-дневнике FitFlow. Отвечай по-русски, кратко (до 180 слов), по делу, дружелюбно, без воды. '
+  + 'Пользователь может спросить ЧТО УГОДНО — отвечай корректно на любой вопрос, даже не про еду (например, «назови столицу Канады» — дай прямой ответ). '
+  + 'Если вопрос про питание/здоровье — учитывай данные его дня ниже. '
+  + 'Не выдумывай факты; если не уверен — так и скажи. По медицинским темам мягко напоминай, что это не заменяет врача.\n'
+  + 'Данные дня пользователя:\n';
+
+/* История диалога только в памяти сессии (не сохраняется и не попадает в бэкап). */
+let aiChatTurns = [];
+
+function sendAiChatCloud(text, resultBox) {
+  const facts = findProductsInText(text).map((key) => {
+    const it = FOOD_DB[key];
+    return key + ' — ' + Math.round(it.kcal) + ' ккал, Б ' + it.p + ', Ж ' + it.f + ', У ' + it.c + ' за 100 г' + (it.per === 'шт' ? ' (или за 1 шт)' : '');
+  });
+  const systemText = CLOUD_NUTRITIONIST_SYSTEM + buildCloudDayContext()
+    + (facts.length ? '\nПродукты из вопроса (данные локальной базы FitFlow, опирайся на них):\n' + facts.join('\n') : '');
+  resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (☁ облако)</h4><p>Отправляю вопрос в нейросеть…</p>';
+  resultBox.hidden = false;
+  const history = aiChatTurns;
+  callCloudAi(systemText, text, { history })
+    .then((out) => {
+      history.push({ role: 'user', parts: [{ text }] }, { role: 'model', parts: [{ text: out.text }] });
+      if (history.length > 8) history.splice(0, history.length - 8);
+      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge">☁ ' + escapeHtml(out.modelLabel) + '</span></h4>' +
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        mdLiteToHtml(out.text) +
+        '<p class="settings-hint" style="margin:8px 0 0">Ответ нейросети может содержать неточности — проверяйте важное. Текст вопроса ушёл в облако выбранного провайдера.</p>';
+    })
+    .catch((err) => {
+      resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (☁ облако)</h4>' +
+        '<p style="color:var(--error)">☁ ' + escapeHtml(cloudErrorText(err)) + '</p>' +
+        '<p class="settings-hint">Пока облако недоступно, я отвечаю локально только фактами из базы продуктов.</p>';
+    });
+}
+
+/* Мини-markdown для ответов нейросети: **жирный**, списки через -, абзацы. */
+function mdLiteToHtml(md) {
+  const esc = escapeHtml(String(md || '').trim());
+  const blocks = esc.split(/\n{2,}/).map((block) => {
+    const lines = block.split('\n');
+    if (lines.every((l) => /^\s{0,3}[-*•]\s+/u.test(l))) {
+      return '<ul>' + lines.map((l) => '<li>' + l.replace(/^\s{0,3}[-*•]\s+/u, '') + '</li>').join('') + '</ul>';
+    }
+    if (lines.every((l) => /^\s{0,3}\d+[.)]\s+/u.test(l))) {
+      return '<ul>' + lines.map((l) => '<li>' + l.replace(/^\s{0,3}\d+[.)]\s+/u, '') + '</li>').join('') + '</ul>';
+    }
+    return '<p>' + lines.join('<br>') + '</p>';
+  });
+  return blocks.join('').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+/* Локальный режим нутрициолога: ТОЛЬКО проверяемые факты из базы продуктов
+   и маршрут к генератору рецептов. Никаких шаблонных «умных» ответов:
+   на свободные вопросы честно показываем дорогу к облачной нейросети. */
+function buildAiChatAnswer(text) {
+  const lower = text.toLowerCase();
+  const foundKeys = findProductsInText(text).slice(0, 4);
+  // Факты о продукте спрашают явно: «сколько ... калорий/белка в твороге».
   const wantsFacts = /сколько|скільки/iu.test(lower) && /калори|ккал|бжу|белк|протеин|углевод|жир/iu.test(lower);
   const buildProductTable = () => {
     const rows = foundKeys.map((key) => {
@@ -5788,13 +6363,16 @@ function buildAiChatAnswer(text) {
   }
   // 2) Прямой вопрос о показателях продукта — таблица из базы.
   if (foundKeys.length && wantsFacts) return buildProductTable();
-  // 3) Тематический совет по правилам.
-  const rule = AI_CHAT_RULES.find((r) => r.pattern.test(lower));
-  if (rule) return '<p>' + escapeHtml(rule.answer()) + '</p>';
-  // 4) Продукт назван без явного вопроса — всё равно покажем его показатели.
-  if (foundKeys.length) return buildProductTable();
-  // 5) Честный ответ, что тема пока не покрыта.
-  return '<p>Я — офлайн-эксперт на правилах (не нейросеть): уверенно отвечаю про воду, белок, похудение, питание до и после тренировки, завтрак и ужин, кофе, сладкое, сон, рецепты из ваших продуктов и показатели продуктов из базы (например, напишите название продукта). Эту тему пока не понял — переформулируйте проще или задайте другой вопрос.</p>';
+  // Сравнение/выбор («что лучше X или Y») — свободный разговорный вопрос,
+  // а не запрос факта: таблица одного продукта была бы псевдоответом.
+  const isChoiceQuestion = /(^|\s)или(\s|$)|что лучше|что вреднее|что полезнее|(^|\s)vs(\s|$)/iu.test(lower);
+  // 3) Продукт назван без явного вопроса — всё равно покажем его показатели.
+  if (foundKeys.length && !isChoiceQuestion) return buildProductTable();
+  // 4) Честный ответ без заглушек: локально — только факты из базы,
+  // свободные вопросы — задача настоящей нейросети (облачный режим).
+  return '<p>Локально я отвечаю только проверенными данными: КБЖУ продуктов из базы (напишите название) и рецепты (вкладка «Рецепт»). Заготовленных «универсальных ответов» у меня нет — на свободный вопрос вроде «что выпить перед сном» или «столица Канады» правильно ответит только настоящая нейросеть.</p>' +
+    '<p>Подключите <b>облачный ИИ</b>: Настройки → «✨ ИИ-помощник» → режим «Облачный ИИ» — понадобится бесплатный ключ (Google Gemini, DeepSeek или OpenRouter) и интернет. Тогда я отвечу на любой вопрос с учётом ваших целей и дневника.</p>' +
+    '<button class="btn btn-secondary" id="ai-chat-goto-settings" type="button">Открыть настройки ИИ</button>';
 }
 
 function sendAiChat() {
@@ -5806,10 +6384,21 @@ function sendAiChat() {
     toast('Напишите ваш вопрос');
     return;
   }
-  resultBox.innerHTML = '<h4>💬 Ответ ИИ-нутрициолога FitFlow</h4>' +
+  if (isCloudAiReady()) {
+    sendAiChatCloud(text, resultBox);
+    return;
+  }
+  resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
     '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
     buildAiChatAnswer(text);
   resultBox.hidden = false;
+  const gotoBtn = resultBox.querySelector('#ai-chat-goto-settings');
+  if (gotoBtn) {
+    gotoBtn.addEventListener('click', () => {
+      closeAiCenter();
+      switchView('settings-ai');
+    });
+  }
 }
 
 function sendAiTestQuery() {
@@ -5819,6 +6408,28 @@ function sendAiTestQuery() {
   const q = (input.value || '').trim();
   if (!q) {
     toast('Введите проверочный вопрос');
+    return;
+  }
+  if (state.aiSettings.mode === 'cloud') {
+    if (!isCloudAiReady()) {
+      resultBox.innerHTML = '<p style="color:var(--error);margin:0"><b>⚠ Облачный ИИ не настроен.</b><br>Вставьте ключ выше и нажмите «Проверить подключение».</p>';
+      resultBox.hidden = false;
+      return;
+    }
+    resultBox.innerHTML = '<p>☁ Отправляю запрос в ' + escapeHtml(getCloudProviderDef().label) + '…</p>';
+    resultBox.hidden = false;
+    const t0 = Date.now();
+    callCloudAi(
+      'Ты помощник приложения FitFlow. Ответь по-русски, коротко (до 120 слов) и точно.',
+      q, { history: [] }
+    ).then((out) => {
+      const ms = Date.now() - t0;
+      resultBox.innerHTML = '<h4>⚡ Ответ облачной нейросети (' + escapeHtml(out.modelLabel) + ', ' + (ms / 1000).toFixed(1) + ' с)</h4>' +
+        '<p><b>Запрос</b>: «' + escapeHtml(q) + '»</p>' + mdLiteToHtml(out.text) +
+        '<p class="settings-hint" style="margin:8px 0 0">Это реальный ответ нейросети через ваш ключ — не заглушка.</p>';
+    }).catch((err) => {
+      resultBox.innerHTML = '<p style="color:var(--error);margin:0">☁ ' + escapeHtml(cloudErrorText(err)) + '</p>';
+    });
     return;
   }
   if (!state.aiSettings.connected && state.aiSettings.mode !== 'expert') {
@@ -5851,11 +6462,18 @@ function sendAiTestQuery() {
 
 function handleAiQuickCamera(file) {
   const input = $('#ai-quick-input');
+  const resultBox = $('#ai-quick-result');
   if (!input) return;
-  // Честный офлайн-режим: фото сохраняется как контекст, а расчёт делает
-  // локальная база продуктов по текстовому описанию. Выдуманный состав не подставляем.
+  if (isCloudAiReady() && getCloudProviderDef().vision) {
+    recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());
+    return;
+  }
   input.focus();
-  toast('📷 Фото получено. Опишите состав блюда в поле — калории и БЖУ посчитает локальная база.');
+  if (isCloudAiReady() && !getCloudProviderDef().vision) {
+    toast('📷 У выбранного провайдера нет распознавания фото (нужен Gemini). Опишите состав блюда в поле — посчитает локальная база.');
+    return;
+  }
+  toast('📷 Фото получено. Распознавание по фото работает с облачным ИИ (Gemini): Настройки → «✨ ИИ-помощник». Пока опишите состав в поле — калории и БЖУ посчитает локальная база.');
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */

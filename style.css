@@ -2767,3 +2767,85 @@ html[data-theme="dark"] .segmented button.active {
   display: grid;
   place-items: center;
 }
+
+/* ============================================================
+   0.3.5: скролл-лок фона при модальных диалогах, меню Настроек
+   ============================================================ */
+/* Когда открыт диалог — прокручивается только он, фон стоит. */
+html.dialog-open,
+html.dialog-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.app-dialog-backdrop {
+  overscroll-behavior: contain;
+}
+.app-dialog {
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Настройки: меню разделов (схема В) */
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.settings-menu-btn:hover { filter: brightness(0.98); }
+.settings-menu-btn:active { transform: scale(0.99); }
+.settings-menu-emoji {
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  width: 24px;
+  text-align: center;
+}
+.settings-menu-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-menu-text small {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+.settings-menu-btn .chevron-icon {
+  color: var(--md-sys-color-on-surface-variant);
+  transform: none;
+}
+.settings-sub-emoji { font-size: 1.35rem; }
+
+/* Бейдж источника ответа ИИ: облако / локально */
+.ai-cloud-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  vertical-align: middle;
+}
+.ai-local-badge {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+}

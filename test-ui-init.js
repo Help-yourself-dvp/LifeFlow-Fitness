@@ -18,7 +18,11 @@ const functions = [
   'renderProfileBasics', 'toggleProfileChoice', 'saveProfileBasicField',
   'computeProfileNorms', 'openNormsDialog', 'closeNormsDialog', 'applyNormsDialog',
   'generateAiRecipe', 'buildAiChatAnswer', 'sendAiChat', 'handleAiRecipeCameraPhoto',
-  'normalizeSmartUnits', 'renderStatsWeightChart'
+  'normalizeSmartUnits', 'renderStatsWeightChart',
+  'canonicalUnit', 'describeFoodItemLine', 'bindDialogScrollLock', 'bindSettingsMenu',
+  'renderAiSettings', 'setAiMode', 'setCloudProvider', 'checkCloudConnection',
+  'isCloudAiReady', 'callCloudAi', 'cloudErrorText', 'findProductsInText', 'mdLiteToHtml',
+  'sendAiChatCloud', 'recognizeFoodPhoto', 'geminiScoreModelName'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -35,7 +39,9 @@ const ids = [
   'profile-sex-choices', 'profile-activity-choices', 'profile-age-input', 'profile-height-input', 'profile-basics-options',
   'norms-calc-btn', 'norms-dialog', 'norms-dialog-text', 'norms-dialog-hint', 'norms-dialog-apply', 'norms-dialog-cancel',
   'stats-periods', 'ai-generate-recipe', 'ai-send-chat',
-  'ai-recipe-voice-btn', 'stats-weight-chart-caption'
+  'ai-recipe-voice-btn', 'stats-weight-chart-caption',
+  'settings-profile-view', 'settings-notifications-view', 'settings-ai-view', 'settings-data-view', 'settings-about-view',
+  'ai-cloud-box', 'ai-cloud-provider', 'ai-cloud-key', 'ai-cloud-model', 'ai-cloud-check', 'ai-cloud-clear', 'ai-cloud-status', 'ai-cloud-hint'
 ];
 
 let failed = 0;
