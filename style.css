@@ -683,7 +683,10 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .input-wrap {
   position: relative;
   flex: 1;
+  min-width: 0;
 }
+
+.food-form #food-add { flex-shrink: 0; }
 
 .input-icon {
   position: absolute;
@@ -1075,7 +1078,11 @@ html[data-theme="dark"] .icon-sun { display: none; }
   color: var(--md-sys-color-on-surface-variant);
   margin-top: 10px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
+
+/* Поля в рядах настроек не должны выталкивать кнопки и обрезать текст */
+.settings-row > input { min-width: 0; }
 
 .settings-row {
   display: flex;
@@ -1992,6 +1999,10 @@ html[data-theme="dark"] .segmented button.active {
 .collapsible-content .favorite-meals-section { margin: 10px 0; padding: 0 10px; }
 .collapsible-content .activity-template-create { margin: 10px; }
 .collapsible-content .activity-template-list { margin: 10px; }
+
+/* Резерв снизу на экране «Активность»: плавающая кнопка «＋ Запись»
+   не должна перекрывать последние элементы формы и списка записей. */
+#training-view { padding-bottom: 64px; }
 
 .activity-fab {
   position: fixed;

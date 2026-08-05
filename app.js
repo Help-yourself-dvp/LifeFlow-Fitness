@@ -4296,13 +4296,14 @@ function renderGreeting() {
 
   $('#greeting-title').textContent = greeting;
   const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' }).format(now);
-  const dayAndMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(now);
+  const dayAndMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(now);
+  const fullDateLabel = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
   const dateLabel = $('#date-label');
   const weekdayElement = $('#date-weekday');
   const monthElement = $('#date-month');
   if (weekdayElement) weekdayElement.textContent = weekday;
   if (monthElement) monthElement.textContent = dayAndMonth;
-  if (dateLabel) dateLabel.setAttribute('aria-label', `${weekday}, ${dayAndMonth}`);
+  if (dateLabel) dateLabel.setAttribute('aria-label', fullDateLabel);
 }
 
 /* ============================================================
