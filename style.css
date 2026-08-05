@@ -437,9 +437,19 @@ html[data-theme="dark"] .icon-sun { display: none; }
 
 .water-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   width: 100%;
 }
+
+.water-actions .chip {
+  flex: 1 1 42%;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 0.84rem;
+}
+.water-actions .chip > span,
+.water-actions .chip > svg { flex: 0 0 auto; }
 
 /* Чипы */
 .chip {
@@ -1021,11 +1031,32 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .mic-header-btn:active { transform: scale(0.9); }
 .mic-header-btn svg { width: 19px; height: 19px; }
 
+/* Базовое оформление текстовых полей приложения (до 0.2.8 у .form-input
+   не было стилей — показывался сырой системный вид WebView) */
+.form-input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.form-input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 0.75; }
+.form-input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
 /* Иконочные кнопки внутри ИИ-центра (голос, камера) */
 .ai-icon-btn {
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -1038,13 +1069,16 @@ html[data-theme="dark"] .icon-sun { display: none; }
 }
 .ai-icon-btn:hover { filter: brightness(0.97); }
 .ai-icon-btn:active { transform: scale(0.9); }
-.ai-icon-btn svg { width: 20px; height: 20px; }
+.ai-icon-btn svg { width: 18px; height: 18px; }
 
 /* Компактные основные кнопки в рядах ИИ-центра */
 .ai-center-modal .settings-row .btn-primary {
   flex: 1 1 auto;
-  min-height: 42px;
-  border-radius: 21px;
+  min-height: 38px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 19px;
+  font-size: 0.82rem;
 }
 .ai-center-modal #ai-tabs button { font-size: 0.78rem; }
 
@@ -1103,6 +1137,15 @@ html[data-theme="dark"] .icon-sun { display: none; }
 }
 .settings-group-collapse.is-collapsed .chevron-icon { transform: rotate(-90deg); }
 .collapsible-toggle[aria-expanded="false"] .chevron-icon { transform: rotate(-90deg); }
+
+/* Подсказка про оценку самочувствия в чек-листе дня */
+.checklist-hint {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.85;
+}
 
 /* Компактная строка типа приёма пищи */
 .meal-type-summary {
@@ -2269,9 +2312,15 @@ html[data-theme="dark"] .segmented button.active {
 .smart-preview p { margin: 0; }
 #smart-entry-save { width: 100%; margin-top: 10px; }
 @media (max-width:420px) { .manual-food-section { padding: 8px; } .manual-food-row input { padding: 9px 10px; } .manual-food-section .settings-row { gap: 6px; } }
-/* Ручное блюдо: без обрезания верхней строки внутри раскрываемого контейнера */
-.collapsible-content .manual-food-section { margin: 0; padding: 12px; border-radius: 0; }
-.collapsible-content .manual-food-section .quick-label { display: block; padding-top: 2px; }
+/* Свёрнутый список должен быть полностью невидимым: старые margin/padding
+   секций «просвечивали» сквозь свёрнутый контейнер (ошибка 0.2.5–0.2.7). */
+.collapsible-content:not(.is-open) > div {
+  visibility: hidden;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.collapsible-content .manual-food-section .quick-label { display: block; }
 .collapsible-content.is-open > div { overflow: visible; }
 .workout-duration-input-wrap select { width: 72px; padding: 7px 6px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.78rem; font-weight: 700; }
 .duration-unit-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 8px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-lowest); border:1px solid var(--md-sys-color-outline-variant); border-radius:9px; font:inherit; font-size:.78rem; font-weight:700; }

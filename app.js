@@ -1003,7 +1003,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.2.7';
+const FITFLOW_VERSION = '0.2.8';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1846,6 +1846,7 @@ function renderDayChecklist() {
       <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
       <span class="checklist-item checklist-mood"><span class="checklist-icon" style="font-size:1.2rem">${mood ? emojis[mood] : '○'}</span> Самочувствие — ${mood ? emojis[mood] + ' ' + mood + '/5' : '<button class="btn btn-secondary mood-pick-btn" type="button" id="mood-pick-open" style="font-size:0.72rem;padding:4px 8px">Оценить день</button>'}</span>
     </div>
+    <div class="checklist-hint">Самочувствие — общая оценка всего дня, удобнее отмечать вечером.</div>
   </div>`;
 }
 
@@ -2524,12 +2525,20 @@ async function addFoodText(text) {
 
 function readManualMeal() {
   const name = normalizeActivityName($('#manual-food-name').value);
-  const kcal = Math.round(Number(String($('#manual-food-kcal').value).replace(',', '.')));
-  const p = Math.round((Number(String($('#manual-food-p').value || '').replace(',', '.')) || 0) * 10) / 10 || null;
-  const f = Math.round((Number(String($('#manual-food-f').value || '').replace(',', '.')) || 0) * 10) / 10 || null;
-  const c = Math.round((Number(String($('#manual-food-c').value || '').replace(',', '.')) || 0) * 10) / 10 || null;
-  if (!name || !Number.isFinite(kcal) || kcal < 1 || kcal > 5000) {
-    toast('Введите название и от 1 до 5 000 ккал');
+  // Важно: «1 400» с пробелом должно читаться как 1400
+  const parseNum = (id) => Number(String($(id).value || '').replace(/\s+/g, '').replace(',', '.'));
+  const kcal = Math.round(parseNum('#manual-food-kcal'));
+  const p = Math.round((parseNum('#manual-food-p') || 0) * 10) / 10 || null;
+  const f = Math.round((parseNum('#manual-food-f') || 0) * 10) / 10 || null;
+  const c = Math.round((parseNum('#manual-food-c') || 0) * 10) / 10 || null;
+  if (!name) {
+    toast('Введите название блюда (от 2 символов)');
+    $('#manual-food-name').focus();
+    return null;
+  }
+  if (!String($('#manual-food-kcal').value).trim() || !Number.isFinite(kcal) || kcal < 1 || kcal > 5000) {
+    toast('Укажите калорийность числом от 1 до 5 000 ккал');
+    $('#manual-food-kcal').focus();
     return null;
   }
   return { name, kcal, p, f, c };
@@ -4695,6 +4704,7 @@ function init() {
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
   bindEvent('#ai-photo-camera-btn', 'click', () => $('#ai-photo-camera-input')?.click());
+  bindEvent('#ai-photo-voice-btn', 'click', handleAiPhotoVoiceBtn);
   $('#ai-photo-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiPhotoFoodCamera(e.target.files[0]);
     e.target.value = '';
@@ -4984,6 +4994,10 @@ function handleFoodVoiceBtn() {
 
 function handleWaterVoiceBtn() {
   startRealVoiceInput('#water-voice-input', 'Говорите объём воды в мл');
+}
+
+function handleAiPhotoVoiceBtn() {
+  startRealVoiceInput('#ai-photo-food-input', 'Назовите продукты и граммы на фото');
 }
 
 function openAiCenter() {

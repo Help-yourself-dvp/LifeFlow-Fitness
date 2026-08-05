@@ -766,7 +766,7 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.2.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.2.8</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -1076,7 +1076,7 @@
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">📊</div>
       <h2 id="mood-dialog-title">Как прошёл день?</h2>
-      <p>Ваша оценка помогает увидеть связь между привычками и настроением.</p>
+      <p>Это общая оценка всего дня — удобнее всего отмечать вечером. Она помогает увидеть связь между привычками и настроением.</p>
       <div class="mood-picker" id="mood-picker">
         <button class="mood-btn" type="button" data-mood="1" aria-label="Очень плохо"><span>😔</span><small>1</small></button>
         <button class="mood-btn" type="button" data-mood="2" aria-label="Плохо"><span>🙁</span><small>2</small></button>
@@ -1118,7 +1118,7 @@
       <div id="ai-tab-quick" class="ai-tab-panel">
         <p class="settings-hint" style="margin-top:0">Вводите или диктуйте одной фразой воду, еду и тренировки — умный парсер FitFlow сразу распределит их по категориям за день.</p>
         <div class="settings-row" style="margin-bottom:10px">
-          <input type="text" id="ai-quick-input" class="form-input" placeholder="Например: выпил 500 мл воды, овсянка 150г, гулял 40 мин" style="flex:1">
+          <input type="text" id="ai-quick-input" class="form-input" placeholder="500 мл воды, овсянка 150г, гулял 40 мин" style="flex:1">
           <button class="icon-btn ai-icon-btn" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
@@ -1131,15 +1131,21 @@
       </div>
       <!-- Вкладка: Фото еды -->
       <div id="ai-tab-photo" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Сфотографируйте блюдо для заметки, опишите состав текстом — точный расчёт калорий и БЖУ выполнит локальная база из 925+ продуктов. Автоматическое распознавание по фото появится вместе с локальной ИИ-моделью.</p>
+        <p class="settings-hint" style="margin-top:0">Опишите состав блюда текстом или голосом — FitFlow сопоставит продукты с локальной базой из 925+ позиций и посчитает калории и БЖУ. Фото пока служит заметкой; автоматическое распознавание продуктов и веса по снимку появится вместе с локальной ИИ-моделью.</p>
         <div class="settings-row" style="margin-bottom:10px">
+          <input type="text" id="ai-photo-food-input" class="form-input" placeholder="Например: гречка 150г, котлета 1шт" style="flex:1" aria-label="Состав блюда на фото">
+          <button class="icon-btn ai-icon-btn" id="ai-photo-voice-btn" type="button" title="Надиктовать состав голосом" aria-label="Надиктовать состав голосом">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
           <button class="icon-btn ai-icon-btn" id="ai-photo-camera-btn" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
               <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
             </svg>
           </button>
-          <input type="text" id="ai-photo-food-input" class="form-input" placeholder="Например: гречка 150г, котлета 1шт" style="flex:1" aria-label="Состав блюда на фото">
           <input type="file" id="ai-photo-camera-input" accept="image/*" capture="environment" hidden>
         </div>
         <div id="ai-photo-result-box" class="ai-result-box" hidden>
@@ -1188,7 +1194,7 @@
       <div id="ai-tab-chat" class="ai-tab-panel" hidden>
         <p class="settings-hint" style="margin-top:0">Задайте любой свободный вопрос по питанию, водным нормам или тренировкам в офлайне.</p>
         <div class="settings-row" style="margin-bottom:10px">
-          <input type="text" id="ai-chat-input" class="form-input" placeholder="Например: сколько белка нужно после пробежки?" style="flex:1">
+          <input type="text" id="ai-chat-input" class="form-input" placeholder="Сколько белка нужно после пробежки?" style="flex:1">
           <button class="btn btn-primary" id="ai-send-chat" type="button">Спросить</button>
         </div>
         <div id="ai-chat-result" class="ai-result-box" hidden></div>
