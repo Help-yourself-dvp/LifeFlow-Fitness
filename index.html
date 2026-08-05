@@ -232,8 +232,8 @@
             <input id="manual-food-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры в граммах">
             <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
           </div>
-          <div class="settings-row">
-            <button class="btn btn-primary" id="manual-food-add" type="button">Добавить запись</button>
+          <div class="settings-row manual-food-actions">
+            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить запись</button>
             <button class="btn btn-secondary" id="manual-food-favorite" type="button">Добавить в Мои блюда</button>
           </div>
           <p class="settings-hint" style="margin:0">«Добавить запись» — блюдо попадёт в дневник сегодняшнего дня. «Добавить в Мои блюда» — сохранит блюдо как шаблон для быстрого выбора позже, без записи в дневник.</p>
@@ -369,6 +369,9 @@
           <strong id="stats-weight-total">—</strong>
         </div>
         <p id="stats-weight-hint">—</p>
+        <div class="stats-weight-chart-wrap weight-chart-wrap" id="stats-weight-chart-wrap" hidden>
+          <svg class="weight-chart" id="stats-weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса за последние 3 месяца"></svg>
+        </div>
         <button class="stats-details-btn" type="button" data-open-detail="weight">График и история веса →</button>
       <div id="stats-mood"></div>
       </section>
@@ -770,9 +773,22 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.1</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.2</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
+            <section class="collapsible-block" style="margin-top:10px">
+              <button class="collapsible-toggle" type="button" data-collapse-target="methodology-content" aria-expanded="false">
+                <span>Методика расчётов</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div class="collapsible-content" id="methodology-content"><div class="settings-about-content">
+                <p class="settings-hint"><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 925+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
+                <p class="settings-hint"><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
+                <p class="settings-hint"><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
+                <p class="settings-hint"><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
+                <p class="settings-hint"><b>Локальный эксперт и анализ.</b> Разделы «Анализ» и «Вопрос нутрициологу» работают по заранее заданным правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо. Если в дневнике мало записей, выводы честно помечаются как общие. Настоящая нейросетевая модель (с ответами на любые вопросы и распознаванием еды по фото) добавится в следующих версиях.</p>
+                <p class="settings-hint"><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
+              </div></div>
+            </section>
           </div></div>
         </section>
       </div>

@@ -1990,7 +1990,7 @@ html[data-theme="dark"] .segmented button.active {
   min-width: 0;
   max-width: 100%;
   margin-top: 14px;
-  padding: 16px 14px;
+  padding: 18px 16px;
   background: var(--md-sys-color-surface-container-high);
   border-radius: 16px;
 }
@@ -1998,6 +1998,23 @@ html[data-theme="dark"] .segmented button.active {
 /* Текст не должен прилипать к скруглённым граням карточки */
 .manual-food-section > :first-child { margin-top: 0; }
 .manual-food-section > :last-child { margin-bottom: 0; }
+
+/* Две кнопки — одинаковые размер, стиль и центрирование текста */
+.manual-food-section .manual-food-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.manual-food-section .manual-food-actions .btn {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 8px;
+  font-size: 0.76rem;
+  text-align: center;
+  justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
+}
 
 .manual-food-row {
   display: flex;
@@ -2081,7 +2098,32 @@ html[data-theme="dark"] .segmented button.active {
 }
 
 .stats-periods {
+  position: sticky;
+  top: var(--quicknav-top, 64px);
+  z-index: 14;
   margin-bottom: 14px;
+  padding: 6px;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+/* Период статистики всегда на виду: смена периода доступна и у карточки «Вес» */
+.stats-periods button { padding: 8px 10px; font-size: 0.76rem; }
+
+/* ИИ-аналитик: компактные органы управления в духе ИИ-центра */
+.ai-stats-card .settings-row { flex-wrap: wrap; gap: 8px; }
+.ai-stats-card .card-subtitle { font-size: 0.78rem; }
+.ai-stats-card .segmented { flex: 1 1 100%; }
+.ai-stats-card .segmented button { padding: 8px 10px; font-size: 0.74rem; }
+.ai-stats-card #ai-stats-run-btn {
+  flex: 0 0 auto;
+  min-height: 38px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 19px;
+  font-size: 0.82rem;
 }
 
 .stats-section {

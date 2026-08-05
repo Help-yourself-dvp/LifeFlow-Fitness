@@ -733,10 +733,10 @@ const COMMAND_DICTIONARY = {
     [/дольк(?:а|и|у)(?=\s)/giu, 'долька'],
   ],
   activityTypes: [
-    { type: 'swim', pattern: /плавал|бассейн|поплавал|плов(?:ец|чиха)/u },
+    { type: 'swim', pattern: /плавал|бассейн|поплавал|плов(?:ец|чиха)|плавани/u },
     { type: 'cardio', pattern: /бегал|побегал|пробеж|кардио|джоггинг|кросс/u },
     { type: 'strength', pattern: /тяж[её]л|силов|штанга|гантел|желез|качал|тренажер|тренажёр|фитнес/u },
-    { type: 'walk', pattern: /гуля|прош[её]л|прогул|пеш(?:ком|очк)|ходил|походил|скандинав/u },
+    { type: 'walk', pattern: /гуля|прош[её]л|прогул|пеш(?:ком|очк)|ходил|походил|скандинав|ходьб/u },
     { type: 'bike', pattern: /велосипед|велопрогул|велотрен|сайкл|вело/u },
     { type: 'stretch', pattern: /растяжк|йог|пилатес|стретчинг|гибкость/u },
     { type: 'leisure', pattern: /катался|катание|коньки|лыжи|сноуборд|танц(?:ы|ев)|актив(?:ный|но)/u },
@@ -770,7 +770,7 @@ function parseSmartEntry(text) {
   }
 
   const activities = [];
-  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|плавал(?:а)?|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
+  const activityPattern = /(?:занимал(?:ся|ась)|тренировал(?:ся|ась)|гулял(?:а)?|прош[её]л(?:а)?|ходьб\w*|плавал(?:а)?|плавани\w*|бассейн|бегал(?:а)?|побегал(?:а)?|пробеж|тяж[её]л(?:ая|ой)?\s+атлетик|силов\w*|велосипед\w*|велопрогул\w*|растяжк\w*|йог\w*|активност[ьи])\D{0,30}?(\d+(?:[.,]\d+)?)\s*(мин(?:ут[аы]?)?|час(?:а|ов)?|ч)/giu;
   let match;
   while ((match = activityPattern.exec(lower))) {
     const amount = Number(match[1].replace(',', '.'));
@@ -794,12 +794,16 @@ function parseSmartEntry(text) {
   }
   // Если глаголов «съел/выпил» не было — фраза может быть простым списком
   // продуктов: «овсянка 150г, персик». Разбираем её тем же парсером,
-  // предварительно вырезав воду и активность, чтобы они не давали ложных
-  // продуктов (например, «нут» из слова «минут»).
+  // предварительно вырезав воду, активность и «голые» длительности, чтобы они
+  // не давали ложных продуктов (например, «нут» из слова «минут»), и развернув
+  // порядок «количество + продукт» («100 мл сока» → «сока 100 мл»).
   if (food.length === 0) {
     let rest = lower;
     if (waterMatch) rest = rest.replace(waterMatch[0], ',');
-    if (activities.length) rest = rest.replace(activityPattern, ',');
+    rest = rest.replace(activityPattern, ',');
+    // Граница слова \b для кириллицы не работает — используем lookahead.
+    rest = rest.replace(/\d+(?:[.,]\d+)?\s*(?:мин(?:ут[аы]?)?|час(?:а|ов)?|ч)(?![а-яёa-z])/giu, ',');
+    rest = rest.replace(/(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?|кг|гр|грамм(?:а|ов)?|шт\.?|штук\w*))\s+([а-яёa-z]+)/giu, '$2 $1');
     if (rest.replace(/[\s,;.]/g, '').length > 0) {
       food.push(...parseMealText(rest).filter((item) => item.name !== 'вода'));
     }
@@ -1015,7 +1019,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.1';
+const FITFLOW_VERSION = '0.3.2';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1792,11 +1796,10 @@ function formatWeightDate(dateKey) {
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${dateKey}T12:00:00`));
 }
 
-function renderWeightChart(history) {
-  const wrap = $('#weight-chart-wrap');
-  const chart = $('#weight-chart');
+/* Общая отрисовка графика веса в переданный SVG (подробный вид и мини-вид) */
+function drawWeightChartInto(wrap, chart, history) {
   if (!wrap || !chart) return;
-  if (history.length === 0) { wrap.hidden = true; chart.innerHTML = ''; return; }
+  if (!history || history.length === 0) { wrap.hidden = true; chart.innerHTML = ''; return; }
 
   const width = 320, height = 150, left = 38, right = 12, top = 12, bottom = 28;
   const values = history.map((entry) => entry.weightKg);
@@ -1826,6 +1829,24 @@ function renderWeightChart(history) {
     <text x="${left}" y="${height - 7}" class="weight-date-label">${escapeHtml(firstDate)}</text>
     <text x="${width - right}" y="${height - 7}" text-anchor="end" class="weight-date-label">${escapeHtml(lastDate)}</text>`;
   wrap.hidden = false;
+}
+
+function renderWeightChart(history) {
+  drawWeightChartInto($('#weight-chart-wrap'), $('#weight-chart'), history);
+}
+
+/* Мини-график веса на общем экране Статистики — за последние ~3 месяца */
+function renderStatsWeightChart() {
+  if (typeof document === 'undefined') return;
+  const wrap = $('#stats-weight-chart-wrap');
+  const chart = $('#stats-weight-chart');
+  if (!wrap || !chart) return;
+  const all = normalizeWeightHistory(state.profileSettings.weightHistory);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 92);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  const recent = all.filter((entry) => entry.date >= cutoffKey);
+  drawWeightChartInto(wrap, chart, recent.length ? recent : all.slice(-8));
 }
 
 function renderDayChecklist() {
@@ -2131,20 +2152,32 @@ function renderHomeQuickNav() {
 }
 
 /* Активный чип — последний раздел, чья карточка прошла верхнюю зону экрана.
-   Работает надёжно и в конце страницы (карточка «Вес» тоже подсвечивается). */
+   Особый случай — самый низ страницы: карточка может физически не добраться
+   до порога (последний экран), тогда активен последний видимый раздел. */
 function updateHomeQuickNavActive() {
   if (typeof document === 'undefined') return;
   const nav = $('#home-quicknav');
   if (!nav || nav.hidden) return;
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
   if (!chips.length) return;
-  const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
-  const threshold = topbarH + nav.offsetHeight + 48;
   let activeId = null;
-  chips.forEach((chip) => {
-    const el = document.getElementById(chip.dataset.jump);
-    if (el && !el.hidden && el.getBoundingClientRect().top <= threshold) activeId = chip.dataset.jump;
-  });
+  // Находимся в самом низу страницы? Тогда активен последний видимый чип
+  // (иначе «Вес» в конце Главной не подсвечивается никогда).
+  const doc = document.documentElement;
+  const atBottom = (window.innerHeight + (window.scrollY || doc.scrollTop || 0)) >= (doc.scrollHeight - 8);
+  if (atBottom) {
+    for (let i = chips.length - 1; i >= 0; i--) {
+      const el = document.getElementById(chips[i].dataset.jump);
+      if (el && !el.hidden) { activeId = chips[i].dataset.jump; break; }
+    }
+  } else {
+    const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
+    const threshold = topbarH + nav.offsetHeight + 64;
+    chips.forEach((chip) => {
+      const el = document.getElementById(chip.dataset.jump);
+      if (el && !el.hidden && el.getBoundingClientRect().top <= threshold) activeId = chip.dataset.jump;
+    });
+  }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
 }
 
@@ -2399,6 +2432,7 @@ function renderStats() {
   $$('#stats-periods button').forEach((button) =>
     button.classList.toggle('active', button.dataset.statsPeriod === period));
   renderWeightOverview();
+  renderStatsWeightChart();
 }
 
 function renderWaterDetails() {
@@ -5277,28 +5311,54 @@ function confirmAiRecipePhotoIngredients() {
   generateAiRecipe({ tailoredToProfile: true });
 }
 
+/* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
+function getDiaryDaysCount() {
+  return Array.isArray(state.dailyHistory) ? state.dailyHistory.length : 0;
+}
+
+function pluralDaysRu(n) {
+  const m = n % 10, h = n % 100;
+  return (m === 1 && h !== 11) ? 'день' : (m >= 2 && m <= 4 && (h < 10 || h >= 20) ? 'дня' : 'дней');
+}
+
+function bindAiReportClose(resultBox) {
+  const closeBtn = resultBox ? resultBox.querySelector('.ai-report-close') : null;
+  if (closeBtn) closeBtn.addEventListener('click', () => { resultBox.hidden = true; });
+}
+
+function buildAiCloseButton() {
+  return '<button class="btn btn-secondary ai-report-close" type="button" style="width:100%;margin-top:10px">Ок, скрыть</button>';
+}
+
 function generateAiStatsReport() {
   const resultBox = $('#ai-stats-report-box');
   const periodBtn = $('#ai-stats-period button.active');
   if (!resultBox) return;
   const days = periodBtn ? Number(periodBtn.dataset.aiStatsPeriod) : 7;
   const history = normalizeWeightHistory(state.profileSettings.weightHistory);
-  let weightText = 'Вес стабилен';
+  const diaryDays = getDiaryDaysCount();
+  const fewDataNote = diaryDays < 3
+    ? '<li><b>Честно про данные</b>: в дневнике пока записи за ' + diaryDays + ' ' + pluralDaysRu(diaryDays) + ', поэтому выводы общие. Ведите дневник несколько дней подряд — тогда анализ будет опираться на вашу реальную динамику, а не на типовые правила.</li>'
+    : '';
+  let weightText = 'Записей веса пока мало — динамика появится после нескольких взвешиваний';
   if (history.length > 1) {
     const diff = Number((history[history.length - 1].weightKg - history[0].weightKg).toFixed(1));
-    if (diff < 0) weightText = 'Снижение веса на ' + Math.abs(diff) + ' кг';
-    else if (diff > 0) weightText = 'Увеличение веса на ' + diff + ' кг';
+    if (diff < 0) weightText = 'Снижение веса на ' + Math.abs(diff) + ' кг за весь период записей';
+    else if (diff > 0) weightText = 'Увеличение веса на ' + diff + ' кг за весь период записей';
+    else weightText = 'Вес стабилен по ' + history.length + ' записям';
   }
   const waterPct = Math.min(100, Math.round((state.water.total / (state.water.goal || 2500)) * 100));
   const workoutsCount = (Array.isArray(state.workouts) ? state.workouts : []).length;
-  resultBox.innerHTML = '<h4>✨ ИИ-анализ FitFlow (За ' + days + ' дн.)</h4>' +
-    '<ul>' +
-    '<li><b>Динамика веса</b>: ' + weightText + '. Темп изменения соответствует физиологической норме.</li>' +
-    '<li><b>Гидратация</b>: сегодня выполнено ' + waterPct + '% водной цели. Стабильный водный баланс способствует контролю аппетита.</li>' +
-    '<li><b>Активность</b>: зафиксировано тренировок: ' + workoutsCount + '. Регулярное кардио ускоряет достижение целей.</li>' +
-    '<li><b>Совет нутрициолога FitFlow</b>: для поддержки мышц после прогулок и тренировок старайтесь распределять белок равномерно по трём основным приёмам пищи.</li>' +
-    '</ul>';
+  const workoutsToday = (Array.isArray(state.workouts) ? state.workouts : []).filter((w) => w.date === todayKey()).length;
+  resultBox.innerHTML = '<h4>✨ ИИ-анализ FitFlow (за ' + days + ' дн.)</h4>' +
+    '<ul>' + fewDataNote +
+    '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
+    '<li><b>Гидратация</b>: сегодня выполнено ' + waterPct + '% водной цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
+    '<li><b>Активность</b>: сегодня тренировок: ' + workoutsToday + ', всего в дневнике: ' + workoutsCount + '.</li>' +
+    '<li><b>Совет нутрициолога FitFlow</b>: распределяйте белок равномерно по основным приёмам пищи — так проще сохранять мышцы при похудении.</li>' +
+    '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
+  bindAiReportClose(resultBox);
   toast('✨ ИИ-анализ показателей завершён!');
 }
 
@@ -5308,20 +5368,26 @@ function generateAiAnalysis() {
   if (!resultBox) return;
   const days = periodBtn ? Number(periodBtn.dataset.aiPeriod) : 7;
   const history = normalizeWeightHistory(state.profileSettings.weightHistory);
-  let weightText = 'Вес стабилен';
+  const diaryDays = getDiaryDaysCount();
+  const fewDataNote = diaryDays < 3
+    ? '<li><b>Честно про данные</b>: в дневнике пока записи за ' + diaryDays + ' ' + pluralDaysRu(diaryDays) + ', поэтому выводы общие. Несколько дней записей — и анализ станет заметно конкретнее.</li>'
+    : '';
+  let weightText = 'Записей веса пока мало — динамика появится после нескольких взвешиваний';
   if (history.length > 1) {
     const diff = Number((history[history.length - 1].weightKg - history[0].weightKg).toFixed(1));
-    if (diff < 0) weightText = 'Снижение веса на ' + Math.abs(diff) + ' кг';
-    else if (diff > 0) weightText = 'Увеличение веса на ' + diff + ' кг';
+    if (diff < 0) weightText = 'Снижение веса на ' + Math.abs(diff) + ' кг за весь период записей';
+    else if (diff > 0) weightText = 'Увеличение веса на ' + diff + ' кг за весь период записей';
+    else weightText = 'Вес стабилен по ' + history.length + ' записям';
   }
   const waterPct = Math.min(100, Math.round((state.water.total / (state.water.goal || 2500)) * 100));
-  resultBox.innerHTML = '<h4>📊 Итоги и персональный совет ИИ FitFlow (За ' + days + ' дн.)</h4>' +
-    '<ul>' +
-    '<li><b>Динамика веса</b>: ' + weightText + '. Темп изменения соответствует безопасной норме.</li>' +
-    '<li><b>Водный баланс</b>: сегодня выполнено ' + waterPct + '% цели. В дни с нормой воды самочувствие стабильно выше.</li>' +
-    '<li><b>Рекомендация нутрициолога FitFlow</b>: поддерживайте текущий уровень активности (прогулки и кардио) и добавьте 15 г белка в обеденный приём пищи.</li>' +
-    '</ul>';
+  resultBox.innerHTML = '<h4>📊 Итоги и персональный совет ИИ FitFlow (за ' + days + ' дн.)</h4>' +
+    '<ul>' + fewDataNote +
+    '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
+    '<li><b>Водный баланс</b>: сегодня выполнено ' + waterPct + '% цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
+    '<li><b>Рекомендация нутрициолога FitFlow</b>: поддерживайте текущую активность (прогулки, кардио) и равномерно распределяйте белок по приёмам пищи.</li>' +
+    '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
+  bindAiReportClose(resultBox);
 }
 
 function sendAiChat() {
