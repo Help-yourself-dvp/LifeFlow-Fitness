@@ -435,18 +435,23 @@ html[data-theme="dark"] .icon-sun { display: none; }
   color: var(--success);
 }
 
+/* Кнопки воды — строгая сетка 2×2: текст всегда внутри «пилюли». */
 .water-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
 }
 
 .water-actions .chip {
-  flex: 1 1 42%;
+  flex: none;
+  width: 100%;
   min-width: 0;
-  white-space: nowrap;
+  justify-content: center;
+  text-align: center;
   font-size: 0.84rem;
+  line-height: 1.15;
+  overflow: hidden;
 }
 .water-actions .chip > span,
 .water-actions .chip > svg { flex: 0 0 auto; }
@@ -1005,7 +1010,10 @@ html[data-theme="dark"] .icon-sun { display: none; }
   display: grid;
   place-items: center;
   padding: 20px;
-  background: var(--scrim);
+  /* Плотное затемнение + размытие: контент позади диалога не отвлекает. */
+  background: rgb(0 0 0 / 0.56);
+  backdrop-filter: blur(6px) saturate(0.9);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
 }
 
 .app-dialog-backdrop[hidden] {
@@ -1071,15 +1079,40 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .ai-icon-btn:active { transform: scale(0.9); }
 .ai-icon-btn svg { width: 18px; height: 18px; }
 
-/* Компактные основные кнопки в рядах ИИ-центра */
-.ai-center-modal .settings-row .btn-primary {
-  flex: 1 1 auto;
-  min-height: 38px;
-  height: 38px;
-  padding: 0 14px;
-  border-radius: 19px;
-  font-size: 0.82rem;
+/* Единые основные кнопки ИИ-центра: одинаковые вид и размер на всех вкладках */
+.ai-center-modal .btn-primary {
+  flex: 0 0 auto;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 20px;
+  font-size: 0.84rem;
 }
+
+/* Поле ввода ИИ-центра: всегда в полную строку, многострочное,
+   тянется за уголок (resize: vertical) если текста много. */
+.ai-input-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+textarea.form-input.ai-textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  max-height: 240px;
+  resize: vertical;
+  line-height: 1.35;
+  font-family: inherit;
+}
+.ai-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ai-actions-spacer { flex: 1 1 auto; }
 .ai-center-modal #ai-tabs button { font-size: 0.78rem; }
 
 .app-dialog {
@@ -1146,6 +1179,27 @@ html[data-theme="dark"] .icon-sun { display: none; }
   color: var(--md-sys-color-on-surface-variant);
   opacity: 0.85;
 }
+
+/* Отдельная карточка самочувствия (отделена от чек-листа в 0.2.9) */
+#day-mood-card { margin-bottom: 16px; }
+.mood-card .mood-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.mood-card .mood-card-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+.mood-card .mood-card-value .mood-emoji { font-size: 1.35rem; line-height: 1; }
+.mood-card .mood-card-row .btn { margin-left: auto; flex: 0 0 auto; }
+.mood-card .checklist-hint { margin-top: 10px; }
 
 /* Компактная строка типа приёма пищи */
 .meal-type-summary {
@@ -1883,7 +1937,10 @@ html[data-theme="dark"] .segmented button.active {
 /* ---------- Свои и избранные блюда ---------- */
 .manual-food-section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   margin-top: 14px;
   padding: 12px;
   background: var(--md-sys-color-surface-container-high);
@@ -1893,6 +1950,8 @@ html[data-theme="dark"] .segmented button.active {
 .manual-food-row {
   display: flex;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .manual-food-row input#manual-food-name { flex: 1; }
@@ -2177,12 +2236,15 @@ html[data-theme="dark"] .segmented button.active {
 .collapsible-content {
   display: grid;
   grid-template-rows: 0fr;
+  /* minmax(0, 1fr) по горизонтали: контент формы («Своё блюдо» и др.)
+     не растягивает трек за пределы карточки, поля аккуратно сжимаются. */
+  grid-template-columns: minmax(0, 1fr);
   transition: grid-template-rows 0.28s ease;
 }
 
 /* Паддинг 0.1px не даёт margin первым/последним дочерним элементам
    «просачиваться» наружу — в свёрнутом виде текст больше не выглядывает. */
-.collapsible-content > div { min-height: 0; overflow: hidden; padding: 0.1px 1px; }
+.collapsible-content > div { min-width: 0; min-height: 0; overflow: hidden; padding: 0.1px 1px; }
 .collapsible-content.is-open { grid-template-rows: 1fr; }
 
 .collapsible-content .manual-food-section { margin: 10px 0 0; }
@@ -2462,9 +2524,7 @@ html[data-theme="dark"] .segmented button.active {
 
 /* ---------- Компактные действия воды ---------- */
 .water-actions { gap: 6px; }
-.water-actions .chip { min-width: 0; min-height: 38px; padding: 8px 10px; white-space: nowrap; }
-.water-actions .chip:not(.chip-danger) { flex: 1 1 0; font-size: .87rem; }
-.water-actions .chip-danger { flex: 0 0 auto; padding: 8px 9px; font-size: .74rem; }
+.water-actions .chip { min-height: 40px; padding: 8px 10px; white-space: nowrap; text-overflow: ellipsis; }
 .water-actions .chip-danger svg { width: 15px; height: 15px; }
 
 /* ---------- Вес: Главная и Статистика ---------- */

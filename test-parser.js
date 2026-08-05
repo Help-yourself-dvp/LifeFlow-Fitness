@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -244,6 +244,24 @@ for (const [date, expected, label] of mealTimePolicy) {
 const rangesOk = MEAL_TIME_RANGES.length === 5 && MEAL_TIME_RANGES.every((r) => r.fromMinutes < r.toMinutes);
 if (!rangesOk) failed++;
 console.log(`${rangesOk ? '✓' : '✗'} диапазоны приёмов пищи покрывают всё время без наложений`);
+
+// Нативный планировщик напоминаний о воде: минуты от полуночи по интервалу и окну
+const waterReminderPlan = [
+  [buildWaterReminderTimes(90, '08:00', '22:00'), [480, 570, 660, 750, 840, 930, 1020, 1110, 1200, 1290], 'каждые 90 мин 08:00–22:00'],
+  [buildWaterReminderTimes(120, '08:00', '22:00'), [480, 600, 720, 840, 960, 1080, 1200, 1320], 'каждые 120 мин 08:00–22:00'],
+  [buildWaterReminderTimes(60, '22:00', '02:00'), [0, 60, 120, 1320, 1380], 'окно через полночь 22:00–02:00'],
+  [buildWaterReminderTimes(90, '08:00', '08:00'), [480], 'окно из одной точки'],
+  [buildWaterReminderTimes(90, 'некорректно', '22:00'), [], 'некорректное начало'],
+  [buildWaterReminderTimes(90, '08:00', '99:99'), [], 'некорректный конец']
+];
+for (const [got, expected, label] of waterReminderPlan) {
+  const ok = JSON.stringify(got) === JSON.stringify(expected);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} расписание воды: ${label} → [${got.join(', ')}]`);
+}
+const onceOk = buildWaterReminderTimes(90, '08:00', '22:00').every((t) => t >= 0 && t < 1440);
+if (!onceOk) failed++;
+console.log(`${onceOk ? '✓' : '✗'} все точки расписания воды в пределах суток`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

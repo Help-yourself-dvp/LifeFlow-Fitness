@@ -1003,7 +1003,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.2.8';
+const FITFLOW_VERSION = '0.2.9';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1821,6 +1821,7 @@ function renderDayChecklist() {
   const card = $('#day-checklist-card');
   if (!card) return;
   card.hidden = !state.dayChecklist.enabled;
+  renderDayMoodCard();
   if (!state.dayChecklist.enabled) return;
 
   const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
@@ -1831,8 +1832,6 @@ function renderDayChecklist() {
 
   const itemMark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
   const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
-  const mood = getTodayMood();
-  const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
 
   const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
   const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
@@ -1844,9 +1843,33 @@ function renderDayChecklist() {
       <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>
       <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>
       <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
-      <span class="checklist-item checklist-mood"><span class="checklist-icon" style="font-size:1.2rem">${mood ? emojis[mood] : '○'}</span> Самочувствие — ${mood ? emojis[mood] + ' ' + mood + '/5' : '<button class="btn btn-secondary mood-pick-btn" type="button" id="mood-pick-open" style="font-size:0.72rem;padding:4px 8px">Оценить день</button>'}</span>
     </div>
-    <div class="checklist-hint">Самочувствие — общая оценка всего дня, удобнее отмечать вечером.</div>
+  </div>`;
+}
+
+/* Самочувствие — отдельная секция (до 0.2.9 была пунктом чек-листа):
+   общая оценка всего дня подряд, удобнее отмечать вечером. */
+function renderDayMoodCard() {
+  if (typeof document === 'undefined') return;
+  const card = $('#day-mood-card');
+  if (!card) return;
+  card.hidden = !state.dayChecklist.enabled;
+  if (!state.dayChecklist.enabled) return;
+
+  const mood = getTodayMood();
+  const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
+  const labels = ['', 'Очень плохо', 'Плохо', 'Нормально', 'Хорошо', 'Отлично'];
+  const valueHtml = mood
+    ? `<span class="mood-card-value"><span class="mood-emoji">${emojis[mood]}</span> ${labels[mood]} · ${mood}/5</span>`
+    : `<span class="mood-card-value" style="color:var(--md-sys-color-on-surface-variant);font-weight:600">Сегодня ещё не оценён</span>`;
+
+  card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
+    <div class="checklist-header"><span>🌗 Самочувствие за день</span></div>
+    <div class="mood-card-row">
+      ${valueHtml}
+      <button class="btn btn-secondary mood-pick-btn" type="button" id="mood-pick-open" style="font-size:0.74rem;padding:6px 12px">${mood ? 'Изменить' : 'Оценить день'}</button>
+    </div>
+    <div class="checklist-hint">Это общая оценка всего дня, а не только утра — удобнее отмечать вечером, подводя итоги.</div>
   </div>`;
 }
 
@@ -3358,18 +3381,71 @@ function waterReminderIds() {
   return ids;
 }
 
+/* Минуты от полуночи для всех напоминаний в окне [start; end] с шагом interval.
+   Окно через полночь (например, 22:00–02:00) тоже поддерживается.
+   Результат отсортирован и без дублей. */
+function buildWaterReminderTimes(interval, windowStart, windowEnd) {
+  const toMin = (s) => {
+    const parts = String(s || '').split(':');
+    const h = Number(parts[0]);
+    const m = Number(parts[1]);
+    if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return h * 60 + m;
+  };
+  const step = Math.max(1, Number(interval) || 90);
+  const start = toMin(windowStart);
+  let end = toMin(windowEnd);
+  if (start === null || end === null) return [];
+  if (end < start) end += 24 * 60; // окно через полночь
+  const times = [];
+  for (let t = start; t <= end; t += step) times.push(t % (24 * 60));
+  return [...new Set(times)].sort((a, b) => a - b);
+}
+
+function getNativeBridge() {
+  return (typeof window !== 'undefined' && window.FitFlowExport) ? window.FitFlowExport : null;
+}
+
 async function cancelWaterReminders(localNotifications = getLocalNotifications()) {
+  const bridge = getNativeBridge();
+  if (bridge && typeof bridge.cancelWaterRemindersNative === 'function') {
+    try { bridge.cancelWaterRemindersNative(); } catch (e) { }
+  }
   if (!localNotifications) return;
   try { await localNotifications.cancel({ notifications: waterReminderIds().map((id) => ({ id })) }); } catch (e) { }
 }
 
 async function scheduleWaterReminders({ requestPermission = true } = {}) {
   const localNotifications = getLocalNotifications();
-  if (!localNotifications) return { ok: false, message: 'Напоминания о воде работают только в Android-приложении.' };
+  const bridge = getNativeBridge();
+  const hasNative = bridge && typeof bridge.scheduleWaterRemindersNative === 'function';
+  if (!localNotifications && !hasNative) return { ok: false, message: 'Напоминания о воде работают только в Android-приложении.' };
   let allowed = false;
-  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
-  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  if (localNotifications) {
+    if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+    else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  } else {
+    try { allowed = bridge.areNotificationsEnabled(); } catch (e) { allowed = false; }
+  }
   if (!allowed) return { ok: false, message: 'Разрешите уведомления для напоминаний о воде.' };
+
+  /* Приоритет — нативный планировщик: уведомление с кнопкой «+250 мл»
+     работает прямо из шторки, без открытия приложения, и обновляет виджет.
+     JS-напоминания остаются запасным вариантом для старых сборок. */
+  if (hasNative) {
+    try {
+      const wr = state.waterReminders;
+      const times = buildWaterReminderTimes(wr.interval, wr.windowStart, wr.windowEnd);
+      if (times.length === 0) return { ok: false, message: 'Проверьте окно напоминаний о воде.' };
+      bridge.scheduleWaterRemindersNative(times.join(','));
+      // Снять возможные старые JS-уведомления, чтобы не было дублей.
+      if (localNotifications) try { await localNotifications.cancel({ notifications: waterReminderIds().map((id) => ({ id })) }); } catch (e) { }
+      return { ok: true, count: times.length, native: true };
+    } catch (e) {
+      console.warn('Нативный планировщик воды недоступен, переключаюсь на JS:', e);
+    }
+  }
+  if (!localNotifications) return { ok: false, message: 'Напоминания о воде сейчас недоступны.' };
   try {
     await ensureWaterReminderChannel(localNotifications);
     await cancelWaterReminders(localNotifications);
@@ -4672,10 +4748,12 @@ function init() {
   $('#smart-entry-save').addEventListener('click', saveSmartEntry);
   $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
   $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
-  // Оценка дня: кнопка создаётся динамически — делегирование на родительский контейнер
-  $('#day-checklist-card').addEventListener('click', (e) => {
-    const moodBtn = e.target.closest('#mood-pick-open');
-    if (moodBtn) { $('#mood-dialog').hidden = false; }
+  // Оценка дня: кнопка создаётся динамически — делегирование на оба контейнера
+  ['#day-checklist-card', '#day-mood-card'].forEach((sel) => {
+    $(sel)?.addEventListener('click', (e) => {
+      const moodBtn = e.target.closest('#mood-pick-open');
+      if (moodBtn) { $('#mood-dialog').hidden = false; }
+    });
   });
   bindEvent('#mood-picker', 'click', (e) => {
     const btn = e.target.closest('[data-mood]');
@@ -4703,14 +4781,13 @@ function init() {
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
-  bindEvent('#ai-photo-camera-btn', 'click', () => $('#ai-photo-camera-input')?.click());
-  bindEvent('#ai-photo-voice-btn', 'click', handleAiPhotoVoiceBtn);
-  $('#ai-photo-camera-input')?.addEventListener('change', (e) => {
-    if (e.target.files && e.target.files[0]) handleAiPhotoFoodCamera(e.target.files[0]);
+  bindEvent('#ai-quick-camera-btn', 'click', () => $('#ai-quick-camera-input')?.click());
+  $('#ai-quick-camera-input')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
     e.target.value = '';
   });
-  bindEvent('#ai-photo-log-btn', 'click', confirmAiPhotoFoodLog);
   bindEvent('#ai-quick-voice-btn', 'click', () => { startRealVoiceInput('#ai-quick-input', 'Говорите еду, воду или активность'); });
+  bindEvent('#ai-chat-voice-btn', 'click', () => { startRealVoiceInput('#ai-chat-input', 'Задайте вопрос голосом'); });
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
   bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
@@ -4996,10 +5073,6 @@ function handleWaterVoiceBtn() {
   startRealVoiceInput('#water-voice-input', 'Говорите объём воды в мл');
 }
 
-function handleAiPhotoVoiceBtn() {
-  startRealVoiceInput('#ai-photo-food-input', 'Назовите продукты и граммы на фото');
-}
-
 function openAiCenter() {
   const dlg = $('#ai-dialog');
   if (dlg) dlg.hidden = false;
@@ -5184,50 +5257,13 @@ function sendAiTestQuery() {
   toast('⚡ Статус модели отображён');
 }
 
-function handleAiPhotoFoodCamera(file) {
-  const box = $('#ai-photo-result-box');
-  const input = $('#ai-photo-food-input');
-  if (!box || !input) return;
+function handleAiQuickCamera(file) {
+  const input = $('#ai-quick-input');
+  if (!input) return;
   // Честный офлайн-режим: фото сохраняется как контекст, а расчёт делает
   // локальная база продуктов по текстовому описанию. Выдуманный состав не подставляем.
-  box.hidden = false;
   input.focus();
-  toast('📷 Фото получено. Опишите состав блюда текстом — калории и БЖУ посчитает локальная база.');
-}
-
-function confirmAiPhotoFoodLog() {
-  const input = $('#ai-photo-food-input');
-  const box = $('#ai-photo-result-box');
-  if (!input) return;
-  const text = (input.value || '').trim();
-  if (!text) {
-    toast('Укажите продукты');
-    return;
-  }
-  const items = parseMealText(text);
-  if (!items || items.length === 0) {
-    toast('Не удалось определить блюдо');
-    return;
-  }
-  items.forEach((it) => {
-    state.food.items.push({
-      id: uid(),
-      raw: text,
-      name: it.name,
-      amount: it.amount || 100,
-      unit: it.unit || 'г',
-      kcal: it.kcal,
-      p: it.p || 0,
-      f: it.f || 0,
-      c: it.c || 0
-    });
-  });
-  saveState();
-  resetMealTypeAfterSave();
-  renderAll();
-  if (box) box.hidden = true;
-  closeAiCenter();
-  toast('✓ Распознанное блюдо добавлено в дневник!');
+  toast('📷 Фото получено. Опишите состав блюда в поле — калории и БЖУ посчитает локальная база.');
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */
@@ -5240,6 +5276,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes
   };
 }
