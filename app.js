@@ -1003,7 +1003,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.2.9';
+const FITFLOW_VERSION = '0.3.0';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1822,6 +1822,7 @@ function renderDayChecklist() {
   if (!card) return;
   card.hidden = !state.dayChecklist.enabled;
   renderDayMoodCard();
+  renderHomeQuickNav();
   if (!state.dayChecklist.enabled) return;
 
   const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
@@ -2072,6 +2073,74 @@ function applyHomeLayout() {
     card.hidden = !layout.visible[id];
     container.appendChild(card);
   });
+  renderHomeQuickNav();
+}
+
+/* ===== Быстрый переход по разделам Главной (прилипающие чипы) ===== */
+const HOME_QUICKNAV_ITEMS = [
+  {
+    ids: ['day-checklist-card', 'day-mood-card'],
+    label: 'День',
+    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6.4 7.3 7.7 9.9 5M6 12.4 7.3 13.7 9.9 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5h6M12.5 12.5h6M5.5 18.5h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  },
+  {
+    ids: ['water-card'],
+    label: 'Вода',
+    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.2c3.4 3.7 5.7 6.8 5.7 9.5a5.7 5.7 0 1 1-11.4 0c0-2.7 2.3-5.8 5.7-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+  },
+  {
+    ids: ['food-card'],
+    label: 'Питание',
+    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.5 12h15a7.5 7.5 0 0 1-15 0Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 8.5c1-1.8 3.5-2.4 5.4-1.4M12 6.5V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  },
+  {
+    ids: ['weight-card'],
+    label: 'Вес',
+    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4.5" y="5.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 13l2-2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  }
+];
+
+let homeQuicknavObserver = null;
+
+function renderHomeQuickNav() {
+  if (typeof document === 'undefined') return;
+  const nav = $('#home-quicknav');
+  if (!nav) return;
+  let html = '';
+  HOME_QUICKNAV_ITEMS.forEach((item) => {
+    const targetId = item.ids.find((id) => {
+      const el = document.getElementById(id);
+      return el && !el.hidden;
+    });
+    if (!targetId) return;
+    html += `<button type="button" class="quicknav-chip" data-jump="${targetId}" aria-label="Перейти к разделу «${item.label}»">${item.icon}${item.label}</button>`;
+  });
+  if (nav.innerHTML !== html) nav.innerHTML = html;
+  nav.hidden = html === '';
+  bindHomeQuickNavObserver();
+}
+
+function bindHomeQuickNavObserver() {
+  const nav = typeof document !== 'undefined' ? $('#home-quicknav') : null;
+  if (homeQuicknavObserver) { homeQuicknavObserver.disconnect(); homeQuicknavObserver = null; }
+  if (!nav || nav.hidden || typeof IntersectionObserver === 'undefined') return;
+  const chips = Array.from(nav.querySelectorAll('[data-jump]'));
+  const targets = chips.map((c) => document.getElementById(c.dataset.jump)).filter(Boolean);
+  if (!targets.length) return;
+  homeQuicknavObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === entry.target.id));
+    });
+  }, { rootMargin: '-35% 0px -58% 0px' });
+  targets.forEach((t) => homeQuicknavObserver.observe(t));
+}
+
+/* Высота шапки → сдвиг прилипающей панели перехода */
+function syncQuickNavTop() {
+  if (typeof document === 'undefined') return;
+  const topbar = document.querySelector('.topbar');
+  if (topbar) document.documentElement.style.setProperty('--quicknav-top', `${topbar.offsetHeight}px`);
 }
 
 function renderHomeLayoutSettings() {
@@ -4755,6 +4824,15 @@ function init() {
       if (moodBtn) { $('#mood-dialog').hidden = false; }
     });
   });
+  // Быстрый переход по разделам Главной: плавная прокрутка к карточке
+  $('#home-quicknav')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-jump]');
+    if (!chip) return;
+    const target = document.getElementById(chip.dataset.jump);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  syncQuickNavTop();
+  window.addEventListener('resize', syncQuickNavTop);
   bindEvent('#mood-picker', 'click', (e) => {
     const btn = e.target.closest('[data-mood]');
     if (btn) { saveDayMood(Number(btn.dataset.mood)); $('#mood-dialog').hidden = true; }

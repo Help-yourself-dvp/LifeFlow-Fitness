@@ -69,6 +69,8 @@
       <p class="greeting-profile"><span aria-hidden="true">👤</span><span>Профиль:</span><strong id="home-active-profile">Мой профиль</strong></p>
     </section>
 
+    <nav class="home-quicknav" id="home-quicknav" aria-label="Быстрый переход по разделам" hidden></nav>
+
     <div class="home-cards" id="home-cards">
 
     <div id="day-checklist-card" hidden></div>
@@ -231,9 +233,10 @@
             <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
           </div>
           <div class="settings-row">
-            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить</button>
-            <button class="btn btn-secondary" id="manual-food-favorite" type="button">В мои блюда</button>
+            <button class="btn btn-primary" id="manual-food-add" type="button">Записать сегодня</button>
+            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Только сохранить</button>
           </div>
+          <p class="settings-hint" style="margin:0">«Записать сегодня» — блюдо сразу попадёт в дневник. «Только сохранить» — останется шаблоном в коллекции «Мои блюда» для быстрого добавления позже, в дневник сейчас не попадёт.</p>
         </div></div>
       </section>
 
@@ -767,7 +770,7 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.2.9</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.0</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -1109,10 +1112,10 @@
         <button class="btn btn-secondary" id="ai-dialog-close" type="button" style="padding:4px 10px;font-size:1rem">×</button>
       </div>
       <div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
-        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick">⚡ Ввод</button>
-        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe">🥑 Рецепт</button>
-        <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis">📊 Анализ</button>
-        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat">💬 Нутрициолог</button>
+        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2.5 5.5 14H11l-1.5 7.5L17 10h-5.5L13 2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Ввод</button>
+        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.6c2.3-.9 4.6-.7 7 .9 2.4-1.6 4.7-1.8 7-.9v14c-2.3-.9-4.6-.7-7 .9-2.4-1.6-4.7-1.8-7-.9v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Рецепт</button>
+        <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 16.5v-4M12.5 16.5v-8M17.5 16.5v-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Анализ</button>
+        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Нутрициолог</button>
       </div>
       <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
       <div id="ai-tab-quick" class="ai-tab-panel">
