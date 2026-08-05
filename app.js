@@ -623,7 +623,9 @@ function parseMealText(raw) {
   // тире/дефисы. \b не используем — в JS он не понимает кириллицу.
   const parts = raw
     .split(/\s*[,;]\s*(?=[а-яёa-z])|\s+и\s+|[\s\u00A0]?[–—][\s\u00A0]?/iu)
-    .map((s) => s.trim())
+    // Голосовой ввод оставляет висючие запятые/точки — чистим края сегмента,
+    // иначе ломаются якорные разборы («сока стакан, », «…минут.»).
+    .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, ''))
     .filter(Boolean);
   return parts.map(parseItem).filter(Boolean);
 }
@@ -655,6 +657,8 @@ const COMMAND_DICTIONARY = {
     [/(^|\s)пяток(?=\s+яйц|яиц)/giu, '$15'],
     [/выпила/giu, 'выпил'],
     [/съела/giu, 'съел'],
+    // Усечённое распознаванием речи «вод» — почти всегда «вода».
+    [/(^|\s)вод(?=\s|$|[,.;])/giu, '$1вода'],
     [/поела/giu, 'поел'],
     [/занималась/giu, 'занимался'],
     [/тренировалась/giu, 'тренировался'],
@@ -706,6 +710,7 @@ const COMMAND_DICTIONARY = {
     [/(^|\s)лучек(?=\s|$)/giu, '$1лук'],
     [/(^|\s)творожок(?=\s|$)/giu, '$1творог'],
     [/(^|\s)чаек(?=\s|$)/giu, '$1чай'],
+    [/(^|\s)чая(?=\s|$|[,.;])/giu, '$1чай'],
     [/(^|\s)компотик(?=\s|$)/giu, '$1компот'],
     [/грам(?:м)?(?:а|ов)?(?=\s|$|[.,;])/giu, 'г'],
     [/килограм(?:м)?(?:а|ов)?(?=\s|$)/giu, 'кг'],
@@ -747,6 +752,19 @@ function normalizeCommandText(text) {
   return COMMAND_DICTIONARY.corrections.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), String(text || '').toLowerCase());
 }
 
+/* Голосовой ввод без знаков препинания: «стакан сока персик» → «сока стакан, персик».
+   Переворачиваем «ёмкость + продукт» в «продукт + ёмкость» и отделяем запятой,
+   чтобы следующие подряд продукты не слипались в один. Не трогаем случаи
+   с явным числом («2 стакана сока» — их разворачивает отдельный шаг парсера). */
+const SMART_CONTAINER_UNITS = 'стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*';
+
+function normalizeSmartUnits(text) {
+  return String(text || '').replace(
+    new RegExp('(^|(?<!\\d)\\s)(' + SMART_CONTAINER_UNITS + ')\\s+([а-яёa-z]+)', 'giu'),
+    (match, sep, unit, product) => (sep ? ', ' : '') + product + ' ' + unit + ', '
+  );
+}
+
 function detectActivityType(chunk) {
   const found = COMMAND_DICTIONARY.activityTypes.find((entry) => entry.pattern.test(chunk));
   return found ? found.type : 'other';
@@ -757,7 +775,7 @@ let pendingSmartEntry = null;
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
   if (!source) return { waterMl: 0, activities: [], activity: null, food: [] };
-  const lower = normalizeCommandText(source);
+  const lower = normalizeSmartUnits(normalizeCommandText(source));
 
   let waterMl = 0;
   // Вода учитывается отдельно только при явном слове «вода».
@@ -768,6 +786,12 @@ function parseSmartEntry(text) {
     const amount = Number(waterMatch[1].replace(',', '.'));
     waterMl = Math.round(amount * (/^л|литр/u.test(waterMatch[2]) ? 1000 : (/^стакан/u.test(waterMatch[2]) ? 250 : 1)));
   }
+  // «вода стакан» / «выпил воды чашку» без цифры — одна ёмкость (после нормализации
+  // единицы всегда стоят после продукта).
+  const waterContainerMatch = !waterMl
+    ? lower.match(/вод(?:а|ы|у)\s+(стакан|чашк[а-яё]*|кружк[а-яё]*)(?![а-яёa-z])/iu)
+    : null;
+  if (waterContainerMatch) waterMl = /^стакан/iu.test(waterContainerMatch[1]) ? 250 : 200;
 
   const activities = [];
   // Синонимы активности: глаголы («гулял», «бегал») и существительные
@@ -784,7 +808,8 @@ function parseSmartEntry(text) {
   }
 
   const food = [];
-  const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть|выпил(?:а)?|выпить)\s+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
+  // [\s,]+ — после глагола допускаем запятую (её могла вставить нормализация ёмкостей).
+  const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть|выпил(?:а)?|выпить)[\s,]+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
   while ((match = foodPattern.exec(lower))) {
     // В речи количество часто стоит первым: «выпил 250 мл сока».
     // Переставляем его в понятный локальному парсеру вид «сока 250 мл».
@@ -802,6 +827,7 @@ function parseSmartEntry(text) {
   if (food.length === 0) {
     let rest = lower;
     if (waterMatch) rest = rest.replace(waterMatch[0], ',');
+    if (waterContainerMatch) rest = rest.replace(waterContainerMatch[0], ',');
     rest = rest.replace(activityPattern, ',');
     // Граница слова \b для кириллицы не работает — используем lookahead.
     rest = rest.replace(/\d+(?:[.,]\d+)?\s*(?:мин(?:ут[аы]?)?|час(?:а|ов)?|ч)(?![а-яёa-z])/giu, ',');
@@ -910,6 +936,21 @@ function parseItem(text) {
     unit = 'порция';
   }
 
+  // Разговорная ёмкость ПОСЛЕ продукта без цифры: «сока стакан», «суп тарелка»,
+  // «молоко литр» — считаем 1 единицей. Ёмкости без известного веса
+  // (бутылка, банка, пакет) сюда не входят — для них честнее «без количества».
+  const implicitContainer = !amountMatch && !implicitSpoon && !implicitPlate
+    ? text.match(/^(.+?)\s+(стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*|литр[а-яё]*|л)$/iu)
+    : null;
+  if (implicitContainer) {
+    const rawUnit = implicitContainer[2].toLowerCase();
+    amount = 1;
+    unit = rawUnit.startsWith('стакан') ? 'стакан'
+      : (rawUnit.startsWith('чашк') || rawUnit.startsWith('кружк')) ? 'чашка'
+      : (rawUnit.startsWith('литр') || rawUnit === 'л') ? 'л'
+      : 'порция';
+  }
+
   // 2) Имя продукта — всё, что до числа
   let name = text;
   if (amountMatch) {
@@ -918,6 +959,8 @@ function parseItem(text) {
     name = implicitSpoon[1];
   } else if (implicitPlate) {
     name = implicitPlate[1];
+  } else if (implicitContainer) {
+    name = implicitContainer[1];
   }
   name = name
     .toLowerCase()
@@ -1021,7 +1064,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.3';
+const FITFLOW_VERSION = '0.3.4';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1958,6 +2001,8 @@ function drawWeightChartInto(wrap, chart, history) {
   const label = (weight) => `${Number(weight.toFixed(1)).toLocaleString('ru-RU')} кг`;
   const firstDate = formatWeightDate(history[0].date);
   const lastDate = formatWeightDate(history[history.length - 1].date);
+  // Записи за один день: одна дата, без странного диапазона «3 авг — 3 авг».
+  const sameDay = firstDate === lastDate;
   chart.setAttribute('aria-label', `График веса: от ${label(rawMin)} до ${label(rawMax)}, ${history.length} записей`);
   chart.innerHTML = `
     <line x1="${left}" y1="${top}" x2="${width - right}" y2="${top}" class="weight-grid" />
@@ -1968,7 +2013,7 @@ function drawWeightChartInto(wrap, chart, history) {
     ${history.length > 1 ? `<polyline points="${line}" class="weight-line" />` : ''}
     ${points.map((item, index) => `<circle cx="${item.x}" cy="${item.y}" r="4" class="weight-point"><title>${formatWeightDate(history[index].date)} · ${label(history[index].weightKg)}</title></circle>`).join('')}
     <text x="${left}" y="${height - 7}" class="weight-date-label">${escapeHtml(firstDate)}</text>
-    <text x="${width - right}" y="${height - 7}" text-anchor="end" class="weight-date-label">${escapeHtml(lastDate)}</text>`;
+    ${sameDay ? '' : `<text x="${width - right}" y="${height - 7}" text-anchor="end" class="weight-date-label">${escapeHtml(lastDate)}</text>`}`;
   wrap.hidden = false;
 }
 
@@ -1987,7 +2032,17 @@ function renderStatsWeightChart() {
   cutoff.setDate(cutoff.getDate() - 92);
   const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
   const recent = all.filter((entry) => entry.date >= cutoffKey);
-  drawWeightChartInto(wrap, chart, recent.length ? recent : all.slice(-8));
+  const shown = recent.length ? recent : all.slice(-8);
+  const caption = $('#stats-weight-chart-caption');
+  if (caption) {
+    const sameDay = shown.length > 0 && shown[0].date === shown[shown.length - 1].date;
+    caption.textContent = !all.length
+      ? ''
+      : (shown.length < 5 || sameDay)
+        ? 'График охватывает последние 3 месяца — записей пока мало, он заполнится по мере регулярных взвешиваний.'
+        : 'По записям за последние 3 месяца.';
+  }
+  drawWeightChartInto(wrap, chart, shown);
 }
 
 function renderDayChecklist() {
@@ -4340,7 +4395,9 @@ function applySettingsAccordion() {
       return;
     }
     const toggle = btn.closest('.settings-group')?.querySelector('input[role="switch"]');
-    if (toggle) options.hidden = !toggle.checked;
+    // У групп без тумблера (например, «Профиль и цели») блок безусловно
+    // раскрываем — раньше hidden не сбрасывался и секция не разворачивалась обратно.
+    options.hidden = toggle ? !toggle.checked : false;
   });
 }
 
@@ -5107,6 +5164,7 @@ function init() {
   });
   bindEvent('#ai-quick-voice-btn', 'click', () => { startRealVoiceInput('#ai-quick-input', 'Говорите еду, воду или активность'); });
   bindEvent('#ai-chat-voice-btn', 'click', () => { startRealVoiceInput('#ai-chat-input', 'Задайте вопрос голосом'); });
+  bindEvent('#ai-recipe-voice-btn', 'click', () => { startRealVoiceInput('#ai-recipe-input', 'Назовите продукты голосом'); });
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
   bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
@@ -5486,6 +5544,14 @@ function generateAiRecipe() {
   else if (items.some((i) => /яиц|яйц/iu.test(i.name))) title = 'Завтрак из яиц с ' + toInstrumental((veg || items[0]).name);
   else title = 'Блюдо из ваших продуктов';
   const totals = items.reduce((acc, i) => ({ kcal: acc.kcal + i.kcal, p: acc.p + i.p, f: acc.f + i.f, c: acc.c + i.c }), { kcal: 0, p: 0, f: 0, c: 0 });
+  // Объём набора: взвешенные продукты в граммах/миллилитрах + штучные отдельно.
+  const gramsTotal = items.reduce((t, i) => t + ((i.unit === 'г' || i.unit === 'мл') ? (i.amount == null ? 100 : i.amount) : 0), 0);
+  const piecesTotal = items.reduce((t, i) => t + (PIECE_UNITS.has(i.unit) ? (i.amount == null ? 1 : i.amount) : 0), 0);
+  const containerUnits = items.filter((i) => !PIECE_UNITS.has(i.unit) && i.unit !== 'г' && i.unit !== 'мл' && i.amount != null);
+  const containerText = containerUnits.length
+    ? ' + ' + containerUnits.map((i) => i.amount + ' ' + i.unit).join(' + ')
+    : '';
+  const volumeText = '~' + fmt(Math.round(gramsTotal)) + ' г' + (piecesTotal > 0 ? ' + ' + piecesTotal + ' шт' : '') + containerText;
   const steps = [...catSet].map((id) => RECIPE_STEP_BY_CATEGORY[id]).filter(Boolean);
   if (!steps.length) steps.push('подготовьте продукты привычным способом — варка, запекание или свежая подача');
   const goalKcal = state.food.goal || 2000;
@@ -5500,7 +5566,7 @@ function generateAiRecipe() {
     '<li><b>Подача</b>: сначала белок и овощи, гарнир — по голоду; соль и соусы — умеренно.</li>' +
     '</ul>' +
     '<div class="ai-recipe-macros"><span>🔥 ' + fmt(Math.round(totals.kcal)) + ' ккал</span><span>Б: ' + fmt(Math.round(totals.p)) + ' г</span><span>Ж: ' + fmt(Math.round(totals.f)) + ' г</span><span>У: ' + fmt(Math.round(totals.c)) + ' г</span></div>' +
-    '<p class="settings-hint" style="margin:8px 0 0">Калорийность и БЖУ посчитаны по локальной базе; для продуктов без веса — из расчёта 100 г.</p>' +
+    '<p class="settings-hint" style="margin:8px 0 0; font-weight:600">Калории и БЖУ указаны на весь набор (' + escapeHtml(volumeText) + ') — после приготовления масса блюда будет близка к этому весу. Продукты без веса посчитаны как 100 г.</p>' +
     '<p class="settings-hint" style="margin:6px 0 0">' + escapeHtml(fullnessNote) + '</p>' +
     '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить эти продукты в дневник (' + fmt(Math.round(totals.kcal)) + ' ккал)</button>';
   resultBox.hidden = false;
@@ -5613,6 +5679,11 @@ function generateAiAnalysis() {
 /* Нутрициолог-эксперт по правилам: тематические ответы + данные из базы продуктов.
    Никаких «одинаковых» ответов — если тема неизвестна, честно говорим об этом. */
 const AI_CHAT_RULES = [
+  {
+    // Специальный случай раньше общих правил: «что пить перед сном — чай или кофе»
+    pattern: /перед сном|кофе.{0,25}(сон|ночь)|(сон|ночь|вечер).{0,25}кофе|чай.{0,25}(сон|ночь)|(сон|ночь).{0,25}чай/iu,
+    answer: () => 'Перед сном — без кофеина: кофе лучше пить не позднее чем за 6–8 часов до сна, а крепкий чёрный или зелёный чай содержит примерно половину кофеиновой нагрузки чашки кофе. Лучший вечерний вариант — травяной чай (ромашка, мята) или вода комнатной температуры. Если тянет на кофе именно вечером — попробуйте декофеинизированный.'
+  },
   {
     pattern: /вод|пить|гидрат/iu,
     answer: () => {
@@ -5797,6 +5868,6 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits
   };
 }

@@ -17,7 +17,8 @@ const functions = [
   'openTermsDialog', 'openMethodologyDialog', 'closeMethodologyDialog',
   'renderProfileBasics', 'toggleProfileChoice', 'saveProfileBasicField',
   'computeProfileNorms', 'openNormsDialog', 'closeNormsDialog', 'applyNormsDialog',
-  'generateAiRecipe', 'buildAiChatAnswer', 'sendAiChat', 'handleAiRecipeCameraPhoto'
+  'generateAiRecipe', 'buildAiChatAnswer', 'sendAiChat', 'handleAiRecipeCameraPhoto',
+  'normalizeSmartUnits', 'renderStatsWeightChart'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -33,7 +34,8 @@ const ids = [
   'methodology-open', 'methodology-dialog', 'methodology-dialog-ok', 'terms-open', 'terms-status',
   'profile-sex-choices', 'profile-activity-choices', 'profile-age-input', 'profile-height-input', 'profile-basics-options',
   'norms-calc-btn', 'norms-dialog', 'norms-dialog-text', 'norms-dialog-hint', 'norms-dialog-apply', 'norms-dialog-cancel',
-  'stats-periods', 'ai-generate-recipe', 'ai-send-chat'
+  'stats-periods', 'ai-generate-recipe', 'ai-send-chat',
+  'ai-recipe-voice-btn', 'stats-weight-chart-caption'
 ];
 
 let failed = 0;

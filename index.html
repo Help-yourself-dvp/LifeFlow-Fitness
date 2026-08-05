@@ -372,6 +372,7 @@
         <p id="stats-weight-hint">—</p>
         <div class="stats-weight-chart-wrap weight-chart-wrap" id="stats-weight-chart-wrap" hidden>
           <svg class="weight-chart" id="stats-weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса за последние 3 месяца"></svg>
+          <p class="settings-hint stats-weight-chart-caption" id="stats-weight-chart-caption"></p>
         </div>
         <button class="stats-details-btn" type="button" data-open-detail="weight">График и история веса →</button>
       <div id="stats-mood"></div>
@@ -809,7 +810,7 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.3</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.4</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <div class="about-links">
               <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
@@ -1222,6 +1223,12 @@
         <div class="ai-input-stack">
           <textarea id="ai-recipe-input" class="form-input ai-textarea" rows="3" placeholder="Например: куриная грудка, рис, помидоры, сыр, яйца" aria-label="Какие продукты у вас есть?"></textarea>
           <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-voice-btn" type="button" title="Назвать продукты голосом" aria-label="Назвать продукты голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
             <button class="icon-btn ai-icon-btn" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты" aria-label="Сфотографировать продукты">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1-1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>

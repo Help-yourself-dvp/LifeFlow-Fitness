@@ -2693,6 +2693,11 @@ html[data-theme="dark"] .segmented button.active {
   margin-top: 12px;
   font-size: 0.92rem;
   line-height: 1.45;
+  /* Длинные ответы (рецепт, анализ) прокручиваются внутри блока,
+     а не уезжают за экран вместе со всей страницей. */
+  max-height: min(45dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .ai-result-box h4 {
   margin: 0 0 8px;
