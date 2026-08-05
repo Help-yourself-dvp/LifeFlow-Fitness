@@ -998,12 +998,12 @@ const DEFAULTS = {
   customMealTypes: [],
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
-  dayMood: { rating: null },
+  dayMood: { date: null, rating: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.2.6';
+const FITFLOW_VERSION = '0.2.7';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1271,7 +1271,15 @@ function normalizeDayChecklist() {
 function normalizeDayMood() {
   const mood = state.dayMood || {};
   const r = Number(mood.rating);
-  state.dayMood = { rating: (r >= 1 && r <= 5 && Number.isInteger(r)) ? r : null };
+  const rating = (r >= 1 && r <= 5 && Number.isInteger(r)) ? r : null;
+  const date = typeof mood.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(mood.date) ? mood.date : null;
+  // Совместимость: до 0.2.7 оценка хранилась без даты и «зависала» в чек-листе
+  // на все следующие дни. Такую старую оценку честно очищаем.
+  state.dayMood = { date: rating ? date : null, rating: date ? rating : null };
+}
+
+function getTodayMood() {
+  return (state.dayMood.date === todayKey() && state.dayMood.rating) ? state.dayMood.rating : null;
 }
 
 function normalizeAiSettings() {
@@ -1413,7 +1421,7 @@ function recordDailySummary(date) {
   // Не создаём пустые дни, если пользователь в этот день ничего не отмечал.
   if (waterTotal <= 0 && foodTotal <= 0 && activityMinutes <= 0) return;
   const summary = { date, waterTotal, waterGoal, foodTotal, foodGoal, foodP, foodF, foodC, activityMinutes };
-  if (state.dayMood.rating && date === todayKey()) summary.mood = state.dayMood.rating;
+  if (date === todayKey() && getTodayMood()) summary.mood = getTodayMood();
   const history = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
   const index = history.findIndex((day) => day.date === date);
   if (index >= 0) history[index] = summary;
@@ -1823,7 +1831,7 @@ function renderDayChecklist() {
 
   const itemMark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
   const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
-  const mood = state.dayMood.rating;
+  const mood = getTodayMood();
   const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
 
   const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
@@ -1861,7 +1869,7 @@ function updateDayChecklistEnabled(enabled) {
 }
 
 function saveDayMood(rating) {
-  state.dayMood.rating = rating;
+  state.dayMood = { date: todayKey(), rating };
   saveState();
   renderDayChecklist();
   renderStats();
@@ -1871,8 +1879,9 @@ function saveDayMood(rating) {
 function getMoodCorrelations() {
   const history = Array.isArray(state.dailyHistory) ? [...state.dailyHistory] : [];
   const today = currentDaySummary();
-  if (state.dayMood.rating) {
-    history.unshift({ ...today, mood: state.dayMood.rating });
+  const todayMood = getTodayMood();
+  if (todayMood) {
+    history.unshift({ ...today, mood: todayMood });
   }
   history.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -2343,6 +2352,14 @@ function renderMealTypePicker() {
   ].join('');
   $$('#meal-type-picker [data-meal-type]').forEach((button) =>
     button.classList.toggle('active', button.dataset.mealType === selectedMealTypeId));
+  const current = $('#meal-type-current');
+  if (current) {
+    const type = getSelectedMealType();
+    const autoMark = type && !mealTypeTouched ? ' <span class="meal-type-auto">авто</span>' : '';
+    current.innerHTML = type
+      ? `Приём пищи: <b>${escapeHtml(type.label)}</b>${autoMark}`
+      : 'Приём пищи: <b>Без типа</b>';
+  }
 }
 
 function addCustomMealType() {
@@ -4437,6 +4454,31 @@ function init() {
   $('#water-goal-minus').addEventListener('click', () => changeWaterGoal(-100));
   $('#water-goal-plus').addEventListener('click', () => changeWaterGoal(100));
 
+  // Вода: свой объём
+  const addCustomWater = () => {
+    const ml = Math.round(Number(String($('#water-custom-ml').value).replace(',', '.')));
+    if (!Number.isFinite(ml) || ml < 10 || ml > 2000) {
+      toast('Введите объём от 10 до 2 000 мл');
+      $('#water-custom-ml').focus();
+      return;
+    }
+    $('#water-custom-ml').value = '';
+    addWater(ml);
+    toast(`Добавлено +${fmt(ml)} мл`);
+  };
+  bindEvent('#water-custom-toggle', 'click', () => {
+    const row = $('#water-custom-row');
+    const show = row.hidden;
+    row.hidden = !show;
+    $('#water-custom-toggle').setAttribute('aria-expanded', String(show));
+    if (show) $('#water-custom-ml').focus();
+  });
+  bindEvent('#water-custom-add', 'click', addCustomWater);
+  const customWaterInput = $('#water-custom-ml');
+  if (customWaterInput) customWaterInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomWater(); }
+  });
+
   // Еда: форма
   $('#food-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -4458,6 +4500,14 @@ function init() {
     mealTypeTouched = true;
     renderMealTypePicker();
   });
+  bindEvent('#meal-type-expand', 'click', () => {
+    const full = $('#meal-type-full');
+    const btn = $('#meal-type-expand');
+    const show = full.hidden;
+    full.hidden = !show;
+    btn.setAttribute('aria-expanded', String(show));
+    btn.textContent = show ? 'Скрыть' : 'Изменить';
+  });
   $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
   $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
   $('#manual-food-add').addEventListener('click', addManualFood);
@@ -4477,10 +4527,6 @@ function init() {
 
   $('#food-goal-minus').addEventListener('click', () => changeFoodGoal(-100));
   $('#food-goal-plus').addEventListener('click', () => changeFoodGoal(100));
-
-  // Заглушки неактивных разделов
-  $('#food-ai-badge').addEventListener('click', () =>
-    toast('ИИ-разбор фраз: Gemini / DeepSeek / YandexGPT — подключим позже'));
 
   // Навигация
   $$('.nav-item').forEach((btn) => {
@@ -5128,9 +5174,11 @@ function handleAiPhotoFoodCamera(file) {
   const box = $('#ai-photo-result-box');
   const input = $('#ai-photo-food-input');
   if (!box || !input) return;
-  input.value = 'Куриная грудка запечённая 180г, гречка отварная 150г, овощной салат 100г';
+  // Честный офлайн-режим: фото сохраняется как контекст, а расчёт делает
+  // локальная база продуктов по текстовому описанию. Выдуманный состав не подставляем.
   box.hidden = false;
-  toast('📷 Блюдо распознано на фото! Проверьте состав.');
+  input.focus();
+  toast('📷 Фото получено. Опишите состав блюда текстом — калории и БЖУ посчитает локальная база.');
 }
 
 function confirmAiPhotoFoodLog() {

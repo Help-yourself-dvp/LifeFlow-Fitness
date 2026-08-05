@@ -85,6 +85,12 @@
           <h2 id="water-title">Вода</h2>
           <p>Визуальный прогресс за день</p>
         </div>
+        <button class="icon-btn mic-header-btn" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Надиктовать воду голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
 
       <div class="water-body">
@@ -110,7 +116,6 @@
           <button class="chip" data-water="250" type="button">
             <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
           </button>
-          <button class="chip chip-voice" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Голосовой ввод воды">🎤</button>
           <button class="chip" data-water="500" type="button">
             <span class="chip-water-bottle" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
@@ -119,12 +124,18 @@
               </svg>
             </span> +500 мл
           </button>
+          <button class="chip" id="water-custom-toggle" type="button" aria-expanded="false" title="Добавить свой объём в миллилитрах">Своя мл</button>
           <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последнее добавление воды" title="Отменить последнее добавление воды">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 5v5h5M4.6 10a8 8 0 1 1-1.1 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Отмена
           </button>
+        </div>
+
+        <div class="water-custom-row" id="water-custom-row" hidden>
+          <input id="water-custom-ml" type="text" inputmode="numeric" maxlength="4" placeholder="Например: 300" aria-label="Свой объём воды в миллилитрах">
+          <button class="btn btn-primary" id="water-custom-add" type="button">Добавить</button>
         </div>
 
         <div class="goal-row">
@@ -151,11 +162,10 @@
           <h2 id="food-title">Питание</h2>
           <p>Умный ввод текстом + калории</p>
         </div>
-        <button class="card-menu icon-btn" id="food-ai-badge" type="button" title="ИИ-разбор фраз появится позже">
+        <button class="card-menu icon-btn mic-header-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Надиктовать еду голосом">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5"
-                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
@@ -181,7 +191,6 @@
           </svg>
           <input type="text" id="food-input" class="food-input" inputmode="text"
                  placeholder="Например: гречка 100г" aria-label="Что вы съели?">
-          <button class="input-mic-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Ввести голосом">🎤</button>
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
       </form>
@@ -189,20 +198,25 @@
       <p class="parse-error" id="food-error" hidden></p>
 
       <div class="meal-type-section">
-        <span class="quick-label">Приём пищи:</span>
-        <div class="quick-chips" id="meal-type-picker"></div>
-        <div class="meal-type-custom-row">
-          <button class="btn btn-secondary" id="custom-meal-type-toggle" type="button">＋ Свой тип</button>
-          <div class="meal-type-custom-inline" id="custom-meal-type-inline">
-            <input id="custom-meal-type-name" type="text" maxlength="40" placeholder="Например, второй завтрак">
-            <button class="btn btn-secondary" id="custom-meal-type-save" type="button">Сохранить</button>
+        <div class="meal-type-summary">
+          <span class="meal-type-current" id="meal-type-current">Приём пищи: —</span>
+          <button class="chip chip-sm meal-type-expand" id="meal-type-expand" type="button" aria-expanded="false">Изменить</button>
+        </div>
+        <div class="meal-type-full" id="meal-type-full" hidden>
+          <div class="quick-chips" id="meal-type-picker"></div>
+          <div class="meal-type-custom-row">
+            <button class="btn btn-secondary" id="custom-meal-type-toggle" type="button">＋ Свой тип</button>
+            <div class="meal-type-custom-inline" id="custom-meal-type-inline">
+              <input id="custom-meal-type-name" type="text" maxlength="40" placeholder="Например, второй завтрак">
+              <button class="btn btn-secondary" id="custom-meal-type-save" type="button">Сохранить</button>
+            </div>
           </div>
         </div>
       </div>
 
       <section class="collapsible-block">
         <button class="collapsible-toggle" type="button" data-collapse-target="manual-food-content" aria-expanded="false">
-          <span>Своё блюдо</span><span aria-hidden="true">⌄</span>
+          <span>Своё блюдо</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="collapsible-content" id="manual-food-content"><div class="manual-food-section">
           <p class="quick-label">Введите название и калории готового блюда.</p>
@@ -224,7 +238,7 @@
 
       <section class="collapsible-block">
         <button class="collapsible-toggle" type="button" data-collapse-target="favorite-meals-content" aria-expanded="false">
-          <span>Мои блюда</span><span aria-hidden="true">⌄</span>
+          <span>Мои блюда</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="collapsible-content" id="favorite-meals-content"><div class="quick-meals favorite-meals-section">
           <div class="quick-chips" id="favorite-meals"></div>
@@ -467,7 +481,7 @@
       <form id="training-form" class="training-form" autocomplete="off">
         <section class="collapsible-block activity-templates-section">
           <button class="collapsible-toggle" type="button" data-collapse-target="activity-templates-content" aria-expanded="false">
-            <span>Готовые варианты активности</span><span aria-hidden="true">⌄</span>
+            <span>Готовые варианты активности</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="activity-templates-content"><div>
             <ul class="activity-template-list" id="activity-templates" aria-live="polite"></ul>
@@ -501,7 +515,7 @@
           <span>Длительность</span>
           <span class="workout-duration-input-wrap">
             <input id="workout-duration" type="text" inputmode="decimal" placeholder="30" aria-describedby="workout-duration-hint">
-            <button class="duration-unit-btn" id="workout-duration-unit" type="button" aria-haspopup="dialog"><span id="workout-duration-unit-label">мин</span><span aria-hidden="true">⌄</span></button>
+            <button class="duration-unit-btn" id="workout-duration-unit" type="button" aria-haspopup="dialog"><span id="workout-duration-unit-label">мин</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           </span>
         </label>
         <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
@@ -580,7 +594,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Утренняя мотивация</p>
-          <button class="settings-group-collapse" type="button" data-collapse-for="morning-motivation-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
+          <button class="settings-group-collapse" type="button" data-collapse-for="morning-motivation-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="morning-motivation-toggle">
             <input id="morning-motivation-toggle" type="checkbox" role="switch" aria-describedby="morning-motivation-status">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -596,7 +610,7 @@
             <span>Тема фраз</span>
             <button class="theme-picker-btn" id="morning-motivation-theme" type="button" aria-haspopup="dialog">
               <span id="morning-motivation-theme-label">Смешанная</span>
-              <span aria-hidden="true">⌄</span>
+              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
         </div>
@@ -606,7 +620,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Напоминания о приёмах пищи</p>
-          <button class="settings-group-collapse" type="button" data-collapse-for="meal-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
+          <button class="settings-group-collapse" type="button" data-collapse-for="meal-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="meal-reminders-toggle">
             <input id="meal-reminders-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -627,7 +641,7 @@
       <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Вечерняя активность</p>
-          <button class="settings-group-collapse" type="button" data-collapse-for="workout-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
+          <button class="settings-group-collapse" type="button" data-collapse-for="workout-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="workout-reminder-toggle">
             <input id="workout-reminder-toggle" type="checkbox" role="switch" aria-describedby="workout-reminder-status">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -649,7 +663,7 @@
         <p class="settings-hint">Регулярные напоминания выпить воду в течение дня.</p>
         <div class="settings-label-row">
           <p class="settings-label">Включить напоминания</p>
-          <button class="settings-group-collapse" type="button" data-collapse-for="water-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
+          <button class="settings-group-collapse" type="button" data-collapse-for="water-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="water-reminders-toggle">
             <input id="water-reminders-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -680,7 +694,7 @@
             <p class="settings-label">✨ ИИ-помощник FitFlow</p>
             <p class="settings-hint">Локальный умный помощник для генерации рецептов, советов нутрициолога и анализа недели/месяца без интернета и без передачи данных.</p>
           </div>
-          <button class="settings-group-collapse" type="button" data-collapse-for="ai-settings-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><span aria-hidden="true">⌄</span></button>
+          <button class="settings-group-collapse" type="button" data-collapse-for="ai-settings-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="ai-toggle">
             <input id="ai-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -749,10 +763,10 @@
       <div class="settings-group">
         <section class="collapsible-block settings-about-block">
           <button class="collapsible-toggle" type="button" data-collapse-target="about-content" aria-expanded="false">
-            <span>О приложении и источники</span><span aria-hidden="true">⌄</span>
+            <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.2.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.2.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <button class="btn btn-secondary sources-open-btn" id="sources-open" type="button">Подробнее об источниках</button>
           </div></div>
@@ -1105,17 +1119,46 @@
         <p class="settings-hint" style="margin-top:0">Вводите или диктуйте одной фразой воду, еду и тренировки — умный парсер FitFlow сразу распределит их по категориям за день.</p>
         <div class="settings-row" style="margin-bottom:10px">
           <input type="text" id="ai-quick-input" class="form-input" placeholder="Например: выпил 500 мл воды, овсянка 150г, гулял 40 мин" style="flex:1">
-          <button class="btn btn-secondary" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом">🎤 Голос</button>
+          <button class="icon-btn ai-icon-btn" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
           <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
         </div>
         <div id="ai-quick-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Фото еды -->
+      <div id="ai-tab-photo" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">Сфотографируйте блюдо для заметки, опишите состав текстом — точный расчёт калорий и БЖУ выполнит локальная база из 925+ продуктов. Автоматическое распознавание по фото появится вместе с локальной ИИ-моделью.</p>
+        <div class="settings-row" style="margin-bottom:10px">
+          <button class="icon-btn ai-icon-btn" id="ai-photo-camera-btn" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+          <input type="text" id="ai-photo-food-input" class="form-input" placeholder="Например: гречка 150г, котлета 1шт" style="flex:1" aria-label="Состав блюда на фото">
+          <input type="file" id="ai-photo-camera-input" accept="image/*" capture="environment" hidden>
+        </div>
+        <div id="ai-photo-result-box" class="ai-result-box" hidden>
+          <h4>📷 Записать блюдо в дневник</h4>
+          <p class="settings-hint">Проверьте или исправьте состав выше и нажмите «Записать» — FitFlow посчитает калории и БЖУ по локальной базе продуктов.</p>
+          <button class="btn btn-primary" id="ai-photo-log-btn" type="button" style="width:100%;margin-top:8px">Записать в дневник</button>
+        </div>
       </div>
       <!-- Вкладка 1: Рецепт из холодильника -->
       <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
         <p class="settings-hint" style="margin-top:0">Укажите продукты или сфотографируйте их — ИИ подберёт рецепт, подстроенный под ваши персональные цели калорий и профиль.</p>
         <div class="settings-row" style="margin-bottom:10px">
           <input type="text" id="ai-recipe-input" class="form-input" placeholder="Какие продукты у вас есть?" style="flex:1">
-          <button class="btn btn-secondary" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты">📷 Фото</button>
+          <button class="icon-btn ai-icon-btn" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты" aria-label="Сфотографировать продукты">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
           <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
           <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
         </div>

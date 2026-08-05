@@ -1002,6 +1002,52 @@ html[data-theme="dark"] .icon-sun { display: none; }
   display: none;
 }
 
+/* Круглые кнопки микрофона в шапках карточек (Вода / Питание) */
+.mic-header-btn {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.mic-header-btn:hover { filter: brightness(0.97); }
+.mic-header-btn:active { transform: scale(0.9); }
+.mic-header-btn svg { width: 19px; height: 19px; }
+
+/* Иконочные кнопки внутри ИИ-центра (голос, камера) */
+.ai-icon-btn {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.ai-icon-btn:hover { filter: brightness(0.97); }
+.ai-icon-btn:active { transform: scale(0.9); }
+.ai-icon-btn svg { width: 20px; height: 20px; }
+
+/* Компактные основные кнопки в рядах ИИ-центра */
+.ai-center-modal .settings-row .btn-primary {
+  flex: 1 1 auto;
+  min-height: 42px;
+  border-radius: 21px;
+}
+.ai-center-modal #ai-tabs button { font-size: 0.78rem; }
+
 .app-dialog {
   width: min(100%, 390px);
   padding: 22px 20px 18px;
@@ -1030,7 +1076,13 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .ai-center-modal .settings-row { flex-wrap: wrap; }
 .ai-center-modal .settings-row .form-input { flex: 1 1 100%; }
 
-/* Шеврон сворачиваемых разделов Настроек */
+/* Стрелки-шевроны: сворачиваемые разделы Настроек и списки на Главной */
+.chevron-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  transition: transform 0.22s ease;
+}
 .settings-group-collapse {
   flex: 0 0 auto;
   width: 30px;
@@ -1040,22 +1092,68 @@ html[data-theme="dark"] .icon-sun { display: none; }
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: transparent;
+  background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 0.95rem;
-  line-height: 1;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
-.settings-group-collapse span {
-  display: block;
-  transition: transform 0.2s ease;
-}
 .settings-group-collapse:hover {
-  background: var(--md-sys-color-surface-container-high);
-  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
 }
-.settings-group-collapse.is-collapsed span { transform: rotate(-90deg); }
+.settings-group-collapse.is-collapsed .chevron-icon { transform: rotate(-90deg); }
+.collapsible-toggle[aria-expanded="false"] .chevron-icon { transform: rotate(-90deg); }
+
+/* Компактная строка типа приёма пищи */
+.meal-type-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+.meal-type-current {
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.meal-type-current b { color: var(--md-sys-color-on-surface); }
+.meal-type-auto {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+.meal-type-expand { flex: 0 0 auto; padding: 7px 12px; }
+.meal-type-full { margin-top: 9px; }
+
+/* Своя порция воды */
+.water-custom-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+.water-custom-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.water-custom-row input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
 
 .app-dialog-icon {
   display: grid;
@@ -1754,6 +1852,9 @@ html[data-theme="dark"] .segmented button.active {
   gap: 8px;
 }
 
+.manual-food-row input#manual-food-name { flex: 1; }
+.manual-food-row input#manual-food-kcal { flex: 0 0 84px; }
+
 .manual-food-row input {
   min-width: 0;
   padding: 10px 11px;
@@ -2036,9 +2137,10 @@ html[data-theme="dark"] .segmented button.active {
   transition: grid-template-rows 0.28s ease;
 }
 
-.collapsible-content > div { min-height: 0; overflow: hidden; }
+/* Паддинг 0.1px не даёт margin первым/последним дочерним элементам
+   «просачиваться» наружу — в свёрнутом виде текст больше не выглядывает. */
+.collapsible-content > div { min-height: 0; overflow: hidden; padding: 0.1px 1px; }
 .collapsible-content.is-open { grid-template-rows: 1fr; }
-.collapsible-content.is-open > div { padding: 0 1px; }
 
 .collapsible-content .manual-food-section { margin: 10px 0 0; }
 .collapsible-content .favorite-meals-section { margin: 10px 0; padding: 0 10px; }
@@ -2435,9 +2537,6 @@ html[data-theme="dark"] .segmented button.active {
 .input-mic-btn:hover, .input-mic-btn:focus-visible {
   color: var(--primary);
   background: var(--surface-variant);
-}
-.food-form .food-input {
-  padding-right: 36px;
 }
 .water-actions .chip-voice {
   flex: 0 0 auto;
