@@ -111,15 +111,17 @@ let failed = 0;
   console.log(`${ok ? '✓' : '✗'} ИИ-центр — экран #ai-view (модалки #ai-dialog нет)`);
 }
 
-/* Регресс-защита (0.3.16): акцентная линия слева у карточек + указанный
-   пользователем тёплый фон светлой Sport-темы. */
+/* Регресс-защита (0.3.17, фидбек пользователя): акцентная линия — 3px и
+   ЕДИНЫМ цветом текущей палитры (а не отдельные цвета по типам блоков);
+   тёплый фон светлой Sport-темы сохранён. */
 {
   const css2 = fs.readFileSync('style.css', 'utf8');
-  const ok = /border-left:\s*4px solid var\(--card-accent/.test(css2)
+  const ok = /border-left:\s*3px solid color-mix\(in srgb, var\(--primary\) 65%, transparent\)/.test(css2)
+    && !/--card-accent:/.test(css2)
     && /\[data-palette="sport"\][\s\S]*?--md-sys-color-surface:\s*#f7f4ec/.test(css2)
     && !/\.ai-center-modal/.test(css2);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} акцентные линии карточек, фон Sport, стиля .ai-center-modal больше нет`);
+  console.log(`${ok ? '✓' : '✗'} акцентная линия 3px единым цветом темы, фон Sport, стиля .ai-center-modal нет`);
 }
 
 for (const name of functions) {

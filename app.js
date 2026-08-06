@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.16';
+const FITFLOW_VERSION = '0.3.17';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2783,13 +2783,15 @@ function computeGameTasks() {
 
 function renderGameMode() { renderDayPlan(); }
 
-/* ВРЕМЕННО ОТКЛЮЧЕНО (0.3.15): баг «клавиатура со второго тапа + молчит
-   голосовой ввод GBoard» воспроизводится ТОЛЬКО в диалоге ИИ-центра при первом
-   открытии после холодного старта. Наш скролл-компаньон — главный из подозреваемых
-   оставшихся на нашей стороне (второй — вложенный скролл-контейнер подложки
-   диалога в WebView, его JS не изменить). Флагом изолируем: если на устройстве
-   пользователя всё станет чисто — вернём фичу иначе (скролл внутри вида). */
-const KEYBOARD_SHIFT_ASSIST = false;
+/* Докрутка к полю/кнопкам — СНОВА ВКЛЮЧЕНА (0.3.17), теперь окончательно
+   оправданная: эксперимент 0.3.15–0.3.16 показал, что баг «клавиатура со 2-го
+   тапа + молчит GBoard» идентичен и с выключенным компаньоном, и без модалки
+   вообще (ИИ-центр = обычный экран) — наш скролл НЕ был причиной. А выключенная
+   докрутка оставила реальный недостаток: клавиатура перекрывает поле ввода.
+   IME-безопасность сохранена: скролл либо по факту visualViewport.resize
+   (клавиатура реально показалась), либо ОДИН запасной мгновенный шаг через
+   500 мс после фокуса — уже после окна анимации IME (~300 мс). */
+const KEYBOARD_SHIFT_ASSIST = true;
 
 /* IME-БЕЗОПАСНАЯ докрутка (0.3.13, расследование бага GBoard):
    скроллим только по факту изменения видимого viewport (когда клавиатура
@@ -2798,21 +2800,30 @@ const KEYBOARD_SHIFT_ASSIST = false;
    анимацией появления клавиатуры — у части устройств/WebView IME-сессия
    рвалась: клавиатура «не открывалась с первого тапа», а в такой сессии
    голосовой ввод GBoard молчал («Говорите», но текст не вставлялся). */
-let keyboardShiftState = { field: null, left: 0, raf: 0 };
+let keyboardShiftState = { field: null, left: 0, raf: 0, timer: 0 };
 
 function scheduleKeyboardShift(field) {
-  // Только запоминаем поле. НИЧЕГО не скроллим здесь: показ клавиатуры
-  // занимает ~250–350 мс, и ЛЮБОЙ наш скролл старше этого окна ломает
-  // IME-сессию на части WebView (кейс GBoard: «со второго тапа + молчит голос»).
-  // Реальная докрутка — исключительно по событию visualViewport.resize.
+  // Скролла в самом focusin нет: показ клавиатуры занимает ~250–350 мс, и
+  // скролл старше этого окна рискован для IME. Два безопасных триггера:
+  // 1) visualViewport.resize — клавиатура реально изменила раскладку;
+  // 2) запасной ОДИНОЧНЫЙ мгновенный шаг через 500 мс (уже после анимации
+  //    показа) — страховка на случай, если resize не приходит
+  //    (текущий нативный режим adjustPan; с манифест-патчем adjustResize
+  //    основным станет п.1).
   keyboardShiftState.field = field;
   keyboardShiftState.left = 2; // максимум две мягкие докрутки на один фокус
+  clearTimeout(keyboardShiftState.timer);
+  keyboardShiftState.timer = setTimeout(() => {
+    ensureFieldActionsVisible(keyboardShiftState.field);
+  }, 500);
 }
 
 function cancelKeyboardShift() {
   keyboardShiftState.field = null;
   keyboardShiftState.left = 0;
   cancelAnimationFrame(keyboardShiftState.raf);
+  clearTimeout(keyboardShiftState.timer);
+  keyboardShiftState.timer = 0;
 }
 
 function queueKeyboardShift() {

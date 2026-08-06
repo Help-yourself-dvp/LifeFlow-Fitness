@@ -342,9 +342,11 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .card {
   background: var(--card-bg);
   border: var(--card-border);
-  /* 0.3.16: левая акцентная линия у всех блоков — как у карточки ИИ-аналитика
-     (запрос пользователя). Цвет задаётся классом карточки ниже. */
-  border-left: 4px solid var(--card-accent, var(--md-sys-color-outline-variant));
+  /* 0.3.17: акцентная линия тоньше и единого цвета современной палитры
+     (запрос пользователя: «слишком выделяется, нужен небольшой акцент,
+     один цвет для всех разделов, цвет — от темы»). 65% primary
+     поверх фона карточки = мягкий тон, не яркая полоса. */
+  border-left: 3px solid color-mix(in srgb, var(--primary) 65%, transparent);
   border-radius: 24px;
   box-shadow: var(--card-shadow);
   padding: 18px 18px 14px;
@@ -2743,16 +2745,6 @@ html[data-theme="dark"] .segmented button.active {
 
 
 
-/* 🎨 0.3.16: цвета акцентных линий по типу блока (функциональные цвета,
-   как у иконок карточек) + лёгкое усиление тени — блок «отрывается» от фона. */
-.water-card, .stats-water { --card-accent: #2f9be8; }
-.food-card, .stats-food { --card-accent: var(--calorie-accent); }
-.weight-home-card, .stats-weight { --card-accent: var(--md-sys-color-tertiary); }
-.checklist-card:not(.mood-card) { --card-accent: var(--primary); }
-.mood-card { --card-accent: #8b5cf6; }
-.training-card, .notification-setup-card { --card-accent: #43a047; }
-.ai-stats-card, .ai-center { --card-accent: var(--primary); }
-
 /* ===== ИИ-аналитик в Статистике и фото-рецепты ===== */
 .ai-stats-card {
   margin-bottom: 14px;
@@ -3178,6 +3170,18 @@ html[data-palette="sport"] .topbar-actions button {
 }
 html[data-palette="sport"] .topbar-actions button:active {
   background: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
+
+/* 🎨 0.3.17: значки реагируют на палитру (запрос пользователя «подумаем над
+   значками в зависимости от темы») — первый маленький, полностью обратимый шаг:
+   ⚡ Sport — более жирные спортивные штрихи обводки у значков верхней панели
+   и карточек; 🌃 Neon (тёмный) — значки верхней панели мягким цианом. */
+html[data-palette="sport"] .topbar-actions button svg,
+html[data-palette="sport"] .card-icon svg {
+  stroke-width: 2.1px;
+}
+html[data-palette="neon"][data-theme="dark"] .topbar-actions button {
+  color: #8be9ff;
 }
 
 /* 🌃 Neon — неоновое свечение активных элементов (только в тёмном режиме) */
