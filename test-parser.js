@@ -191,7 +191,7 @@ const normalizedHomeLayout = normalizeHomeLayoutValue({
 });
 // 0.3.8: сохранённый порядок уважается, дубликаты/неизвестные отбрасываются,
 // отсутствующие карточки встают в начало в порядке HOME_CARDS.
-const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'day-checklist|day-mood|game-tasks|water|weight|food'
+const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'day-plan|day-mood|water|weight|food'
   && normalizedHomeLayout.visible.food === false && normalizedHomeLayout.visible.water === false && normalizedHomeLayout.visible.weight === true;
 if (!homeLayoutOk) failed++;
 console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана → ${normalizedHomeLayout.order.join(',')}`);
@@ -460,21 +460,27 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 // в настройках порядка; у текущих пользователей новые встают В НАЧАЛО (как было)
 {
   const fresh = normalizeHomeLayoutValue(undefined);
-  const okFresh = fresh.order.length === 6 && fresh.order[0] === 'day-checklist'
+  const okFresh = fresh.order.length === 5 && fresh.order[0] === 'day-plan'
     && fresh.order[fresh.order.length - 1] === 'weight' && Object.values(fresh.visible).every(Boolean);
   if (!okFresh) failed++;
-  console.log(`${okFresh ? '✓' : '✗'} раскладка «из коробки»: 6 карточек, чек-лист первым → ${fresh.order.join(',')}`);
+  console.log(`${okFresh ? '✓' : '✗'} раскладка «из коробки»: 5 карточек, «План дня» первым → ${fresh.order.join(',')}`);
 
   const migrated = normalizeHomeLayoutValue({ order: ['water', 'food', 'weight'], visible: { water: true, food: true, weight: true } });
-  const okMig = migrated.order.join(',') === 'day-checklist,day-mood,game-tasks,water,food,weight'
-    && migrated.visible['game-tasks'] === true;
+  const okMig = migrated.order.join(',') === 'day-plan,day-mood,water,food,weight'
+    && migrated.visible['day-plan'] === true;
   if (!okMig) failed++;
   console.log(`${okMig ? '✓' : '✗'} миграция раскладки: новые карточки в начале → ${migrated.order.join(',')}`);
 
-  const hidden = normalizeHomeLayoutValue({ order: ['water', 'food', 'weight'], visible: { 'game-tasks': false } });
-  const okHidden = hidden.visible['game-tasks'] === false && hidden.visible['day-mood'] === true;
+  const hidden = normalizeHomeLayoutValue({ order: ['water', 'food', 'weight'], visible: { 'day-checklist': false, 'game-tasks': false } });
+  const okHidden = hidden.visible['day-plan'] === false && hidden.visible['day-mood'] === true;
   if (!okHidden) failed++;
-  console.log(`${okHidden ? '✓' : '✗'} скрытие карточки заданий дня сохраняется → game-tasks=${hidden.visible['game-tasks']}`);
+  console.log(`${okHidden ? '✓' : '✗'} скрыты обе старые карточки → скрыт и «План дня» → day-plan=${hidden.visible['day-plan']}`);
+
+  // 0.3.11: старые id (day-checklist/game-tasks) переводятся на объединённую карточку
+  const legacy = normalizeHomeLayoutValue({ order: ['day-checklist', 'water', 'game-tasks', 'food', 'weight'] });
+  const okLegacy = legacy.order.join(',') === 'day-mood,day-plan,water,food,weight';
+  if (!okLegacy) failed++;
+  console.log(`${okLegacy ? '✓' : '✗'} старые id порядка карточек переезжают на «План дня» → ${legacy.order.join(',')}`);
 }
 
 // 0.3.8: медали — 4 группы (привычки, бег ≈, шаги ≈, вес), цели внутри значка

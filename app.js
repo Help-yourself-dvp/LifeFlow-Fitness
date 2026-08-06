@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.10';
+const FITFLOW_VERSION = '0.3.11';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1463,12 +1463,11 @@ function getMealTypeIdByTime(date = new Date()) {
 }
 
 /* Карточки Главной: порядок в этом списке = порядок «из коробки».
-   Точечные карточки (чек-лист, самочувствие, задания дня) показываются,
+   Точечные карточки (план дня, самочувствие) показываются,
    только когда включена их функция И карточка видима в настройках порядка. */
 const HOME_CARDS = [
-  { id: 'day-checklist', label: 'Чек-лист дня', icon: '📋' },
+  { id: 'day-plan', label: 'План дня', icon: '📋' },
   { id: 'day-mood', label: 'Самочувствие', icon: '🌗' },
-  { id: 'game-tasks', label: 'Задания дня', icon: '🎯' },
   { id: 'water', label: 'Вода', icon: '💧' },
   { id: 'food', label: 'Питание', icon: '🍽️' },
   { id: 'weight', label: 'Вес', icon: '⚖️' }
@@ -1476,8 +1475,9 @@ const HOME_CARDS = [
 
 /* Включена ли функция, которой принадлежит карточка (независимо от layout). */
 function isHomeCardFeatureEnabled(id) {
-  if (id === 'day-checklist' || id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
-  if (id === 'game-tasks') return !!(state.gameMode && state.gameMode.enabled);
+  // «План дня» живёт, пока включён чек-лист ИЛИ задания (игровой режим).
+  if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled));
+  if (id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
   return true;
 }
 
@@ -2050,8 +2050,11 @@ function normalizeHomeLayoutValue(source) {
   const layout = source && typeof source === 'object' ? source : {};
   const knownIds = HOME_CARDS.map((card) => card.id);
   const seen = new Set();
+  // 0.3.11: «Чек-лист дня» и «Задания дня» объединены в «План дня» —
+  // старые id из сохранённого порядка переводим на новую карточку.
+  const LEGACY_CARD_ALIASES = { 'day-checklist': 'day-plan', 'game-tasks': 'day-plan' };
   const order = (Array.isArray(layout.order) ? layout.order : [])
-    .map((id) => String(id))
+    .map((id) => LEGACY_CARD_ALIASES[String(id)] || String(id))
     .filter((id) => knownIds.includes(id) && !seen.has(id) && seen.add(id));
   // Карточки, которых нет в сохранённом порядке (например, новые после обновления),
   // ставим в НАЧАЛО в порядке HOME_CARDS — так у текущих пользователей экран
@@ -2060,7 +2063,13 @@ function normalizeHomeLayoutValue(source) {
   if (missing.length) order.unshift(...missing);
 
   const rawVisible = layout.visible && typeof layout.visible === 'object' ? layout.visible : {};
-  const visible = Object.fromEntries(knownIds.map((id) => [id, rawVisible[id] !== false]));
+  const visible = Object.fromEntries(knownIds.map((id) => {
+    // Обе старые карточки были скрыты → скрыта и объединённая; если скрыта была
+    // только одна, «План дня» остаётся (вторая секция у пользователя была видна).
+    if (id === 'day-plan' && rawVisible['day-plan'] === undefined
+      && rawVisible['day-checklist'] === false && rawVisible['game-tasks'] === false) return [id, false];
+    return [id, rawVisible[id] !== false];
+  }));
   if (!Object.values(visible).some(Boolean)) visible[order[0]] = true;
   return { order, visible };
 }
@@ -2572,50 +2581,96 @@ function renderStatsWeightChart() {
   drawWeightChartInto(wrap, chart, shown);
 }
 
-function renderDayChecklist() {
+/* «План дня» — объединённая карточка (0.3.11, идея пользователя):
+   чек-лист и задания дня выглядели слишком похоже — теперь это одно
+   «сердце дня» на Главной. Видны те секции, чьи функции включены. */
+function renderDayPlan() {
   if (typeof document === 'undefined') return;
-  const card = $('#day-checklist-card');
+  const card = $('#day-plan-card');
   if (!card) return;
-  const shown = isHomeCardShown('day-checklist'); // функция включена И не скрыта в порядке карточек
+  const shown = isHomeCardShown('day-plan'); // хотя бы одна функция включена И карточка не скрыта в порядке
   card.hidden = !shown;
   renderDayMoodCard();
   renderHomeQuickNav();
   if (!shown) return;
 
-  const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
-  const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
-  const foodOk = state.food.items.length >= 3 || (foodKcal >= state.food.goal * 0.8 && state.food.goal > 0);
-  const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
-    .filter((w) => w.date === todayKey()).length > 0;
+  const showChecklist = !!(state.dayChecklist && state.dayChecklist.enabled);
+  const showTasks = !!(state.gameMode && state.gameMode.enabled);
 
-  const itemMark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
-  const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
+  // --- Секция чек-листа: авто-отметки по записям дня ---
+  let checklistItems = '';
+  if (showChecklist) {
+    const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
+    const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+    const foodOk = state.food.items.length >= 3 || (foodKcal >= state.food.goal * 0.8 && state.food.goal > 0);
+    const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
+      .filter((w) => w.date === todayKey()).length > 0;
 
-  const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
-  const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
-  const activityText = activityOk ? 'отмечена' : 'сегодня без активности';
+    const itemMark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
+    const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
 
-  // Пункт «Сон» — когда включён чек-ин сна: кликабельная строка, открывает диалог.
-  let sleepRow = '';
-  if (state.sleepCheckin && state.sleepCheckin.enabled) {
-    const entry = getTodaySleepEntry();
-    const bits = [];
-    if (entry && entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
-    if (entry && entry.rating != null) bits.push(`оценка ${entry.rating}/5`);
-    const sleepText = entry ? (bits.join(' · ') || 'отмечен') : 'не отмечен — оценить';
-    sleepRow = `<button type="button" class="${itemText(!!entry)} checklist-sleep-btn" data-sleep-open>${itemMark(!!entry)} Сон — ${sleepText}</button>`;
-  }
+    const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
+    const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
+    const activityText = activityOk ? 'отмечена' : 'сегодня без активности';
 
-  card.innerHTML = `<div class="card checklist-card" aria-label="Чек-лист дня">
-    <div class="checklist-header"><span>📋 Чек-лист дня</span></div>
-    <div class="checklist-items">
+    // Пункт «Сон» — когда включён чек-ин сна: кликабельная строка, открывает диалог.
+    let sleepRow = '';
+    if (state.sleepCheckin && state.sleepCheckin.enabled) {
+      const entry = getTodaySleepEntry();
+      const bits = [];
+      if (entry && entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
+      if (entry && entry.rating != null) bits.push(`оценка ${entry.rating}/5`);
+      const sleepText = entry ? (bits.join(' · ') || 'отмечен') : 'не отмечен — оценить';
+      sleepRow = `<button type="button" class="${itemText(!!entry)} checklist-sleep-btn" data-sleep-open>${itemMark(!!entry)} Сон — ${sleepText}</button>`;
+    }
+
+    checklistItems = `<div class="checklist-items">
       ${sleepRow}
       <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>
       <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>
       <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
-    </div>
+    </div>`;
+  }
+
+  // --- Секция заданий дня (игровой режим) ---
+  let tasksHtml = '';
+  let headerNote = '';
+  if (showTasks) {
+    const tasks = computeGameTasks();
+    const doneCount = tasks.filter((t) => t.cur >= t.target).length;
+    headerNote = `<span class="game-tasks-note">${doneCount} из ${tasks.length}</span>`;
+    tasksHtml = tasks.map((t) => {
+      const done = t.cur >= t.target;
+      const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
+      return `<div class="game-task-row${done ? ' done' : ''}">
+      <span class="game-task-icon">${t.icon || t.emoji}</span>
+      <div class="game-task-info">
+        <div class="game-task-title">${t.title}</div>
+        <div class="game-task-numbers">${fmt(t.cur)} из ${fmt(t.target)} ${t.unit}</div>
+        <div class="game-task-bar"><span style="width:${pct}%"></span></div>
+      </div>
+      <span class="game-task-state">${done ? '✓' : pct + '%'}</span>
+    </div>`;
+    }).join('') + `
+    ${doneCount === tasks.length ? '<div class="game-win">🏆 Все задания дня выполнены — отличный день!</div>' : ''}
+    <div class="game-tasks-footer">
+      <span class="game-tasks-note">Отметки ставятся сами по вашим записям</span>
+      <button class="btn btn-secondary" type="button" data-game-medals-open style="font-size:0.74rem;padding:6px 12px">🏅 Медали</button>
+    </div>`;
+  }
+
+  card.innerHTML = `<div class="card checklist-card" aria-label="План дня">
+    <div class="checklist-header"><span>📋 План дня</span>${headerNote}</div>
+    ${checklistItems}
+    ${showChecklist && showTasks ? '<hr class="day-plan-divider">' : ''}
+    ${tasksHtml}
   </div>`;
 }
+
+/* Старые имена оставлены обёртками: они вызываются из многих мест
+   (вода, питание, активность, чек-ин сна, статистика) и рисуют
+   одну объединённую карточку «План дня». */
+function renderDayChecklist() { renderDayPlan(); }
 
 /* Самочувствие — отдельная секция (до 0.2.9 была пунктом чек-листа):
    общая оценка всего дня подряд, удобнее отмечать вечером. */
@@ -2693,38 +2748,35 @@ function computeGameTasks() {
   ];
 }
 
-function renderGameMode() {
-  if (typeof document === 'undefined') return;
-  const card = $('#game-tasks-card');
-  if (!card) return;
-  const shown = isHomeCardShown('game-tasks');
-  card.hidden = !shown;
-  if (!shown) return;
+function renderGameMode() { renderDayPlan(); }
 
-  const tasks = computeGameTasks();
-  const doneCount = tasks.filter((t) => t.cur >= t.target).length;
-  const rows = tasks.map((t) => {
-    const done = t.cur >= t.target;
-    const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
-    return `<div class="game-task-row${done ? ' done' : ''}">
-      <span class="game-task-icon">${t.icon || t.emoji}</span>
-      <div class="game-task-info">
-        <div class="game-task-title">${t.title}</div>
-        <div class="game-task-numbers">${fmt(t.cur)} из ${fmt(t.target)} ${t.unit}</div>
-        <div class="game-task-bar"><span style="width:${pct}%"></span></div>
-      </div>
-      <span class="game-task-state">${done ? '✓' : pct + '%'}</span>
-    </div>`;
-  }).join('');
-  card.innerHTML = `<div class="card checklist-card" aria-label="Задания дня">
-    <div class="checklist-header"><span>🎯 Задания дня</span><span class="game-tasks-note">${doneCount} из ${tasks.length}</span></div>
-    ${rows}
-    ${doneCount === tasks.length ? '<div class="game-win">🏆 Все задания дня выполнены — отличный день!</div>' : ''}
-    <div class="game-tasks-footer">
-      <span class="game-tasks-note">Отметки ставятся сами по вашим записям</span>
-      <button class="btn btn-secondary" type="button" data-game-medals-open style="font-size:0.74rem;padding:6px 12px">🏅 Медали</button>
-    </div>
-  </div>`;
+let keyboardShiftTimer = null;
+function scheduleKeyboardShift(field, fromViewportResize) {
+  clearTimeout(keyboardShiftTimer);
+  keyboardShiftTimer = setTimeout(() => ensureFieldActionsVisible(field), fromViewportResize ? 120 : 350);
+}
+
+/* Клавиатура уменьшает видимый viewport: находим кнопки действий под полем
+   (в его карточке/форме/вкладке) и докручиваем, чтобы последняя из них была
+   над клавиатурой — без ручной прокрутки (замечание по всем разделам ИИ). */
+function ensureFieldActionsVisible(field) {
+  if (!field || !field.isConnected || document.activeElement !== field) return;
+  const scope = field.closest('form, .card, .ai-tab-panel, .settings-view, .app-dialog-backdrop') || field.parentElement;
+  let target = field;
+  if (scope) {
+    const buttonsAfter = Array.from(scope.querySelectorAll('button'))
+      .filter((b) => b.offsetParent !== null
+        && (field.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (buttonsAfter.length) target = buttonsAfter[buttonsAfter.length - 1];
+  }
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const r = target.getBoundingClientRect();
+  if (r.bottom > vh - 24 || r.top < 0) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  } else {
+    const fr = field.getBoundingClientRect();
+    if (fr.top < 0 || fr.bottom > vh) field.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 function renderGameModeSettings() {
@@ -3348,7 +3400,7 @@ function applyHomeLayout() {
 /* ===== Быстрый переход по разделам Главной (прилипающие чипы) ===== */
 const HOME_QUICKNAV_ITEMS = [
   {
-    ids: ['day-checklist-card', 'day-mood-card', 'game-tasks-card'],
+    ids: ['day-plan-card', 'day-mood-card'],
     label: 'День',
     icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6.4 7.3 7.7 9.9 5M6 12.4 7.3 13.7 9.9 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5h6M12.5 12.5h6M5.5 18.5h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
   },
@@ -5493,7 +5545,7 @@ const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-not
 const HELP_TOPICS = {
   'settings-general': {
     title: 'Общее',
-    text: 'Внешний вид и состав Главной: тема оформления (авто/светлая/тёмная), «Чек-лист дня», порядок и видимость карточек на Главной, игровой режим с заданиями и медалями.'
+    text: 'Внешний вид и состав Главной: тема оформления (авто/светлая/тёмная), «План дня» (чек-лист и задания в одной карточке), порядок и видимость карточек на Главной, игровой режим с медалями.'
   },
   'settings-profile': {
     title: 'Профиль и цели',
@@ -6392,7 +6444,7 @@ function init() {
   $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
   $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
   // Оценка дня: кнопка создаётся динамически — делегирование на оба контейнера
-  ['#day-checklist-card', '#day-mood-card'].forEach((sel) => {
+  ['#day-plan-card', '#day-mood-card'].forEach((sel) => {
     $(sel)?.addEventListener('click', (e) => {
       const moodBtn = e.target.closest('#mood-pick-open');
       if (moodBtn) { $('#mood-dialog').hidden = false; }
@@ -6480,7 +6532,7 @@ function init() {
   });
   $('#sleep-save-btn')?.addEventListener('click', saveSleepCheckinDialog);
   $('#sleep-skip-btn')?.addEventListener('click', skipSleepCheckin);
-  const gameCard = $('#game-tasks-card');
+  const gameCard = $('#day-plan-card');
   if (gameCard) gameCard.addEventListener('click', (e) => {
     if (e.target.closest('[data-game-medals-open]')) switchView('game-medals'); // отдельный экран медалей
     if (e.target.closest('[data-game-medals-back]')) switchView('home');
@@ -6630,11 +6682,20 @@ function init() {
       refreshNotificationSetupState();
     }
   });
+  // Открылась клавиатура → через паузу (анимация) докручиваем так, чтобы
+  // подросший viewport видел И поле, И его кнопки действий («Разобрать» и т.п.).
   document.addEventListener('focusin', (event) => {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
-    setTimeout(() => field.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
+    scheduleKeyboardShift(field);
   });
+  // Повторная докрутка на изменение видимого viewport (клавиатура анимируется шагами).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const field = document.activeElement;
+      if (field && field.matches && field.matches('input, textarea')) scheduleKeyboardShift(field, true);
+    });
+  }
 
   maybeShowTerms();
   } catch (e) {
@@ -7407,18 +7468,27 @@ async function cloudCallGemini(systemText, userText, options) {
    поэтому для анонимного режима используем их публичный GET-эндпоинт
    для текста (gen.pollinations.ai/text/{prompt}). Работает с лимитами по
    частоте — для чата и разбора фраз этого обычно достаточно. */
+/* Анонимный режим: у Pollinations два шлюза (новый gen и классический text).
+   Периодически один из них начинает требовать ключ даже для анонимных
+   вызовов — честно пробуем оба, прежде чем писать «сервис просит ключ». */
 async function pollinationsAnonymousCall(systemText, userText) {
   const prompt = (systemText ? systemText + '\n\n' : '') + userText;
-  const url = 'https://gen.pollinations.ai/text/' + encodeURIComponent(prompt.slice(0, 1600)) + '?model=openai';
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = new Error('HTTP ' + res.status);
-    err.status = res.status;
-    throw err;
+  const p = encodeURIComponent(prompt.slice(0, 1600));
+  const gateways = [
+    'https://gen.pollinations.ai/text/' + p + '?model=openai',
+    'https://text.pollinations.ai/' + p + '?model=openai'
+  ];
+  let lastErr = new Error('Сервис недоступен');
+  for (const url of gateways) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) { const err = new Error('HTTP ' + res.status); err.status = res.status; throw err; }
+      const text = (await res.text() || '').trim();
+      if (!text) throw new Error('Пустой ответ сервиса');
+      return { text, modelLabel: 'Pollinations · openai (без ключа)' };
+    } catch (e) { if (e && e.status) lastErr = e; }
   }
-  const text = (await res.text() || '').trim();
-  if (!text) throw new Error('Пустой ответ сервиса');
-  return { text, modelLabel: 'Pollinations · openai (без ключа)' };
+  throw lastErr;
 }
 
 async function cloudCallOpenAiCompat(systemText, userText, options) {
@@ -7472,7 +7542,7 @@ function cloudErrorText(err) {
   if (/401|403|Unauthenticated/i.test(msg) && state.aiSettings && state.aiSettings.cloudProvider === 'pollinations') {
     return getCloudKey()
       ? 'Ключ не принят. Для Pollinations нужен Secret-ключ вида sk_… (НЕ pk_ publishable): enter.pollinations.ai → API Keys → Create key. Или очистите поле ключа — запрос уйдёт анонимно, без ключа.'
-      : 'Анонимный вызов отклонён сервисом (сейчас сервис просит ключ). Получите бесплатный Secret-ключ sk_…: enter.pollinations.ai → API Keys → Create key — и вставьте его в поле ключа.';
+      : 'Анонимный вход отклонён: мы попробовали оба адреса сервиса — сейчас Pollinations просит ключ даже для анонимных вызовов (они ужесточили бесплатный доступ). Получите бесплатный Secret-ключ sk_…: enter.pollinations.ai → API Keys → Create key — и вставьте его в поле ключа.';
   }
   if (/401|403|API_KEY_INVALID|PERMISSION_DENIED|Unauthenticated/i.test(msg)) return 'Ключ отклонён провайдером: проверьте, что ключ скопирован полностью, без пробелов.';
   if (/User location is not supported|location|region/i.test(msg)) return 'Этот провайдер недоступен из вашего региона — попробуйте DeepSeek или OpenRouter.';
@@ -7777,6 +7847,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan
   };
 }

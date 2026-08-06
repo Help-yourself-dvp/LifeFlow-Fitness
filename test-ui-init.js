@@ -39,7 +39,9 @@ const functions = [
   'sleepTimeToMinutes', 'openSleepCheckinDialog', 'closeSleepCheckinDialog',
   'saveSleepCheckinDialog', 'skipSleepCheckin', 'maybeShowSleepCheckin',
   'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
-  'renderSleepDialogControls', 'renderSleepDialogSummary'
+  'renderSleepDialogControls', 'renderSleepDialogSummary',
+  // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
+  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -59,7 +61,7 @@ const ids = [
   'ai-recipe-voice-btn', 'stats-weight-chart-caption',
   'settings-profile-view', 'settings-notifications-view', 'settings-ai-view', 'settings-data-view', 'settings-about-view',
   'ai-cloud-box', 'ai-cloud-provider', 'ai-cloud-key', 'ai-cloud-model', 'ai-cloud-check', 'ai-cloud-clear', 'ai-cloud-status', 'ai-cloud-hint',
-  'settings-general-view', 'game-mode-toggle', 'game-mode-status', 'game-tasks-card',
+  'settings-general-view', 'game-mode-toggle', 'game-mode-status', 'day-plan-card',
   'game-medals-view', 'game-medals-grid', 'game-medals-count', 'game-medals-back',
   'help-dialog', 'help-title', 'help-text', 'help-ok', 'water-custom-cancel',
   'stats-compare-section', 'stats-compare-text', 'stats-compare-motivation',

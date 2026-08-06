@@ -724,8 +724,8 @@ html[data-theme="dark"] .icon-sun { display: none; }
   white-space: nowrap;
 }
 
-/* ---------- Чек-лист дня ---------- */
-#day-checklist-card { margin-bottom: 16px; }
+/* ---------- План дня (бывш. чек-лист) ---------- */
+#day-plan-card { margin-bottom: 16px; }
 .checklist-card { padding: 14px 16px 12px; }
 .checklist-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; font-weight: 800; color: var(--md-sys-color-on-surface); }
 .checklist-items { display: grid; gap: 8px; }
@@ -3016,3 +3016,10 @@ html.dialog-open body {
 .game-medal .game-medal-name { font-weight: 600; }
 .game-medal .game-medal-desc { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
 .game-medal.locked { opacity: 0.55; }
+
+/* «План дня»: разделитель чек-листа и заданий в объединённой карточке (0.3.11) */
+.day-plan-divider {
+  border: none;
+  border-top: 1px solid rgba(128, 128, 128, 0.28);
+  margin: 10px 0 8px;
+}
