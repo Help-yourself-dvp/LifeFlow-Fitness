@@ -557,5 +557,15 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok2 ? '✓' : '✗'} онбординг: у каждого экрана эмодзи + заголовок + текст 40–260 зн.`);
 }
 
+// 0.3.14: темы оформления — стандарт плюс два стиля, корректные id
+{
+  const { PALETTES } = require('./app.js');
+  const ids = (PALETTES || []).map((p) => p && p.id);
+  const ok = ids.length === 3 && ids[0] === 'standard' && ids.includes('neon') && ids.includes('sport')
+    && (PALETTES || []).every((p) => typeof p.label === 'string' && p.label.length >= 3);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} палитры: стандарт + neon + sport, у всех подписи → ${ids.join(',')}`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

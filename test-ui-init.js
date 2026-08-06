@@ -42,6 +42,7 @@ const functions = [
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
   'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'cancelKeyboardShift', 'queueKeyboardShift',
+  'getPalette', 'setPalette', 'applyPalette',
   // 0.3.12: мини-онбординг
   'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
   'renderOnboardingSlide', 'maybeShowOnboarding', 'hasCompletedOnboarding'
@@ -76,7 +77,8 @@ const ids = [
   'sleep-bed-input', 'sleep-wake-input', 'sleep-fill-targets', 'sleep-tags',
   'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn',
   'onboarding-dialog', 'onboarding-emoji', 'onboarding-title', 'onboarding-text',
-  'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open'
+  'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open',
+  'palette-segmented', 'palette-status', 'food-input-clear', 'water-custom-clear'
 ];
 
 let failed = 0;
@@ -86,6 +88,16 @@ let failed = 0;
   const ok = /\$\$\s*=\s*\(sel\)\s*=>\s*Array\.from\(/.test(app);
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} $$ возвращает Array.from (не голый NodeList)`);
+}
+
+/* Регресс-защита (0.3.14): токен --primary использовался в 16 местах, но был
+   НЕ определён — прогресс-бары заданий/медалей и рамки выделений были
+   прозрачными. Алиас обязан существовать. */
+{
+  const css = fs.readFileSync('style.css', 'utf8');
+  const ok = /--primary:\s*var\(--md-sys-color-primary\)/.test(css);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} алиас --primary определён (иначе var(--primary) = прозрачность)`);
 }
 for (const name of functions) {
   const ok = new RegExp(`function\\s+${name}\\s*\\(`).test(app);

@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.13';
+const FITFLOW_VERSION = '0.3.14';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2425,6 +2425,7 @@ function applyThemeMode(mode) {
 
 function initTheme() {
   applyThemeMode(getThemeMode());
+  applyPalette(getPalette());
 
   // Следим за системной темой в режиме «Авто»
   window.matchMedia('(prefers-color-scheme: dark)')
@@ -2438,6 +2439,38 @@ function initTheme() {
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   setThemeMode(current === 'dark' ? 'light' : 'dark');
+}
+
+/* 🎨 Темы оформления (0.3.14, дорожная карта): стиль поверх светлого/тёмного
+   режима. «Стандарт» — привычная палитра; переопределяются ТОЛЬКО цветовые
+   токены (раскладка и шрифты не трогаются — безопасная первая итерация). */
+const PALETTES = [
+  { id: 'standard', label: 'Стандарт' },
+  { id: 'neon', label: 'Neon' },
+  { id: 'sport', label: 'Sport' }
+];
+const PALETTE_IDS = new Set(PALETTES.map((p) => p.id));
+
+function getPalette() {
+  const saved = localStorage.getItem('fitflow:palette');
+  return PALETTE_IDS.has(saved) ? saved : 'standard';
+}
+
+function applyPalette(palette) {
+  const p = PALETTE_IDS.has(palette) ? palette : 'standard';
+  if (p === 'standard') document.documentElement.removeAttribute('data-palette');
+  else document.documentElement.setAttribute('data-palette', p);
+  $$('#palette-segmented button').forEach((btn) =>
+    btn.classList.toggle('active', btn.dataset.palette === p));
+}
+
+function setPalette(palette) {
+  const p = PALETTE_IDS.has(palette) ? palette : 'standard';
+  if (p === 'standard') localStorage.removeItem('fitflow:palette');
+  else localStorage.setItem('fitflow:palette', p);
+  applyPalette(p);
+  const label = (PALETTES.find((x) => x.id === p) || {}).label || p;
+  toast('🎨 Стиль: ' + label + (p === 'neon' ? ' — эффектнее всего в тёмном режиме' : ''));
 }
 
 /* ============================================================
@@ -2760,9 +2793,12 @@ function renderGameMode() { renderDayPlan(); }
 let keyboardShiftState = { field: null, left: 0, raf: 0 };
 
 function scheduleKeyboardShift(field) {
+  // Только запоминаем поле. НИЧЕГО не скроллим здесь: показ клавиатуры
+  // занимает ~250–350 мс, и ЛЮБОЙ наш скролл старше этого окна ломает
+  // IME-сессию на части WebView (кейс GBoard: «со второго тапа + молчит голос»).
+  // Реальная докрутка — исключительно по событию visualViewport.resize.
   keyboardShiftState.field = field;
   keyboardShiftState.left = 2; // максимум две мягкие докрутки на один фокус
-  queueKeyboardShift();
 }
 
 function cancelKeyboardShift() {
@@ -5797,7 +5833,7 @@ function createAllProfilesBackup() {
     version: 2,
     scope: 'all-profiles',
     exportedAt: new Date().toISOString(),
-    settings: { theme: getThemeMode() },
+    settings: { theme: getThemeMode(), palette: getPalette() },
     activeProfileId: profilesState.activeId,
     profiles: profilesState.profiles.map((profile) => ({
       id: profile.id,
@@ -5913,6 +5949,9 @@ async function confirmAllProfilesImport() {
   const theme = pending.backup.settings && pending.backup.settings.theme;
   if (theme === 'light' || theme === 'dark') localStorage.setItem('fitflow:theme', theme);
   else localStorage.removeItem('fitflow:theme');
+  const palette = pending.backup.settings && pending.backup.settings.palette;
+  if (palette === 'neon' || palette === 'sport') localStorage.setItem('fitflow:palette', palette);
+  else localStorage.removeItem('fitflow:palette');
   location.reload();
 }
 
@@ -6605,6 +6644,26 @@ function init() {
   $('#profile-height-input').addEventListener('change', (e) => saveProfileBasicField('heightCm', e.target.value));
   $('#morning-message-dialog-ok').addEventListener('click', closeMorningMessageDialog);
 
+  // ✕ очистка набранного, но не отправленного текста (0.3.14): питание и «Своя мл»
+  const foodInputEl = $('#food-input');
+  const foodClearBtn = $('#food-input-clear');
+  const syncFoodClear = () => { if (foodClearBtn) foodClearBtn.hidden = !(foodInputEl && foodInputEl.value); };
+  foodInputEl?.addEventListener('input', syncFoodClear);
+  bindEvent('#food-input-clear', 'click', () => {
+    if (foodInputEl) { foodInputEl.value = ''; foodInputEl.focus(); }
+    syncFoodClear();
+  });
+  syncFoodClear();
+  const waterCustomEl = $('#water-custom-ml');
+  const waterClearBtn = $('#water-custom-clear');
+  const syncWaterClear = () => { if (waterClearBtn) waterClearBtn.hidden = !(waterCustomEl && waterCustomEl.value); };
+  waterCustomEl?.addEventListener('input', syncWaterClear);
+  bindEvent('#water-custom-clear', 'click', () => {
+    if (waterCustomEl) { waterCustomEl.value = ''; waterCustomEl.focus(); }
+    syncWaterClear();
+  });
+  syncWaterClear();
+
   // Чек-лист дня
   $('#day-checklist-toggle').addEventListener('change', (e) => updateDayChecklistEnabled(e.target.checked));
   const gameToggle = $('#game-mode-toggle');
@@ -6743,6 +6802,8 @@ function init() {
   // Настройки: тема
   $$('#theme-segmented button').forEach((btn) =>
     btn.addEventListener('click', () => setThemeMode(btn.dataset.themeMode)));
+  $$('#palette-segmented button').forEach((btn) =>
+    btn.addEventListener('click', () => setPalette(btn.dataset.palette)));
 
   // Настройки: утренние фразы, вечерний вопрос и разрешения Android
   $('#morning-motivation-toggle').addEventListener('change', (e) =>
@@ -6797,8 +6858,8 @@ function init() {
       refreshNotificationSetupState();
     }
   });
-  // Открылась клавиатура → через паузу (анимация) докручиваем так, чтобы
-  // подросший viewport видел И поле, И его кнопки действий («Разобрать» и т.п.).
+  // Фокус в поле → запоминаем его; докрутка кнопок — только по факту
+  // открытия клавиатуры (visualViewport.resize), иначе гонка с IME.
   document.addEventListener('focusin', (event) => {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
@@ -7965,6 +8026,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES
   };
 }

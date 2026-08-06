@@ -55,6 +55,11 @@ html[data-theme="light"] {
 
   --bg-blob-a: rgb(0 143 143 / 0.09);
   --bg-blob-b: rgb(255 158 61 / 0.07);
+
+  /* Алиас, на который ссылаются новые компоненты (раньше ТОКЕН НЕ БЫЛ
+     ОПРЕДЕЛЁН — var(--primary) давал «прозрачность»: исчезали прогресс-бары
+     заданий и медалей, рамки выделения чипов. 0.3.14: чиним в корне). */
+  --primary: var(--md-sys-color-primary);
 }
 
 /* ---------- Токены: ТЁМНАЯ тема ---------- */
@@ -3038,3 +3043,70 @@ html.dialog-open body {
 .onboarding-dot.active { background: var(--primary); transform: scale(1.25); }
 .onboarding-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
 .onboarding-actions .btn-primary { flex: 1; }
+
+/* ✕ очистка полей (0.3.14) */
+.food-input { padding-right: 34px; }
+.field-clear-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--md-sys-color-on-surface-variant); background: transparent; flex: 0 0 auto; }
+.field-clear-btn:hover { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); }
+.field-clear-btn svg { width: 14px; height: 14px; }
+.water-custom-row .field-clear-btn { position: static; transform: none; width: 30px; height: 30px; }
+
+/* 🎨 Темы оформления (0.3.14): только цветовые токены.
+   --primary — алиас на --md-sys-color-primary, подхватывается автоматически. */
+
+/* 🌃 Neon — неоновые циан/фиолет акценты; задуман под тёмный режим */
+html[data-palette="neon"] {
+  --grad-a: #7c5cff;
+  --grad-b: #22e5ff;
+  --calorie-accent: #ff79c6;
+  --bg-blob-a: rgb(124 92 255 / 0.14);
+  --bg-blob-b: rgb(34 229 255 / 0.10);
+}
+html[data-palette="neon"][data-theme="dark"] {
+  --md-sys-color-primary: #22e5ff;
+  --md-sys-color-on-primary: #00252b;
+  --md-sys-color-primary-container: #143a5e;
+  --md-sys-color-on-primary-container: #b9f3ff;
+  --md-sys-color-secondary: #b39dff;
+  --md-sys-color-secondary-container: #352b66;
+  --md-sys-color-on-secondary-container: #e3dbff;
+  --md-sys-color-tertiary: #ff79c6;
+  --md-sys-color-tertiary-container: #5c2149;
+  --md-sys-color-on-tertiary-container: #ffd6ef;
+  --md-sys-color-surface: #0b0d17;
+  --md-sys-color-on-surface: #e2e6ff;
+  --md-sys-color-surface-dim: #0b0d17;
+  --md-sys-color-surface-bright: #2a2d40;
+  --md-sys-color-surface-container-lowest: #070910;
+  --md-sys-color-surface-container-low: #121524;
+  --md-sys-color-surface-container: #171a2b;
+  --md-sys-color-surface-container-high: #20243a;
+  --md-sys-color-surface-container-highest: #2a2e48;
+  --md-sys-color-on-surface-variant: #b8bce0;
+  --md-sys-color-outline: #7d84b8;
+  --md-sys-color-outline-variant: #333852;
+  --bg-blob-a: rgb(124 92 255 / 0.15);
+  --bg-blob-b: rgb(34 229 255 / 0.09);
+}
+
+/* ⚡ Sport — энергичный оранж с лаймом */
+html[data-palette="sport"] {
+  --grad-a: #ff6d00;
+  --grad-b: #84cc16;
+  --calorie-accent: #ff3d6e;
+  --bg-blob-a: rgb(255 109 0 / 0.10);
+  --bg-blob-b: rgb(132 204 22 / 0.09);
+  --md-sys-color-primary: #d84315;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffd8c2;
+  --md-sys-color-on-primary-container: #3c1300;
+}
+html[data-palette="sport"][data-theme="dark"] {
+  --md-sys-color-primary: #ffab70;
+  --md-sys-color-on-primary: #3a1c00;
+  --md-sys-color-primary-container: #7a3b00;
+  --md-sys-color-on-primary-container: #ffe0c2;
+  --md-sys-color-secondary: #bde39b;
+  --md-sys-color-secondary-container: #3d4d1f;
+  --md-sys-color-on-secondary-container: #e2f5c8;
+}
