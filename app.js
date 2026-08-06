@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.11';
+const FITFLOW_VERSION = '0.3.12';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -5599,6 +5599,93 @@ function closeHelpTopicDialog() {
   if (dialog) dialog.hidden = true;
 }
 
+/* ============================================================
+   🎓 Мини-онбординг (0.3.12, договорённость с пользователем):
+   3 коротких экрана при первом запуске. «Пропустить» работает
+   на каждом экране; повторить обучение можно в любой момент —
+   Настройки → О приложении → «Как пользоваться приложением».
+============================================================ */
+const ONBOARDING_SLIDES = [
+  {
+    emoji: '💧',
+    title: 'Всё на устройстве, без регистрации',
+    text: 'FitFlow считает воду, питание, вес и активность полностью офлайн: нет сервера и аккаунта, данные не покидают телефон. Резервная копия — один файл: Настройки → Данные.'
+  },
+  {
+    emoji: '🗣️',
+    title: 'Пишите или диктуйте «как есть»',
+    text: '«Два бутерброда с сыром и стакан сока» — парсер на базе 925+ продуктов найдёт КБЖУ сам. Перед сохранением всегда показываем расчёт: видно, что и как посчитано, — можно поправить.'
+  },
+  {
+    emoji: '📋',
+    title: 'План дня, сон и ИИ-центр',
+    text: 'На Главной — карточка «План дня»: чек-лист и задания отмечаются сами по вашим записям. В «Общее» можно включить утренний чек-ин сна. ИИ-центр работает и офлайн: режим «Локальный эксперт».'
+  }
+];
+const ONBOARDING_DONE_KEY = 'fitflow:onboarding-done';
+let onboardingIndex = 0;
+
+function hasCompletedOnboarding() {
+  try { return localStorage.getItem(ONBOARDING_DONE_KEY) === '1'; } catch (e) { return true; }
+}
+
+function markOnboardingDone() {
+  try { localStorage.setItem(ONBOARDING_DONE_KEY, '1'); } catch (e) { /* приватный режим — просто не запоминаем */ }
+}
+
+function renderOnboardingSlide() {
+  const slide = ONBOARDING_SLIDES[onboardingIndex];
+  if (!slide) return;
+  const emoji = $('#onboarding-emoji');
+  const title = $('#onboarding-title');
+  const text = $('#onboarding-text');
+  const dots = $('#onboarding-dots');
+  const next = $('#onboarding-next');
+  if (emoji) emoji.textContent = slide.emoji;
+  if (title) title.textContent = slide.title;
+  if (text) text.textContent = slide.text;
+  if (dots) {
+    dots.innerHTML = ONBOARDING_SLIDES.map((_, i) =>
+      `<span class="onboarding-dot${i === onboardingIndex ? ' active' : ''}"></span>`).join('');
+  }
+  if (next) next.textContent = onboardingIndex === ONBOARDING_SLIDES.length - 1 ? 'Начать' : 'Далее →';
+}
+
+function openOnboarding() {
+  const dialog = $('#onboarding-dialog');
+  if (!dialog) return;
+  onboardingIndex = 0;
+  renderOnboardingSlide();
+  dialog.hidden = false;
+}
+
+function closeOnboarding() {
+  const dialog = $('#onboarding-dialog');
+  if (dialog) dialog.hidden = true;
+  markOnboardingDone();
+  // Если онбординг показан утром первого дня — после него честно спросим про сон.
+  maybeShowSleepCheckin();
+}
+
+function nextOnboardingSlide() {
+  if (onboardingIndex < ONBOARDING_SLIDES.length - 1) {
+    onboardingIndex++;
+    renderOnboardingSlide();
+  } else {
+    closeOnboarding();
+  }
+}
+
+function skipOnboarding() { closeOnboarding(); }
+
+/* Первый запуск: после принятия условий, пока не пройден и не пропущен. */
+function maybeShowOnboarding() {
+  if (typeof document === 'undefined') return;
+  if (!hasAcceptedTerms() || hasCompletedOnboarding()) return;
+  if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
+  openOnboarding();
+}
+
 function bindSettingsMenu() {
   $$('.settings-menu-btn').forEach((btn) =>
     btn.addEventListener('click', () => btn.dataset.settingsView && switchView(btn.dataset.settingsView)));
@@ -6350,7 +6437,11 @@ function init() {
   bindEvent('#help-ok', 'click', closeHelpTopicDialog);
   bindBackNavigation(); // системная кнопка/жест «назад» = внутренний шаг назад
   // Утренний чек-ин сна — спросить один раз за утро, если не отмечен.
+  setTimeout(maybeShowOnboarding, 500);
   setTimeout(maybeShowSleepCheckin, 900);
+  bindEvent('#onboarding-open', 'click', openOnboarding);
+  bindEvent('#onboarding-next', 'click', nextOnboardingSlide);
+  bindEvent('#onboarding-skip', 'click', skipOnboarding);
 
   $('#activity-fab').addEventListener('click', () => {
     const form = $('#training-form');
@@ -7847,6 +7938,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES
   };
 }

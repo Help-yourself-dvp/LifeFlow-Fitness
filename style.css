@@ -2966,7 +2966,11 @@ html.dialog-open body {
 .sleep-time-row input { width: 110px; }
 .sleep-tags-label { margin: 12px 0 6px; }
 .sleep-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.sleep-tags .chip[aria-pressed="true"] { background: var(--md-sys-color-primary-container); border-color: var(--primary); color: var(--md-sys-color-on-primary-container); }
+/* 0.3.12: единый размер чипов + ЗАМЕТНОЕ выделение. Причина «выбора не видно»:
+   у базового .chip рамки нет совсем, поэтому border-color ни на что не влиял.
+   Мультивыбор при этом работал всегда — просто не был виден. */
+.sleep-tags .chip { flex: 1 1 30%; min-width: 96px; min-height: 42px; border: 1.5px solid var(--md-sys-color-outline-variant); background: transparent; color: var(--md-sys-color-on-surface); transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.sleep-tags .chip[aria-pressed="true"] { background: var(--md-sys-color-primary-container); border-color: var(--primary); color: var(--md-sys-color-on-primary-container); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--primary), 0 2px 6px rgba(0, 0, 0, 0.28); }
 .sleep-targets-row { display: flex; gap: 12px; margin: 8px 0 4px; }
 .sleep-targets-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
 .sleep-targets-row input { width: 110px; }
@@ -3023,3 +3027,14 @@ html.dialog-open body {
   border-top: 1px solid rgba(128, 128, 128, 0.28);
   margin: 10px 0 8px;
 }
+
+/* 🎓 Онбординг (0.3.12) */
+.onboarding-dialog { max-width: 400px; text-align: center; }
+.onboarding-dialog .app-dialog-icon { font-size: 2rem; margin-bottom: 4px; }
+.onboarding-dialog h2 { font-size: 1.05rem; margin: 4px 0 8px; }
+.onboarding-dialog .app-dialog-text { font-size: 0.85rem; line-height: 1.45; }
+.onboarding-dots { display: flex; justify-content: center; gap: 6px; margin: 14px 0 4px; }
+.onboarding-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-sys-color-outline-variant); transition: background 0.2s ease, transform 0.2s ease; }
+.onboarding-dot.active { background: var(--primary); transform: scale(1.25); }
+.onboarding-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.onboarding-actions .btn-primary { flex: 1; }

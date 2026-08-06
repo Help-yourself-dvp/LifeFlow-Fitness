@@ -996,12 +996,13 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.11</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.12</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">Методика расчётов</button>
             <button class="btn btn-secondary" id="terms-open" type="button">Условия использования</button>
+            <button class="btn btn-secondary" id="onboarding-open" type="button">🎓 Как пользоваться приложением</button>
           </div>
           <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
         </div>
@@ -1079,6 +1080,19 @@
       <p class="app-dialog-text" id="help-text"></p>
       <div class="app-dialog-actions">
         <button class="btn btn-primary" id="help-ok" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
+    <section class="app-dialog onboarding-dialog">
+      <div class="app-dialog-icon" id="onboarding-emoji" aria-hidden="true">💧</div>
+      <h2 id="onboarding-title">Добро пожаловать</h2>
+      <p class="app-dialog-text" id="onboarding-text"></p>
+      <div class="onboarding-dots" id="onboarding-dots" aria-hidden="true"></div>
+      <div class="app-dialog-actions onboarding-actions">
+        <button class="btn btn-ghost" id="onboarding-skip" type="button">Пропустить</button>
+        <button class="btn btn-primary" id="onboarding-next" type="button">Далее →</button>
       </div>
     </section>
   </div>

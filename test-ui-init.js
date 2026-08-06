@@ -41,7 +41,10 @@ const functions = [
   'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
-  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible'
+  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible',
+  // 0.3.12: мини-онбординг
+  'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
+  'renderOnboardingSlide', 'maybeShowOnboarding', 'hasCompletedOnboarding'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -71,7 +74,9 @@ const ids = [
   'sleep-window-row', 'sleep-window-start', 'sleep-window-end',
   'sleep-checkin-dialog', 'sleep-rating-row', 'sleep-extra-toggle', 'sleep-extra',
   'sleep-bed-input', 'sleep-wake-input', 'sleep-fill-targets', 'sleep-tags',
-  'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn'
+  'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn',
+  'onboarding-dialog', 'onboarding-emoji', 'onboarding-title', 'onboarding-text',
+  'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open'
 ];
 
 let failed = 0;

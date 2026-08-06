@@ -544,5 +544,18 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok3 ? '✓' : '✗'} равные/битые границы окна честно отклоняются`);
 }
 
+// 0.3.12: онбординг — минимум 3 экрана, каждый с эмодзи, заголовком и живым текстом
+{
+  const { ONBOARDING_SLIDES } = require('./app.js');
+  const ok1 = Array.isArray(ONBOARDING_SLIDES) && ONBOARDING_SLIDES.length >= 3;
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} онбординг: экранов ${(ONBOARDING_SLIDES || []).length} (минимум 3)`);
+  const ok2 = ONBOARDING_SLIDES.every((s) => s && typeof s.emoji === 'string' && s.emoji.trim().length > 0
+    && typeof s.title === 'string' && s.title.trim().length >= 5
+    && typeof s.text === 'string' && s.text.length >= 40 && s.text.length <= 260);
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} онбординг: у каждого экрана эмодзи + заголовок + текст 40–260 зн.`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
