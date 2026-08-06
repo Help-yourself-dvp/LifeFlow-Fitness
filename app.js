@@ -11,7 +11,9 @@
 
 /* ---------- Утилиты ---------- */
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
+/* ВАЖНО: $$ всегда возвращает Array, а не NodeList — иначе .some/.map/.filter
+   падают с «is not a function» (NodeList знает только .forEach). */
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
 
@@ -1176,7 +1178,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.5';
+const FITFLOW_VERSION = '0.3.6';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -5511,7 +5513,7 @@ function setAiMode(mode) {
   saveState();
   renderAiSettings();
   toast(mode === 'expert' ? 'Режим: локальные факты + рецепты (офлайн)'
-    : mode === 'cloud' ? 'Режим: облачная нейросеть (онлайн, ваш ключ)'
+    : mode === 'cloud' ? 'Режим: 🧪 облачная нейросеть — тестовый (онлайн, ваш ключ)'
     : 'Режим: Gemma LiteRT (~1.3 ГБ)');
 }
 
@@ -6369,9 +6371,10 @@ function buildAiChatAnswer(text) {
   // 3) Продукт назван без явного вопроса — всё равно покажем его показатели.
   if (foundKeys.length && !isChoiceQuestion) return buildProductTable();
   // 4) Честный ответ без заглушек: локально — только факты из базы,
-  // свободные вопросы — задача настоящей нейросети (облачный режим).
+  // свободные вопросы — задача настоящей нейросети. Стратегический путь —
+  // нейросеть на устройстве (без интернета и ключей); облако пока — тестовый режим.
   return '<p>Локально я отвечаю только проверенными данными: КБЖУ продуктов из базы (напишите название) и рецепты (вкладка «Рецепт»). Заготовленных «универсальных ответов» у меня нет — на свободный вопрос вроде «что выпить перед сном» или «столица Канады» правильно ответит только настоящая нейросеть.</p>' +
-    '<p>Подключите <b>облачный ИИ</b>: Настройки → «✨ ИИ-помощник» → режим «Облачный ИИ» — понадобится бесплатный ключ (Google Gemini, DeepSeek или OpenRouter) и интернет. Тогда я отвечу на любой вопрос с учётом ваших целей и дневника.</p>' +
+    '<p>Мы работаем над нейросетью прямо на устройстве — она не потребует ни интернета, ни ключей. А <b>для тестов</b> уже сейчас можно включить облачный режим: Настройки → «✨ ИИ-помощник» → «☁️ Облако 🧪 тест» (бесплатный ключ Google Gemini, DeepSeek или OpenRouter). Тогда я отвечу на любой вопрос с учётом ваших целей и дневника.</p>' +
     '<button class="btn btn-secondary" id="ai-chat-goto-settings" type="button">Открыть настройки ИИ</button>';
 }
 

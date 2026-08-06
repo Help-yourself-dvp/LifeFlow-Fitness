@@ -818,12 +818,13 @@
           <p class="settings-label" style="margin-top:10px">Режим работы ИИ-ядра</p>
           <div class="segmented" id="ai-mode-choices" role="radiogroup" aria-label="Режим работы ИИ">
             <button class="active" type="button" data-ai-mode="expert" title="Факты из базы продуктов, рецепты и аналитика — мгновенно и офлайн">Локальный (офлайн)</button>
-            <button type="button" data-ai-mode="cloud" title="Настоящая нейросеть через ваш ключ: ответит на любой вопрос, распознает фото">☁️ Облачный ИИ</button>
+            <button type="button" data-ai-mode="cloud" title="🧪 ВРЕМЕННЫЙ режим для тестов: требует интернет и ваш личный ключ. Стратегия приложения — полный офлайн без ключей (нейросеть на устройстве)">☁️ Облако 🧪 тест</button>
             <button type="button" data-ai-mode="litert" title="Аппаратное ускорение Gemma LiteRT на устройстве (в разработке)">Gemma на устройстве</button>
           </div>
           <div id="ai-cloud-box" class="ai-model-box" hidden>
-            <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть (ваш ключ, BYOK)</p>
-            <p class="settings-hint">Отвечает на любой вопрос с учётом ваших целей, пишет рецепты и распознаёт продукты по фото (у Gemini). Ключ хранится только на устройстве.</p>
+            <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — 🧪 эксперимент, только для тестов</p>
+            <p class="settings-hint"><b>Временный режим.</b> Основной путь FitFlow — полный офлайн: без интернета, ключей и регистрации (Локальный эксперт уже сейчас, далее нейросеть прямо на устройстве). Облако оставлено <b>только чтобы заранее проверить сценарии</b>, которые потом перейдут к нейросети на устройстве: свободные вопросы нутрициологу, живой текст рецепта и анализа, распознавание продуктов по фото.</p>
+            <p class="settings-hint">Что важно знать: нужен интернет и ваш личный ключ; текст вопроса и контекст дня уходят выбранному провайдеру; для работы приложения облако <b>не требуется нигде</b>. Ключ хранится только на устройстве.</p>
             <div class="segmented" id="ai-cloud-provider" role="radiogroup" aria-label="Провайдер облачного ИИ">
               <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
               <button type="button" data-cloud-provider="deepseek">DeepSeek</button>
@@ -930,7 +931,7 @@
             <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.5</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+            <p class="settings-hint">FitFlow <span id="about-version">v0.3.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
             <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
             <div class="about-links">
               <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>

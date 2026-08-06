@@ -45,6 +45,13 @@ const ids = [
 ];
 
 let failed = 0;
+/* Регресс-защита (баг 0.3.5 «dialogs.some is not a function» при входе):
+   $$ обязан возвращать Array — NodeList не имеет .some/.map/.filter. */
+{
+  const ok = /\$\$\s*=\s*\(sel\)\s*=>\s*Array\.from\(/.test(app);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} $$ возвращает Array.from (не голый NodeList)`);
+}
 for (const name of functions) {
   const ok = new RegExp(`function\\s+${name}\\s*\\(`).test(app);
   if (!ok) failed++;
