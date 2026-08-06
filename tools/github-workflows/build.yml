@@ -114,6 +114,18 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+                // IME «прогрев» (0.3.17): у части WebView первая сессия клавиатуры
+                // после холодного старта теряется, если у корневого WebView ещё
+                // не запрашивали фокус. requestFocus() после загрузки страницы
+                // лечит «клавиатуру со второго тапа» и молчащий набор GBoard.
+                try {
+                    final WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                    if (wv != null) {
+                        wv.postDelayed(new Runnable() {
+                            @Override public void run() { wv.requestFocus(); }
+                        }, 500);
+                    }
+                } catch (Exception e) { }
                   requestExactAlarmPermission();
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
@@ -863,6 +875,13 @@ jobs:
           )
           if 'WaterReminderReceiver' not in t:
               t = t.replace('</application>', water_receiver + '    </application>')
+          # IME/клавиатура (0.3.17): без softInputMode система не сжимает вьюпорт
+          # WebView — клавиатура перекрывает поле, а первая IME-сессия после
+          # холодного старта теряется. adjustResize: WebView сам сжимается,
+          # Chromium скроллит к полю ввода.
+          if 'windowSoftInputMode' not in t:
+              t = t.replace('android:name=".MainActivity"',
+                            'android:name=".MainActivity"\n            android:windowSoftInputMode="adjustResize"', 1)
           man.write_text(t, encoding='utf-8')
 
           res = Path('android/app/src/main/res')
