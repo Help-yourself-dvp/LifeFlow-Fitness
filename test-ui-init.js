@@ -24,8 +24,15 @@ const functions = [
   'isCloudAiReady', 'callCloudAi', 'cloudErrorText', 'findProductsInText', 'mdLiteToHtml',
   'sendAiChatCloud', 'recognizeFoodPhoto', 'geminiScoreModelName',
   'normalizeNumberWords', 'computeGameTasks', 'renderGameMode', 'computeGameRecords',
-  'openGameMedalsDialog', 'closeGameMedalsDialog', 'updateGameModeEnabled',
-  'renderGameModeSettings', 'renderStatsCompare', 'getCloudBaseUrl'
+  'updateGameModeEnabled', 'renderGameModeSettings', 'renderStatsCompare', 'getCloudBaseUrl',
+  // 0.3.8: правдивость парсера, медали-экран, кнопка «назад», справка, отмена «Своя мл»
+  'describeFoodItemLine', 'parseSandwichItem', 'parseDishFromItem',
+  'computeGameMedals', 'medalBadgeSvg', 'renderGameMedalsView',
+  'computeRunKmTotal', 'computeStepsTotal', 'computeWeightLostKg',
+  'bindBackNavigation', 'handleBackNavigation', 'getActiveViewName',
+  'openHelpTopicDialog', 'closeHelpTopicDialog', 'collapseWaterCustomRow',
+  'isHomeCardShown', 'isHomeCardFeatureEnabled', 'syncHomeCardVisibility',
+  'pollinationsAnonymousCall'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -46,10 +53,11 @@ const ids = [
   'settings-profile-view', 'settings-notifications-view', 'settings-ai-view', 'settings-data-view', 'settings-about-view',
   'ai-cloud-box', 'ai-cloud-provider', 'ai-cloud-key', 'ai-cloud-model', 'ai-cloud-check', 'ai-cloud-clear', 'ai-cloud-status', 'ai-cloud-hint',
   'settings-general-view', 'game-mode-toggle', 'game-mode-status', 'game-tasks-card',
-  'game-medals-dialog', 'game-medals-list', 'game-medals-ok',
+  'game-medals-view', 'game-medals-grid', 'game-medals-count', 'game-medals-back',
+  'help-dialog', 'help-title', 'help-text', 'help-ok', 'water-custom-cancel',
   'stats-compare-section', 'stats-compare-text', 'stats-compare-motivation',
   'ai-quick-clear-btn', 'ai-chat-clear-btn', 'ai-recipe-clear-btn',
-  'ai-cloud-base-row', 'ai-cloud-base'
+  'ai-cloud-base-row', 'ai-cloud-base', 'ai-quick-result', 'ai-chat-result', 'ai-recipe-result'
 ];
 
 let failed = 0;

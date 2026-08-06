@@ -411,12 +411,20 @@ const FOOD_DB = {
   'макароны по-флотски': { kcal: 180, p: 10, f: 8, c: 17 }, 'картошка с мясом': { kcal: 150, p: 8, f: 6, c: 15 },
   'тушеная капуста': { kcal: 60, p: 2.5, f: 3, c: 6 }, 'капуста тушеная': { kcal: 60, p: 2.5, f: 3, c: 6 },
   'овощное рагу': { kcal: 70, p: 2, f: 3, c: 9 }, 'овощи на гриле': { kcal: 45, p: 2, f: 2, c: 5 },
+  'рагу из говядины': { kcal: 160, p: 12, f: 10, c: 6 }, 'рагу из свинины': { kcal: 190, p: 10, f: 14, c: 6 },
+  'рагу из курицы': { kcal: 130, p: 14, f: 7, c: 6 }, 'рагу из индейки': { kcal: 125, p: 14, f: 6, c: 6 },
   'курица с овощами': { kcal: 120, p: 16, f: 5, c: 3 }, 'рыба на пару': { kcal: 80, p: 16, f: 2, c: 0 },
   'рыба жареная': { kcal: 160, p: 18, f: 9, c: 2 }, 'рыба запеченная': { kcal: 120, p: 18, f: 4, c: 2 },
-  'куриные котлеты': { kcal: 180, p: 16, f: 10, c: 6 }, 'рыбные котлеты': { kcal: 170, p: 13, f: 10, c: 7 },
-  'овощные котлеты': { kcal: 140, p: 6, f: 7, c: 14 }, 'кабачковые оладьи': { kcal: 130, p: 4, f: 7, c: 14 },
+  'куриные котлеты': { kcal: 180, p: 16, f: 10, c: 6, per: 'шт', pieceG: 100 }, 'рыбные котлеты': { kcal: 170, p: 13, f: 10, c: 7, per: 'шт', pieceG: 100 },
+  'овощные котлеты': { kcal: 140, p: 6, f: 7, c: 14, per: 'шт', pieceG: 100 }, 'кабачковые оладьи': { kcal: 130, p: 4, f: 7, c: 14 },
+  'котлета говяжья': { kcal: 220, p: 14, f: 17, c: 4, per: 'шт', pieceG: 100 },
+  'котлета свиная': { kcal: 265, p: 12, f: 22, c: 4, per: 'шт', pieceG: 100 },
+  'котлета куриная': { kcal: 175, p: 16, f: 10, c: 4, per: 'шт', pieceG: 100 },
+  'котлета рыбная': { kcal: 140, p: 14, f: 7, c: 5, per: 'шт', pieceG: 100 },
+  'котлета из индейки': { kcal: 150, p: 17, f: 8, c: 4, per: 'шт', pieceG: 100 },
   'яичница с помидорами': { kcal: 90, p: 6, f: 6, c: 3 }, 'яичница с колбасой': { kcal: 200, p: 12, f: 15, c: 3 },
   'омлет с сыром': { kcal: 200, p: 13, f: 15, c: 2 }, 'омлет с овощами': { kcal: 120, p: 8, f: 8, c: 3 },
+  'бутерброд': { kcal: 130, p: 5, f: 6, c: 12, per: 'шт', pieceG: 45 },
   'бутерброд с сыром': { kcal: 110, p: 5, f: 6, c: 9, per: 'шт', pieceG: 45 },
   'бутерброд с колбасой': { kcal: 125, p: 5, f: 8, c: 9, per: 'шт', pieceG: 50 },
   'бутерброд с маслом': { kcal: 130, p: 3, f: 9, c: 9, per: 'шт', pieceG: 45 },
@@ -937,6 +945,8 @@ function closeSmartEntry() {
 /* Прозрачная расшифровка позиции питания: сколько граммов/штук принято
    в расчёт и во сколько ккал это оценено. Без неё «суши 5 шт — 350 ккал»
    выглядело загадкой (за 1 шт или за 5?). */
+/* Возвращает ГОТОВЫЙ HTML (части экранируются здесь): строка позиции,
+   при оценке по составу — знак ≈ и строка с расшифровкой состава. */
 function describeFoodItemLine(item) {
   let amountText;
   if (item.amount == null) {
@@ -951,14 +961,18 @@ function describeFoodItemLine(item) {
   } else {
     amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
   }
-  return item.name + ' ' + amountText + ' — ' + fmt(Math.round(item.kcal)) + ' ккал';
+  let line = escapeHtml(item.name) + ' ' + amountText + ' — ' + (item.approx ? '≈ ' : '') + fmt(Math.round(item.kcal)) + ' ккал';
+  if (item.note) line += '<br><small style="opacity:.72">' + escapeHtml(item.note) + '</small>';
+  return line;
 }
 
 function previewSmartEntry() {
   const parsed = parseSmartEntry($('#smart-entry-input').value);
+  // Строки формируются уже экранированными: describeFoodItemLine экранирует
+  // части сам (позволяет показать расшифровку состава мелким текстом).
   const lines = [];
   if (parsed.waterMl > 0) lines.push(`💧 Вода: ${parsed.waterMl} мл`);
-  parsed.activities.forEach((activity) => lines.push(`🌿 ${ACTIVITY_TYPES[activity.type].label}: ${formatWorkoutDuration(activity.durationMinutes)}`));
+  parsed.activities.forEach((activity) => lines.push(`🌿 ${escapeHtml(ACTIVITY_TYPES[activity.type].label)}: ${formatWorkoutDuration(activity.durationMinutes)}`));
   if (parsed.food.length) {
     const total = parsed.food.reduce((sum, item) => sum + item.kcal, 0);
     lines.push(`🍽️ Питание · всего ${fmt(Math.round(total))} ккал:`);
@@ -967,7 +981,7 @@ function previewSmartEntry() {
   if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
   const preview = $('#smart-entry-preview');
-  preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}`;
+  preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${line}</p>`).join('')}`;
   preview.hidden = false;
   $('#smart-entry-save').hidden = false;
 }
@@ -994,6 +1008,90 @@ async function saveSmartEntry() {
 
 function openSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = false; }
 function closeSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = true; }
+
+/* ---------- Честная композиция блюд (вместо «молча подставить похожий продукт») ----------
+   Три слоя истины: точный ключ базы → композиция по составу с пометкой ≈ → честный
+   null (не распознано). Именно молчаливая подмена («4 бутерброда с сырокопченой
+   колбасой» → «колбаса 100 г = 470/1316 ккал», «рагу из говядины» → «говядина»)
+   и разрушала доверие к основному функционалу. */
+
+/* «Бутерброд/сэндвич с Y»: считаем по составу — хлебная основа + начинка Y из базы.
+   Возвращает item или null (null = «это не сэндвич-фраза», продолжаем обычный путь). */
+const SANDWICH_BREAD = { g: 30, kcal: 80, p: 2.4, f: 0.9, c: 15 }; // ломтик батона/белого хлеба
+function sandwichFillingGrams(name) {
+  if (/масл/u.test(name) && !/маслин|тест/u.test(name)) return 8;
+  if (/паштет/u.test(name)) return 12;
+  if (/икр/u.test(name)) return 10;
+  if (/рыб|сёмг|семг|лосос|форел|тунец|скумбр|селёдк|селедк|шпрот/u.test(name)) return 20;
+  return 15; // сыры и колбасные изделия — типичный ломтик начинки
+}
+function parseSandwichItem(rawName, amount, unit, genericProduct) {
+  const m = rawName.match(/^(бутерброд[а-яё]*|сэндвич[а-яё]*|сандвич[а-яё]*|ролл[а-яё]*\s+с)\s+(.+)$/iu)
+    || rawName.match(/^(бутерброд[а-яё]*|сэндвич[а-яё]*|сандвич[а-яё]*)\s+с\s+(.+)$/iu);
+  if (!m) return null;
+  const fillingText = m[2].trim();
+  const filling = lookupProduct(fillingText);
+  if (!filling) return null; // начинку не знаем — отдаём обычному поиску (кураторские ключи «бутерброд с …»)
+  // Кураторский сэндвич-ключ из базы («бутерброд с сыром», «бутерброд с колбасой»)
+  // точнее композиции — отдаём ему.
+  if (genericProduct && genericProduct.key.indexOf('бутерброд') === 0) return null;
+  const fg = sandwichFillingGrams(filling.key);
+  const count = amount != null ? amount : 1;
+  const kcalPer = SANDWICH_BREAD.kcal + (filling.kcal * fg) / 100;
+  return {
+    id: uid(),
+    raw: rawName,
+    name: 'бутерброд с ' + filling.key,
+    amount: count,
+    unit: 'шт',
+    grams: Math.round((SANDWICH_BREAD.g + fg) * count),
+    perPiece: true,
+    approx: true,
+    note: `по составу: хлеб ${SANDWICH_BREAD.g} г + ${filling.key} ${fg} г на шт`,
+    kcal: Math.round(kcalPer * count),
+    p: Math.round((SANDWICH_BREAD.p + (filling.p * fg) / 100) * count * 10) / 10,
+    f: Math.round((SANDWICH_BREAD.f + (filling.f * fg) / 100) * count * 10) / 10,
+    c: Math.round((SANDWICH_BREAD.c + (filling.c * fg) / 100) * count * 10) / 10
+  };
+}
+
+/* «X из Y»: блюда-контейнеры без собственного ключа — честная оценка по основному
+   ингредиенту с коэффициентом способа приготовления (тушение разбавляет овощами). */
+const DISH_FROM_FACTORS = [
+  [/рагу/u, 0.85, 'тушеное блюдо: основа + овощи'],
+  [/гуляш/u, 0.9, 'основа в соусе'],
+  [/запеканк/u, 0.9, 'запеканка: основа + связующее'],
+  [/плов/u, 1.05, 'плов: основа + рис с маслом'],
+  [/суп[а-яё]*/u, 0.55, 'суп: больше половины — вода'],
+  [/пюре/u, 0.7, 'пюре: основа + жидкость'],
+  [/салат/u, 0.9, 'салат из основы']
+];
+function parseDishFromItem(rawName, amount, unit, nutritionOf) {
+  const m = rawName.match(/^([а-яёa-z][а-яёa-z\s]*?)\s+из\s+(.+)$/iu);
+  if (!m) return null;
+  const base = lookupProduct(m[2]);
+  if (!base) return null;
+  const rule = DISH_FROM_FACTORS.find(([pattern]) => pattern.test(m[1]));
+  if (!rule) return null;
+  const factorK = rule[1];
+  const scaled = nutritionOf({ kcal: base.kcal * factorK, p: base.p * factorK, f: base.f * factorK, c: base.c * factorK }, amount, unit);
+  if (scaled == null || !Number.isFinite(scaled.kcal)) return null;
+  return {
+    id: uid(),
+    raw: rawName,
+    name: (m[1].trim() + ' из ' + base.key).replace(/\s+/g, ' '),
+    amount,
+    unit: unit || 'г',
+    grams: scaled.grams,
+    perPiece: false,
+    approx: true,
+    note: `оценка по составу: ${rule[2]} (×${factorK} к «${base.key}»)`,
+    kcal: scaled.kcal,
+    p: scaled.p,
+    f: scaled.f,
+    c: scaled.c
+  };
+}
 
 function parseItem(text) {
   if (!text) return null;
@@ -1055,6 +1153,15 @@ function parseItem(text) {
     amount = NUMBER_WORDS[numberWordLead[1].toLowerCase()];
     unit = 'шт';
   }
+  // Цифра первым без единицы: «4 бутерброда с колбасой», «2 яблока» — это штуки,
+  // а не «100 г» (ранее цифра 4 терялась и подставлялась целая 100-граммовая порция).
+  const digitLead = !amountMatch && !implicitSpoon && !implicitPlate && !implicitContainer && !implicitSliceLead && !numberWordLead
+    ? text.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/iu)
+    : null;
+  if (digitLead) {
+    amount = Number(digitLead[1].replace(',', '.'));
+    unit = 'шт';
+  }
 
   // 2) Имя продукта — всё, что до числа. Если число стоит первым
   // («3 куска пиццы», «100 г курицы») — продукт идёт ПОСЛЕ единицы.
@@ -1072,7 +1179,10 @@ function parseItem(text) {
     name = implicitSliceLead[2];
   } else if (numberWordLead) {
     name = numberWordLead[2];
+  } else if (digitLead) {
+    name = digitLead[2];
   }
+  const rawName = name; // до зачистки — композиции видят «с …» полностью
   name = name
     .toLowerCase()
     .replace(/\s+(отварн\w+|варё\w+|варен\w+|жарен\w+|свеж\w+|сыр\w+|копчён\w+|копчен\w+|тушен\w+|печё\w+|печен\w+|запечён\w+|запечен\w+|солён\w+|солен\w+|маринован\w+|в сметане|с маслом|по-домашнему|домашн\w*|замороженн\w*|полуфабрикат|паровой|на пару|в кляре)\s*$/iu, '')
@@ -1083,6 +1193,24 @@ function parseItem(text) {
 
   // 3) Поиск в базе: самое длинное совпадение
   const product = lookupProduct(name);
+  const rawLower = rawName.toLowerCase();
+
+  // Честная композиция «бутерброд с Y»: побеждает «голую» начинку
+  // («сырокопченая колбаса 1316 ккал» вместо 4 бутербродов), но уступает
+  // кураторскому сэндвич-ключу («бутерброд с сыром» из базы).
+  const sandwich = parseSandwichItem(rawLower, amount, unit, product);
+  if (sandwich) return sandwich;
+
+  // «X из Y»: кураторский составной ключ побеждает оценку; «голая» основа
+  // из одного слова (суп из курицы → «курица») — нет, оцениваем честно.
+  if (/\s+из\s+/iu.test(rawLower)) {
+    const productIsDish = product && product.key.indexOf(' ') !== -1;
+    if (!productIsDish) {
+      const dishFrom = parseDishFromItem(rawLower, amount, unit, calcNutrition);
+      if (dishFrom) return dishFrom;
+    }
+  }
+
   if (!product) return null;
 
   // 4) Подсчёт ккал и БЖУ
@@ -1143,17 +1271,18 @@ function lookupProduct(name) {
       const important = keyE.split(' ').filter((w) => w.length > 1 && !/^(с|со|и|на|в|во|по|из|без|от|до|для|под|при|к|о|об|у|за)$/u.test(w));
       if (important.length > 1) {
         const textWords = textE.split(/[^а-яёa-z0-9]+/u);
-        const wordStem = (w) => {
-          const c = w.length > 3 ? w.replace(/[аеёиоуыэюя]+$/u, '') : w;
-          return c.length >= 3 ? c : w;
+        // Сравнение слов по общему префиксу (LCP): ловит склонения с внутренней
+        // сменой буквы («палочек»~«палочки», «говядины»~«говядина»), где простой
+        // срез конечной гласной бессилен. Порог 3–5 букв защищает от ложных пар.
+        const wordMatch = (a1, b1) => {
+          if (a1 === b1) return true;
+          let i = 0;
+          const limit = Math.min(a1.length, b1.length);
+          while (i < limit && a1[i] === b1[i]) i++;
+          const need = Math.max(3, Math.min(5, Math.min(a1.length, b1.length) - 1));
+          return i >= need;
         };
-        const allMatch = important.every((kw) => {
-          const ks = wordStem(kw);
-          return textWords.some((tw) => {
-            const ts = wordStem(tw);
-            return ts === ks || (ks.length >= 3 && ts.startsWith(ks)) || (ts.length >= 3 && ks.startsWith(ts));
-          });
-        });
+        const allMatch = important.every((kw) => textWords.some((tw) => wordMatch(kw, tw)));
         if (allMatch) return { key, ...FOOD_DB[key] };
       }
     }
@@ -1240,7 +1369,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.7';
+const FITFLOW_VERSION = '0.3.8';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1270,11 +1399,36 @@ function getMealTypeIdByTime(date = new Date()) {
   return getMealTypes().some((type) => type.id === range.id) ? range.id : null;
 }
 
+/* Карточки Главной: порядок в этом списке = порядок «из коробки».
+   Точечные карточки (чек-лист, самочувствие, задания дня) показываются,
+   только когда включена их функция И карточка видима в настройках порядка. */
 const HOME_CARDS = [
+  { id: 'day-checklist', label: 'Чек-лист дня', icon: '📋' },
+  { id: 'day-mood', label: 'Самочувствие', icon: '🌗' },
+  { id: 'game-tasks', label: 'Задания дня', icon: '🎯' },
   { id: 'water', label: 'Вода', icon: '💧' },
   { id: 'food', label: 'Питание', icon: '🍽️' },
   { id: 'weight', label: 'Вес', icon: '⚖️' }
 ];
+
+/* Включена ли функция, которой принадлежит карточка (независимо от layout). */
+function isHomeCardFeatureEnabled(id) {
+  if (id === 'day-checklist' || id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
+  if (id === 'game-tasks') return !!(state.gameMode && state.gameMode.enabled);
+  return true;
+}
+
+/* Карточка реально отображается: функция включена И в раскладке не скрыта. */
+function isHomeCardShown(id, layout) {
+  const l = layout || normalizeHomeLayoutValue(state.homeLayout);
+  return l.visible[id] !== false && isHomeCardFeatureEnabled(id);
+}
+
+function syncHomeCardVisibility(id) {
+  if (typeof document === 'undefined') return;
+  const card = $(`#${id}-card`);
+  if (card) card.hidden = !isHomeCardShown(id);
+}
 
 const PROFILES_KEY = 'fitflow:profiles';
 const LEGACY_STATE_KEY = 'fitflow:state';
@@ -1721,7 +1875,11 @@ function normalizeHomeLayoutValue(source) {
   const order = (Array.isArray(layout.order) ? layout.order : [])
     .map((id) => String(id))
     .filter((id) => knownIds.includes(id) && !seen.has(id) && seen.add(id));
-  knownIds.forEach((id) => { if (!seen.has(id)) order.push(id); });
+  // Карточки, которых нет в сохранённом порядке (например, новые после обновления),
+  // ставим в НАЧАЛО в порядке HOME_CARDS — так у текущих пользователей экран
+  // не перестраивается неожиданно: новые карточки оказываются там, где были раньше.
+  const missing = knownIds.filter((id) => !seen.has(id));
+  if (missing.length) order.unshift(...missing);
 
   const rawVisible = layout.visible && typeof layout.visible === 'object' ? layout.visible : {};
   const visible = Object.fromEntries(knownIds.map((id) => [id, rawVisible[id] !== false]));
@@ -2238,10 +2396,11 @@ function renderDayChecklist() {
   if (typeof document === 'undefined') return;
   const card = $('#day-checklist-card');
   if (!card) return;
-  card.hidden = !state.dayChecklist.enabled;
+  const shown = isHomeCardShown('day-checklist'); // функция включена И не скрыта в порядке карточек
+  card.hidden = !shown;
   renderDayMoodCard();
   renderHomeQuickNav();
-  if (!state.dayChecklist.enabled) return;
+  if (!shown) return;
 
   const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
   const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
@@ -2272,8 +2431,9 @@ function renderDayMoodCard() {
   if (typeof document === 'undefined') return;
   const card = $('#day-mood-card');
   if (!card) return;
-  card.hidden = !state.dayChecklist.enabled;
-  if (!state.dayChecklist.enabled) return;
+  const shown = isHomeCardShown('day-mood');
+  card.hidden = !shown;
+  if (!shown) return;
 
   const mood = getTodayMood();
   const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
@@ -2319,6 +2479,14 @@ function updateDayChecklistEnabled(enabled) {
    честно и без лишних нажатий.
 ============================================================ */
 
+/* Иконки заданий — инлайн-SVG в едином стиле приложения (видны в любой теме,
+   не зависят от системного набора эмодзи). */
+const GAME_TASK_ICONS = {
+  water: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.2c3.4 3.7 5.7 6.8 5.7 9.5a5.7 5.7 0 1 1-11.4 0c0-2.7 2.3-5.8 5.7-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  food: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.5 12h15a7.5 7.5 0 0 1-15 0Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 8.5c1-1.8 3.5-2.4 5.4-1.4M12 6.5V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  activity: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+
 function computeGameTasks() {
   const waterTotal = Number(state.water.total) || 0;
   const waterGoal = Number(state.water.goal) || DEFAULTS.water.goal;
@@ -2327,9 +2495,9 @@ function computeGameTasks() {
     .filter((w) => w.date === todayKey())
     .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
   return [
-    { id: 'water', emoji: '💧', title: 'Вода до нормы', cur: waterTotal, target: waterGoal, unit: 'мл' },
-    { id: 'food', emoji: '🥑', title: '3 записи питания', cur: foodCount, target: 3, unit: 'зап.' },
-    { id: 'activity', emoji: '🏃', title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
+    { id: 'water', emoji: '💧', icon: GAME_TASK_ICONS.water, title: 'Вода до нормы', cur: waterTotal, target: waterGoal, unit: 'мл' },
+    { id: 'food', emoji: '🥑', icon: GAME_TASK_ICONS.food, title: '3 записи питания', cur: foodCount, target: 3, unit: 'зап.' },
+    { id: 'activity', emoji: '🏃', icon: GAME_TASK_ICONS.activity, title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
   ];
 }
 
@@ -2337,8 +2505,9 @@ function renderGameMode() {
   if (typeof document === 'undefined') return;
   const card = $('#game-tasks-card');
   if (!card) return;
-  card.hidden = !state.gameMode.enabled;
-  if (!state.gameMode.enabled) return;
+  const shown = isHomeCardShown('game-tasks');
+  card.hidden = !shown;
+  if (!shown) return;
 
   const tasks = computeGameTasks();
   const doneCount = tasks.filter((t) => t.cur >= t.target).length;
@@ -2346,7 +2515,7 @@ function renderGameMode() {
     const done = t.cur >= t.target;
     const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
     return `<div class="game-task-row${done ? ' done' : ''}">
-      <span class="game-task-emoji">${t.emoji}</span>
+      <span class="game-task-icon">${t.icon || t.emoji}</span>
       <div class="game-task-info">
         <div class="game-task-title">${t.title}</div>
         <div class="game-task-numbers">${fmt(t.cur)} из ${fmt(t.target)} ${t.unit}</div>
@@ -2419,51 +2588,151 @@ function computeGameRecords() {
   return { nonEmptyDays: nonEmpty.length, maxWater, maxActivity, bestStreak, currentStreak };
 }
 
-function openGameMedalsDialog() {
-  const dialog = $('#game-medals-dialog');
-  const list = $('#game-medals-list');
-  if (!dialog || !list) return;
+/* ============================================================
+   Медали: полный список достижений (экран «Медали»).
+   Бег и шаги — ЧЕСТНЫЕ ОЦЕНКИ из минут активности (шагомера в
+   приложении нет): бег ≈ 0,15 км/мин (9 км/ч), ходьба ≈ 100
+   шагов/мин — такие медали помечены знаком ≈ и подписью «по оценке».
+   Снижение веса считается по истории взвешиваний профиля.
+============================================================ */
+const GAME_RUN_KM_PER_MIN = 0.15;
+const GAME_STEPS_PER_MIN = 100;
+
+function computeRunKmTotal() {
+  return (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((w) => w.type === 'cardio')
+    .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0) * GAME_RUN_KM_PER_MIN;
+}
+
+function computeStepsTotal() {
+  return (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((w) => w.type === 'walk')
+    .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0) * GAME_STEPS_PER_MIN;
+}
+
+function computeWeightLostKg() {
+  const history = normalizeWeightHistory(state.profileSettings && state.profileSettings.weightHistory);
+  if (history.length < 2) return 0;
+  const maxStart = history.reduce((m, h) => Math.max(m, h.kg), 0);
+  const last = history[history.length - 1].kg;
+  return Math.max(0, Math.round((maxStart - last) * 10) / 10);
+}
+
+/* Единый SVG-значок медали: цифра/цель — часть самого значка.
+   Заработанная — «золотая», закрытая — приглушённая. */
+function medalBadgeSvg(medal) {
+  const gid = `mg-${medal.id}`.replace(/[^a-z0-9-]/gi, '');
+  const [c1, c2, line] = medal.earned
+    ? ['#ffd76a', '#e8a020', 'rgba(255,255,255,0.65)']
+    : ['#9aa4b2', '#6b7280', 'rgba(255,255,255,0.35)'];
+  return `<svg viewBox="0 0 72 92" class="medal-badge-svg" aria-hidden="true">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/>
+    </linearGradient></defs>
+    <path d="M24 2h9l3 10 3-10h9l-12 20z" fill="${medal.earned ? '#e05252' : '#8a93a1'}"/>
+    <circle cx="36" cy="56" r="30" fill="url(#${gid})"/>
+    <circle cx="36" cy="56" r="23" fill="none" stroke="${line}" stroke-width="1.6" stroke-dasharray="4 3"/>
+    <text x="36" y="61" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="inherit">${medal.badgeText}</text>
+  </svg>`;
+}
+
+function computeGameMedals() {
   const r = computeGameRecords();
   const waterGoal = Number(state.water.goal) || DEFAULTS.water.goal;
   const fmtDate = (d) => d.split('-').reverse().join('.');
-  const medals = [
+  const runKm = Math.round(computeRunKmTotal() * 10) / 10;
+  const steps = Math.round(computeStepsTotal());
+  const lostKg = computeWeightLostKg();
+
+  const habits = [
     {
-      emoji: '👣', name: 'Первый шаг', earned: r.nonEmptyDays >= 1,
-      desc: r.nonEmptyDays >= 1 ? `Заполнено дней: ${r.nonEmptyDays}` : 'Заполните первый день (вода, еда или активность)'
+      id: 'first-day', badgeText: '1', name: 'Первый шаг', earned: r.nonEmptyDays >= 1,
+      desc: r.nonEmptyDays >= 1 ? `Заполнено дней: ${r.nonEmptyDays}` : 'Заполните первый день (вода, еда или активность)',
+      cur: Math.min(1, r.nonEmptyDays), target: 1
     },
     {
-      emoji: '💧', name: 'Водная волна', earned: !!(r.maxWater && r.maxWater.value >= waterGoal),
+      id: 'water-day', badgeText: '💧', name: 'Водная волна', earned: !!(r.maxWater && r.maxWater.value >= waterGoal),
       desc: r.maxWater
         ? `Рекорд воды за день: ${fmt(r.maxWater.value)} мл (${fmtDate(r.maxWater.date)})` + (r.maxWater.value >= waterGoal ? ' — норма выполнена!' : ` — до нормы ${fmt(waterGoal)} мл`)
-        : 'Рекорд воды появится, когда вы отметите первый стакан'
+        : 'Рекорд воды появится, когда вы отметите первый стакан',
+      cur: r.maxWater ? r.maxWater.value : 0, target: waterGoal
     },
     {
-      emoji: '🏃', name: 'Марафонец', earned: !!(r.maxActivity && r.maxActivity.value >= 60),
+      id: 'marathon-day', badgeText: '60', name: 'Марафонец', earned: !!(r.maxActivity && r.maxActivity.value >= 60),
       desc: r.maxActivity
         ? `Рекорд активности за день: ${r.maxActivity.value} мин (${fmtDate(r.maxActivity.date)})` + (r.maxActivity.value >= 60 ? ' — больше часа!' : ' — до медали 60 мин')
-        : 'Рекорд активности появится после первой тренировки'
+        : 'Рекорд активности появится после первой тренировки',
+      cur: r.maxActivity ? r.maxActivity.value : 0, target: 60
     },
     {
-      emoji: '🔥', name: 'Горячая серия', earned: r.bestStreak >= 3,
+      id: 'streak-3', badgeText: '×3', name: 'Горячая серия', earned: r.bestStreak >= 3,
       desc: r.bestStreak > 0
         ? `Лучшая серия полных дней: ${r.bestStreak} дн.` + (r.currentStreak > 0 ? ` Сейчас: ${r.currentStreak} дн. подряд` : '')
-        : 'Выполняйте все 3 задания 3 дня подряд'
+        : 'Выполните все 3 задания 3 дня подряд',
+      cur: Math.min(3, r.bestStreak), target: 3
     },
     {
-      emoji: '🏆', name: 'Неделя героя', earned: r.bestStreak >= 7,
-      desc: r.bestStreak >= 7 ? `Невероятно: ${r.bestStreak} дн. подряд все задания!` : '7 дней подряд со всеми заданиями дня'
+      id: 'streak-7', badgeText: '×7', name: 'Неделя героя', earned: r.bestStreak >= 7,
+      desc: r.bestStreak >= 7 ? `Невероятно: ${r.bestStreak} дн. подряд все задания!` : '7 дней подряд со всеми заданиями дня',
+      cur: Math.min(7, r.bestStreak), target: 7
     }
   ];
-  list.innerHTML = medals.map((m) => `<div class="game-medal${m.earned ? '' : ' locked'}">
-    <span class="game-medal-emoji">${m.emoji}</span>
-    <div><div class="game-medal-name">${m.name}${m.earned ? '' : ' 🔒'}</div><div class="game-medal-desc">${m.desc}</div></div>
-  </div>`).join('');
-  dialog.hidden = false;
+
+  const runMedals = [1, 5, 10, 25].map((km) => ({
+    id: `run-${km}`, badgeText: `${km}`, name: `Пробежка: первые ${km} км`, earned: runKm >= km, estimate: true,
+    desc: runKm >= km
+      ? `Суммарно пробежано ≈ ${runKm} км (оценка по минутам бега)`
+      : `Пробежано ≈ ${runKm} из ${km} км (оценка: минуты бега × ${GAME_RUN_KM_PER_MIN} км)`,
+    cur: runKm, target: km
+  }));
+
+  const stepMedals = [10000, 50000, 100000].map((s) => ({
+    id: `steps-${s}`, badgeText: s >= 100000 ? '100К' : `${Math.round(s / 1000)}К`, name: `Пройдено ${fmt(s)} шагов`, earned: steps >= s, estimate: true,
+    desc: steps >= s
+      ? `Суммарно пройдено ≈ ${fmt(steps)} шагов (оценка по минутам ходьбы)`
+      : `Пройдено ≈ ${fmt(steps)} из ${fmt(s)} шагов (оценка: минуты ходьбы × ${GAME_STEPS_PER_MIN})`,
+    cur: steps, target: s
+  }));
+
+  const weightMedals = [1, 3, 5, 10].map((kg) => ({
+    id: `weight-${kg}`, badgeText: `−${kg}`, name: `Сброшено ${kg} кг`, earned: lostKg >= kg,
+    desc: lostKg >= kg
+      ? `Вес снижен на ${lostKg} кг от максимального — отличная работа!`
+      : `Сейчас снижение: ${lostKg} из ${kg} кг (по истории взвешиваний)`,
+    cur: lostKg, target: kg
+  }));
+
+  return [
+    { id: 'habits', title: 'Привычки', hint: 'За регулярные записи и полные дни', medals: habits },
+    { id: 'run', title: '🏃 Бег (по оценке)', hint: 'Километры считаются из минут бега: расстояние не измеряется напрямую', medals: runMedals },
+    { id: 'steps', title: '👟 Шаги (по оценке)', hint: 'Шаги считаются из минут ходьбы: ≈100 шагов за минуту', medals: stepMedals },
+    { id: 'weight', title: '⚖️ Снижение веса', hint: 'Разница между максимальным и текущим весом в истории профиля', medals: weightMedals }
+  ];
 }
 
-function closeGameMedalsDialog() {
-  const dialog = $('#game-medals-dialog');
-  if (dialog) dialog.hidden = true;
+function renderGameMedalsView() {
+  if (typeof document === 'undefined') return;
+  const grid = $('#game-medals-grid');
+  if (!grid) return;
+  const groups = computeGameMedals();
+  const totalEarned = groups.reduce((s, g) => s + g.medals.filter((m) => m.earned).length, 0);
+  const totalCount = groups.reduce((s, g) => s + g.medals.length, 0);
+  const counter = $('#game-medals-count');
+  if (counter) counter.textContent = `Получено ${totalEarned} из ${totalCount}`;
+  grid.innerHTML = groups.map((group) => `
+    <p class="settings-label game-medals-group-title">${group.title}</p>
+    <p class="settings-hint game-medals-group-hint">${group.hint}</p>
+    <div class="game-medals-row">
+      ${group.medals.map((m) => {
+        const pct = Math.min(100, Math.round((Number(m.cur) || 0) / Math.max(1, Number(m.target) || 1) * 100));
+        return `<div class="medal-tile${m.earned ? ' earned' : ' locked'}">
+          ${medalBadgeSvg(m)}
+          <div class="medal-tile-name">${m.name}</div>
+          <div class="medal-tile-desc">${m.estimate ? '≈ ' : ''}${m.desc}</div>
+          ${m.earned ? '' : `<div class="medal-tile-bar"><span style="width:${pct}%"></span></div>`}
+        </div>`;
+      }).join('')}
+    </div>`).join('');
 }
 
 /* Сравнение текущего периода (7/30 дней) с предыдущим таким же — только
@@ -2698,7 +2967,7 @@ function applyHomeLayout() {
   layout.order.forEach((id) => {
     const card = $(`#${id}-card`);
     if (!card) return;
-    card.hidden = !layout.visible[id];
+    card.hidden = !isHomeCardShown(id, layout);
     container.appendChild(card);
   });
   renderHomeQuickNav();
@@ -4843,11 +5112,77 @@ function bindDialogScrollLock() {
    каждый раздел — отдельный экран с «← Назад к настройкам». */
 const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about'];
 
+/* ============================================================
+   ❔ Справка по разделам (замечание: «Чек-лист дня — вообще не
+   понятно, что это и зачем»). Маленький значок «?» в пунктах
+   настроек и возле отдельных переключателей открывает короткое
+   пояснение простыми словами. Тексты — без скриншотов (по запросу).
+============================================================ */
+const HELP_TOPICS = {
+  'settings-general': {
+    title: 'Общее',
+    text: 'Внешний вид и состав Главной: тема оформления (авто/светлая/тёмная), «Чек-лист дня», порядок и видимость карточек на Главной, игровой режим с заданиями и медалями.'
+  },
+  'settings-profile': {
+    title: 'Профиль и цели',
+    text: 'Пол, возраст, рост и средняя активность нужны, чтобы рассчитать ваши личные нормы воды и калорий. Всё необязательно: без этих данных приложение работает со стандартными целями. Данные хранятся только на устройстве.'
+  },
+  'settings-notifications': {
+    title: 'Уведомления',
+    text: 'Напоминания: утренняя мотивация, приёмы пищи, вода в течение дня и вечерняя активность. Работают даже когда приложение закрыто, но Android может «усыплять» его — поэтому есть кнопка проверки настроек системы.'
+  },
+  'settings-ai': {
+    title: 'ИИ-помощник',
+    text: 'Разбор фраз («съел 2 бутерброда с сыром»), ответы на вопросы о питании и рецепты из ваших продуктов. Три режима: «Локальный эксперт» — полностью офлайн, на правилах и базе из 925+ продуктов; «Облачная нейросеть» — ваш ключ (Gemini, DeepSeek и др.); «Gemma на устройстве» — большая модель, скачивается один раз.'
+  },
+  'settings-data': {
+    title: 'Данные и резервные копии',
+    text: 'Экспорт сохраняет все ваши данные (все профили) в JSON-файл — пригодится при смене телефона. Импорт восстанавливает из такого файла. Сброс удаляет всё безвозвратно. Всё хранится только на устройстве.'
+  },
+  'settings-about': {
+    title: 'О приложении',
+    text: 'Версия приложения, источники данных о продуктах, методика расчёта норм и условия использования. Здесь же пометка, что приложение не заменяет врача.'
+  },
+  'day-checklist': {
+    title: 'Чек-лист дня',
+    text: 'Три простые отметки на Главной: «Вода до нормы», «Основной рацион учтён», «Активность отмечена». Галочки ставятся сами по вашим записям — вечером видно одним взглядом, «закрыт» ли день. Карточку «Самочувствие» (оценка дня от 1 до 5) удобно заполнять вечером: оценки складываются в статистику.'
+  },
+  'home-layout': {
+    title: 'Карточки на Главной',
+    text: 'Здесь можно менять местами карточки Главной (стрелки ↑↓) и скрывать лишние (переключатель). Например, если «Чек-лист» кажется дублированием — просто выключите его карточку, сам раздел останется доступен в статистике.'
+  },
+  'game-mode': {
+    title: 'Игровой режим',
+    text: 'Превращает день в мини-игру: три задания на Главной (вода до нормы, 3 записи еды, 30 минут активности) закрываются сами по вашим записям. За регулярность и достижения даются медали — смотрите их по кнопке «🏅 Медали». В статистике появляется сравнение текущего периода с прошлым.'
+  }
+};
+
+function openHelpTopicDialog(topicId) {
+  const topic = HELP_TOPICS[topicId];
+  const dialog = $('#help-dialog');
+  if (!topic || !dialog) return;
+  $('#help-title').textContent = topic.title;
+  $('#help-text').textContent = topic.text;
+  dialog.hidden = false;
+}
+
+function closeHelpTopicDialog() {
+  const dialog = $('#help-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function bindSettingsMenu() {
   $$('.settings-menu-btn').forEach((btn) =>
     btn.addEventListener('click', () => btn.dataset.settingsView && switchView(btn.dataset.settingsView)));
   $$('.settings-back-btn').forEach((btn) =>
     btn.addEventListener('click', () => switchView('settings')));
+  // Значки «?»: своя обработка и остановка всплытия, чтобы клик не открывал раздел.
+  $$('[data-help]').forEach((el) => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); openHelpTopicDialog(el.dataset.help); });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); openHelpTopicDialog(el.dataset.help); }
+    });
+  });
 }
 
 function updateActivityFab(isTraining) {
@@ -4864,6 +5199,7 @@ function switchView(view) {
   const isTraining = view === 'training';
   const isSettings = view === 'settings';
   const isNotifications = view === 'notifications';
+  const isGameMedals = view === 'game-medals';
   const isSettingsSub = SETTINGS_SUBVIEWS.includes(view);
 
   $('#home-view').hidden = !isHome;
@@ -4874,11 +5210,14 @@ function switchView(view) {
   $('#training-view').hidden = !isTraining;
   $('#settings-view').hidden = !isSettings;
   $('#notifications-view').hidden = !isNotifications;
+  const medalsView = $('#game-medals-view');
+  if (medalsView) medalsView.hidden = !isGameMedals;
   SETTINGS_SUBVIEWS.forEach((sub) => {
     const el = $(`#${sub}-view`);
     if (el) el.hidden = view !== sub;
   });
-  const navKey = (isNotifications || isSettingsSub) ? 'settings' : ((isWaterDetails || isFoodDetails || isWeightDetails) ? 'stats' : view);
+  // Медали — «домашний» подэкран: открывается с Главной, в меню подсвечиваем Главную.
+  const navKey = (isNotifications || isSettingsSub) ? 'settings' : (isGameMedals ? 'home' : ((isWaterDetails || isFoodDetails || isWeightDetails) ? 'stats' : view));
   $$('.nav-item').forEach((b) =>
     b.classList.toggle('active', b.dataset.nav === navKey));
 
@@ -4892,6 +5231,7 @@ function switchView(view) {
     maybeShowActivityReminderPrompt();
   }
   if (isNotifications) refreshNotificationSetupState();
+  if (isGameMedals) renderGameMedalsView();
   if (view === 'settings-ai') renderAiSettings();
   if (isSettings || isSettingsSub) applySettingsAccordion();
   window.scrollTo(0, 0);
@@ -5273,6 +5613,101 @@ function toast(message) {
 }
 
 /* ============================================================
+   Кнопка/жест «назад» (Android): работает как внутренний шаг
+   назад, а не мгновенный выход из приложения (замечание).
+   Реализация без плагинов: держим в истории WebView «сторожевую»
+   запись (sentinel) через history.pushState. Когда пользователь
+   жмёт «назад», WebView снимает её и приходит popstate, а не выход.
+   Порядок реакции:
+     1) открыт диалог → закрыть его;
+     2) развёрнута строка «Своя мл» → свернуть;
+     3) не на Главной → перейти на шаг назад (настройки → меню
+        настроек, детали → статистика, остальное → Главная);
+     4) на Главной → первый «назад» показывает подсказку, второй
+        подряд (за 2,5 с) выходит из приложения.
+============================================================ */
+let backExitArmedUntil = 0;
+let backRepushTimer = null;
+
+function getActiveViewName() {
+  if (typeof document === 'undefined') return 'home';
+  const pairs = [
+    ['#home-view', 'home'], ['#stats-view', 'stats'], ['#training-view', 'training'],
+    ['#settings-view', 'settings'], ['#notifications-view', 'notifications'],
+    ['#game-medals-view', 'game-medals'], ['#water-details-view', 'water-details'],
+    ['#food-details-view', 'food-details'], ['#weight-details-view', 'weight-details']
+  ].concat(SETTINGS_SUBVIEWS.map((s) => [`#${s}-view`, s]));
+  for (const [sel, name] of pairs) {
+    const el = $(sel);
+    if (el && !el.hidden) return name;
+  }
+  return 'home';
+}
+
+function pushNavSentinel() {
+  try { history.pushState({ fitflowBack: true }, ''); } catch (e) { /* вне браузера */ }
+}
+
+/* Реакция на «назад». Возвращает true, если приложение остаётся открытым
+   (тогда верхнюю запись истории нужно восстановить). */
+function handleBackNavigation() {
+  // 1. Диалоги: закрываем самый верхний из открытых
+  const openDialogs = $$('.app-dialog-backdrop').filter((el) => !el.hidden);
+  if (openDialogs.length) {
+    const top = openDialogs[openDialogs.length - 1];
+    // Экран условий при первом запуске кнопкой «назад» не обходится:
+    // нужен явный выбор «принимаю / не принимаю».
+    if (top.id === 'terms-dialog' && !hasAcceptedTerms() && !termsViewOnly) {
+      toast('Чтобы продолжить, примите условия или нажмите «Не принимаю»');
+      return true;
+    }
+    top.hidden = true;
+    return true;
+  }
+  // 2. Строка «Своя мл»
+  const waterRow = $('#water-custom-row');
+  if (waterRow && !waterRow.hidden) {
+    collapseWaterCustomRow();
+    return true;
+  }
+  // 3. Подэкраны → шаг назад
+  const view = getActiveViewName();
+  const backMap = {
+    'settings-general': 'settings', 'settings-profile': 'settings', 'settings-notifications': 'settings',
+    'settings-ai': 'settings', 'settings-data': 'settings', 'settings-about': 'settings',
+    'notifications': 'settings',
+    'water-details': 'stats', 'food-details': 'stats', 'weight-details': 'stats',
+    'game-medals': 'home', 'stats': 'home', 'training': 'home', 'settings': 'home'
+  };
+  if (view !== 'home') {
+    switchView(backMap[view] || 'home');
+    return true;
+  }
+  // 4. Главная: двойное «назад» для выхода. Между нажатиями сторожевой записи
+  // нет (мы уже в «корне» истории) — повторный свайп закроет приложение сам.
+  if (Date.now() < backExitArmedUntil) {
+    backExitArmedUntil = 0;
+    return false; // не восстанавливаем запись → следующее нажатие = выход
+  }
+  backExitArmedUntil = Date.now() + 2500;
+  toast('Нажмите «назад» ещё раз для выхода');
+  clearTimeout(backRepushTimer);
+  backRepushTimer = setTimeout(() => {
+    // Страховка по таймауту: выхода не случилось — снова перехватываем «назад».
+    if (Date.now() >= backExitArmedUntil) { backExitArmedUntil = 0; pushNavSentinel(); }
+  }, 2600);
+  return false; // впускаем выходное окно: второе нажатие до таймера закроет приложение
+}
+
+function bindBackNavigation() {
+  if (typeof window === 'undefined' || typeof history === 'undefined' || typeof history.pushState !== 'function') return;
+  pushNavSentinel();
+  window.addEventListener('popstate', () => {
+    if (handleBackNavigation()) pushNavSentinel();
+  });
+}
+
+/* ============================================================
    Приветствие и дата
    ============================================================ */
 function renderGreeting() {
@@ -5306,6 +5741,16 @@ function bindEvent(selector, eventName, handler) {
   }
   element.addEventListener(eventName, handler);
   return element;
+}
+
+/* Сворачивает ряд «Своя мл» на карточке воды (используется кнопкой «Отмена»,
+   авто-сворачиванием после добавления и кнопкой «назад»). */
+function collapseWaterCustomRow() {
+  if (typeof document === 'undefined') return;
+  const row = $('#water-custom-row');
+  if (row) row.hidden = true;
+  const toggle = $('#water-custom-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
 }
 
 function init() {
@@ -5349,8 +5794,7 @@ function init() {
     toast(`Добавлено +${fmt(ml)} мл`);
     // После добавления секция сворачивается сама — иначе она оставалась
     // развёрнутой на карточке и занимала место (замечание пользователя).
-    $('#water-custom-row').hidden = true;
-    $('#water-custom-toggle').setAttribute('aria-expanded', 'false');
+    collapseWaterCustomRow();
   };
   bindEvent('#water-custom-toggle', 'click', () => {
     const row = $('#water-custom-row');
@@ -5365,6 +5809,12 @@ function init() {
     }
   });
   bindEvent('#water-custom-add', 'click', addCustomWater);
+  bindEvent('#water-custom-cancel', 'click', () => {
+    // «Отмена»: просто закрываем ряд ввода, ничего не добавляя
+    const field = $('#water-custom-ml');
+    if (field) field.value = '';
+    collapseWaterCustomRow();
+  });
   const customWaterInput = $('#water-custom-ml');
   if (customWaterInput) customWaterInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addCustomWater(); }
@@ -5464,6 +5914,8 @@ function init() {
   bindSettingsAccordion();
   bindDialogScrollLock();
   bindSettingsMenu();
+  bindEvent('#help-ok', 'click', closeHelpTopicDialog);
+  bindBackNavigation(); // системная кнопка/жест «назад» = внутренний шаг назад
 
   $('#activity-fab').addEventListener('click', () => {
     const form = $('#training-form');
@@ -5608,10 +6060,10 @@ function init() {
   if (gameToggle) gameToggle.addEventListener('change', (e) => updateGameModeEnabled(e.target.checked));
   const gameCard = $('#game-tasks-card');
   if (gameCard) gameCard.addEventListener('click', (e) => {
-    if (e.target.closest('[data-game-medals-open]')) openGameMedalsDialog();
+    if (e.target.closest('[data-game-medals-open]')) switchView('game-medals'); // отдельный экран медалей
+    if (e.target.closest('[data-game-medals-back]')) switchView('home');
   });
-  const gameMedalsOk = $('#game-medals-ok');
-  if (gameMedalsOk) gameMedalsOk.addEventListener('click', closeGameMedalsDialog);
+  bindEvent('#game-medals-back', 'click', () => switchView('home'));
 
   // ИИ-центр
   bindEvent('#ai-center-open', 'click', openAiCenter);
@@ -5630,13 +6082,17 @@ function init() {
   bindEvent('#ai-quick-voice-btn', 'click', () => { startRealVoiceInput('#ai-quick-input', 'Говорите еду, воду или активность'); });
   bindEvent('#ai-chat-voice-btn', 'click', () => { startRealVoiceInput('#ai-chat-input', 'Задайте вопрос голосом'); });
   bindEvent('#ai-recipe-voice-btn', 'click', () => { startRealVoiceInput('#ai-recipe-input', 'Назовите продукты голосом'); });
-  // ✕ очистка надиктованного/напечатанного одним нажатием.
-  [['#ai-quick-clear-btn', '#ai-quick-input'], ['#ai-chat-clear-btn', '#ai-chat-input'], ['#ai-recipe-clear-btn', '#ai-recipe-input']]
-    .forEach(([btn, field]) => bindEvent(btn, 'click', () => {
+  // ✕ очистка надиктованного/напечатанного одним нажатием — вместе с
+  // уже показанным разбором/ответом (замечание: иначе старый разбор висел
+  // под очищенным полем и выглядел как результат пустого ввода).
+  [['#ai-quick-clear-btn', '#ai-quick-input', '#ai-quick-result'],
+   ['#ai-chat-clear-btn', '#ai-chat-input', '#ai-chat-result'],
+   ['#ai-recipe-clear-btn', '#ai-recipe-input', '#ai-recipe-result']]
+    .forEach(([btn, field, result]) => bindEvent(btn, 'click', () => {
       const el = $(field);
-      if (!el) return;
-      el.value = '';
-      el.focus();
+      if (el) { el.value = ''; el.focus(); }
+      const box = $(result);
+      if (box) { box.hidden = true; box.innerHTML = ''; }
     }));
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
@@ -5975,7 +6431,7 @@ function parseAiQuickEntry() {
     '<p>«' + escapeHtml(text) + '»</p>' +
     '<ul>' +
     (waterMl > 0 ? '<li>💧 <b>Вода</b>: +' + fmt(waterMl) + ' мл</li>' : '') +
-    (foods.length > 0 ? '<li>🥑 <b>Питание</b>:<br>' + foods.map(i => escapeHtml(describeFoodItemLine(i))).join('<br>') + '</li>' : '') +
+    (foods.length > 0 ? '<li>🥑 <b>Питание</b>:<br>' + foods.map(i => describeFoodItemLine(i)).join('<br>') + '</li>' : '') +
     (acts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + acts.map(a => escapeHtml(a.label) + ' (' + a.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
     '</ul>' +
     '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
@@ -6386,7 +6842,7 @@ const CLOUD_PROVIDERS = {
   pollinations: {
     id: 'pollinations',
     label: 'Pollinations',
-    hint: 'Бесплатный тестовый сервис: работает БЕЗ ключа (с ограничениями по частоте запросов) — идеально для проверки идеи. Если без ключа вернёт ошибку лимита — получите бесплатный ключ на enter.pollinations.ai и вставьте его. Фото не распознаёт.',
+    hint: 'Бесплатный тестовый сервис: работает даже БЕЗ ключа — сразу нажмите «Проверить подключение» (возможен лимит запросов в минуту). Если стабильность важна: зайдите на enter.pollinations.ai → «Sign in» через Google или GitHub → раздел «API Keys» → «Create key» → скопируйте Secret-ключ (начинается с sk_) и вставьте ниже. Фото не распознаёт.',
     vision: false,
     autoModel: false,
     baseUrl: 'https://gen.pollinations.ai/v1',
@@ -6525,10 +6981,30 @@ async function cloudCallGemini(systemText, userText, options) {
   throw lastError || new Error('Нет доступной модели Gemini для этого ключа');
 }
 
+/* Pollinations БЕЗ ключа: унифицированный /v1 эндпоинт требует ключ,
+   поэтому для анонимного режима используем их публичный GET-эндпоинт
+   для текста (gen.pollinations.ai/text/{prompt}). Работает с лимитами по
+   частоте — для чата и разбора фраз этого обычно достаточно. */
+async function pollinationsAnonymousCall(systemText, userText) {
+  const prompt = (systemText ? systemText + '\n\n' : '') + userText;
+  const url = 'https://gen.pollinations.ai/text/' + encodeURIComponent(prompt.slice(0, 1600)) + '?model=openai';
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = new Error('HTTP ' + res.status);
+    err.status = res.status;
+    throw err;
+  }
+  const text = (await res.text() || '').trim();
+  if (!text) throw new Error('Пустой ответ сервиса');
+  return { text, modelLabel: 'Pollinations · openai (без ключа)' };
+}
+
 async function cloudCallOpenAiCompat(systemText, userText, options) {
   const def = getCloudProviderDef();
   const model = (state.aiSettings.cloudModel || def.defaultModel).trim();
   if (!model) throw new Error('Укажите название модели (например: openai, llama3, mistral)');
+  const key = getCloudKey();
+  if (def.id === 'pollinations' && !key) return pollinationsAnonymousCall(systemText, userText);
   const baseUrl = getCloudBaseUrl();
   if (!baseUrl) throw new Error('Укажите адрес сервера в настройках облака');
   const messages = [];
@@ -6538,7 +7014,6 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
   });
   messages.push({ role: 'user', content: userText });
   const headers = { 'Content-Type': 'application/json' };
-  const key = getCloudKey();
   if (key) headers['Authorization'] = 'Bearer ' + key;
   const res = await fetch(baseUrl + '/chat/completions', {
     method: 'POST',
@@ -6582,7 +7057,14 @@ function cloudErrorText(err) {
 async function checkCloudConnection() {
   const statusEl = $('#ai-cloud-status');
   if (!statusEl) return true;
-  if (getCloudKey().length < 8) {
+  const def = getCloudProviderDef();
+  // Свой сервер: ключ не нужен, но нужен адрес сервера.
+  if (def.customBase && getCloudBaseUrl().length < 8) {
+    statusEl.textContent = '✗ Сначала укажите адрес сервера (например: http://192.168.1.5:8080/v1).';
+    return false;
+  }
+  // Ключ обязателен только у провайдеров, где он требуется (у Pollinations и «Свой сервер» — нет).
+  if (def.keyRequired !== false && getCloudKey().length < 8) {
     statusEl.textContent = '✗ Сначала вставьте ключ.';
     return false;
   }
@@ -6861,6 +7343,9 @@ if (typeof module !== 'undefined' && module.exports) {
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
     normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
-    normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare
+    normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
+    describeFoodItemLine, parseSandwichItem, parseDishFromItem,
+    computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
+    isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS
   };
 }

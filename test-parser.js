@@ -189,10 +189,12 @@ const normalizedHomeLayout = normalizeHomeLayoutValue({
   order: ['food', 'food', 'unknown'],
   visible: { water: false, food: false }
 });
-const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'food|water|weight'
+// 0.3.8: сохранённый порядок уважается, дубликаты/неизвестные отбрасываются,
+// отсутствующие карточки встают в начало в порядке HOME_CARDS.
+const homeLayoutOk = normalizedHomeLayout.order.join('|') === 'day-checklist|day-mood|game-tasks|water|weight|food'
   && normalizedHomeLayout.visible.food === false && normalizedHomeLayout.visible.water === false && normalizedHomeLayout.visible.weight === true;
 if (!homeLayoutOk) failed++;
-console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана`);
+console.log(`${homeLayoutOk ? '✓' : '✗'} карточки Главной: порядок и защита от пустого экрана → ${normalizedHomeLayout.order.join(',')}`);
 
 const allProfilesBackup = normalizeAllProfilesBackup({
   scope: 'all-profiles', activeProfileId: 'wife', profiles: [
@@ -389,6 +391,76 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     if (!ok) failed++;
     console.log(`${ok ? '✓' : '✗'} «гулял полчаса» → ${JSON.stringify(r.activities)} (ждали 30 мин)`);
   }
+}
+
+// Честная правдивость расчётов (0.3.8, фатальный кейс пользователя:
+// «4 бутерброда с сырокопченой колбасой» давало 1316 ккал — приложение
+// называли «бесполезной игрушкой» из-за таких подмен).
+{
+  const truth = [
+    // [фраза, имя, amount, grams, kcal, approx?]
+    ['4 бутерброда с сырокопченой колбасой', ['бутерброд с сырокопченая колбаса', 4, 180, 602, true]],
+    ['бутерброд с сыром', ['бутерброд с сыром', null, 45, 110, false]], // кураторский ключ важнее композиции
+    ['бутерброд с маслом', ['бутерброд', null, 45, 130, false]],
+    ['суп из курицы', ['суп из курица', null, 100, 91, true]],
+    ['рагу из говядины', ['рагу из говядины', null, 100, 160, false]], // кураторский ключ, не «говядина»
+    ['говяжья котлета', ['котлета говяжья', null, 100, 220, false]],
+    ['2 бутерброда с сыром', ['бутерброд с сыром', 2, 90, 220, false]]
+  ];
+  for (const [text, [name, amount, grams, kcal, approx]] of truth) {
+    const r = parseSmartEntry(text);
+    const f = r.food[0];
+    const ok = !!f && f.name === name
+      && (amount == null ? f.amount == null : f.amount === amount)
+      && f.grams === grams && f.kcal === kcal && !!f.approx === approx;
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} правдивость: «${text}» → ${f ? `${f.name} ${f.amount}шт ${f.grams}г ${f.kcal}ккал approx=${!!f.approx}` : 'НЕ РАСПОЗНАНО'}`);
+  }
+  {
+    // расшифровка состава в превью
+    const { describeFoodItemLine } = require('./app.js');
+    const item = parseSmartEntry('1 бутерброд с сырокопченой колбасой').food[0];
+    const line = item && (describeFoodItemLine ? describeFoodItemLine(item) : '');
+    const ok = !!item && /по составу/u.test(String(item.note)) && /≈/u.test(line);
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} превью показывает состав и знак ≈: ${item && item.note}`);
+  }
+}
+
+// 0.3.8: карточки Главной — новые карточки (чек-лист, самочувствие, задания дня)
+// в настройках порядка; у текущих пользователей новые встают В НАЧАЛО (как было)
+{
+  const fresh = normalizeHomeLayoutValue(undefined);
+  const okFresh = fresh.order.length === 6 && fresh.order[0] === 'day-checklist'
+    && fresh.order[fresh.order.length - 1] === 'weight' && Object.values(fresh.visible).every(Boolean);
+  if (!okFresh) failed++;
+  console.log(`${okFresh ? '✓' : '✗'} раскладка «из коробки»: 6 карточек, чек-лист первым → ${fresh.order.join(',')}`);
+
+  const migrated = normalizeHomeLayoutValue({ order: ['water', 'food', 'weight'], visible: { water: true, food: true, weight: true } });
+  const okMig = migrated.order.join(',') === 'day-checklist,day-mood,game-tasks,water,food,weight'
+    && migrated.visible['game-tasks'] === true;
+  if (!okMig) failed++;
+  console.log(`${okMig ? '✓' : '✗'} миграция раскладки: новые карточки в начале → ${migrated.order.join(',')}`);
+
+  const hidden = normalizeHomeLayoutValue({ order: ['water', 'food', 'weight'], visible: { 'game-tasks': false } });
+  const okHidden = hidden.visible['game-tasks'] === false && hidden.visible['day-mood'] === true;
+  if (!okHidden) failed++;
+  console.log(`${okHidden ? '✓' : '✗'} скрытие карточки заданий дня сохраняется → game-tasks=${hidden.visible['game-tasks']}`);
+}
+
+// 0.3.8: медали — 4 группы (привычки, бег ≈, шаги ≈, вес), цели внутри значка
+{
+  const { computeGameMedals, medalBadgeSvg } = require('./app.js');
+  const groups = computeGameMedals();
+  const okGroups = Array.isArray(groups) && groups.length === 4
+    && groups.flatMap((g) => g.medals).length === 16
+    && groups.flatMap((g) => g.medals).every((m) => m.badgeText && typeof m.earned === 'boolean');
+  if (!okGroups) failed++;
+  console.log(`${okGroups ? '✓' : '✗'} медали: 4 группы × всего 16 медалей → групп=${groups.length}, медалей=${groups.flatMap((g) => g.medals).length}`);
+  const svg = medalBadgeSvg({ id: 'run-5', badgeText: '5', earned: true });
+  const okSvg = /<svg/u.test(svg) && />5</u.test(svg);
+  if (!okSvg) failed++;
+  console.log(`${okSvg ? '✓' : '✗'} значок медали: цель 5 внутри SVG`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

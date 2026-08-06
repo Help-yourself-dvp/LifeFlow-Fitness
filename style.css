@@ -727,7 +727,7 @@ html[data-theme="dark"] .icon-sun { display: none; }
 /* ---------- Чек-лист дня ---------- */
 #day-checklist-card { margin-bottom: 16px; }
 .checklist-card { padding: 14px 16px 12px; }
-.checklist-header { margin-bottom: 10px; font-size: 0.88rem; font-weight: 800; color: var(--md-sys-color-on-surface); }
+.checklist-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; font-weight: 800; color: var(--md-sys-color-on-surface); }
 .checklist-items { display: grid; gap: 8px; }
 .checklist-item { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
 .checklist-item.done { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
@@ -1283,6 +1283,7 @@ textarea.form-input.ai-textarea {
   width: 100%;
   margin-top: 10px;
 }
+.water-custom-row .water-custom-cancel { flex: 0 0 auto; padding: 8px 10px; font-size: 0.8rem; }
 .water-custom-row input {
   flex: 1;
   min-width: 0;
@@ -1925,6 +1926,7 @@ textarea.form-input.ai-textarea {
 /* Сегментированный выбор темы */
 .segmented {
   display: flex;
+  flex-wrap: wrap; /* 5+ кнопок (провайдеры облака) переносятся на вторую строку, не уезжая за экран */
   background: var(--md-sys-color-surface-container-high);
   border-radius: 14px;
   padding: 4px;
@@ -2863,6 +2865,10 @@ html.dialog-open body {
 }
 .game-task-row:last-of-type { border-bottom: none; }
 .game-task-row .game-task-emoji { font-size: 1.05rem; flex: 0 0 auto; }
+/* SVG-иконка задания (единый стиль, цвет по теме) */
+.game-task-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; flex: 0 0 auto; background: var(--md-sys-color-surface-container-high); color: var(--primary); }
+.game-task-icon svg { width: 18px; height: 18px; }
+.game-task-row.done .game-task-icon { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
 .game-task-row .game-task-info { flex: 1 1 auto; min-width: 0; }
 .game-task-row .game-task-title { font-weight: 600; }
 .game-task-row .game-task-numbers { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); margin-top: 1px; }
@@ -2893,6 +2899,53 @@ html.dialog-open body {
   font-weight: 600;
   text-align: center;
 }
+/* Экран медалей: сетка значков, описание — часть «картинки» медали */
+.game-medals-group-title { margin: 14px 0 2px; }
+.game-medals-group-hint { margin: 0 0 8px; }
+.game-medals-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.medal-tile {
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  padding: 12px 10px;
+  text-align: center;
+  background: var(--md-sys-color-surface-container-low);
+}
+.medal-tile.earned { background: var(--md-sys-color-primary-container); border-color: transparent; }
+.medal-badge-svg { width: 62px; height: 80px; margin: 0 auto; display: block; }
+.medal-tile.locked .medal-badge-svg { opacity: 0.75; filter: grayscale(0.6); }
+.medal-tile-name { margin-top: 8px; font-size: 0.8rem; font-weight: 700; line-height: 1.25; }
+.medal-tile-desc { margin-top: 4px; font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35; }
+.medal-tile.earned .medal-tile-desc { color: var(--md-sys-color-on-primary-container); opacity: 0.9; }
+.medal-tile-bar { margin-top: 8px; height: 5px; border-radius: 3px; background: var(--surface-variant); overflow: hidden; }
+.medal-tile-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.35s ease; }
+
+/* Значок «?» — справка по разделу */
+.help-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin-left: 6px;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+}
+.settings-menu-btn .help-dot { margin-left: -4px; margin-right: -4px; } /* компактнее внутри flex-строки с gap */
+.help-dot:active { background: var(--md-sys-color-surface-container-high); }
+.help-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 .game-medals-list { text-align: left; max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
 .game-medal {
   display: flex;

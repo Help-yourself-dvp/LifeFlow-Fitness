@@ -140,6 +140,7 @@
         <div class="water-custom-row" id="water-custom-row" hidden>
           <input id="water-custom-ml" type="text" inputmode="numeric" maxlength="4" placeholder="Например: 300" aria-label="Свой объём воды в миллилитрах">
           <button class="btn btn-primary" id="water-custom-add" type="button">Добавить</button>
+          <button class="btn btn-ghost water-custom-cancel" id="water-custom-cancel" type="button" title="Закрыть поле ввода, ничего не добавляя">Отмена</button>
         </div>
 
         <div class="goal-row">
@@ -587,31 +588,37 @@
           <button class="settings-menu-btn" type="button" data-settings-view="settings-general">
             <span class="settings-menu-emoji" aria-hidden="true">⚙️</span>
             <span class="settings-menu-text"><b>Общее</b><small>Тема, чек-лист, карточки Главной, игровой режим</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-general" aria-label="Справка: Общее" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-profile">
             <span class="settings-menu-emoji" aria-hidden="true">👤</span>
             <span class="settings-menu-text"><b>Профиль и цели</b><small>Пол, возраст, рост, активность, расчёт норм</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-profile" aria-label="Справка: Профиль и цели" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-notifications">
             <span class="settings-menu-emoji" aria-hidden="true">🔔</span>
             <span class="settings-menu-text"><b>Уведомления</b><small>Мотивация, приёмы пищи, вода и вечерняя активность</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-notifications" aria-label="Справка: Уведомления" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-ai">
             <span class="settings-menu-emoji" aria-hidden="true">✨</span>
             <span class="settings-menu-text"><b>ИИ-помощник</b><small>Локальный режим, облачная нейросеть или Gemma на устройстве</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: ИИ-помощник" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-data">
             <span class="settings-menu-emoji" aria-hidden="true">💾</span>
             <span class="settings-menu-text"><b>Данные и резервные копии</b><small>Экспорт, импорт, сброс</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-data" aria-label="Справка: Данные и резервные копии" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-about">
             <span class="settings-menu-emoji" aria-hidden="true">ℹ️</span>
             <span class="settings-menu-text"><b>О приложении</b><small>Версия, источники данных, методика, условия</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-about" aria-label="Справка: О приложении" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </nav>
@@ -639,7 +646,7 @@
       </div>
       <div class="settings-group">
         <div class="settings-label-row">
-          <p class="settings-label">Чек-лист дня</p>
+          <p class="settings-label">Чек-лист дня <span class="help-dot" role="button" tabindex="0" data-help="day-checklist" aria-label="Справка: Чек-лист дня" title="Что это и зачем?">?</span></p>
           <label class="switch" for="day-checklist-toggle">
             <input id="day-checklist-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -650,13 +657,13 @@
       </div>
       <div class="settings-group home-layout-settings">
         <div class="settings-label-row">
-          <div><p class="settings-label">Карточки на Главной</p><p class="settings-hint" id="home-layout-status">—</p></div>
+          <div><p class="settings-label">Карточки на Главной <span class="help-dot" role="button" tabindex="0" data-help="home-layout" aria-label="Справка: Карточки на Главной" title="Что это и зачем?">?</span></p><p class="settings-hint" id="home-layout-status">—</p></div>
           <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
         </div>
       </div>
       <div class="settings-group">
         <div class="settings-label-row">
-          <p class="settings-label">🎮 Игровой режим</p>
+          <p class="settings-label">🎮 Игровой режим <span class="help-dot" role="button" tabindex="0" data-help="game-mode" aria-label="Справка: Игровой режим" title="Что это и зачем?">?</span></p>
           <label class="switch" for="game-mode-toggle">
             <input id="game-mode-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
@@ -963,7 +970,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.8</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
@@ -978,14 +985,30 @@
     </section>
   </div><!-- /settings-about-view -->
 
-  <!-- ===== Игровой режим: медали и рекорды ===== -->
-  <div class="app-dialog-backdrop" id="game-medals-dialog" role="dialog" aria-modal="true" aria-labelledby="game-medals-title" hidden>
+  <!-- ===== Медали: отдельный экран (только медали) ===== -->
+  <div id="game-medals-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">🏅</span></div>
+        <div class="card-title-wrap">
+          <h2>Медали</h2>
+          <p id="game-medals-count">—</p>
+        </div>
+      </div>
+      <div id="game-medals-grid"></div>
+      <p class="settings-hint">Цифра внутри значка — цель медали. Медали «Бег» и «Шаги» расстояние и шаги не измеряют напрямую, а честно оценивают по минутам активности (пометка «по оценке»).</p>
+      <button class="btn btn-ghost setup-back-btn" id="game-medals-back" type="button">← Назад на Главную</button>
+    </section>
+  </div><!-- /game-medals-view -->
+
+  <!-- ===== Справка по разделу (значок «?») ===== -->
+  <div class="app-dialog-backdrop" id="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
     <section class="app-dialog">
-      <div class="app-dialog-icon" aria-hidden="true">🏅</div>
-      <h2 id="game-medals-title">Медали и рекорды</h2>
-      <div class="game-medals-list" id="game-medals-list"></div>
+      <div class="app-dialog-icon" aria-hidden="true">💡</div>
+      <h2 id="help-title">Справка</h2>
+      <p class="app-dialog-text" id="help-text"></p>
       <div class="app-dialog-actions">
-        <button class="btn btn-primary" id="game-medals-ok" type="button">Закрыть</button>
+        <button class="btn btn-primary" id="help-ok" type="button">Понятно</button>
       </div>
     </section>
   </div>
