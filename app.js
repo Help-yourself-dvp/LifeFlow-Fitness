@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.12';
+const FITFLOW_VERSION = '0.3.13';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2750,17 +2750,39 @@ function computeGameTasks() {
 
 function renderGameMode() { renderDayPlan(); }
 
-let keyboardShiftTimer = null;
-function scheduleKeyboardShift(field, fromViewportResize) {
-  clearTimeout(keyboardShiftTimer);
-  keyboardShiftTimer = setTimeout(() => ensureFieldActionsVisible(field), fromViewportResize ? 120 : 350);
+/* IME-БЕЗОПАСНАЯ докрутка (0.3.13, расследование бага GBoard):
+   скроллим только по факту изменения видимого viewport (когда клавиатура
+   реально меняет раскладку), МГНОВЕННЫМ шагом и не более 2 раз за один фокус.
+   Прежний подход (плавный scrollIntoView по таймеру фокуса) гонялся с
+   анимацией появления клавиатуры — у части устройств/WebView IME-сессия
+   рвалась: клавиатура «не открывалась с первого тапа», а в такой сессии
+   голосовой ввод GBoard молчал («Говорите», но текст не вставлялся). */
+let keyboardShiftState = { field: null, left: 0, raf: 0 };
+
+function scheduleKeyboardShift(field) {
+  keyboardShiftState.field = field;
+  keyboardShiftState.left = 2; // максимум две мягкие докрутки на один фокус
+  queueKeyboardShift();
 }
 
-/* Клавиатура уменьшает видимый viewport: находим кнопки действий под полем
-   (в его карточке/форме/вкладке) и докручиваем, чтобы последняя из них была
-   над клавиатурой — без ручной прокрутки (замечание по всем разделам ИИ). */
+function cancelKeyboardShift() {
+  keyboardShiftState.field = null;
+  keyboardShiftState.left = 0;
+  cancelAnimationFrame(keyboardShiftState.raf);
+}
+
+function queueKeyboardShift() {
+  const st = keyboardShiftState;
+  cancelAnimationFrame(st.raf);
+  st.raf = requestAnimationFrame(() => ensureFieldActionsVisible(st.field));
+}
+
+/* Докручиваем МГНОВЕННО и на минимум: чтобы последняя кнопка действий под полем
+   («Разобрать», «Сохранить») оказалась над клавиатурой, но само поле не уехало
+   за шапку. Без scrollIntoView/smooth — именно они провоцировали гонку с IME. */
 function ensureFieldActionsVisible(field) {
-  if (!field || !field.isConnected || document.activeElement !== field) return;
+  const st = keyboardShiftState;
+  if (!field || !field.isConnected || document.activeElement !== field || st.left <= 0) return;
   const scope = field.closest('form, .card, .ai-tab-panel, .settings-view, .app-dialog-backdrop') || field.parentElement;
   let target = field;
   if (scope) {
@@ -2771,11 +2793,13 @@ function ensureFieldActionsVisible(field) {
   }
   const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
   const r = target.getBoundingClientRect();
-  if (r.bottom > vh - 24 || r.top < 0) {
-    target.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  } else {
-    const fr = field.getBoundingClientRect();
-    if (fr.top < 0 || fr.bottom > vh) field.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  let delta = Math.round(r.bottom - (vh - 24));
+  // Ограничитель: поле не должно быть утащено вверх за шапку приложения.
+  const fr = field.getBoundingClientRect();
+  delta = Math.min(delta, Math.max(0, Math.round(fr.top - 56)));
+  if (delta > 8) {
+    st.left--;
+    window.scrollBy(0, delta); // мгновенный шаг без анимации — IME-safe
   }
 }
 
@@ -6780,13 +6804,16 @@ function init() {
     if (!field || !field.matches || !field.matches('input, textarea')) return;
     scheduleKeyboardShift(field);
   });
-  // Повторная докрутка на изменение видимого viewport (клавиатура анимируется шагами).
+  // Докрутка — только когда клавиатура реально изменила видимый viewport.
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
-      const field = document.activeElement;
-      if (field && field.matches && field.matches('input, textarea')) scheduleKeyboardShift(field, true);
+      if (keyboardShiftState.field) queueKeyboardShift();
     });
   }
+  // Ушли из поля — никаких отложенных докруток.
+  document.addEventListener('focusout', (event) => {
+    if (event.target && event.target.matches && event.target.matches('input, textarea')) cancelKeyboardShift();
+  });
 
   maybeShowTerms();
   } catch (e) {

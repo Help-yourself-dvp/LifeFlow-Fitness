@@ -41,7 +41,7 @@ const functions = [
   'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
-  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible',
+  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'cancelKeyboardShift', 'queueKeyboardShift',
   // 0.3.12: мини-онбординг
   'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
   'renderOnboardingSlide', 'maybeShowOnboarding', 'hasCompletedOnboarding'
