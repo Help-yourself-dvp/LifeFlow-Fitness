@@ -78,7 +78,8 @@ const ids = [
   'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn',
   'onboarding-dialog', 'onboarding-emoji', 'onboarding-title', 'onboarding-text',
   'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open',
-  'palette-segmented', 'palette-status', 'food-input-clear', 'water-custom-clear'
+  'palette-segmented', 'palette-status', 'food-input-clear', 'water-custom-clear',
+  'ai-view', 'ai-view-back', 'ai-center-open', 'ai-tabs'
 ];
 
 let failed = 0;
@@ -99,6 +100,28 @@ let failed = 0;
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} алиас --primary определён (иначе var(--primary) = прозрачность)`);
 }
+/* Регресс-защита (0.3.16, кейс GBoard): ИИ-центр — обычный экран #ai-view,
+   а НЕ модальный #ai-dialog на фиксированной подложке. Возврат модалки
+   воскресит баг «клавиатура со 2-го тапа» после холодного старта. */
+{
+  const ok = !/id=["']ai-dialog["']/.test(html)
+    && /id=["']ai-view["']/.test(html)
+    && /switchView\('ai'\)/.test(app);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} ИИ-центр — экран #ai-view (модалки #ai-dialog нет)`);
+}
+
+/* Регресс-защита (0.3.16): акцентная линия слева у карточек + указанный
+   пользователем тёплый фон светлой Sport-темы. */
+{
+  const css2 = fs.readFileSync('style.css', 'utf8');
+  const ok = /border-left:\s*4px solid var\(--card-accent/.test(css2)
+    && /\[data-palette="sport"\][\s\S]*?--md-sys-color-surface:\s*#f7f4ec/.test(css2)
+    && !/\.ai-center-modal/.test(css2);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} акцентные линии карточек, фон Sport, стиля .ai-center-modal больше нет`);
+}
+
 for (const name of functions) {
   const ok = new RegExp(`function\\s+${name}\\s*\\(`).test(app);
   if (!ok) failed++;

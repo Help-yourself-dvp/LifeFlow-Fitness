@@ -49,7 +49,7 @@ html[data-theme="light"] {
 
   --topbar-bg: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent);
   --card-border: 1px solid var(--md-sys-color-outline-variant);
-  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.05);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.075);
   --card-bg: var(--md-sys-color-surface-container-low);
   --scrim: rgb(0 0 0 / 0.4);
 
@@ -104,7 +104,7 @@ html[data-theme="dark"] {
 
   --topbar-bg: color-mix(in srgb, var(--md-sys-color-surface) 78%, transparent);
   --card-border: 1px solid var(--md-sys-color-outline-variant);
-  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px rgb(0 0 0 / 0.45);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 30px rgb(0 0 0 / 0.5);
   --card-bg: var(--md-sys-color-surface-container);
   --scrim: rgb(0 0 0 / 0.6);
 
@@ -342,6 +342,9 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .card {
   background: var(--card-bg);
   border: var(--card-border);
+  /* 0.3.16: левая акцентная линия у всех блоков — как у карточки ИИ-аналитика
+     (запрос пользователя). Цвет задаётся классом карточки ниже. */
+  border-left: 4px solid var(--card-accent, var(--md-sys-color-outline-variant));
   border-radius: 24px;
   box-shadow: var(--card-shadow);
   padding: 18px 18px 14px;
@@ -1132,7 +1135,7 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .ai-icon-btn svg { width: 18px; height: 18px; }
 
 /* Единые основные кнопки ИИ-центра: одинаковые вид и размер на всех вкладках */
-.ai-center-modal .btn-primary {
+.ai-center .btn-primary {
   flex: 0 0 auto;
   min-height: 40px;
   height: 40px;
@@ -1165,7 +1168,7 @@ textarea.form-input.ai-textarea {
   min-width: 0;
 }
 .ai-actions-spacer { flex: 1 1 auto; }
-.ai-center-modal #ai-tabs button { font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.ai-center #ai-tabs button { font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .ai-tab-icon { width: 14px; height: 14px; flex: 0 0 auto; }
 
 .app-dialog {
@@ -1178,23 +1181,29 @@ textarea.form-input.ai-textarea {
   text-align: center;
 }
 
-/* ИИ-центр: диалог строго в пределах экрана.
+/* ИИ-центр — полноценный экран (0.3.16).
    min-width: 0 у grid-элемента и перенос вкладок устраняют выпадение за край. */
-.ai-center-modal {
-  width: min(540px, 100%);
-  max-width: 100%;
-  min-width: 0;
+.ai-center {
+  width: min(560px, 100%);
+  margin-left: auto;
+  margin-right: auto;
   overflow-x: hidden;
 }
-.ai-center-modal #ai-tabs { flex-wrap: wrap; }
-.ai-center-modal #ai-tabs button {
+.ai-center-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ai-center #ai-tabs { flex-wrap: wrap; }
+.ai-center #ai-tabs button {
   flex: 1 1 auto;
   min-width: 0;
   padding: 9px 8px;
   white-space: nowrap;
 }
-.ai-center-modal .settings-row { flex-wrap: wrap; }
-.ai-center-modal .settings-row .form-input { flex: 1 1 100%; }
+.ai-center .settings-row { flex-wrap: wrap; }
+.ai-center .settings-row .form-input { flex: 1 1 100%; }
 
 /* Стрелки-шевроны: сворачиваемые разделы Настроек и списки на Главной */
 .chevron-icon {
@@ -2732,13 +2741,25 @@ html[data-theme="dark"] .segmented button.active {
   margin: 8px 0 12px;
 }
 
+
+
+/* 🎨 0.3.16: цвета акцентных линий по типу блока (функциональные цвета,
+   как у иконок карточек) + лёгкое усиление тени — блок «отрывается» от фона. */
+.water-card, .stats-water { --card-accent: #2f9be8; }
+.food-card, .stats-food { --card-accent: var(--calorie-accent); }
+.weight-home-card, .stats-weight { --card-accent: var(--md-sys-color-tertiary); }
+.checklist-card:not(.mood-card) { --card-accent: var(--primary); }
+.mood-card { --card-accent: #8b5cf6; }
+.training-card, .notification-setup-card { --card-accent: #43a047; }
+.ai-stats-card, .ai-center { --card-accent: var(--primary); }
+
 /* ===== ИИ-аналитик в Статистике и фото-рецепты ===== */
 .ai-stats-card {
-  border-left: 3px solid var(--primary);
   margin-bottom: 14px;
 }
-.ai-stats-icon {
-  background: var(--surface-variant);
+.ai-stats-icon,
+.ai-center-icon {
+  background: var(--md-sys-color-surface-container-high);
   color: var(--primary);
   font-size: 1.35rem;
 }
@@ -3085,8 +3106,14 @@ html[data-palette="neon"][data-theme="dark"] {
   --md-sys-color-on-surface-variant: #b8bce0;
   --md-sys-color-outline: #7d84b8;
   --md-sys-color-outline-variant: #333852;
-  --bg-blob-a: rgb(124 92 255 / 0.15);
-  --bg-blob-b: rgb(34 229 255 / 0.09);
+  --bg-blob-a: rgb(124 92 255 / 0.11);
+  --bg-blob-b: rgb(34 229 255 / 0.065);
+}
+
+/* 0.3.16: Neon мягче к глазам (запрос пользователя) — свечения срезаны ~40%,
+   и сам основной циан чуть приглушён, не «лазерный». */
+html[data-palette="neon"][data-theme="dark"] {
+  --md-sys-color-primary: #4adcf2;
 }
 
 /* ⚡ Sport — энергичный оранж с лаймом */
@@ -3096,6 +3123,11 @@ html[data-palette="sport"] {
   --calorie-accent: #ff3d6e;
   --bg-blob-a: rgb(255 109 0 / 0.10);
   --bg-blob-b: rgb(132 204 22 / 0.09);
+  /* 0.3.16: фон уже не «чисто белый» — тёплый бумажный оттенок,
+     светлые карточки на нём читаются заметнее (запрос пользователя). */
+  --md-sys-color-surface: #f7f4ec;
+  --md-sys-color-surface-bright: #faf7f0;
+  --md-sys-color-surface-dim: #e3ddcf;
   --md-sys-color-primary: #d84315;
   --md-sys-color-on-primary: #ffffff;
   --md-sys-color-primary-container: #ffd8c2;
@@ -3139,11 +3171,19 @@ html[data-palette="sport"] .btn {
 html[data-palette="sport"] .segmented button { text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
 html[data-palette="sport"] .btn-primary { box-shadow: 0 3px 0 rgb(0 0 0 / 0.22); }
 html[data-palette="sport"] .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgb(0 0 0 / 0.22); }
+/* ⚡ Sport (0.3.16): кнопки верхней панели — спортивные «квадраты» с акцентным подтоном */
+html[data-palette="sport"] .topbar-actions button {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+}
+html[data-palette="sport"] .topbar-actions button:active {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
 
 /* 🌃 Neon — неоновое свечение активных элементов (только в тёмном режиме) */
-html[data-palette="neon"][data-theme="dark"] .btn-primary { box-shadow: 0 0 14px rgb(34 229 255 / 0.30), 0 2px 8px rgb(0 0 0 / 0.4); }
-html[data-palette="neon"][data-theme="dark"] .nav-item.active { box-shadow: 0 0 12px rgb(34 229 255 / 0.25); }
-html[data-palette="neon"][data-theme="dark"] .segmented button.active { box-shadow: 0 0 12px rgb(124 92 255 / 0.35); }
-html[data-palette="neon"][data-theme="dark"] .switch input:checked + .switch-track { box-shadow: 0 0 10px rgb(34 229 255 / 0.45); }
+html[data-palette="neon"][data-theme="dark"] .btn-primary { box-shadow: 0 0 9px rgb(34 229 255 / 0.20), 0 2px 6px rgb(0 0 0 / 0.4); }
+html[data-palette="neon"][data-theme="dark"] .nav-item.active { box-shadow: 0 0 8px rgb(34 229 255 / 0.15); }
+html[data-palette="neon"][data-theme="dark"] .segmented button.active { box-shadow: 0 0 9px rgb(124 92 255 / 0.24); }
+html[data-palette="neon"][data-theme="dark"] .switch input:checked + .switch-track { box-shadow: 0 0 7px rgb(34 229 255 / 0.30); }
 html[data-palette="neon"][data-theme="dark"] .checklist-item.done,
-html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="true"] { box-shadow: 0 0 10px rgb(34 229 255 / 0.25), inset 0 0 0 1px var(--primary); }
+html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="true"] { box-shadow: 0 0 7px rgb(34 229 255 / 0.15), inset 0 0 0 1px var(--primary); }

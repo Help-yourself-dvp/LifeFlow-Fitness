@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.15';
+const FITFLOW_VERSION = '0.3.16';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -5806,6 +5806,7 @@ function switchView(view) {
   const isSettings = view === 'settings';
   const isNotifications = view === 'notifications';
   const isGameMedals = view === 'game-medals';
+  const isAi = view === 'ai';
   const isSettingsSub = SETTINGS_SUBVIEWS.includes(view);
 
   $('#home-view').hidden = !isHome;
@@ -5818,6 +5819,8 @@ function switchView(view) {
   $('#notifications-view').hidden = !isNotifications;
   const medalsView = $('#game-medals-view');
   if (medalsView) medalsView.hidden = !isGameMedals;
+  const aiView = $('#ai-view');
+  if (aiView) aiView.hidden = !isAi;
   SETTINGS_SUBVIEWS.forEach((sub) => {
     const el = $(`#${sub}-view`);
     if (el) el.hidden = view !== sub;
@@ -6248,7 +6251,7 @@ function getActiveViewName() {
   const pairs = [
     ['#home-view', 'home'], ['#stats-view', 'stats'], ['#training-view', 'training'],
     ['#settings-view', 'settings'], ['#notifications-view', 'notifications'],
-    ['#game-medals-view', 'game-medals'], ['#water-details-view', 'water-details'],
+    ['#game-medals-view', 'game-medals'], ['#ai-view', 'ai'], ['#water-details-view', 'water-details'],
     ['#food-details-view', 'food-details'], ['#weight-details-view', 'weight-details']
   ].concat(SETTINGS_SUBVIEWS.map((s) => [`#${s}-view`, s]));
   for (const [sel, name] of pairs) {
@@ -6291,7 +6294,7 @@ function handleBackNavigation() {
     'settings-ai': 'settings', 'settings-data': 'settings', 'settings-about': 'settings',
     'notifications': 'settings',
     'water-details': 'stats', 'food-details': 'stats', 'weight-details': 'stats',
-    'game-medals': 'home', 'stats': 'home', 'training': 'home', 'settings': 'home'
+    'game-medals': 'home', 'ai': 'home', 'stats': 'home', 'training': 'home', 'settings': 'home'
   };
   if (view !== 'home') {
     switchView(backMap[view] || 'home');
@@ -6746,7 +6749,7 @@ function init() {
 
   // ИИ-центр
   bindEvent('#ai-center-open', 'click', openAiCenter);
-  bindEvent('#ai-dialog-close', 'click', closeAiCenter);
+  bindEvent('#ai-view-back', 'click', () => switchView('home'));
   $$('#ai-tabs button').forEach((btn) => btn.addEventListener('click', () => switchAiTab(btn.dataset.aiTab)));
   bindEvent('#ai-generate-recipe', 'click', generateAiRecipe);
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
@@ -7186,14 +7189,16 @@ function handleWaterVoiceBtn() {
   startRealVoiceInput('#water-voice-input', 'Говорите объём воды в мл');
 }
 
+/* ИИ-центр — обычный экран (0.3.16): модальный #ai-dialog на фиксированной
+   подложке ломал в WebView первую фокусировку поля после холодного старта
+   (GBoard: клавиатура со 2-го тапа и молчащая диктовка). Имена функций
+   сохранены — вызываются после успешного «Разобрать»/рецепта. */
 function openAiCenter() {
-  const dlg = $('#ai-dialog');
-  if (dlg) dlg.hidden = false;
+  switchView('ai');
 }
 
 function closeAiCenter() {
-  const dlg = $('#ai-dialog');
-  if (dlg) dlg.hidden = true;
+  switchView('home');
 }
 
 function switchAiTab(tabName) {

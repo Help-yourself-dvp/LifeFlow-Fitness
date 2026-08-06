@@ -1011,7 +1011,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.15</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.16</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
@@ -1173,6 +1173,122 @@
       <button class="btn btn-ghost setup-back-btn" id="notifications-back-btn" type="button">← Назад к настройкам</button>
     </section>
   </div><!-- /notifications-view -->
+
+  <!-- ===== ИИ-центр: отдельный экран (0.3.16, фикс кейса GBoard) =====
+       Раньше — модальный #ai-dialog на фиксированной подложке: после холодного
+       старта приложения первая фокусировка его поля в WebView рвалась (клавиатура
+       со 2-го тапа, микрофон GBoard молчал). Обычный экран ведёт себя как поле
+       Питания на Главной, где фокус работает всегда. -->
+  <div id="ai-view" hidden>
+    <section class="card ai-center" aria-labelledby="ai-center-title">
+      <div class="ai-center-head">
+        <div class="card-icon ai-center-icon" aria-hidden="true">✨</div>
+        <div class="card-title-wrap">
+          <h2 id="ai-center-title">ИИ-помощник FitFlow</h2>
+          <p>Быстрый ввод записей, рецепт, анализ периода и нутрициолог</p>
+        </div>
+      </div>
+<div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
+        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2.5 5.5 14H11l-1.5 7.5L17 10h-5.5L13 2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Ввод</button>
+        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.6c2.3-.9 4.6-.7 7 .9 2.4-1.6 4.7-1.8 7-.9v14c-2.3-.9-4.6-.7-7 .9-2.4-1.6-4.7-1.8-7-.9v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Рецепт</button>
+        <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 16.5v-4M12.5 16.5v-8M17.5 16.5v-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Анализ</button>
+        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Нутрициолог</button>
+      </div>
+      <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
+      <div id="ai-tab-quick" class="ai-tab-panel">
+        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня (офлайн, база 925+ продуктов). С облачным ИИ (Настройки → ИИ-помощник) можно и сфотографировать блюдо — нейросеть составит список продуктов.</p>
+        <div class="ai-input-stack">
+          <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-camera-btn" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
+            <input type="file" id="ai-quick-camera-input" accept="image/*" capture="environment" hidden>
+          </div>
+        </div>
+        <div id="ai-quick-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Рецепт из холодильника -->
+      <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">Перечислите продукты, которые есть дома, или сфотографируйте полку холодильника — FitFlow предложит блюдо из них с учётом вашей нормы калорий.</p>
+        <div class="ai-input-stack">
+          <textarea id="ai-recipe-input" class="form-input ai-textarea" rows="3" placeholder="Например: куриная грудка, рис, помидоры, сыр, яйца" aria-label="Какие продукты у вас есть?"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-voice-btn" type="button" title="Назвать продукты голосом" aria-label="Назвать продукты голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты" aria-label="Сфотографировать продукты">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1-1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
+            <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
+          </div>
+        </div>
+        <div id="ai-recipe-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Анализ моей недели / месяца -->
+      <div id="ai-tab-analysis" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
+        <div class="ai-input-stack">
+          <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
+            <button class="active" type="button" data-ai-period="7">За неделю (7 дней)</button>
+            <button type="button" data-ai-period="30">За месяц (30 дней)</button>
+          </div>
+          <div class="ai-actions-row">
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-run-analysis" type="button">Анализ</button>
+          </div>
+        </div>
+        <div id="ai-analysis-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Вопрос нутрициологу -->
+      <div id="ai-tab-chat" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами. Локально отвечу фактами из базы продуктов; с облачным ИИ (Настройки → ИИ-помощник) нейросеть ответит на любой вопрос с учётом вашего дня. Вопрос можно и надиктовать.</p>
+        <div class="ai-input-stack">
+          <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос нутрициологу"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-chat-voice-btn" type="button" title="Надиктовать вопрос голосом" aria-label="Надиктовать вопрос голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-chat-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-send-chat" type="button">Спросить</button>
+          </div>
+        </div>
+        <div id="ai-chat-result" class="ai-result-box" hidden></div>
+      </div>
+      <button class="btn btn-ghost detail-back-btn" id="ai-view-back" type="button">← Назад на главную</button>
+    </section>
+  </div><!-- /ai-view -->
 
   </main>
 
@@ -1468,113 +1584,6 @@
   </div>
 
   <!-- ===== Модальное окно ИИ-центра FitFlow ===== -->
-  <div class="app-dialog-backdrop" id="ai-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-center-title" hidden>
-    <section class="app-dialog ai-center-modal" style="text-align:left">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h2 id="ai-center-title" style="margin:0;font-size:1.15rem">✨ ИИ-помощник FitFlow</h2>
-        <button class="btn btn-secondary" id="ai-dialog-close" type="button" style="padding:4px 10px;font-size:1rem">×</button>
-      </div>
-      <div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
-        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2.5 5.5 14H11l-1.5 7.5L17 10h-5.5L13 2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Ввод</button>
-        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.6c2.3-.9 4.6-.7 7 .9 2.4-1.6 4.7-1.8 7-.9v14c-2.3-.9-4.6-.7-7 .9-2.4-1.6-4.7-1.8-7-.9v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Рецепт</button>
-        <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 16.5v-4M12.5 16.5v-8M17.5 16.5v-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Анализ</button>
-        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Нутрициолог</button>
-      </div>
-      <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
-      <div id="ai-tab-quick" class="ai-tab-panel">
-        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня (офлайн, база 925+ продуктов). С облачным ИИ (Настройки → ИИ-помощник) можно и сфотографировать блюдо — нейросеть составит список продуктов.</p>
-        <div class="ai-input-stack">
-          <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
-          <div class="ai-actions-row">
-            <button class="icon-btn ai-icon-btn" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <button class="icon-btn ai-icon-btn" id="ai-quick-camera-btn" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
-              </svg>
-            </button>
-            <button class="icon-btn ai-icon-btn" id="ai-quick-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-            <span class="ai-actions-spacer"></span>
-            <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
-            <input type="file" id="ai-quick-camera-input" accept="image/*" capture="environment" hidden>
-          </div>
-        </div>
-        <div id="ai-quick-result" class="ai-result-box" hidden></div>
-      </div>
-      <!-- Вкладка: Рецепт из холодильника -->
-      <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Перечислите продукты, которые есть дома, или сфотографируйте полку холодильника — FitFlow предложит блюдо из них с учётом вашей нормы калорий.</p>
-        <div class="ai-input-stack">
-          <textarea id="ai-recipe-input" class="form-input ai-textarea" rows="3" placeholder="Например: куриная грудка, рис, помидоры, сыр, яйца" aria-label="Какие продукты у вас есть?"></textarea>
-          <div class="ai-actions-row">
-            <button class="icon-btn ai-icon-btn" id="ai-recipe-voice-btn" type="button" title="Назвать продукты голосом" aria-label="Назвать продукты голосом">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <button class="icon-btn ai-icon-btn" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты" aria-label="Сфотографировать продукты">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1-1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
-              </svg>
-            </button>
-            <button class="icon-btn ai-icon-btn" id="ai-recipe-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-            <span class="ai-actions-spacer"></span>
-            <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
-            <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
-          </div>
-        </div>
-        <div id="ai-recipe-result" class="ai-result-box" hidden></div>
-      </div>
-      <!-- Вкладка: Анализ моей недели / месяца -->
-      <div id="ai-tab-analysis" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
-        <div class="ai-input-stack">
-          <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
-            <button class="active" type="button" data-ai-period="7">За неделю (7 дней)</button>
-            <button type="button" data-ai-period="30">За месяц (30 дней)</button>
-          </div>
-          <div class="ai-actions-row">
-            <span class="ai-actions-spacer"></span>
-            <button class="btn btn-primary" id="ai-run-analysis" type="button">Анализ</button>
-          </div>
-        </div>
-        <div id="ai-analysis-result" class="ai-result-box" hidden></div>
-      </div>
-      <!-- Вкладка: Вопрос нутрициологу -->
-      <div id="ai-tab-chat" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами. Локально отвечу фактами из базы продуктов; с облачным ИИ (Настройки → ИИ-помощник) нейросеть ответит на любой вопрос с учётом вашего дня. Вопрос можно и надиктовать.</p>
-        <div class="ai-input-stack">
-          <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос нутрициологу"></textarea>
-          <div class="ai-actions-row">
-            <button class="icon-btn ai-icon-btn" id="ai-chat-voice-btn" type="button" title="Надиктовать вопрос голосом" aria-label="Надиктовать вопрос голосом">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <button class="icon-btn ai-icon-btn" id="ai-chat-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-            <span class="ai-actions-spacer"></span>
-            <button class="btn btn-primary" id="ai-send-chat" type="button">Спросить</button>
-          </div>
-        </div>
-        <div id="ai-chat-result" class="ai-result-box" hidden></div>
-      </div>
-    </section>
-  </div>
-
   <div hidden>
     <button id="smart-entry-open" type="button"></button>
   </div>
