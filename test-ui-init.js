@@ -32,7 +32,14 @@ const functions = [
   'bindBackNavigation', 'handleBackNavigation', 'getActiveViewName',
   'openHelpTopicDialog', 'closeHelpTopicDialog', 'collapseWaterCustomRow',
   'isHomeCardShown', 'isHomeCardFeatureEnabled', 'syncHomeCardVisibility',
-  'pollinationsAnonymousCall'
+  'pollinationsAnonymousCall',
+  // 0.3.9: начинки сэндвичей, чек-ин сна
+  'glueSandwichFillings', 'normalizeSleepCheckin', 'computeSleepDurationMin',
+  'evaluateSleepOnSchedule', 'getTodaySleepEntry', 'getSleepCheckinSummary',
+  'sleepTimeToMinutes', 'openSleepCheckinDialog', 'closeSleepCheckinDialog',
+  'saveSleepCheckinDialog', 'skipSleepCheckin', 'maybeShowSleepCheckin',
+  'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets',
+  'renderSleepDialogControls', 'renderSleepDialogSummary'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -57,7 +64,11 @@ const ids = [
   'help-dialog', 'help-title', 'help-text', 'help-ok', 'water-custom-cancel',
   'stats-compare-section', 'stats-compare-text', 'stats-compare-motivation',
   'ai-quick-clear-btn', 'ai-chat-clear-btn', 'ai-recipe-clear-btn',
-  'ai-cloud-base-row', 'ai-cloud-base', 'ai-quick-result', 'ai-chat-result', 'ai-recipe-result'
+  'ai-cloud-base-row', 'ai-cloud-base', 'ai-quick-result', 'ai-chat-result', 'ai-recipe-result',
+  'sleep-checkin-toggle', 'sleep-targets-row', 'sleep-target-bed', 'sleep-target-wake', 'sleep-checkin-status',
+  'sleep-checkin-dialog', 'sleep-rating-row', 'sleep-extra-toggle', 'sleep-extra',
+  'sleep-bed-input', 'sleep-wake-input', 'sleep-fill-targets', 'sleep-tags',
+  'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn'
 ];
 
 let failed = 0;

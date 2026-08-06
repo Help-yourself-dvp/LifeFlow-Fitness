@@ -427,6 +427,35 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   }
 }
 
+// 0.3.9: длинная фраза пользователя — несколько начинок, склейка «сорокопчёной»,
+// прилагательное после ёмкости, « и »-начинки не превращаются в 100 г масла
+{
+  const r = parseSmartEntry('четыре бутерброда сорокопчёной колбасой, два бутерброда с сыром и маслом, рагу из свинины, стакан сока яблочного');
+  const [sw1, sw2, stew, juice] = r.food;
+  const ok1 = sw1 && sw1.name === 'бутерброд с сырокопченая колбаса' && sw1.amount === 4 && sw1.kcal === 602 && sw1.approx;
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} «четыре бутерброда сорокопчёной колбасой» → ${sw1 && sw1.name} ${sw1 && sw1.kcal} ккал ≈`);
+  const ok2 = sw2 && sw2.name === 'бутерброд с сыром и маслом' && sw2.amount === 2 && sw2.kcal === 380 && sw2.approx
+    && /сыр 15 г/.test(sw2.note) && /масло 8 г/.test(sw2.note);
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} «2 бутерброда с сыром и маслом» ≈380 (не 220+717!): ${sw2 && sw2.name} ${sw2 && sw2.kcal} ккал, note: ${sw2 && sw2.note}`);
+  const ok3 = stew && stew.name === 'рагу из свинины' && stew.kcal === 190;
+  if (!ok3) failed++;
+  console.log(`${ok3 ? '✓' : '✗'} «рагу из свинины» → 190 ккал`);
+  const ok4 = juice && juice.name === 'яблочный сок' && juice.amount === 1 && juice.kcal === 115;
+  if (!ok4) failed++;
+  console.log(`${ok4 ? '✓' : '✗'} «стакан сока яблочного» → яблочный сок, не общий «сок» (${juice && juice.name} ${juice && juice.kcal})`);
+  const items = r.food.map((i) => i.name).join(', ');
+  const ok5 = r.food.length === 4 && !items.includes('масло,') && !items.endsWith('масло');
+  if (!ok5) failed++;
+  console.log(`${ok5 ? '✓' : '✗'} «масло» НЕ всплывает отдельным продуктом → всего позиций: ${r.food.length}`);
+
+  const tea = parseMealText('бутерброд с сыром и чай');
+  const ok6 = tea.length === 2 && tea[1].name === 'чай';
+  if (!ok6) failed++;
+  console.log(`${ok6 ? '✓' : '✗'} «бутерброд с сыром и чай» — чай остаётся отдельным напитком (${tea.map((i) => i.name).join(' | ')})`);
+}
+
 // 0.3.8: карточки Главной — новые карточки (чек-лист, самочувствие, задания дня)
 // в настройках порядка; у текущих пользователей новые встают В НАЧАЛО (как было)
 {
@@ -461,6 +490,28 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const okSvg = /<svg/u.test(svg) && />5</u.test(svg);
   if (!okSvg) failed++;
   console.log(`${okSvg ? '✓' : '✗'} значок медали: цель 5 внутри SVG`);
+}
+
+// 0.3.9: чек-ин сна — длительность с переходом через полночь, соблюдение режима
+{
+  const { computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary } = require('./app.js');
+  const d = computeSleepDurationMin('23:30', '07:10');
+  const ok1 = d === 460;
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} сон 23:30 → 07:10 = ${d} мин (ждали 460)`);
+  const ok2 = computeSleepDurationMin('12:00', '12:20') === null // 20 мин — не сон
+    && computeSleepDurationMin('23:00', '17:00') === null // >16 ч — ошибка ввода
+    && computeSleepDurationMin('', '07:00') === null;
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} странные/пустые времена честно отклоняются`);
+  const ok3 = evaluateSleepOnSchedule('23:25', '07:05', '23:30', '07:00') === true
+    && evaluateSleepOnSchedule('00:30', '07:00', '23:30', '07:00') === false // лёг на час позже
+    && evaluateSleepOnSchedule('23:30', null, '23:30', '07:00') === null;
+  if (!ok3) failed++;
+  console.log(`${ok3 ? '✓' : '✗'} «в режиме» считается по ±30 мин от целей отбоя/подъёма`);
+  const ok4 = getSleepCheckinSummary(7) === null; // пустой журнал → нет сводки (не выдумываем)
+  if (!ok4) failed++;
+  console.log(`${ok4 ? '✓' : '✗'} пустой журнал сна → сводки нет (честно)`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

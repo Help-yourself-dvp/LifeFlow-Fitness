@@ -1283,7 +1283,7 @@ textarea.form-input.ai-textarea {
   width: 100%;
   margin-top: 10px;
 }
-.water-custom-row .water-custom-cancel { flex: 0 0 auto; padding: 8px 10px; font-size: 0.8rem; }
+.water-custom-row .water-custom-cancel { flex: 0 0 auto; padding: 4px 8px; font-size: 0.72rem; border-radius: 10px; align-self: center; }
 .water-custom-row input {
   flex: 1;
   min-width: 0;
@@ -2922,6 +2922,62 @@ html.dialog-open body {
 .medal-tile.earned .medal-tile-desc { color: var(--md-sys-color-on-primary-container); opacity: 0.9; }
 .medal-tile-bar { margin-top: 8px; height: 5px; border-radius: 3px; background: var(--surface-variant); overflow: hidden; }
 .medal-tile-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.35s ease; }
+
+/* ===== Чек-ин сна ===== */
+.sleep-rating-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.sleep-rating-row button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 2px;
+  border-radius: 14px;
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-low);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.sleep-rating-row button:active { transform: scale(0.96); }
+.sleep-rating-row button.active { background: var(--md-sys-color-primary-container); border-color: var(--primary); }
+.sleep-rating-row .sleep-emoji { font-size: 1.5rem; line-height: 1; }
+.sleep-rating-row small { font-size: 0.62rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.sleep-extra-toggle {
+  margin-top: 6px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.sleep-extra { margin-top: 6px; }
+.sleep-time-row { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.sleep-time-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.sleep-time-row input { width: 110px; }
+.sleep-tags-label { margin: 12px 0 6px; }
+.sleep-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.sleep-tags .chip[aria-pressed="true"] { background: var(--md-sys-color-primary-container); border-color: var(--primary); color: var(--md-sys-color-on-primary-container); }
+.sleep-targets-row { display: flex; gap: 12px; margin: 8px 0 4px; }
+.sleep-targets-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.sleep-targets-row input { width: 110px; }
+.checklist-sleep-btn {
+  text-align: left;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+.checklist-sleep-btn.checklist-item { display: flex; }
 
 /* Значок «?» — справка по разделу */
 .help-dot {

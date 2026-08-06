@@ -661,7 +661,7 @@ function parseMealText(raw) {
   if (!raw || !raw.trim()) return [];
   // Разделители: запятая/точка с запятой перед буквой, «и» между словами,
   // тире/дефисы. \b не используем — в JS он не понимает кириллицу.
-  const parts = raw
+  const splitParts = raw
     // Запятая/точка с запятой — всегда разделитель, кроме десятичной запятой
     // между цифрами («1,5»). Раньше запятая перед ЧИСЛОМ не разделяла список,
     // из-за чего «суши 5 шт, 3 куска пиццы» слипалось в один продукт.
@@ -670,11 +670,41 @@ function parseMealText(raw) {
     // иначе ломаются якорные разборы («сока стакан, », «…минут.»).
     .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, ''))
     .filter(Boolean);
+  const parts = glueSandwichFillings(splitParts);
   return parts.map(parseItem).filter(Boolean);
+}
+
+/* После разбиения по « и » сэндвич-начинки склеиваем обратно:
+   «бутерброд с сыром» + « маслом» — это один сэндвич с двумя начинками,
+   а не бутерброд + отдельные «100 г масла = 717 ккал» (кейс пользователя).
+   Признак продолжения: предыдущий сегмент кончается конструкцией
+   «<сэндвич-слово> с <начинка>», а продолжение — 1–3 слова в творительном
+   падеже без цифр («маслом», «крабовыми палочками», «огурцом»).
+   «Бутерброд с сыром и чай» НЕ склеится: «чай» — не творительный падеж. */
+function glueSandwichFillings(split) {
+  const out = [];
+  for (const part of split) {
+    const prev = out[out.length - 1];
+    const words = part.trim().split(/\s+/);
+    const lastWord = (words[words.length - 1] || '').replace(/[,.;]+$/g, '');
+    const looksFilling = words.length <= 3 && !/\d/u.test(part)
+      && /(?:о|е)м$|ой$|ей$|ью$|ыми$|ими$/iu.test(lastWord);
+    if (prev && looksFilling && /(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер)[а-яё]*\s+с\s+\S+$/iu.test(prev)) {
+      out[out.length - 1] = prev + ' и ' + part;
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
 }
 
 const COMMAND_DICTIONARY = {
   corrections: [
+    // Склейки распознавателя речи: «четыре бутерброда с[ы]рокопчёной колбасой»
+    // превращается в «…сорокопчёной…» / «…сорок опчёной…» — числительное «сорок»
+    // приклеивается впереди. Возвращаем «сырокопчёной» до разбора числительных.
+    [/сорок\s+опч([её])н/giu, 'сырокопч$1н'],
+    [/сорокопч([её])н/giu, 'сырокопч$1н'],
     [/поплавов|попловал|поплавал/giu, 'плавал'],
     [/(^|\s)бана(?=\s|$)/giu, '$1банан'],
     [/(^|\s)грешка(?=\s|$)/giu, '$1гречка'],
@@ -827,11 +857,19 @@ function normalizeNumberWords(text) {
    чтобы следующие подряд продукты не слипались в один. Не трогаем случаи
    с явным числом («2 стакана сока» — их разворачивает отдельный шаг парсера). */
 const SMART_CONTAINER_UNITS = 'стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*';
+/* Похоже ли слово на прилагательное («яблочного», «топлёное», «зелёный»)?
+   Нужно, чтобы ёмкость+продукт захватывала и вид продукта («стакан сока
+   яблочного» → «сока яблочного стакан»), но не глотала следующий продукт
+   («стакан сока персик» → «сока стакан, персик»). */
+const SMART_ADJ_TAIL = /^[а-яёa-z]+(?:ого|его|ему|ому|ий|ый|ой|ей|ая|яя|ое|ёе|ее|ые|ие|ье|ью|их|ых|ами|ыми|ими)$/iu;
 
 function normalizeSmartUnits(text) {
   return String(text || '').replace(
-    new RegExp('(^|(?<!\\d)\\s)(' + SMART_CONTAINER_UNITS + ')\\s+([а-яёa-z]+)', 'giu'),
-    (match, sep, unit, product) => (sep ? ', ' : '') + product + ' ' + unit + ', '
+    new RegExp('(^|(?<!\\d)\\s)(' + SMART_CONTAINER_UNITS + ')\\s+([а-яёa-z]+)(\\s+[а-яёa-z]+)?', 'giu'),
+    (match, sep, unit, product, tail) => {
+      const glued = tail && SMART_ADJ_TAIL.test(tail.trim()) ? tail : '';
+      return (sep ? ', ' : '') + product + glued + ' ' + unit + ', ' + (glued ? '' : (tail || ''));
+    }
   );
 }
 
@@ -859,7 +897,7 @@ function parseSmartEntry(text) {
   // «вода стакан» / «выпил воды чашку» без цифры — одна ёмкость (после нормализации
   // единицы всегда стоят после продукта).
   const waterContainerMatch = !waterMl
-    ? lower.match(/вод(?:а|ы|у)\s+(стакан|чашк[а-яё]*|кружк[а-яё]*)(?![а-яёa-z])/iu)
+    ? lower.match(/вод(?:а|ы|у)(?:\s+[а-яё]*(?:ая|яя|ое|ее|ие|ые|ой|ей))?\s+(стакан|чашк[а-яё]*|кружк[а-яё]*)(?![а-яёa-z])/iu)
     : null;
   if (waterContainerMatch) waterMl = /^стакан/iu.test(waterContainerMatch[1]) ? 250 : 200;
 
@@ -1030,28 +1068,52 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
     || rawName.match(/^(бутерброд[а-яё]*|сэндвич[а-яё]*|сандвич[а-яё]*)\s+с\s+(.+)$/iu);
   if (!m) return null;
   const fillingText = m[2].trim();
-  const filling = lookupProduct(fillingText);
-  if (!filling) return null; // начинку не знаем — отдаём обычному поиску (кураторские ключи «бутерброд с …»)
+  // Начинок может быть несколько: «с сыром и маслом», «с икрой, огурцом и зеленью».
+  const fillingParts = fillingText.split(/\s*(?:,|;)\s*|\s+и\s+/iu)
+    .map((s) => s.trim().replace(/^с\s+/iu, ''))
+    .filter(Boolean);
+  if (!fillingParts.length) return null;
+  const fillings = fillingParts.map((part) => ({ part, product: lookupProduct(part) }));
+  const known = fillings.filter((f) => f.product);
+  if (!known.length) return null; // начинок не знаем — отдаём обычному поиску (кураторские ключи «бутерброд с …»)
   // Кураторский сэндвич-ключ из базы («бутерброд с сыром», «бутерброд с колбасой»)
-  // точнее композиции — отдаём ему.
-  if (genericProduct && genericProduct.key.indexOf('бутерброд') === 0) return null;
-  const fg = sandwichFillingGrams(filling.key);
+  // точнее композиции — отдаём ему, НО только когда начинка одна: иначе
+  // «бутерброд с сыром» тихо съедал «и маслом» (кейс 717 ккал чистого масла).
+  if (fillingParts.length === 1 && genericProduct && genericProduct.key.indexOf('бутерброд') === 0) return null;
+  const parts = known.map((f) => {
+    const fg = sandwichFillingGrams(f.product.key);
+    return {
+      name: f.product.key, g: fg,
+      kcal: (f.product.kcal * fg) / 100,
+      p: (f.product.p * fg) / 100,
+      f: (f.product.f * fg) / 100,
+      c: (f.product.c * fg) / 100
+    };
+  });
+  const unknown = fillings.filter((f) => !f.product).map((f) => f.part);
   const count = amount != null ? amount : 1;
-  const kcalPer = SANDWICH_BREAD.kcal + (filling.kcal * fg) / 100;
+  const gramsPer = SANDWICH_BREAD.g + parts.reduce((s, f) => s + f.g, 0);
+  const kcalPer = SANDWICH_BREAD.kcal + parts.reduce((s, f) => s + f.kcal, 0);
+  // Название: одна начинка — ключ базы (грамматика известна), несколько —
+  // как в исходной фразе («сыром и маслом» читается естественно).
+  const nameFill = fillingParts.length === 1 ? known[0].product.key : fillingParts.join(' и ');
+  let note = 'по составу: хлеб ' + SANDWICH_BREAD.g + ' г + '
+    + parts.map((f) => f.name + ' ' + f.g + ' г').join(' + ') + ' на шт';
+  if (unknown.length) note += '; без учёта: ' + unknown.join(', ');
   return {
     id: uid(),
     raw: rawName,
-    name: 'бутерброд с ' + filling.key,
+    name: 'бутерброд с ' + nameFill,
     amount: count,
     unit: 'шт',
-    grams: Math.round((SANDWICH_BREAD.g + fg) * count),
+    grams: Math.round(gramsPer * count),
     perPiece: true,
     approx: true,
-    note: `по составу: хлеб ${SANDWICH_BREAD.g} г + ${filling.key} ${fg} г на шт`,
+    note,
     kcal: Math.round(kcalPer * count),
-    p: Math.round((SANDWICH_BREAD.p + (filling.p * fg) / 100) * count * 10) / 10,
-    f: Math.round((SANDWICH_BREAD.f + (filling.f * fg) / 100) * count * 10) / 10,
-    c: Math.round((SANDWICH_BREAD.c + (filling.c * fg) / 100) * count * 10) / 10
+    p: Math.round((SANDWICH_BREAD.p + parts.reduce((s, f) => s + f.p, 0)) * count * 10) / 10,
+    f: Math.round((SANDWICH_BREAD.f + parts.reduce((s, f) => s + f.f, 0)) * count * 10) / 10,
+    c: Math.round((SANDWICH_BREAD.c + parts.reduce((s, f) => s + f.c, 0)) * count * 10) / 10
   };
 }
 
@@ -1364,12 +1426,13 @@ const DEFAULTS = {
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
+  sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.8';
+const FITFLOW_VERSION = '0.3.9';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1595,6 +1658,7 @@ const state = {
   waterReminders: { ...DEFAULTS.waterReminders },
   dayChecklist: { ...DEFAULTS.dayChecklist },
   gameMode: { ...DEFAULTS.gameMode },
+  sleepCheckin: { ...DEFAULTS.sleepCheckin, log: [] },
   dayMood: { ...DEFAULTS.dayMood },
   customMealTypes: [],
   theme: null
@@ -1662,6 +1726,100 @@ function normalizeDayChecklist() {
 
 function normalizeGameMode() {
   state.gameMode = { enabled: (state.gameMode || {}).enabled === true };
+}
+
+/* ===== Чек-ин сна (идея пользователя 06.08.2026: утром — оценка сна,
+   опционально «во сколько лёг/встал» и «что делал перед сном»; при
+   отклонении от целевого режима более чем на 30 мин день помечается
+   «режим сбит» — плавно показываем, что регулярность влияет на качество) */
+const SLEEP_TAGS = [
+  { id: 'phone', label: '📱 Экран' }, { id: 'sport', label: '🏋️ Спорт' },
+  { id: 'coffee', label: '☕ Кофе/чай' }, { id: 'food', label: '🍽️ Поздняя еда' },
+  { id: 'work', label: '💼 Работа' }, { id: 'book', label: '📖 Чтение' },
+  { id: 'alcohol', label: '🍷 Алкоголь' }, { id: 'walk', label: '🚶 Прогулка' }
+];
+const SLEEP_TAG_IDS = new Set(SLEEP_TAGS.map((t) => t.id));
+const SLEEP_SCHEDULE_TOLERANCE_MIN = 30;
+
+function sleepTimeToMinutes(t) {
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(String(t || ''));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/* Длительность сна по «лёг/встал» с переходом через полночь.
+   Менее 30 мин или более 16 ч — скорее ошибка ввода, чем сон: возвращаем null. */
+function computeSleepDurationMin(bedTime, wakeTime) {
+  const b = sleepTimeToMinutes(bedTime);
+  const w = sleepTimeToMinutes(wakeTime);
+  if (b == null || w == null) return null;
+  let d = w - b;
+  if (d <= 0) d += 1440;
+  return (d >= 30 && d <= 16 * 60) ? d : null;
+}
+
+function circularMinutesDistance(a, b) {
+  const d = Math.abs(a - b) % 1440;
+  return Math.min(d, 1440 - d);
+}
+
+/* «В режиме»: и отбой, и подъём в пределах ±30 минут от целевых.
+   null — данных недостаточно (что-то из времён не указано). */
+function evaluateSleepOnSchedule(bedTime, wakeTime, targetBed, targetWake) {
+  const b = sleepTimeToMinutes(bedTime);
+  const w = sleepTimeToMinutes(wakeTime);
+  const tb = sleepTimeToMinutes(targetBed);
+  const tw = sleepTimeToMinutes(targetWake);
+  if (b == null || w == null || tb == null || tw == null) return null;
+  return circularMinutesDistance(b, tb) <= SLEEP_SCHEDULE_TOLERANCE_MIN
+    && circularMinutesDistance(w, tw) <= SLEEP_SCHEDULE_TOLERANCE_MIN;
+}
+
+function normalizeSleepCheckin() {
+  const sc = state.sleepCheckin || {};
+  const validTime = (v, fallback) => (typeof v === 'string' && /^([01]?\d|2[0-3]):[0-5]\d$/.test(v) ? v : fallback);
+  const log = (Array.isArray(sc.log) ? sc.log : [])
+    .filter((e) => e && typeof e === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(e.date))
+    .map((e) => ({
+      id: String(e.id || uid()),
+      date: e.date,
+      rating: (Number.isInteger(Number(e.rating)) && Number(e.rating) >= 1 && Number(e.rating) <= 5) ? Number(e.rating) : null,
+      bedTime: validTime(e.bedTime, null),
+      wakeTime: validTime(e.wakeTime, null),
+      durationMin: (Number.isFinite(Number(e.durationMin)) && Number(e.durationMin) > 0 && Number(e.durationMin) <= 960) ? Math.round(Number(e.durationMin)) : null,
+      tags: (Array.isArray(e.tags) ? e.tags : []).map((t) => String(t)).filter((t) => SLEEP_TAG_IDS.has(t)).slice(0, 6),
+      onSchedule: e.onSchedule === true ? true : (e.onSchedule === false ? false : null),
+      createdAt: Number(e.createdAt) || Date.now()
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-400); // чуть больше года истории достаточно
+  state.sleepCheckin = {
+    enabled: sc.enabled === true,
+    targetBed: validTime(sc.targetBed, DEFAULTS.sleepCheckin.targetBed),
+    targetWake: validTime(sc.targetWake, DEFAULTS.sleepCheckin.targetWake),
+    log,
+    skipped: (typeof sc.skipped === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sc.skipped)) ? sc.skipped : null
+  };
+}
+
+function getTodaySleepEntry() {
+  return ((state.sleepCheckin && state.sleepCheckin.log) || []).find((e) => e.date === todayKey()) || null;
+}
+
+/* Сводка по последним N дням для мотивационной строки в диалоге сна. */
+function getSleepCheckinSummary(days = 7) {
+  const cutoff = statsDateKey(days - 1);
+  const entries = ((state.sleepCheckin && state.sleepCheckin.log) || []).filter((e) => e.date >= cutoff);
+  if (!entries.length) return null;
+  const durations = entries.map((e) => e.durationMin).filter((v) => Number.isFinite(v));
+  const ratings = entries.map((e) => e.rating).filter((v) => Number.isInteger(v));
+  const sched = entries.map((e) => e.onSchedule).filter((v) => v !== null);
+  return {
+    nights: entries.length,
+    avgDurationMin: durations.length ? Math.round(durations.reduce((s, v) => s + v, 0) / durations.length) : null,
+    avgRating: ratings.length ? Math.round((ratings.reduce((s, v) => s + v, 0) / ratings.length) * 10) / 10 : null,
+    onScheduleCount: sched.filter(Boolean).length,
+    scheduleTotal: sched.length
+  };
 }
 
 function normalizeDayMood() {
@@ -2182,6 +2340,7 @@ function loadState() {
   normalizeWaterReminders();
   normalizeDayChecklist();
   normalizeGameMode();
+  normalizeSleepCheckin();
   normalizeDayMood();
   normalizeAiSettings();
   if (previousWaterDate !== today || previousFoodDate !== today) {
@@ -2306,6 +2465,7 @@ function renderAll() {
   renderDayChecklist();
   renderGameMode();
   renderGameModeSettings();
+  renderSleepCheckinSettings();
   renderAiSettings();
   renderProfileBasics();
   applySettingsAccordion();
@@ -2415,9 +2575,21 @@ function renderDayChecklist() {
   const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
   const activityText = activityOk ? 'отмечена' : 'сегодня без активности';
 
+  // Пункт «Сон» — когда включён чек-ин сна: кликабельная строка, открывает диалог.
+  let sleepRow = '';
+  if (state.sleepCheckin && state.sleepCheckin.enabled) {
+    const entry = getTodaySleepEntry();
+    const bits = [];
+    if (entry && entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
+    if (entry && entry.rating != null) bits.push(`оценка ${entry.rating}/5`);
+    const sleepText = entry ? (bits.join(' · ') || 'отмечен') : 'не отмечен — оценить';
+    sleepRow = `<button type="button" class="${itemText(!!entry)} checklist-sleep-btn" data-sleep-open>${itemMark(!!entry)} Сон — ${sleepText}</button>`;
+  }
+
   card.innerHTML = `<div class="card checklist-card" aria-label="Чек-лист дня">
     <div class="checklist-header"><span>📋 Чек-лист дня</span></div>
     <div class="checklist-items">
+      ${sleepRow}
       <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>
       <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>
       <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
@@ -2553,6 +2725,165 @@ function updateGameModeEnabled(enabled) {
   renderGameModeSettings();
   renderStats();
   toast(enabled ? '🎮 Игровой режим включён' : 'Игровой режим скрыт');
+}
+
+/* ============================================================
+   😴 Чек-ин сна — UI. Утром (05:00–12:00) при открытии приложения
+   появляется диалог: оценка сна в 1 тап; опционально «лёг/встал»
+   и «что делал перед сном». Если лёг/встал дальше ±30 мин от
+   режима (Настройки → Общее), день считается «режим сбит» —
+   так пользователь видит, что регулярность влияет на качество.
+============================================================ */
+const SLEEP_RATING_EMOJI = ['', '😫', '🙁', '😐', '🙂', '🚀'];
+const SLEEP_RATING_LABEL = ['', 'ужасно', 'плохо', 'нормально', 'хорошо', 'отлично'];
+
+let sleepDialogDraft = { rating: null, tags: [] };
+
+function renderSleepDialogControls() {
+  if (typeof document === 'undefined') return;
+  $$('#sleep-rating-row [data-sleep-rating]').forEach((btn) => {
+    const r = Number(btn.dataset.sleepRating);
+    btn.classList.toggle('active', r === sleepDialogDraft.rating);
+    btn.setAttribute('aria-pressed', String(r === sleepDialogDraft.rating));
+  });
+  $$('#sleep-tags [data-sleep-tag]').forEach((chip) => {
+    const on = sleepDialogDraft.tags.includes(chip.dataset.sleepTag);
+    chip.classList.toggle('active', on);
+    chip.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function renderSleepDialogSummary() {
+  if (typeof document === 'undefined') return;
+  const el = $('#sleep-summary');
+  if (!el) return;
+  const s = getSleepCheckinSummary(7);
+  if (!s) {
+    el.textContent = 'Это будет ваша первая отметка сна. Через неделю здесь появится средняя длительность и оценка.';
+    return;
+  }
+  const parts = [`за 7 дней отмечено ночей: ${s.nights}`];
+  if (s.avgDurationMin != null) parts.push(`средний сон: ${formatWorkoutDuration(s.avgDurationMin)}`);
+  if (s.avgRating != null) parts.push(`оценка ${s.avgRating}/5`);
+  if (s.scheduleTotal > 0) parts.push(`режим соблюдён ${s.onScheduleCount} из ${s.scheduleTotal}`);
+  el.textContent = '📈 ' + parts.join(' · ') + '.';
+}
+
+function openSleepCheckinDialog() {
+  const dialog = $('#sleep-checkin-dialog');
+  if (!dialog) return;
+  const entry = getTodaySleepEntry();
+  sleepDialogDraft = { rating: entry ? entry.rating : null, tags: entry ? entry.tags.slice() : [] };
+  const bedInput = $('#sleep-bed-input');
+  const wakeInput = $('#sleep-wake-input');
+  if (bedInput) bedInput.value = (entry && entry.bedTime) || '';
+  if (wakeInput) wakeInput.value = (entry && entry.wakeTime) || '';
+  const extra = $('#sleep-extra');
+  const extraToggle = $('#sleep-extra-toggle');
+  // Если поля уже заполнены (правка записи) — доп-блок раскрыт сразу.
+  const hasDetails = !!(entry && (entry.bedTime || entry.wakeTime || (entry.tags && entry.tags.length)));
+  if (extra) extra.hidden = !hasDetails;
+  if (extraToggle) extraToggle.setAttribute('aria-expanded', String(hasDetails));
+  renderSleepDialogControls();
+  renderSleepDialogSummary();
+  dialog.hidden = false;
+}
+
+function closeSleepCheckinDialog() {
+  const dialog = $('#sleep-checkin-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+/* Сохранение записи сна за сегодня (upsert по дате). */
+function saveSleepCheckinDialog() {
+  const sc = state.sleepCheckin;
+  const bedTime = ($('#sleep-bed-input') && $('#sleep-bed-input').value) || sc.targetBed;
+  const wakeTime = ($('#sleep-wake-input') && $('#sleep-wake-input').value) || sc.targetWake;
+  const hasTimes = !!(sleepTimeToMinutes($('#sleep-bed-input') && $('#sleep-bed-input').value)
+    || sleepTimeToMinutes($('#sleep-wake-input') && $('#sleep-wake-input').value));
+  // Пользователь заполнил только одно время — второе берём из режима, так честнее, чем терять пару.
+  const effectiveBed = sleepTimeToMinutes(bedTime) != null ? bedTime : sc.targetBed;
+  const effectiveWake = sleepTimeToMinutes(wakeTime) != null ? wakeTime : sc.targetWake;
+  const useTimes = hasTimes || !!getTodaySleepEntry();
+  const entry = {
+    id: (getTodaySleepEntry() || {}).id || uid(),
+    date: todayKey(),
+    rating: sleepDialogDraft.rating,
+    bedTime: useTimes ? effectiveBed : null,
+    wakeTime: useTimes ? effectiveWake : null,
+    tags: sleepDialogDraft.tags.slice(0, 6),
+    createdAt: (getTodaySleepEntry() || {}).createdAt || Date.now()
+  };
+  entry.durationMin = computeSleepDurationMin(entry.bedTime, entry.wakeTime);
+  entry.onSchedule = evaluateSleepOnSchedule(entry.bedTime, entry.wakeTime, sc.targetBed, sc.targetWake);
+  const idx = sc.log.findIndex((e) => e.date === entry.date);
+  if (idx >= 0) sc.log[idx] = entry; else sc.log.push(entry);
+  sc.log.sort((a, b) => a.date.localeCompare(b.date));
+  sc.skipped = null;
+  saveState();
+  closeSleepCheckinDialog();
+  renderDayChecklist();
+  if (typeof renderStats === 'function') renderStats();
+  const bits = [];
+  if (entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
+  if (entry.rating != null) bits.push(`оценка ${entry.rating}/5 (${SLEEP_RATING_LABEL[entry.rating]})`);
+  if (entry.onSchedule === true) bits.push('в режиме ✓');
+  else if (entry.onSchedule === false) bits.push('режим сбит (±30 мин от цели)');
+  toast('😴 Сон записан' + (bits.length ? ': ' + bits.join(' · ') : ''));
+}
+
+function skipSleepCheckin() {
+  state.sleepCheckin.skipped = todayKey();
+  saveState();
+  closeSleepCheckinDialog();
+}
+
+/* Утренний автопоказ: включён чек-ин, время 05:00–12:00, записи за сегодня
+   нет, сегодня не нажимали «Позже», условия приняты и нет открытых диалогов. */
+function maybeShowSleepCheckin() {
+  if (!state.sleepCheckin || !state.sleepCheckin.enabled) return;
+  const hour = new Date().getHours();
+  if (hour < 5 || hour >= 12) return;
+  if (getTodaySleepEntry() || state.sleepCheckin.skipped === todayKey()) return;
+  if (!hasAcceptedTerms()) return;
+  if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
+  openSleepCheckinDialog();
+}
+
+function renderSleepCheckinSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#sleep-checkin-toggle');
+  const status = $('#sleep-checkin-status');
+  const targets = $('#sleep-targets-row');
+  if (!toggle || !status) return;
+  const sc = state.sleepCheckin;
+  toggle.checked = sc.enabled;
+  if (targets) targets.hidden = !sc.enabled;
+  const bedInput = $('#sleep-target-bed');
+  const wakeInput = $('#sleep-target-wake');
+  if (bedInput && document.activeElement !== bedInput) bedInput.value = sc.targetBed;
+  if (wakeInput && document.activeElement !== wakeInput) wakeInput.value = sc.targetWake;
+  status.textContent = sc.enabled
+    ? `Утром приложение спросит про сон: оценка в 1 тап, время и «что было перед сном» — по желанию. Режим: отбой ${sc.targetBed}, подъём ${sc.targetWake} — отклонение больше 30 мин отметим как «режим сбит».`
+    : 'Чек-ин сна выключен.';
+}
+
+function updateSleepCheckinEnabled(enabled) {
+  state.sleepCheckin.enabled = enabled;
+  saveState();
+  renderSleepCheckinSettings();
+  renderDayChecklist();
+  toast(enabled ? '😴 Чек-ин сна включён — спрошу утром' : 'Чек-ин сна выключен');
+}
+
+function saveSleepTargets() {
+  const sc = state.sleepCheckin;
+  const bed = $('#sleep-target-bed');
+  const wake = $('#sleep-target-wake');
+  if (bed && sleepTimeToMinutes(bed.value) != null) sc.targetBed = bed.value;
+  if (wake && sleepTimeToMinutes(wake.value) != null) sc.targetWake = wake.value;
+  saveState();
+  renderSleepCheckinSettings();
 }
 
 /* Рекорды по истории dailyHistory + сегодняшний день. */
@@ -5154,6 +5485,10 @@ const HELP_TOPICS = {
   'game-mode': {
     title: 'Игровой режим',
     text: 'Превращает день в мини-игру: три задания на Главной (вода до нормы, 3 записи еды, 30 минут активности) закрываются сами по вашим записям. За регулярность и достижения даются медали — смотрите их по кнопке «🏅 Медали». В статистике появляется сравнение текущего периода с прошлым.'
+  },
+  'sleep-checkin': {
+    title: 'Чек-ин сна',
+    text: 'Раз в утро (05:00–12:00) приложение спросит, как вы спали: оценка одним нажатием. По желанию — во сколько легли и встали и что делали перед сном. Задайте целевые время отбоя и подъёма: если отклонились больше чем на 30 минут, день отмечается «режим сбит» — регулярность сна сильнее всего влияет на его качество. Строка «Сон» появляется и в Чек-листе дня. Всё работает офлайн, данные только на устройстве.'
   }
 };
 
@@ -5468,6 +5803,11 @@ function importData(file) {
       if (data.gameMode && typeof data.gameMode === 'object') {
         state.gameMode = { ...data.gameMode };
         normalizeGameMode();
+      }
+
+      if (data.sleepCheckin && typeof data.sleepCheckin === 'object') {
+        state.sleepCheckin = { ...data.sleepCheckin };
+        normalizeSleepCheckin();
       }
 
       if (data.waterReminders && typeof data.waterReminders === 'object') {
@@ -5916,6 +6256,8 @@ function init() {
   bindSettingsMenu();
   bindEvent('#help-ok', 'click', closeHelpTopicDialog);
   bindBackNavigation(); // системная кнопка/жест «назад» = внутренний шаг назад
+  // Утренний чек-ин сна — спросить один раз за утро, если не отмечен.
+  setTimeout(maybeShowSleepCheckin, 900);
 
   $('#activity-fab').addEventListener('click', () => {
     const form = $('#training-form');
@@ -6013,6 +6355,7 @@ function init() {
     $(sel)?.addEventListener('click', (e) => {
       const moodBtn = e.target.closest('#mood-pick-open');
       if (moodBtn) { $('#mood-dialog').hidden = false; }
+      if (e.target.closest('[data-sleep-open]')) openSleepCheckinDialog();
     });
   });
   // Быстрый переход по разделам Главной: плавная прокрутка к карточке
@@ -6058,6 +6401,42 @@ function init() {
   $('#day-checklist-toggle').addEventListener('change', (e) => updateDayChecklistEnabled(e.target.checked));
   const gameToggle = $('#game-mode-toggle');
   if (gameToggle) gameToggle.addEventListener('change', (e) => updateGameModeEnabled(e.target.checked));
+
+  // Чек-ин сна
+  $('#sleep-checkin-toggle')?.addEventListener('change', (e) => updateSleepCheckinEnabled(e.target.checked));
+  $('#sleep-target-bed')?.addEventListener('change', saveSleepTargets);
+  $('#sleep-target-wake')?.addEventListener('change', saveSleepTargets);
+  $('#sleep-rating-row')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sleep-rating]');
+    if (!btn) return;
+    sleepDialogDraft.rating = Number(btn.dataset.sleepRating);
+    // 1 тап = оценка сразу записана; кому нужно время/«перед сном» —
+    // открывает доп. блок ниже и жмёт «Сохранить».
+    saveSleepCheckinDialog();
+  });
+  $('#sleep-tags')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-sleep-tag]');
+    if (!chip) return;
+    const id = chip.dataset.sleepTag;
+    const i = sleepDialogDraft.tags.indexOf(id);
+    if (i >= 0) sleepDialogDraft.tags.splice(i, 1); else sleepDialogDraft.tags.push(id);
+    renderSleepDialogControls();
+  });
+  $('#sleep-extra-toggle')?.addEventListener('click', () => {
+    const extra = $('#sleep-extra');
+    if (!extra) return;
+    const show = extra.hidden;
+    extra.hidden = !show;
+    $('#sleep-extra-toggle').setAttribute('aria-expanded', String(show));
+  });
+  $('#sleep-fill-targets')?.addEventListener('click', () => {
+    const bed = $('#sleep-bed-input');
+    const wake = $('#sleep-wake-input');
+    if (bed) bed.value = state.sleepCheckin.targetBed;
+    if (wake) wake.value = state.sleepCheckin.targetWake;
+  });
+  $('#sleep-save-btn')?.addEventListener('click', saveSleepCheckinDialog);
+  $('#sleep-skip-btn')?.addEventListener('click', skipSleepCheckin);
   const gameCard = $('#game-tasks-card');
   if (gameCard) gameCard.addEventListener('click', (e) => {
     if (e.target.closest('[data-game-medals-open]')) switchView('game-medals'); // отдельный экран медалей
@@ -6842,7 +7221,7 @@ const CLOUD_PROVIDERS = {
   pollinations: {
     id: 'pollinations',
     label: 'Pollinations',
-    hint: 'Бесплатный тестовый сервис: работает даже БЕЗ ключа — сразу нажмите «Проверить подключение» (возможен лимит запросов в минуту). Если стабильность важна: зайдите на enter.pollinations.ai → «Sign in» через Google или GitHub → раздел «API Keys» → «Create key» → скопируйте Secret-ключ (начинается с sk_) и вставьте ниже. Фото не распознаёт.',
+    hint: 'Бесплатный тестовый сервис: работает даже БЕЗ ключа — сразу нажмите «Проверить подключение» (возможен лимит запросов в минуту). Если просит ключ: enter.pollinations.ai → «Sign in» через Google или GitHub → «API Keys» → «Create key» → скопируйте SECRET-ключ (начинается с sk_ — именно он; publishable pk_ для прямых вызовов не подходит) и вставьте ниже. Фото не распознаёт.',
     vision: false,
     autoModel: false,
     baseUrl: 'https://gen.pollinations.ai/v1',
@@ -7045,6 +7424,13 @@ async function callCloudAi(systemText, userText, options) {
 function cloudErrorText(err) {
   const msg = String((err && err.message) || err || 'неизвестная ошибка');
   if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(msg) && !/HTTP/.test(msg)) return 'Нет соединения: проверьте интернет и попробуйте снова.';
+  // Pollinations: у них ДВА вида ключей — Publishable (pk_) для встроек и витрин
+  // и Secret (sk_) для прямых вызовов. pk_ наш серверный-стиль вызова отклоняет.
+  if (/401|403|Unauthenticated/i.test(msg) && state.aiSettings && state.aiSettings.cloudProvider === 'pollinations') {
+    return getCloudKey()
+      ? 'Ключ не принят. Для Pollinations нужен Secret-ключ вида sk_… (НЕ pk_ publishable): enter.pollinations.ai → API Keys → Create key. Или очистите поле ключа — запрос уйдёт анонимно, без ключа.'
+      : 'Анонимный вызов отклонён сервисом (сейчас сервис просит ключ). Получите бесплатный Secret-ключ sk_…: enter.pollinations.ai → API Keys → Create key — и вставьте его в поле ключа.';
+  }
   if (/401|403|API_KEY_INVALID|PERMISSION_DENIED|Unauthenticated/i.test(msg)) return 'Ключ отклонён провайдером: проверьте, что ключ скопирован полностью, без пробелов.';
   if (/User location is not supported|location|region/i.test(msg)) return 'Этот провайдер недоступен из вашего региона — попробуйте DeepSeek или OpenRouter.';
   if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'Исчерпан лимит запросов (минутный или дневной). Подождите немного или смените модель/провайдера.';
@@ -7346,6 +7732,8 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
     describeFoodItemLine, parseSandwichItem, parseDishFromItem,
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
-    isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS
+    isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
+    computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin
   };
 }

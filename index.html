@@ -672,6 +672,25 @@
         </div>
         <p class="settings-hint" id="game-mode-status">Задания дня и медали скрыты.</p>
       </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">😴 Чек-ин сна <span class="help-dot" role="button" tabindex="0" data-help="sleep-checkin" aria-label="Справка: Чек-ин сна" title="Что это и зачем?">?</span></p>
+          <label class="switch" for="sleep-checkin-toggle">
+            <input id="sleep-checkin-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить утренний чек-ин сна</span>
+          </label>
+        </div>
+        <div class="sleep-targets-row" id="sleep-targets-row" hidden>
+          <label for="sleep-target-bed">Отбой
+            <input class="form-input" id="sleep-target-bed" type="time" aria-label="Целевое время отбоя">
+          </label>
+          <label for="sleep-target-wake">Подъём
+            <input class="form-input" id="sleep-target-wake" type="time" aria-label="Целевое время подъёма">
+          </label>
+        </div>
+        <p class="settings-hint" id="sleep-checkin-status">Чек-ин сна выключен.</p>
+      </div>
 
       <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
     </section>
@@ -970,7 +989,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.8</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.9</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
@@ -1000,6 +1019,50 @@
       <button class="btn btn-ghost setup-back-btn" id="game-medals-back" type="button">← Назад на Главную</button>
     </section>
   </div><!-- /game-medals-view -->
+
+  <!-- ===== Чек-ин сна: утренний диалог ===== -->
+  <div class="app-dialog-backdrop" id="sleep-checkin-dialog" role="dialog" aria-modal="true" aria-labelledby="sleep-checkin-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">😴</div>
+      <h2 id="sleep-checkin-title">Как спалось?</h2>
+      <p class="app-dialog-text">Оцените сон одним нажатием — остальное по желанию.</p>
+      <div class="sleep-rating-row" id="sleep-rating-row" role="group" aria-label="Оценка сна">
+        <button type="button" data-sleep-rating="1" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">😫</span><small>ужасно</small></button>
+        <button type="button" data-sleep-rating="2" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🙁</span><small>плохо</small></button>
+        <button type="button" data-sleep-rating="3" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">😐</span><small>нормально</small></button>
+        <button type="button" data-sleep-rating="4" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🙂</span><small>хорошо</small></button>
+        <button type="button" data-sleep-rating="5" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🚀</span><small>отлично</small></button>
+      </div>
+      <button type="button" class="sleep-extra-toggle" id="sleep-extra-toggle" aria-expanded="false">🕐 Ещё: время сна и «перед сном» ▾</button>
+      <div class="sleep-extra" id="sleep-extra" hidden>
+        <div class="sleep-time-row">
+          <label for="sleep-bed-input">Лёг(ла)
+            <input class="form-input" id="sleep-bed-input" type="time" aria-label="Во сколько легли спать">
+          </label>
+          <label for="sleep-wake-input">Встал(а)
+            <input class="form-input" id="sleep-wake-input" type="time" aria-label="Во сколько проснулись">
+          </label>
+          <button type="button" class="btn btn-ghost" id="sleep-fill-targets" title="Подставить целевые время отбоя и подъёма из настроек">По режиму</button>
+        </div>
+        <p class="settings-label sleep-tags-label">Что было перед сном?</p>
+        <div class="sleep-tags" id="sleep-tags">
+          <button type="button" class="chip" data-sleep-tag="phone" aria-pressed="false">📱 Экран</button>
+          <button type="button" class="chip" data-sleep-tag="sport" aria-pressed="false">🏋️ Спорт</button>
+          <button type="button" class="chip" data-sleep-tag="coffee" aria-pressed="false">☕ Кофе/чай</button>
+          <button type="button" class="chip" data-sleep-tag="food" aria-pressed="false">🍽️ Поздняя еда</button>
+          <button type="button" class="chip" data-sleep-tag="work" aria-pressed="false">💼 Работа</button>
+          <button type="button" class="chip" data-sleep-tag="book" aria-pressed="false">📖 Чтение</button>
+          <button type="button" class="chip" data-sleep-tag="alcohol" aria-pressed="false">🍷 Алкоголь</button>
+          <button type="button" class="chip" data-sleep-tag="walk" aria-pressed="false">🚶 Прогулка</button>
+        </div>
+      </div>
+      <p class="settings-hint" id="sleep-summary"></p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="sleep-save-btn" type="button">Сохранить</button>
+        <button class="btn btn-ghost" id="sleep-skip-btn" type="button">Позже</button>
+      </div>
+    </section>
+  </div>
 
   <!-- ===== Справка по разделу (значок «?») ===== -->
   <div class="app-dialog-backdrop" id="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>

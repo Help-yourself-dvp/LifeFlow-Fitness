@@ -1,0 +1,38 @@
+# Патч кнопки «назад» для build.yml (0.3.9)
+
+**Зачем.** Железная кнопка/жест «назад» на Android обрабатывается нативной
+MainActivity: по умолчанию она сразу закрывает приложение (`finish()`) и не
+смотрит в историю WebView. Поэтому JS-механизм шага назад (0.3.8) без этого
+патча не получает события совсем.
+
+**Что делает патч.** Отдаёт «назад» в историю WebView (`webView.goBack()`),
+если в ней есть куда вернуться. Тогда срабатывает JS-логика из app.js:
+закрыть диалог → свернуть «Своя мл» → подэкран настроек → меню настроек →
+детали → статистика → Главная → «нажмите ещё раз для выхода». Когда возвращаться
+уже некуда — обычный выход (`super.onBackPressed()`).
+
+## Куда вставить в `.github/workflows/build.yml`
+
+В шаге `Patch MainActivity (alarms, battery, backup save bridge)` внутри
+текста MainActivity.java — **сразу после закрывающей скобки метода
+`onNewIntent(...)` и перед `@Override public void onResume()`**
+(отступ — 14 пробелов, как у соседних методов):
+
+```java
+              // Кнопка/жест «назад»: пока есть история в WebView — шаг назад
+              // внутри приложения (JS из 0.3.8), из корня истории — обычный выход.
+              @Override
+              public void onBackPressed() {
+                  WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                  if (webView != null && webView.canGoBack()) {
+                      webView.goBack();
+                      return;
+                  }
+                  super.onBackPressed();
+              }
+```
+
+`android.webkit.WebView` уже импортирован в начале файла патча — новых
+импортов не нужно. После вставки достаточно пересобрать сборку того же
+коммита (Actions → Build Native Android APK → Re-run jobs) или запушить
+любой коммит. Больше ничего менять не нужно: логика экранов уже в app.js.
