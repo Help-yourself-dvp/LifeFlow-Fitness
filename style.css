@@ -3110,3 +3110,40 @@ html[data-palette="sport"][data-theme="dark"] {
   --md-sys-color-secondary-container: #3d4d1f;
   --md-sys-color-on-secondary-container: #e2f5c8;
 }
+
+/* ⚡ Sport — «характер» (0.3.15, запрос пользователя «хочется чего-то ещё»):
+   спортивный сжатый шрифт для заголовков и цифр, квадратные формы,
+   энергичные кнопки-«шильды». Только эти overrides — вернуть «Стандарт» можно в один тап. */
+html[data-palette="sport"] h1,
+html[data-palette="sport"] h2,
+html[data-palette="sport"] .checklist-header,
+html[data-palette="sport"] .greeting-title,
+html[data-palette="sport"] .home-weight-current,
+html[data-palette="sport"] .game-task-numbers,
+html[data-palette="sport"] .weight-current,
+html[data-palette="sport"] .settings-label {
+  font-family: "sans-serif-condensed", "Roboto Condensed", Roboto, sans-serif;
+  letter-spacing: 0.02em;
+}
+html[data-palette="sport"] .card { border-radius: 14px; }
+html[data-palette="sport"] .chip,
+html[data-palette="sport"] .medal-tile { border-radius: 10px; }
+html[data-palette="sport"] .form-input,
+html[data-palette="sport"] .food-input { border-radius: 10px; }
+html[data-palette="sport"] .btn {
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+}
+html[data-palette="sport"] .segmented button { text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+html[data-palette="sport"] .btn-primary { box-shadow: 0 3px 0 rgb(0 0 0 / 0.22); }
+html[data-palette="sport"] .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgb(0 0 0 / 0.22); }
+
+/* 🌃 Neon — неоновое свечение активных элементов (только в тёмном режиме) */
+html[data-palette="neon"][data-theme="dark"] .btn-primary { box-shadow: 0 0 14px rgb(34 229 255 / 0.30), 0 2px 8px rgb(0 0 0 / 0.4); }
+html[data-palette="neon"][data-theme="dark"] .nav-item.active { box-shadow: 0 0 12px rgb(34 229 255 / 0.25); }
+html[data-palette="neon"][data-theme="dark"] .segmented button.active { box-shadow: 0 0 12px rgb(124 92 255 / 0.35); }
+html[data-palette="neon"][data-theme="dark"] .switch input:checked + .switch-track { box-shadow: 0 0 10px rgb(34 229 255 / 0.45); }
+html[data-palette="neon"][data-theme="dark"] .checklist-item.done,
+html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="true"] { box-shadow: 0 0 10px rgb(34 229 255 / 0.25), inset 0 0 0 1px var(--primary); }

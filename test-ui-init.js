@@ -42,7 +42,7 @@ const functions = [
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
   'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'cancelKeyboardShift', 'queueKeyboardShift',
-  'getPalette', 'setPalette', 'applyPalette',
+  'getPalette', 'setPalette', 'applyPalette', 'computeMaxCardioDayMinutes',
   // 0.3.12: мини-онбординг
   'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
   'renderOnboardingSlide', 'maybeShowOnboarding', 'hasCompletedOnboarding'

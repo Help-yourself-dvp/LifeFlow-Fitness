@@ -567,5 +567,23 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok ? '✓' : '✗'} палитры: стандарт + neon + sport, у всех подписи → ${ids.join(',')}`);
 }
 
+// 0.3.15: «Марафонец» — только бег (кардио); силовая и прогулка не считаются
+{
+  const { computeMaxCardioDayMinutes } = require('./app.js');
+  const m = computeMaxCardioDayMinutes([
+    { type: 'cardio', date: '2026-08-01', durationMinutes: 40 },
+    { type: 'cardio', date: '2026-08-01', durationMinutes: 25 }, // тот же день → 65 суммарно
+    { type: 'strength', date: '2026-08-02', durationMinutes: 90 }, // силовая — НЕ бег
+    { type: 'walk', date: '2026-08-03', durationMinutes: 120 }     // прогулка — НЕ бег
+  ]);
+  const ok1 = m.value === 65 && m.date === '2026-08-01';
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} «Марафонец»: две пробежки за день суммируются, силовая/прогулка игнорятся → ${m.value} мин`);
+  const m2 = computeMaxCardioDayMinutes([{ type: 'strength', date: '2026-08-02', durationMinutes: 90 }]);
+  const ok2 = m2.value === 0 && m2.date === null;
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} «Марафонец»: день только из силовой медали не даёт`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

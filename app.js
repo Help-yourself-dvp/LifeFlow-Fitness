@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.14';
+const FITFLOW_VERSION = '0.3.15';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2783,6 +2783,14 @@ function computeGameTasks() {
 
 function renderGameMode() { renderDayPlan(); }
 
+/* ВРЕМЕННО ОТКЛЮЧЕНО (0.3.15): баг «клавиатура со второго тапа + молчит
+   голосовой ввод GBoard» воспроизводится ТОЛЬКО в диалоге ИИ-центра при первом
+   открытии после холодного старта. Наш скролл-компаньон — главный из подозреваемых
+   оставшихся на нашей стороне (второй — вложенный скролл-контейнер подложки
+   диалога в WebView, его JS не изменить). Флагом изолируем: если на устройстве
+   пользователя всё станет чисто — вернём фичу иначе (скролл внутри вида). */
+const KEYBOARD_SHIFT_ASSIST = false;
+
 /* IME-БЕЗОПАСНАЯ докрутка (0.3.13, расследование бага GBoard):
    скроллим только по факту изменения видимого viewport (когда клавиатура
    реально меняет раскладку), МГНОВЕННЫМ шагом и не более 2 раз за один фокус.
@@ -2817,6 +2825,7 @@ function queueKeyboardShift() {
    («Разобрать», «Сохранить») оказалась над клавиатурой, но само поле не уехало
    за шапку. Без scrollIntoView/smooth — именно они провоцировали гонку с IME. */
 function ensureFieldActionsVisible(field) {
+  if (!KEYBOARD_SHIFT_ASSIST) return;
   const st = keyboardShiftState;
   if (!field || !field.isConnected || document.activeElement !== field || st.left <= 0) return;
   const scope = field.closest('form, .card, .ai-tab-panel, .settings-view, .app-dialog-backdrop') || field.parentElement;
@@ -3082,6 +3091,23 @@ function computeGameRecords() {
 const GAME_RUN_KM_PER_MIN = 0.15;
 const GAME_STEPS_PER_MIN = 100;
 
+/* «Марафонец» — только бег: лучший день по суммарным минутам КАРДИО.
+   Силовая, прогулка и прочие виды не считаются (замечание пользователя:
+   час силовой не должен давать беговую медаль). Аргумент позволяет
+   тестировать чисто: computeMaxCardioDayMinutes(workouts). */
+function computeMaxCardioDayMinutes(workouts) {
+  const list = Array.isArray(workouts) ? workouts
+    : (Array.isArray(state.workouts) ? state.workouts : []);
+  const byDay = new Map();
+  list.forEach((w) => {
+    if (!w || w.type !== 'cardio' || !w.date) return;
+    byDay.set(w.date, (byDay.get(w.date) || 0) + (Number(w.durationMinutes) || 0));
+  });
+  const max = { value: 0, date: null };
+  byDay.forEach((value, date) => { if (value > max.value) max.value = value, max.date = date; });
+  return max;
+}
+
 function computeRunKmTotal() {
   return (Array.isArray(state.workouts) ? state.workouts : [])
     .filter((w) => w.type === 'cardio')
@@ -3127,6 +3153,7 @@ function computeGameMedals() {
   const runKm = Math.round(computeRunKmTotal() * 10) / 10;
   const steps = Math.round(computeStepsTotal());
   const lostKg = computeWeightLostKg();
+  const cardioDay = computeMaxCardioDayMinutes();
 
   const habits = [
     {
@@ -3142,11 +3169,11 @@ function computeGameMedals() {
       cur: r.maxWater ? r.maxWater.value : 0, target: waterGoal
     },
     {
-      id: 'marathon-day', badgeText: '60', name: 'Марафонец', earned: !!(r.maxActivity && r.maxActivity.value >= 60),
-      desc: r.maxActivity
-        ? `Рекорд активности за день: ${r.maxActivity.value} мин (${fmtDate(r.maxActivity.date)})` + (r.maxActivity.value >= 60 ? ' — больше часа!' : ' — до медали 60 мин')
-        : 'Рекорд активности появится после первой тренировки',
-      cur: r.maxActivity ? r.maxActivity.value : 0, target: 60
+      id: 'marathon-day', badgeText: '60', name: 'Марафонец', earned: cardioDay.value >= 60,
+      desc: cardioDay.value > 0
+        ? `Лучший день бега (кардио): ${cardioDay.value} мин (${fmtDate(cardioDay.date)})` + (cardioDay.value >= 60 ? ' — больше часа бега за день!' : ` — до медали ещё ${fmt(60 - cardioDay.value)} мин бега`)
+        : 'День с 60+ минутами бега. Учитывается только бег (кардио) — силовая, прогулка и другие виды не считаются',
+      cur: cardioDay.value, target: 60
     },
     {
       id: 'streak-3', badgeText: '×3', name: 'Горячая серия', earned: r.bestStreak >= 3,
@@ -4276,9 +4303,13 @@ function renderTraining() {
 
 async function syncTrainingReminderForToday() {
   if (!state.reminders.enabled) return true;
+  // Тихая синхронизация: разрешение спрашиваем только при ЯВНОМ включении
+  // пользователем — иначе после каждой сохранённой активности всплывал бы
+  // системный запрос «разрешить уведомления» совсем не ко времени.
   const result = await scheduleTrainingReminder({
     skipToday: hasWorkoutToday(),
-    clearDelivered: hasWorkoutToday()
+    clearDelivered: hasWorkoutToday(),
+    requestPermission: false
   });
   return result.ok;
 }
@@ -5299,7 +5330,7 @@ async function updateTrainingReminderEnabled(enabled) {
     return;
   }
 
-  toast(`Напоминание включено: каждый день в ${reminderTimeText(state.reminders.time)}`);
+  toast(`⏰ Вечернее напоминание об активности: каждый день в ${reminderTimeText(state.reminders.time)}. Если за день тренировки так и не появится, спрошу вечером. Изменить/выключить: Настройки → Уведомления.`);
 }
 
 async function updateTrainingReminderTime(time) {
@@ -6868,7 +6899,7 @@ function init() {
   // Докрутка — только когда клавиатура реально изменила видимый viewport.
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
-      if (keyboardShiftState.field) queueKeyboardShift();
+      if (KEYBOARD_SHIFT_ASSIST && keyboardShiftState.field) queueKeyboardShift();
     });
   }
   // Ушли из поля — никаких отложенных докруток.
@@ -8026,6 +8057,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes
   };
 }
