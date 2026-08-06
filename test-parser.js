@@ -354,5 +354,42 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   }
 }
 
+// Числительные словами (0.3.7, реальный кейс пользователя: распознаватель речи
+// выдал «суши шесть штук» — число терялось, порция сбрасывалась на 100 г) +
+// честный вес штучных продуктов (бутерброд — 1 шт ≈ 45 г, а не «100 г — 80 ккал»)
+// + составные ключи по набору слов («бутербродА с сыром» = «бутерброд с сыром»).
+{
+  const detailed = [
+    // [фраза, [имя, amount, grams, kcal]]
+    ['суши шесть штук, пицца три кусочка', [['суши', 6, 420, 420], ['пицца', 3, 300, 798]]],
+    ['суши 6 штук, пицца 3 кусочка', [['суши', 6, 420, 420], ['пицца', 3, 300, 798]]],
+    ['три куска пиццы', [['пицца', 3, 300, 798]]],
+    ['стакан молока, котлета, бутерброд с сыром', [['молоко', 1, 250, 150], ['котлета', null, 100, 210], ['бутерброд с сыром', null, 45, 110]]],
+    ['съел два бутерброда с сыром и чашку чая', [['бутерброд с сыром', 2, 90, 220], ['чай', 1, 200, null]]]
+  ];
+  for (const [text, expects] of detailed) {
+    const r = parseSmartEntry(text);
+    const ok = expects.every(([name, amount, grams, kcal]) => r.food.some((f) =>
+      f.name === name
+      && (amount == null ? f.amount == null : f.amount === amount)
+      && (grams == null || f.grams === grams)
+      && (kcal == null || f.kcal === kcal)));
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} детально: «${text}» → ${JSON.stringify(r.food.map((f) => [f.name, f.amount, f.grams, f.kcal]))}`);
+  }
+  {
+    const r = parseSmartEntry('выпил два стакана воды');
+    const ok = r.waterMl === 500;
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} «два стакана воды» → вода ${r.waterMl} (ждали 500)`);
+  }
+  {
+    const r = parseSmartEntry('гулял полчаса');
+    const ok = r.activities.length === 1 && r.activities[0].durationMinutes === 30;
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} «гулял полчаса» → ${JSON.stringify(r.activities)} (ждали 30 мин)`);
+  }
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -75,6 +75,7 @@
 
     <div id="day-checklist-card" hidden></div>
     <div id="day-mood-card" hidden></div>
+    <div id="game-tasks-card" hidden></div>
     <!-- ===== Карточка: Вода ===== -->
     <section class="card water-card" id="water-card" aria-labelledby="water-title">
       <div class="card-header">
@@ -364,6 +365,14 @@
         <div class="stats-bars" id="stats-activity-bars" aria-label="График активности"></div>
       </section>
 
+      <section class="stats-section stats-compare" id="stats-compare-section" aria-labelledby="stats-compare-title" hidden>
+        <div class="stats-section-head">
+          <h3 id="stats-compare-title">📈 Сравнение с прошлым периодом</h3>
+        </div>
+        <p id="stats-compare-text">—</p>
+        <p id="stats-compare-motivation" class="settings-hint"></p>
+      </section>
+
       <section class="stats-section stats-weight" aria-labelledby="stats-weight-title">
         <div class="stats-section-head">
           <h3 id="stats-weight-title">⚖️ Вес</h3>
@@ -573,37 +582,13 @@
       </div>
 
       <div class="settings-group">
-        <p class="settings-label">Оформление и чек-лист</p>
-        <p class="settings-hint">Быстрые переключатели внешнего вида и Главной.</p>
-      </div>
-      <div class="settings-group">
-        <div class="settings-label-row">
-          <p class="settings-label">Чек-лист дня</p>
-          <label class="switch" for="day-checklist-toggle">
-            <input id="day-checklist-toggle" type="checkbox" role="switch">
-            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-            <span class="sr-only">Показывать чек-лист дня на Главной</span>
-          </label>
-        </div>
-        <p class="settings-hint" id="day-checklist-status">Чек-лист скрыт.</p>
-      </div>
-      <div class="settings-group home-layout-settings">
-        <div class="settings-label-row">
-          <div><p class="settings-label">Карточки на Главной</p><p class="settings-hint" id="home-layout-status">—</p></div>
-          <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
-        </div>
-      </div>
-      <div class="settings-group">
-        <p class="settings-label">Тема оформления</p>
-        <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="Тема оформления">
-          <button type="button" data-theme-mode="auto">Авто</button>
-          <button type="button" data-theme-mode="light">Светлая</button>
-          <button type="button" data-theme-mode="dark">Тёмная</button>
-        </div>
-      </div>
-      <div class="settings-group">
         <p class="settings-label">Разделы настроек</p>
         <nav class="settings-menu" aria-label="Разделы настроек">
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-general">
+            <span class="settings-menu-emoji" aria-hidden="true">⚙️</span>
+            <span class="settings-menu-text"><b>Общее</b><small>Тема, чек-лист, карточки Главной, игровой режим</small></span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-profile">
             <span class="settings-menu-emoji" aria-hidden="true">👤</span>
             <span class="settings-menu-text"><b>Профиль и цели</b><small>Пол, возраст, рост, активность, расчёт норм</small></span>
@@ -634,6 +619,57 @@
     </section>
   </div><!-- /settings-view -->
 
+  <div id="settings-general-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">⚙️</span></div>
+        <div class="card-title-wrap">
+          <h2>Общее</h2>
+          <p>Внешний вид, Главная и игровой режим</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Тема оформления</p>
+        <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="Тема оформления">
+          <button type="button" data-theme-mode="auto">Авто</button>
+          <button type="button" data-theme-mode="light">Светлая</button>
+          <button type="button" data-theme-mode="dark">Тёмная</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Чек-лист дня</p>
+          <label class="switch" for="day-checklist-toggle">
+            <input id="day-checklist-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Показывать чек-лист дня на Главной</span>
+          </label>
+        </div>
+        <p class="settings-hint" id="day-checklist-status">Чек-лист скрыт.</p>
+      </div>
+      <div class="settings-group home-layout-settings">
+        <div class="settings-label-row">
+          <div><p class="settings-label">Карточки на Главной</p><p class="settings-hint" id="home-layout-status">—</p></div>
+          <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">🎮 Игровой режим</p>
+          <label class="switch" for="game-mode-toggle">
+            <input id="game-mode-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить задания дня и медали</span>
+          </label>
+        </div>
+        <p class="settings-hint" id="game-mode-status">Задания дня и медали скрыты.</p>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-general-view -->
+
   <div id="settings-profile-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
@@ -645,13 +681,7 @@
       </div>
 
       <div class="settings-group profile-basics-group">
-        <div class="settings-label-row">
-          <div>
-            <p class="settings-label">Профиль и цели</p>
-            <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, хранятся только на вашем устройстве и никуда не передаются.</p>
-          </div>
-          <button class="settings-group-collapse" type="button" data-collapse-for="profile-basics-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        </div>
+        <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, хранятся только на вашем устройстве и никуда не передаются.</p>
         <div id="profile-basics-options">
           <p class="settings-label">Пол</p>
           <div class="segmented" id="profile-sex-choices" role="radiogroup" aria-label="Пол">
@@ -829,8 +859,14 @@
               <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
               <button type="button" data-cloud-provider="deepseek">DeepSeek</button>
               <button type="button" data-cloud-provider="openrouter">OpenRouter</button>
+              <button type="button" data-cloud-provider="pollinations">Pollinations</button>
+              <button type="button" data-cloud-provider="custom">Свой сервер</button>
             </div>
             <p class="settings-hint" id="ai-cloud-hint" style="margin-top:8px"></p>
+            <div class="profile-basics-row" id="ai-cloud-base-row" hidden>
+              <label for="ai-cloud-base">Адрес сервера</label>
+              <input id="ai-cloud-base" class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="например: http://192.168.1.5:8080/v1">
+            </div>
             <div class="profile-basics-row">
               <label for="ai-cloud-key">API-ключ</label>
               <input id="ai-cloud-key" class="form-input" type="password" inputmode="text" autocomplete="off" placeholder="Вставьте ключ сюда">
@@ -926,26 +962,33 @@
       </div>
 
       <div class="settings-group">
-        <section class="collapsible-block settings-about-block">
-          <button class="collapsible-toggle" type="button" data-collapse-target="about-content" aria-expanded="false">
-            <span>О приложении и источники</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="collapsible-content" id="about-content"><div class="settings-about-content">
-            <p class="settings-hint">FitFlow <span id="about-version">v0.3.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
-            <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
-            <div class="about-links">
-              <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
-              <button class="btn btn-secondary" id="methodology-open" type="button">Методика расчётов</button>
-              <button class="btn btn-secondary" id="terms-open" type="button">Условия использования</button>
-            </div>
-            <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
-          </div></div>
-        </section>
+        <div class="settings-about-content">
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
+          <div class="about-links">
+            <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>
+            <button class="btn btn-secondary" id="methodology-open" type="button">Методика расчётов</button>
+            <button class="btn btn-secondary" id="terms-open" type="button">Условия использования</button>
+          </div>
+          <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
+        </div>
       </div>
 
       <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
     </section>
   </div><!-- /settings-about-view -->
+
+  <!-- ===== Игровой режим: медали и рекорды ===== -->
+  <div class="app-dialog-backdrop" id="game-medals-dialog" role="dialog" aria-modal="true" aria-labelledby="game-medals-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏅</div>
+      <h2 id="game-medals-title">Медали и рекорды</h2>
+      <div class="game-medals-list" id="game-medals-list"></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="game-medals-ok" type="button">Закрыть</button>
+      </div>
+    </section>
+  </div>
 
   <!-- ===== Настройка уведомлений ===== -->
   <div id="notifications-view" hidden>
@@ -1333,6 +1376,9 @@
                 <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
               </svg>
             </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
             <input type="file" id="ai-quick-camera-input" accept="image/*" capture="environment" hidden>
@@ -1357,6 +1403,9 @@
                 <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1-1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                 <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
               </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
@@ -1391,6 +1440,9 @@
                 <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
                 <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-chat-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-send-chat" type="button">Спросить</button>

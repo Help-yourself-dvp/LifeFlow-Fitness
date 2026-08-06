@@ -2477,7 +2477,9 @@ html[data-theme="dark"] .segmented button.active {
 .smart-entry-dialog h2, .smart-entry-dialog > p { text-align: center; }
 #smart-entry-input { width: 100%; margin-top: 14px; padding: 11px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; font: inherit; font-size: 0.85rem; resize: vertical; }
 .smart-help-btn { margin-top: 8px; color: var(--md-sys-color-primary); font-size: 0.78rem; font-weight: 700; }
-.smart-preview { display: grid; gap: 6px; margin-top: 12px; padding: 11px; background: var(--md-sys-color-primary-container); border-radius: 14px; font-size: 0.82rem; }
+/* Превью разбора прокручивается само, иначе при длинном разборе
+   кнопка «Сохранить записи» уезжала за нижнюю границу экрана. */
+.smart-preview { display: grid; gap: 6px; margin-top: 12px; padding: 11px; background: var(--md-sys-color-primary-container); border-radius: 14px; font-size: 0.82rem; max-height: min(36dvh, 320px); overflow-y: auto; overscroll-behavior: contain; }
 .smart-preview p { margin: 0; }
 #smart-entry-save { width: 100%; margin-top: 10px; }
 @media (max-width:420px) { .manual-food-section { padding: 8px; } .manual-food-row input { padding: 9px 10px; } .manual-food-section .settings-row { gap: 6px; } }
@@ -2849,3 +2851,59 @@ html.dialog-open body {
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface-variant);
 }
+
+/* ===== Игровой режим: задания дня и медали ===== */
+.game-task-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  font-size: 0.86rem;
+  border-bottom: 1px dashed var(--outline-variant);
+}
+.game-task-row:last-of-type { border-bottom: none; }
+.game-task-row .game-task-emoji { font-size: 1.05rem; flex: 0 0 auto; }
+.game-task-row .game-task-info { flex: 1 1 auto; min-width: 0; }
+.game-task-row .game-task-title { font-weight: 600; }
+.game-task-row .game-task-numbers { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); margin-top: 1px; }
+.game-task-row .game-task-state { flex: 0 0 auto; font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-surface-variant); }
+.game-task-row.done .game-task-state { color: var(--primary); }
+.game-task-bar {
+  margin-top: 4px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-variant);
+  overflow: hidden;
+}
+.game-task-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.35s ease; }
+.game-tasks-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.game-tasks-note { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.game-win {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--md-sys-color-primary-container);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: center;
+}
+.game-medals-list { text-align: left; max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.game-medal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--outline-variant);
+  font-size: 0.86rem;
+}
+.game-medal:last-child { border-bottom: none; }
+.game-medal .game-medal-emoji { font-size: 1.25rem; flex: 0 0 auto; }
+.game-medal .game-medal-name { font-weight: 600; }
+.game-medal .game-medal-desc { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.game-medal.locked { opacity: 0.55; }

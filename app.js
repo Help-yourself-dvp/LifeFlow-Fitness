@@ -231,7 +231,7 @@ const FOOD_DB = {
   'банановые чипсы': { kcal: 519, p: 2.3, f: 33, c: 54 },
 
   // ===== Готовые блюда =====
-  'котлета': { kcal: 210, p: 13, f: 16, c: 4, per: 'шт' }, 'котлеты': { kcal: 210, p: 13, f: 16, c: 4 },
+  'котлета': { kcal: 210, p: 13, f: 16, c: 4, per: 'шт', pieceG: 100 }, 'котлеты': { kcal: 210, p: 13, f: 16, c: 4 },
   'тефтели': { kcal: 210, p: 14, f: 15, c: 5 }, 'фрикадельки': { kcal: 200, p: 14, f: 14, c: 5 }, 'зразы': { kcal: 230, p: 13, f: 17, c: 6 },
   'голубцы': { kcal: 120, p: 8, f: 5, c: 10, per: 'шт' }, 'фаршированный перец': { kcal: 130, p: 9, f: 6, c: 10, per: 'шт' },
   'биток': { kcal: 220, p: 14, f: 16, c: 5 }, 'мясо по-французски': { kcal: 250, p: 16, f: 18, c: 5 },
@@ -417,9 +417,9 @@ const FOOD_DB = {
   'овощные котлеты': { kcal: 140, p: 6, f: 7, c: 14 }, 'кабачковые оладьи': { kcal: 130, p: 4, f: 7, c: 14 },
   'яичница с помидорами': { kcal: 90, p: 6, f: 6, c: 3 }, 'яичница с колбасой': { kcal: 200, p: 12, f: 15, c: 3 },
   'омлет с сыром': { kcal: 200, p: 13, f: 15, c: 2 }, 'омлет с овощами': { kcal: 120, p: 8, f: 8, c: 3 },
-  'бутерброд с сыром': { kcal: 80, p: 4, f: 4, c: 7, per: 'шт' },
-  'бутерброд с колбасой': { kcal: 120, p: 5, f: 7, c: 9, per: 'шт' },
-  'бутерброд с маслом': { kcal: 130, p: 3, f: 9, c: 9, per: 'шт' },
+  'бутерброд с сыром': { kcal: 110, p: 5, f: 6, c: 9, per: 'шт', pieceG: 45 },
+  'бутерброд с колбасой': { kcal: 125, p: 5, f: 8, c: 9, per: 'шт', pieceG: 50 },
+  'бутерброд с маслом': { kcal: 130, p: 3, f: 9, c: 9, per: 'шт', pieceG: 45 },
   'тушеные овощи': { kcal: 60, p: 2, f: 2.5, c: 7 },
   'куриный суп с лапшой': { kcal: 50, p: 4, f: 2, c: 5 },
   'гречневый суп': { kcal: 55, p: 3, f: 2, c: 7 },
@@ -556,8 +556,8 @@ const FOOD_DB = {
   'помидоры фаршированные': { kcal: 70, p: 3, f: 3, c: 6, per: 'шт' },
   'канапе': { kcal: 60, p: 3, f: 3, c: 5, per: 'шт' },
   'тарталетка с икрой': { kcal: 80, p: 4, f: 5, c: 5, per: 'шт' },
-  'бутерброд с икрой': { kcal: 90, p: 5, f: 5, c: 7, per: 'шт' },
-  'бутерброд с рыбой': { kcal: 100, p: 6, f: 5, c: 7, per: 'шт' },
+  'бутерброд с икрой': { kcal: 90, p: 5, f: 5, c: 7, per: 'шт', pieceG: 45 },
+  'бутерброд с рыбой': { kcal: 100, p: 6, f: 5, c: 7, per: 'шт', pieceG: 55 },
 
   // ===== Расширение: рыба и морепродукты детальнее =====
   'лосось запеченный': { kcal: 180, p: 20, f: 10, c: 0 },
@@ -787,6 +787,33 @@ function normalizeCommandText(text) {
   return COMMAND_DICTIONARY.corrections.reduce((value, [pattern, replacement]) => value.replace(pattern, replacement), String(text || '').toLowerCase());
 }
 
+/* Числительные СЛОВАМИ → цифры, если за ними стоит единица или время.
+   Распознаватели речи и свайп-клавиатуры нередко пишут «три кусочка» вместо
+   «3 кусочка» — без этого шага число терялось, и порция молча сбрасывалась
+   на «1 шт»/«100 г» (реальный кейс: «суши шесть штук» → суши 100 г). */
+const NUMBER_WORDS = {
+  'один': 1, 'одна': 1, 'одну': 1, 'одно': 1,
+  'два': 2, 'две': 2, 'пара': 2, 'пару': 2, 'пары': 2,
+  'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8,
+  'девять': 9, 'десять': 10, 'одиннадцать': 11, 'двенадцать': 12,
+  'тринадцать': 13, 'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16,
+  'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19, 'двадцать': 20,
+  'тридцать': 30, 'сорок': 40,
+  'половина': 0.5, 'половину': 0.5
+};
+const NUMBER_WORD_UNITS = 'шт\\.?|штук[а-яё]*|штучк[а-яё]*|кусо[а-яё]*|куск[а-яё]*|кусоч[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*|стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|миск[а-яё]*|тарелк[а-яё]*|пиал[а-яё]*|ложк[а-яё]*|грамм?[а-яё]*|гр\\.?|кг|килограмм?[а-яё]*|мл|миллилитр[а-яё]*|литр[а-яё]*|бутылк[а-яё]*|банк[а-яё]*|порци[а-яё]*|мин[а-яё]*|час[а-яё]*';
+
+function normalizeNumberWords(text) {
+  // Сначала слитные пол-емкости: «полстакана» → «половина стакана», «полчаса» → «половина часа».
+  let out = String(text || '').replace(/(^|[^а-яёa-z0-9])пол(?=(?:стакан|чашк|кружк|миск|тарелк|пиал|ложк|литр|час)[а-яё]*)/giu, '$1половина ');
+  // Затем числительные перед единицами: «три кусочка» → «3 кусочка».
+  out = out.replace(
+    new RegExp('(^|[^а-яёa-z0-9])(' + Object.keys(NUMBER_WORDS).join('|') + ')(?=\\s+(?:' + NUMBER_WORD_UNITS + ')(?![а-яёa-z]))', 'giu'),
+    (m, pre, word) => pre + String(NUMBER_WORDS[word.toLowerCase()])
+  );
+  return out;
+}
+
 /* Голосовой ввод без знаков препинания: «стакан сока персик» → «сока стакан, персик».
    Переворачиваем «ёмкость + продукт» в «продукт + ёмкость» и отделяем запятой,
    чтобы следующие подряд продукты не слипались в один. Не трогаем случаи
@@ -810,7 +837,7 @@ let pendingSmartEntry = null;
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
   if (!source) return { waterMl: 0, activities: [], activity: null, food: [] };
-  const lower = normalizeSmartUnits(normalizeCommandText(source));
+  const lower = normalizeSmartUnits(normalizeNumberWords(normalizeCommandText(source)));
 
   let waterMl = 0;
   // Вода учитывается отдельно только при явном слове «вода».
@@ -913,7 +940,7 @@ function closeSmartEntry() {
 function describeFoodItemLine(item) {
   let amountText;
   if (item.amount == null) {
-    amountText = item.perPiece ? '1 шт' : '≈ 100 г';
+    amountText = item.perPiece ? '1 шт' + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '') : '≈ 100 г';
   } else if (PIECE_UNITS.has(item.unit)) {
     amountText = item.amount + ' шт' + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
     if (item.perPiece && item.amount > 1) amountText += ' (по ' + fmt(Math.round(item.kcal / item.amount)) + ' ккал/шт)';
@@ -1020,6 +1047,14 @@ function parseItem(text) {
     amount = 1;
     unit = canonicalUnit(implicitSliceLead[1]);
   }
+  // Числительное СЛОВОМ первым и дальше сразу продукт: «два бутерброда», «три блина».
+  const numberWordLead = !amountMatch && !implicitSpoon && !implicitPlate && !implicitContainer && !implicitSliceLead
+    ? text.match(/^(один|одна|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать|пару|пары|пара)\s+(.+)$/iu)
+    : null;
+  if (numberWordLead) {
+    amount = NUMBER_WORDS[numberWordLead[1].toLowerCase()];
+    unit = 'шт';
+  }
 
   // 2) Имя продукта — всё, что до числа. Если число стоит первым
   // («3 куска пиццы», «100 г курицы») — продукт идёт ПОСЛЕ единицы.
@@ -1035,6 +1070,8 @@ function parseItem(text) {
     name = implicitContainer[1];
   } else if (implicitSliceLead) {
     name = implicitSliceLead[2];
+  } else if (numberWordLead) {
+    name = numberWordLead[2];
   }
   name = name
     .toLowerCase()
@@ -1052,14 +1089,17 @@ function parseItem(text) {
   const nutrition = calcNutrition(product, amount, unit);
   if (nutrition == null || !Number.isFinite(nutrition.kcal)) return null;
 
+  // Штучный продукт без явного количества («бутерброд с сыром») — это 1 шт,
+  // а не «100 г»: иначе превью показывало «≈ 100 г — 80 ккал», хотя 80 — за штуку.
+  const perPiece = product.per === 'шт' && (amount == null || PIECE_UNITS.has((unit || '').toLowerCase().trim()));
   return {
     id: uid(),
     raw: text.trim(),
     name: product.key,
     amount,
-    unit: unit || 'г',
+    unit: (amount == null && perPiece) ? 'шт' : (unit || 'г'),
     grams: nutrition.grams,
-    perPiece: PIECE_UNITS.has((unit || '').toLowerCase().trim()) && product.per === 'шт',
+    perPiece,
     kcal: nutrition.kcal,
     p: nutrition.p,
     f: nutrition.f,
@@ -1096,6 +1136,27 @@ function lookupProduct(name) {
     else if (keyE.endsWith('ь') && keyE.length > 3) stem = keyE.slice(0, -1);
     const pattern = new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
     if (pattern.test(textE)) return { key, ...FOOD_DB[key] };
+    // Составной ключ («бутерброд с сыром»): каждое содержательное слово ключа
+    // должно найтись в тексте хотя бы по стему — тогда склонения внутри
+    // («бутербродА с сыром») не роняют продукт до короткого «сыр».
+    if (keyE.indexOf(' ') !== -1) {
+      const important = keyE.split(' ').filter((w) => w.length > 1 && !/^(с|со|и|на|в|во|по|из|без|от|до|для|под|при|к|о|об|у|за)$/u.test(w));
+      if (important.length > 1) {
+        const textWords = textE.split(/[^а-яёa-z0-9]+/u);
+        const wordStem = (w) => {
+          const c = w.length > 3 ? w.replace(/[аеёиоуыэюя]+$/u, '') : w;
+          return c.length >= 3 ? c : w;
+        };
+        const allMatch = important.every((kw) => {
+          const ks = wordStem(kw);
+          return textWords.some((tw) => {
+            const ts = wordStem(tw);
+            return ts === ks || (ks.length >= 3 && ts.startsWith(ks)) || (ts.length >= 3 && ks.startsWith(ts));
+          });
+        });
+        if (allMatch) return { key, ...FOOD_DB[key] };
+      }
+    }
   }
   return null;
 }
@@ -1118,8 +1179,8 @@ function calcNutrition(product, amount, unit) {
   // Оценка веса порции в граммах — для прозрачного превью («≈ 300 г»).
   // null, когда вес зависит от конкретного продукта (штуки без известной массы).
   const grams = (() => {
-    if (amount == null) return perPiece ? null : 100;
-    if (isPiece) return perPiece ? null : Math.round(70 * amount);
+    if (amount == null) return perPiece ? (product.pieceG || null) : 100;
+    if (isPiece) return perPiece ? (product.pieceG ? product.pieceG * amount : null) : Math.round(70 * amount);
     if (isSlice) return perPiece ? null : SLICE_UNIT_GRAMS[normUnit] * amount;
     if (normUnit === 'кг') return 1000 * amount;
     if (normUnit === 'л') return 1000 * amount;
@@ -1173,12 +1234,13 @@ const DEFAULTS = {
   customMealTypes: [],
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
+  gameMode: { enabled: false },
   dayMood: { date: null, rating: null },
-  aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [] },
+  aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.6';
+const FITFLOW_VERSION = '0.3.7';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1378,6 +1440,7 @@ const state = {
   mealReminders: { ...DEFAULTS.mealReminders },
   waterReminders: { ...DEFAULTS.waterReminders },
   dayChecklist: { ...DEFAULTS.dayChecklist },
+  gameMode: { ...DEFAULTS.gameMode },
   dayMood: { ...DEFAULTS.dayMood },
   customMealTypes: [],
   theme: null
@@ -1443,6 +1506,10 @@ function normalizeDayChecklist() {
   state.dayChecklist = { enabled: (state.dayChecklist || {}).enabled === true };
 }
 
+function normalizeGameMode() {
+  state.gameMode = { enabled: (state.gameMode || {}).enabled === true };
+}
+
 function normalizeDayMood() {
   const mood = state.dayMood || {};
   const r = Number(mood.rating);
@@ -1467,7 +1534,8 @@ function normalizeAiSettings() {
     cloudProvider: Object.prototype.hasOwnProperty.call(CLOUD_PROVIDERS, ai.cloudProvider) ? ai.cloudProvider : 'gemini',
     cloudKey: typeof ai.cloudKey === 'string' ? ai.cloudKey : '',
     cloudModel: typeof ai.cloudModel === 'string' ? ai.cloudModel : '',
-    cloudModels: Array.isArray(ai.cloudModels) ? ai.cloudModels.filter((m) => typeof m === 'string').slice(0, 8) : []
+    cloudModels: Array.isArray(ai.cloudModels) ? ai.cloudModels.filter((m) => typeof m === 'string').slice(0, 8) : [],
+    cloudBase: typeof ai.cloudBase === 'string' ? ai.cloudBase : ''
   };
 }
 
@@ -1955,6 +2023,7 @@ function loadState() {
   normalizeActivityTemplates();
   normalizeWaterReminders();
   normalizeDayChecklist();
+  normalizeGameMode();
   normalizeDayMood();
   normalizeAiSettings();
   if (previousWaterDate !== today || previousFoodDate !== today) {
@@ -2077,6 +2146,8 @@ function renderAll() {
   renderWaterReminderSettings();
   renderDayChecklistSettings();
   renderDayChecklist();
+  renderGameMode();
+  renderGameModeSettings();
   renderAiSettings();
   renderProfileBasics();
   applySettingsAccordion();
@@ -2238,6 +2309,216 @@ function updateDayChecklistEnabled(enabled) {
   renderDayChecklist();
   renderDayChecklistSettings();
   toast(enabled ? 'Чек-лист дня включён' : 'Чек-лист дня скрыт');
+}
+
+/* ============================================================
+   🎮 Игровой режим (включается в Настройках → «Общее»):
+   задания дня на Главной, медали/рекорды по истории и
+   сравнение текущего периода с прошлым в Статистике.
+   Отметки заданий — автоматические, из реальных данных дня:
+   честно и без лишних нажатий.
+============================================================ */
+
+function computeGameTasks() {
+  const waterTotal = Number(state.water.total) || 0;
+  const waterGoal = Number(state.water.goal) || DEFAULTS.water.goal;
+  const foodCount = Array.isArray(state.food.items) ? state.food.items.length : 0;
+  const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((w) => w.date === todayKey())
+    .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
+  return [
+    { id: 'water', emoji: '💧', title: 'Вода до нормы', cur: waterTotal, target: waterGoal, unit: 'мл' },
+    { id: 'food', emoji: '🥑', title: '3 записи питания', cur: foodCount, target: 3, unit: 'зап.' },
+    { id: 'activity', emoji: '🏃', title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
+  ];
+}
+
+function renderGameMode() {
+  if (typeof document === 'undefined') return;
+  const card = $('#game-tasks-card');
+  if (!card) return;
+  card.hidden = !state.gameMode.enabled;
+  if (!state.gameMode.enabled) return;
+
+  const tasks = computeGameTasks();
+  const doneCount = tasks.filter((t) => t.cur >= t.target).length;
+  const rows = tasks.map((t) => {
+    const done = t.cur >= t.target;
+    const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
+    return `<div class="game-task-row${done ? ' done' : ''}">
+      <span class="game-task-emoji">${t.emoji}</span>
+      <div class="game-task-info">
+        <div class="game-task-title">${t.title}</div>
+        <div class="game-task-numbers">${fmt(t.cur)} из ${fmt(t.target)} ${t.unit}</div>
+        <div class="game-task-bar"><span style="width:${pct}%"></span></div>
+      </div>
+      <span class="game-task-state">${done ? '✓' : pct + '%'}</span>
+    </div>`;
+  }).join('');
+  card.innerHTML = `<div class="card checklist-card" aria-label="Задания дня">
+    <div class="checklist-header"><span>🎯 Задания дня</span><span class="game-tasks-note">${doneCount} из ${tasks.length}</span></div>
+    ${rows}
+    ${doneCount === tasks.length ? '<div class="game-win">🏆 Все задания дня выполнены — отличный день!</div>' : ''}
+    <div class="game-tasks-footer">
+      <span class="game-tasks-note">Отметки ставятся сами по вашим записям</span>
+      <button class="btn btn-secondary" type="button" data-game-medals-open style="font-size:0.74rem;padding:6px 12px">🏅 Медали</button>
+    </div>
+  </div>`;
+}
+
+function renderGameModeSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#game-mode-toggle');
+  const status = $('#game-mode-status');
+  if (!toggle || !status) return;
+  toggle.checked = state.gameMode.enabled;
+  status.textContent = state.gameMode.enabled
+    ? 'Задания дня на Главной включены; в Статистике видно сравнение с прошлым периодом.'
+    : 'Задания дня и медали скрыты.';
+}
+
+function updateGameModeEnabled(enabled) {
+  state.gameMode.enabled = enabled;
+  saveState();
+  renderGameMode();
+  renderGameModeSettings();
+  renderStats();
+  toast(enabled ? '🎮 Игровой режим включён' : 'Игровой режим скрыт');
+}
+
+/* Рекорды по истории dailyHistory + сегодняшний день. */
+function computeGameRecords() {
+  const history = (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).slice();
+  const today = currentDaySummary();
+  const idx = history.findIndex((d) => d.date === today.date);
+  if (idx >= 0) history[idx] = today; else history.push(today);
+  const days = history
+    .filter((d) => d && d.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const nonEmpty = days.filter((d) => d.waterTotal > 0 || d.foodTotal > 0 || d.activityMinutes > 0);
+  const isVictory = (d) => d.waterTotal > 0 && d.waterGoal > 0 && d.waterTotal >= d.waterGoal
+    && d.activityMinutes >= 30 && d.foodTotal > 0;
+
+  let maxWater = null;
+  let maxActivity = null;
+  days.forEach((d) => {
+    if (d.waterTotal > 0 && (!maxWater || d.waterTotal > maxWater.value)) maxWater = { value: d.waterTotal, date: d.date };
+    if (d.activityMinutes > 0 && (!maxActivity || d.activityMinutes > maxActivity.value)) maxActivity = { value: d.activityMinutes, date: d.date };
+  });
+
+  let bestStreak = 0;
+  let run = 0;
+  days.forEach((d) => { run = isVictory(d) ? run + 1 : 0; if (run > bestStreak) bestStreak = run; });
+  let currentStreak = 0;
+  for (let i = days.length - 1; i >= 0; i--) {
+    if (isVictory(days[i])) currentStreak++;
+    else if (days[i].date !== today.date) break; // сегодня может быть ещё «в процессе» — серию не рвём
+    else continue;
+  }
+
+  return { nonEmptyDays: nonEmpty.length, maxWater, maxActivity, bestStreak, currentStreak };
+}
+
+function openGameMedalsDialog() {
+  const dialog = $('#game-medals-dialog');
+  const list = $('#game-medals-list');
+  if (!dialog || !list) return;
+  const r = computeGameRecords();
+  const waterGoal = Number(state.water.goal) || DEFAULTS.water.goal;
+  const fmtDate = (d) => d.split('-').reverse().join('.');
+  const medals = [
+    {
+      emoji: '👣', name: 'Первый шаг', earned: r.nonEmptyDays >= 1,
+      desc: r.nonEmptyDays >= 1 ? `Заполнено дней: ${r.nonEmptyDays}` : 'Заполните первый день (вода, еда или активность)'
+    },
+    {
+      emoji: '💧', name: 'Водная волна', earned: !!(r.maxWater && r.maxWater.value >= waterGoal),
+      desc: r.maxWater
+        ? `Рекорд воды за день: ${fmt(r.maxWater.value)} мл (${fmtDate(r.maxWater.date)})` + (r.maxWater.value >= waterGoal ? ' — норма выполнена!' : ` — до нормы ${fmt(waterGoal)} мл`)
+        : 'Рекорд воды появится, когда вы отметите первый стакан'
+    },
+    {
+      emoji: '🏃', name: 'Марафонец', earned: !!(r.maxActivity && r.maxActivity.value >= 60),
+      desc: r.maxActivity
+        ? `Рекорд активности за день: ${r.maxActivity.value} мин (${fmtDate(r.maxActivity.date)})` + (r.maxActivity.value >= 60 ? ' — больше часа!' : ' — до медали 60 мин')
+        : 'Рекорд активности появится после первой тренировки'
+    },
+    {
+      emoji: '🔥', name: 'Горячая серия', earned: r.bestStreak >= 3,
+      desc: r.bestStreak > 0
+        ? `Лучшая серия полных дней: ${r.bestStreak} дн.` + (r.currentStreak > 0 ? ` Сейчас: ${r.currentStreak} дн. подряд` : '')
+        : 'Выполняйте все 3 задания 3 дня подряд'
+    },
+    {
+      emoji: '🏆', name: 'Неделя героя', earned: r.bestStreak >= 7,
+      desc: r.bestStreak >= 7 ? `Невероятно: ${r.bestStreak} дн. подряд все задания!` : '7 дней подряд со всеми заданиями дня'
+    }
+  ];
+  list.innerHTML = medals.map((m) => `<div class="game-medal${m.earned ? '' : ' locked'}">
+    <span class="game-medal-emoji">${m.emoji}</span>
+    <div><div class="game-medal-name">${m.name}${m.earned ? '' : ' 🔒'}</div><div class="game-medal-desc">${m.desc}</div></div>
+  </div>`).join('');
+  dialog.hidden = false;
+}
+
+function closeGameMedalsDialog() {
+  const dialog = $('#game-medals-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+/* Сравнение текущего периода (7/30 дней) с предыдущим таким же — только
+   при включённом игровом режиме и при наличии данных обоих периодов. */
+function renderStatsCompare() {
+  if (typeof document === 'undefined') return;
+  const section = $('#stats-compare-section');
+  if (!section) return;
+  const period = activeStatsPeriod;
+  const show = state.gameMode.enabled && period !== 'day';
+  section.hidden = !show;
+  if (!show) return;
+
+  const count = statsPeriodDays(period);
+  const historyByDate = new Map((Array.isArray(state.dailyHistory) ? state.dailyHistory : [])
+    .map((day) => [day.date, day]));
+  const blank = (date) => ({ date, waterTotal: 0, waterGoal: DEFAULTS.water.goal, foodTotal: 0, foodGoal: DEFAULTS.food.goal, activityMinutes: 0 });
+  const prev = [];
+  for (let offset = count * 2 - 1; offset >= count; offset--) {
+    const date = statsDateKey(offset);
+    prev.push(historyByDate.get(date) || blank(date));
+  }
+  const cur = getStatsDays(period);
+  const sum = (days, key) => days.reduce((s, d) => s + (Number(d[key]) || 0), 0);
+  const prevHasData = prev.some((d) => d.waterTotal > 0 || d.foodTotal > 0 || d.activityMinutes > 0);
+  if (!prevHasData) {
+    section.hidden = false;
+    $('#stats-compare-text').textContent = 'Прошлый период пока пуст — сравнение появится, когда вы позаписываете дни подряд.';
+    $('#stats-compare-motivation').textContent = '';
+    return;
+  }
+
+  const pct = (curV, prevV) => (prevV > 0 ? Math.round(((curV - prevV) / prevV) * 100) : (curV > 0 ? 100 : 0));
+  const arrow = (p) => (p > 4 ? `▲ +${p}%` : (p < -4 ? `▼ −${Math.abs(p)}%` : '≈ без изменений'));
+  const rows = [
+    { emoji: '💧', label: 'вода', cur: sum(cur, 'waterTotal'), prev: sum(prev, 'waterTotal'), unit: 'мл' },
+    { emoji: '🍽️', label: 'калории', cur: sum(cur, 'foodTotal'), prev: sum(prev, 'foodTotal'), unit: 'ккал' },
+    { emoji: '🏃', label: 'активность', cur: sum(cur, 'activityMinutes'), prev: sum(prev, 'activityMinutes'), unit: 'мин' }
+  ];
+  $('#stats-compare-text').innerHTML = rows.map((row) => {
+    const p = pct(row.cur, row.prev);
+    return `${row.emoji} ${row.label}: <b>${fmt(row.cur)}</b> ${row.unit} против ${fmt(row.prev)} ${row.unit} — <b>${arrow(p)}</b>`;
+  }).join('<br>');
+
+  // Вода и активность «больше — лучше»; для калорий сравниваем ровность попадания в цель.
+  const betterCount = rows.filter((row) => pct(row.cur, row.prev) > 4).length;
+  const worseCount = rows.filter((row) => pct(row.cur, row.prev) < -4).length;
+  const motivation = betterCount === 3
+    ? `В этом ${period === 'month' ? 'месяце' : 'периоде'} вы эффективнее прошлого по всем направлениям — так держать! 💪`
+    : betterCount > worseCount
+      ? `Прогресс по ${betterCount} из 3 направлений — движение в правильную сторону!`
+      : worseCount > betterCount
+        ? 'Этот период честно слабее прошлого — начните с малого: один стакан воды прямо сейчас 💧'
+        : 'Периоды идут вровень — ровность тоже результат ✊';
+  $('#stats-compare-motivation').textContent = motivation;
 }
 
 function saveDayMood(rating) {
@@ -2426,7 +2707,7 @@ function applyHomeLayout() {
 /* ===== Быстрый переход по разделам Главной (прилипающие чипы) ===== */
 const HOME_QUICKNAV_ITEMS = [
   {
-    ids: ['day-checklist-card', 'day-mood-card'],
+    ids: ['day-checklist-card', 'day-mood-card', 'game-tasks-card'],
     label: 'День',
     icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6.4 7.3 7.7 9.9 5M6 12.4 7.3 13.7 9.9 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5h6M12.5 12.5h6M5.5 18.5h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
   },
@@ -2745,6 +3026,7 @@ function renderStats() {
   renderStatsBars($('#stats-activity-bars'), days, 'activityMinutes', Math.max(...days.map((day) => day.activityMinutes), 30), period);
   $$('#stats-periods button').forEach((button) =>
     button.classList.toggle('active', button.dataset.statsPeriod === period));
+  renderStatsCompare();
   renderWeightOverview();
   renderStatsWeightChart();
 }
@@ -4559,7 +4841,7 @@ function bindDialogScrollLock() {
 
 /* Подэкраны настроек (схема В): на первом уровне — компактное меню строк,
    каждый раздел — отдельный экран с «← Назад к настройкам». */
-const SETTINGS_SUBVIEWS = ['settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about'];
+const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about'];
 
 function bindSettingsMenu() {
   $$('.settings-menu-btn').forEach((btn) =>
@@ -4843,6 +5125,11 @@ function importData(file) {
         normalizeDayChecklist();
       }
 
+      if (data.gameMode && typeof data.gameMode === 'object') {
+        state.gameMode = { ...data.gameMode };
+        normalizeGameMode();
+      }
+
       if (data.waterReminders && typeof data.waterReminders === 'object') {
         state.waterReminders = { ...data.waterReminders };
         normalizeWaterReminders();
@@ -5055,16 +5342,27 @@ function init() {
       $('#water-custom-ml').focus();
       return;
     }
+    state.lastCustomWaterMl = ml; // запоминаем — подставим в поле в следующий раз
+    saveState();
     $('#water-custom-ml').value = '';
     addWater(ml);
     toast(`Добавлено +${fmt(ml)} мл`);
+    // После добавления секция сворачивается сама — иначе она оставалась
+    // развёрнутой на карточке и занимала место (замечание пользователя).
+    $('#water-custom-row').hidden = true;
+    $('#water-custom-toggle').setAttribute('aria-expanded', 'false');
   };
   bindEvent('#water-custom-toggle', 'click', () => {
     const row = $('#water-custom-row');
     const show = row.hidden;
     row.hidden = !show;
     $('#water-custom-toggle').setAttribute('aria-expanded', String(show));
-    if (show) $('#water-custom-ml').focus();
+    if (show) {
+      const last = Number(state.lastCustomWaterMl);
+      if (last >= 10 && last <= 2000 && !$('#water-custom-ml').value) $('#water-custom-ml').value = String(last);
+      $('#water-custom-ml').focus();
+      $('#water-custom-ml').select();
+    }
   });
   bindEvent('#water-custom-add', 'click', addCustomWater);
   const customWaterInput = $('#water-custom-ml');
@@ -5306,6 +5604,14 @@ function init() {
 
   // Чек-лист дня
   $('#day-checklist-toggle').addEventListener('change', (e) => updateDayChecklistEnabled(e.target.checked));
+  const gameToggle = $('#game-mode-toggle');
+  if (gameToggle) gameToggle.addEventListener('change', (e) => updateGameModeEnabled(e.target.checked));
+  const gameCard = $('#game-tasks-card');
+  if (gameCard) gameCard.addEventListener('click', (e) => {
+    if (e.target.closest('[data-game-medals-open]')) openGameMedalsDialog();
+  });
+  const gameMedalsOk = $('#game-medals-ok');
+  if (gameMedalsOk) gameMedalsOk.addEventListener('click', closeGameMedalsDialog);
 
   // ИИ-центр
   bindEvent('#ai-center-open', 'click', openAiCenter);
@@ -5324,6 +5630,14 @@ function init() {
   bindEvent('#ai-quick-voice-btn', 'click', () => { startRealVoiceInput('#ai-quick-input', 'Говорите еду, воду или активность'); });
   bindEvent('#ai-chat-voice-btn', 'click', () => { startRealVoiceInput('#ai-chat-input', 'Задайте вопрос голосом'); });
   bindEvent('#ai-recipe-voice-btn', 'click', () => { startRealVoiceInput('#ai-recipe-input', 'Назовите продукты голосом'); });
+  // ✕ очистка надиктованного/напечатанного одним нажатием.
+  [['#ai-quick-clear-btn', '#ai-quick-input'], ['#ai-chat-clear-btn', '#ai-chat-input'], ['#ai-recipe-clear-btn', '#ai-recipe-input']]
+    .forEach(([btn, field]) => bindEvent(btn, 'click', () => {
+      const el = $(field);
+      if (!el) return;
+      el.value = '';
+      el.focus();
+    }));
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
   bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
@@ -5360,6 +5674,13 @@ function init() {
   $('#ai-cloud-model')?.addEventListener('change', (e) => {
     state.aiSettings.cloudModel = String(e.target.value || '').trim();
     saveState();
+  });
+  $('#ai-cloud-base')?.addEventListener('change', (e) => {
+    state.aiSettings.cloudBase = String(e.target.value || '').trim();
+    const status = $('#ai-cloud-status');
+    if (status) status.textContent = '';
+    saveState();
+    renderAiSettings();
   });
   bindEvent('#ai-cloud-check', 'click', checkCloudConnection);
   bindEvent('#ai-cloud-clear', 'click', () => {
@@ -5485,6 +5806,15 @@ function renderAiSettings() {
   });
   const keyInput = $('#ai-cloud-key');
   if (keyInput && document.activeElement !== keyInput) keyInput.value = state.aiSettings.cloudKey || '';
+  if (keyInput) {
+    keyInput.placeholder = def.keyRequired === false ? 'необязательно' : 'Вставьте ключ сюда';
+    const keyRow = keyInput.closest('.profile-basics-row');
+    if (keyRow) keyRow.querySelector('label').textContent = def.keyRequired === false ? 'API-ключ (если просит сервис)' : 'API-ключ';
+  }
+  const baseRow = $('#ai-cloud-base-row');
+  if (baseRow) baseRow.hidden = !def.customBase;
+  const baseInput = $('#ai-cloud-base');
+  if (baseInput && document.activeElement !== baseInput) baseInput.value = state.aiSettings.cloudBase || '';
   const modelInput = $('#ai-cloud-model');
   if (modelInput) {
     modelInput.closest('.profile-basics-row').hidden = !!def.autoModel;
@@ -5495,9 +5825,14 @@ function renderAiSettings() {
   if (hintEl) hintEl.textContent = def.hint;
   const cloudStatus = $('#ai-cloud-status');
   if (cloudStatus && !cloudStatus.textContent) {
+    const readyNoKey = def.keyRequired === false && (!def.customBase || getCloudBaseUrl());
     cloudStatus.textContent = getCloudKey()
       ? 'Ключ сохранён. Нажмите «Проверить подключение» — подберём модель.'
-      : '○ Ключ не задан — облако выключено, всё работает локально.';
+      : (readyNoKey
+        ? '○ Без ключа — можно сразу жать «Проверить подключение».'
+        : (def.customBase && !getCloudBaseUrl()
+          ? '○ Укажите адрес сервера выше — без него облако выключено.'
+          : '○ Ключ не задан — облако выключено, всё работает локально.'));
   }
 }
 
@@ -6047,6 +6382,27 @@ const CLOUD_PROVIDERS = {
     autoModel: false,
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'deepseek/deepseek-chat-v3-0324:free'
+  },
+  pollinations: {
+    id: 'pollinations',
+    label: 'Pollinations',
+    hint: 'Бесплатный тестовый сервис: работает БЕЗ ключа (с ограничениями по частоте запросов) — идеально для проверки идеи. Если без ключа вернёт ошибку лимита — получите бесплатный ключ на enter.pollinations.ai и вставьте его. Фото не распознаёт.',
+    vision: false,
+    autoModel: false,
+    baseUrl: 'https://gen.pollinations.ai/v1',
+    defaultModel: 'openai',
+    keyRequired: false
+  },
+  custom: {
+    id: 'custom',
+    label: 'Свой сервер',
+    hint: 'Любой OpenAI-совместимый API (llama.cpp server, Ollama, LM Studio или другой сервис): укажите адрес сервера и название модели; ключ — только если сервер его требует.',
+    vision: false,
+    autoModel: false,
+    baseUrl: '',
+    defaultModel: '',
+    keyRequired: false,
+    customBase: true
   }
 };
 
@@ -6066,12 +6422,24 @@ function getCloudKey() {
   return (state.aiSettings.cloudKey || '').trim();
 }
 
+function getCloudBaseUrl() {
+  const def = getCloudProviderDef();
+  const custom = (state.aiSettings.cloudBase || '').trim().replace(/\/+$/, '');
+  return def.customBase ? custom : def.baseUrl;
+}
+
 function getCloudProviderDef() {
   return CLOUD_PROVIDERS[state.aiSettings.cloudProvider] || CLOUD_PROVIDERS.gemini;
 }
 
 function isCloudAiReady() {
-  return state.aiSettings.mode === 'cloud' && getCloudKey().length >= 8;
+  if (state.aiSettings.mode !== 'cloud') return false;
+  const def = getCloudProviderDef();
+  // Свой сервер — готов, когда указан его адрес; провайдеры без обязательного
+  // ключа (Pollinations) — сразу; остальные — когда вставлен ключ.
+  if (def.customBase) return getCloudBaseUrl().length >= 8;
+  if (def.keyRequired === false) return true;
+  return getCloudKey().length >= 8;
 }
 
 /* Кандидатные модели Gemini: сначала выбранная/закэшированная, затем список,
@@ -6160,18 +6528,21 @@ async function cloudCallGemini(systemText, userText, options) {
 async function cloudCallOpenAiCompat(systemText, userText, options) {
   const def = getCloudProviderDef();
   const model = (state.aiSettings.cloudModel || def.defaultModel).trim();
+  if (!model) throw new Error('Укажите название модели (например: openai, llama3, mistral)');
+  const baseUrl = getCloudBaseUrl();
+  if (!baseUrl) throw new Error('Укажите адрес сервера в настройках облака');
   const messages = [];
   if (systemText) messages.push({ role: 'system', content: systemText });
   (Array.isArray(options && options.history) ? options.history.slice(-6) : []).forEach((turn) => {
     messages.push({ role: turn.role === 'model' ? 'assistant' : 'user', content: turn.parts.map((p) => p.text || '').join('') });
   });
   messages.push({ role: 'user', content: userText });
-  const res = await fetch(def.baseUrl + '/chat/completions', {
+  const headers = { 'Content-Type': 'application/json' };
+  const key = getCloudKey();
+  if (key) headers['Authorization'] = 'Bearer ' + key;
+  const res = await fetch(baseUrl + '/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + getCloudKey()
-    },
+    headers,
     body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 1400 })
   });
   if (!res.ok) {
@@ -6489,6 +6860,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits
+    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
+    normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare
   };
 }

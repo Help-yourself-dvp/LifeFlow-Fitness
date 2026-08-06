@@ -22,7 +22,10 @@ const functions = [
   'canonicalUnit', 'describeFoodItemLine', 'bindDialogScrollLock', 'bindSettingsMenu',
   'renderAiSettings', 'setAiMode', 'setCloudProvider', 'checkCloudConnection',
   'isCloudAiReady', 'callCloudAi', 'cloudErrorText', 'findProductsInText', 'mdLiteToHtml',
-  'sendAiChatCloud', 'recognizeFoodPhoto', 'geminiScoreModelName'
+  'sendAiChatCloud', 'recognizeFoodPhoto', 'geminiScoreModelName',
+  'normalizeNumberWords', 'computeGameTasks', 'renderGameMode', 'computeGameRecords',
+  'openGameMedalsDialog', 'closeGameMedalsDialog', 'updateGameModeEnabled',
+  'renderGameModeSettings', 'renderStatsCompare', 'getCloudBaseUrl'
 ];
 const ids = [
   'theme-toggle', 'export-btn', 'import-btn', 'reset-btn',
@@ -41,7 +44,12 @@ const ids = [
   'stats-periods', 'ai-generate-recipe', 'ai-send-chat',
   'ai-recipe-voice-btn', 'stats-weight-chart-caption',
   'settings-profile-view', 'settings-notifications-view', 'settings-ai-view', 'settings-data-view', 'settings-about-view',
-  'ai-cloud-box', 'ai-cloud-provider', 'ai-cloud-key', 'ai-cloud-model', 'ai-cloud-check', 'ai-cloud-clear', 'ai-cloud-status', 'ai-cloud-hint'
+  'ai-cloud-box', 'ai-cloud-provider', 'ai-cloud-key', 'ai-cloud-model', 'ai-cloud-check', 'ai-cloud-clear', 'ai-cloud-status', 'ai-cloud-hint',
+  'settings-general-view', 'game-mode-toggle', 'game-mode-status', 'game-tasks-card',
+  'game-medals-dialog', 'game-medals-list', 'game-medals-ok',
+  'stats-compare-section', 'stats-compare-text', 'stats-compare-motivation',
+  'ai-quick-clear-btn', 'ai-chat-clear-btn', 'ai-recipe-clear-btn',
+  'ai-cloud-base-row', 'ai-cloud-base'
 ];
 
 let failed = 0;
