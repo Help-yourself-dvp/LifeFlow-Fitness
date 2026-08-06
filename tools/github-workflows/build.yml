@@ -123,7 +123,17 @@ jobs:
                       pendingWidgetAction = startIntent.getStringExtra("widget_action");
                   }
               }
-
+              // Кнопка/жест «назад»: пока есть история в WebView — шаг назад
+              // внутри приложения, из корня истории — обычный выход.
+              @Override
+              public void onBackPressed() {
+                  WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                  if (webView != null && webView.canGoBack()) {
+                      webView.goBack();
+                      return;
+                  }
+                  super.onBackPressed();
+              }
               @Override
               protected void onNewIntent(Intent intent) {
                   super.onNewIntent(intent);

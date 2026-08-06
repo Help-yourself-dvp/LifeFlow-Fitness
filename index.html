@@ -689,6 +689,14 @@
             <input class="form-input" id="sleep-target-wake" type="time" aria-label="Целевое время подъёма">
           </label>
         </div>
+        <div class="sleep-targets-row sleep-window-row" id="sleep-window-row" hidden>
+          <label for="sleep-window-start">Диалог с
+            <input class="form-input" id="sleep-window-start" type="time" aria-label="Показывать утренний диалог сна начиная с этого времени">
+          </label>
+          <label for="sleep-window-end">до
+            <input class="form-input" id="sleep-window-end" type="time" aria-label="Показывать утренний диалог сна до этого времени">
+          </label>
+        </div>
         <p class="settings-hint" id="sleep-checkin-status">Чек-ин сна выключен.</p>
       </div>
 
@@ -989,7 +997,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.9</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.10</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <p class="settings-hint">Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда или рецепта может отличаться.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Подробнее об источниках</button>

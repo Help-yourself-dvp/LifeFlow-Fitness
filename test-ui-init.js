@@ -38,7 +38,7 @@ const functions = [
   'evaluateSleepOnSchedule', 'getTodaySleepEntry', 'getSleepCheckinSummary',
   'sleepTimeToMinutes', 'openSleepCheckinDialog', 'closeSleepCheckinDialog',
   'saveSleepCheckinDialog', 'skipSleepCheckin', 'maybeShowSleepCheckin',
-  'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets',
+  'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
   'renderSleepDialogControls', 'renderSleepDialogSummary'
 ];
 const ids = [
@@ -66,6 +66,7 @@ const ids = [
   'ai-quick-clear-btn', 'ai-chat-clear-btn', 'ai-recipe-clear-btn',
   'ai-cloud-base-row', 'ai-cloud-base', 'ai-quick-result', 'ai-chat-result', 'ai-recipe-result',
   'sleep-checkin-toggle', 'sleep-targets-row', 'sleep-target-bed', 'sleep-target-wake', 'sleep-checkin-status',
+  'sleep-window-row', 'sleep-window-start', 'sleep-window-end',
   'sleep-checkin-dialog', 'sleep-rating-row', 'sleep-extra-toggle', 'sleep-extra',
   'sleep-bed-input', 'sleep-wake-input', 'sleep-fill-targets', 'sleep-tags',
   'sleep-summary', 'sleep-save-btn', 'sleep-skip-btn'

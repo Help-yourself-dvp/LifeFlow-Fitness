@@ -1426,13 +1426,13 @@ const DEFAULTS = {
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
-  sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', log: [], skipped: null },
+  sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.9';
+const FITFLOW_VERSION = '0.3.10';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1746,6 +1746,19 @@ function sleepTimeToMinutes(t) {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
 
+/* «Утро» чек-ина сна — настраиваемое окно [start, end). Если конец не позже
+   начала (например, 10:00–02:00), окно считается переходящим через полночь.
+   Равные границы = «окна нет» (false): иначе получилось бы «показывать всегда». */
+function isSleepWindowNow(now, startStr, endStr) {
+  const start = sleepTimeToMinutes(startStr);
+  const end = sleepTimeToMinutes(endStr);
+  if (start == null || end == null || start === end) return false;
+  const d = (now instanceof Date) ? now : new Date(now);
+  if (Number.isNaN(d.getTime())) return false;
+  const m = d.getHours() * 60 + d.getMinutes();
+  return start < end ? (m >= start && m < end) : (m >= start || m < end);
+}
+
 /* Длительность сна по «лёг/встал» с переходом через полночь.
    Менее 30 мин или более 16 ч — скорее ошибка ввода, чем сон: возвращаем null. */
 function computeSleepDurationMin(bedTime, wakeTime) {
@@ -1796,9 +1809,16 @@ function normalizeSleepCheckin() {
     enabled: sc.enabled === true,
     targetBed: validTime(sc.targetBed, DEFAULTS.sleepCheckin.targetBed),
     targetWake: validTime(sc.targetWake, DEFAULTS.sleepCheckin.targetWake),
+    windowStart: validTime(sc.windowStart, DEFAULTS.sleepCheckin.windowStart),
+    windowEnd: validTime(sc.windowEnd, DEFAULTS.sleepCheckin.windowEnd),
     log,
     skipped: (typeof sc.skipped === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sc.skipped)) ? sc.skipped : null
   };
+  // Равные границы окна бессмысленны («всегда»/«никогда» по логике) — откатываем на умолчание.
+  if (state.sleepCheckin.windowStart === state.sleepCheckin.windowEnd) {
+    state.sleepCheckin.windowStart = DEFAULTS.sleepCheckin.windowStart;
+    state.sleepCheckin.windowEnd = DEFAULTS.sleepCheckin.windowEnd;
+  }
 }
 
 function getTodaySleepEntry() {
@@ -2842,8 +2862,7 @@ function skipSleepCheckin() {
    нет, сегодня не нажимали «Позже», условия приняты и нет открытых диалогов. */
 function maybeShowSleepCheckin() {
   if (!state.sleepCheckin || !state.sleepCheckin.enabled) return;
-  const hour = new Date().getHours();
-  if (hour < 5 || hour >= 12) return;
+  if (!isSleepWindowNow(new Date(), state.sleepCheckin.windowStart, state.sleepCheckin.windowEnd)) return;
   if (getTodaySleepEntry() || state.sleepCheckin.skipped === todayKey()) return;
   if (!hasAcceptedTerms()) return;
   if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
@@ -2855,16 +2874,22 @@ function renderSleepCheckinSettings() {
   const toggle = $('#sleep-checkin-toggle');
   const status = $('#sleep-checkin-status');
   const targets = $('#sleep-targets-row');
+  const windowRow = $('#sleep-window-row');
   if (!toggle || !status) return;
   const sc = state.sleepCheckin;
   toggle.checked = sc.enabled;
   if (targets) targets.hidden = !sc.enabled;
+  if (windowRow) windowRow.hidden = !sc.enabled;
   const bedInput = $('#sleep-target-bed');
   const wakeInput = $('#sleep-target-wake');
+  const winStartInput = $('#sleep-window-start');
+  const winEndInput = $('#sleep-window-end');
   if (bedInput && document.activeElement !== bedInput) bedInput.value = sc.targetBed;
   if (wakeInput && document.activeElement !== wakeInput) wakeInput.value = sc.targetWake;
+  if (winStartInput && document.activeElement !== winStartInput) winStartInput.value = sc.windowStart;
+  if (winEndInput && document.activeElement !== winEndInput) winEndInput.value = sc.windowEnd;
   status.textContent = sc.enabled
-    ? `Утром приложение спросит про сон: оценка в 1 тап, время и «что было перед сном» — по желанию. Режим: отбой ${sc.targetBed}, подъём ${sc.targetWake} — отклонение больше 30 мин отметим как «режим сбит».`
+    ? `Один раз за утро (окно ${sc.windowStart}–${sc.windowEnd}, можно изменить ниже) приложение спросит про сон: оценка в 1 тап, время и «что было перед сном» — по желанию. Режим: отбой ${sc.targetBed}, подъём ${sc.targetWake} — отклонение больше 30 мин отметим как «режим сбит».`
     : 'Чек-ин сна выключен.';
 }
 
@@ -2883,6 +2908,22 @@ function saveSleepTargets() {
   if (bed && sleepTimeToMinutes(bed.value) != null) sc.targetBed = bed.value;
   if (wake && sleepTimeToMinutes(wake.value) != null) sc.targetWake = wake.value;
   saveState();
+  renderSleepCheckinSettings();
+}
+
+/* Окно показа утреннего диалога сна. Совпавшие границы («с» = «до») отклоняем:
+   по логике isSleepWindowNow это «окна нет», но хранить такой мусор не стоит. */
+function saveSleepWindow() {
+  const sc = state.sleepCheckin;
+  const start = $('#sleep-window-start');
+  const end = $('#sleep-window-end');
+  const sv = start ? String(start.value || '') : '';
+  const ev = end ? String(end.value || '') : '';
+  if (sleepTimeToMinutes(sv) != null && sleepTimeToMinutes(ev) != null && sv !== ev) {
+    sc.windowStart = sv;
+    sc.windowEnd = ev;
+    saveState();
+  }
   renderSleepCheckinSettings();
 }
 
@@ -5488,7 +5529,7 @@ const HELP_TOPICS = {
   },
   'sleep-checkin': {
     title: 'Чек-ин сна',
-    text: 'Раз в утро (05:00–12:00) приложение спросит, как вы спали: оценка одним нажатием. По желанию — во сколько легли и встали и что делали перед сном. Задайте целевые время отбоя и подъёма: если отклонились больше чем на 30 минут, день отмечается «режим сбит» — регулярность сна сильнее всего влияет на его качество. Строка «Сон» появляется и в Чек-листе дня. Всё работает офлайн, данные только на устройстве.'
+    text: 'Раз в утро (окно по умолчанию 05:00–12:00, задаётся здесь же — «Диалог с… до…») приложение спросит, как вы спали: оценка одним нажатием. По желанию — во сколько легли и встали и что делали перед сном. Задайте целевые время отбоя и подъёма: если отклонились больше чем на 30 минут, день отмечается «режим сбит» — регулярность сна сильнее всего влияет на его качество. Строка «Сон» появляется и в Чек-листе дня. Всё работает офлайн, данные только на устройстве.'
   }
 };
 
@@ -6406,6 +6447,8 @@ function init() {
   $('#sleep-checkin-toggle')?.addEventListener('change', (e) => updateSleepCheckinEnabled(e.target.checked));
   $('#sleep-target-bed')?.addEventListener('change', saveSleepTargets);
   $('#sleep-target-wake')?.addEventListener('change', saveSleepTargets);
+  $('#sleep-window-start')?.addEventListener('change', saveSleepWindow);
+  $('#sleep-window-end')?.addEventListener('change', saveSleepWindow);
   $('#sleep-rating-row')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-sleep-rating]');
     if (!btn) return;
@@ -7734,6 +7777,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow
   };
 }

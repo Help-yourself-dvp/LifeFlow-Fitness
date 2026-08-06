@@ -514,5 +514,29 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok4 ? '✓' : '✗'} пустой журнал сна → сводки нет (честно)`);
 }
 
+// 0.3.10: настраиваемое «утреннее окно» показа диалога сна (по умолчанию 05:00–12:00)
+{
+  const { isSleepWindowNow } = require('./app.js');
+  const at = (h, m) => new Date(2026, 7, 6, h, m, 0);
+  const ok1 = isSleepWindowNow(at(4, 59), '05:00', '12:00') === false
+    && isSleepWindowNow(at(5, 0), '05:00', '12:00') === true
+    && isSleepWindowNow(at(11, 59), '05:00', '12:00') === true
+    && isSleepWindowNow(at(12, 0), '05:00', '12:00') === false
+    && isSleepWindowNow(at(20, 0), '05:00', '12:00') === false;
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} окно сна по умолчанию [05:00, 12:00) — границы соблюдены`);
+  const ok2 = isSleepWindowNow(at(23, 30), '22:00', '02:00') === true  // окно через полночь
+    && isSleepWindowNow(at(1, 15), '22:00', '02:00') === true
+    && isSleepWindowNow(at(2, 0), '22:00', '02:00') === false
+    && isSleepWindowNow(at(12, 0), '22:00', '02:00') === false;
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} окно сна с переходом через полночь (22:00–02:00)`);
+  const ok3 = isSleepWindowNow(at(7, 0), '07:00', '07:00') === false      // равные границы = окна нет
+    && isSleepWindowNow(at(7, 0), 'ab:cd', '12:00') === false             // мусор вместо времени
+    && isSleepWindowNow('не дата', '05:00', '12:00') === false;
+  if (!ok3) failed++;
+  console.log(`${ok3 ? '✓' : '✗'} равные/битые границы окна честно отклоняются`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
