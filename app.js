@@ -1511,7 +1511,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.23';
+const FITFLOW_VERSION = '0.3.24';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7653,6 +7653,119 @@ function buildAiCloseButton() {
   return '<button class="btn btn-secondary ai-report-close" type="button" style="width:100%;margin-top:10px">Ок, скрыть</button>';
 }
 
+/* ============================================================
+   Локальный эксперт 2.0 (0.3.24): связи между сном, питанием,
+   водой, активностью и самочувствием. Считается честно:
+   группы дней сравниваются по средним, в каждой группе
+   минимум EXPERT_MIN_GROUP дней, разница значима только выше
+   порога. Это НАБЛЮДЕНИЯ — корреляция не доказывает причину,
+   о чём прямо написано пользователю в шапке блока.
+   ============================================================ */
+const EXPERT_SLEEP_SHORT_MIN = 7 * 60;   // короткий сон: меньше 7 часов
+const EXPERT_MIN_GROUP = 3;              // минимум дней в каждой группе
+const EXPERT_MOOD_DIFF = 0.4;            // значимая разница самочувствия
+const EXPERT_KCAL_DIFF = 150;            // значимая разница калорий
+
+function buildExpertInsights(input) {
+  const daily = (input && Array.isArray(input.daily)) ? input.daily : [];
+  const sleep = (input && Array.isArray(input.sleep)) ? input.sleep : [];
+  const sleepByDate = new Map();
+  sleep.forEach((entry) => {
+    if (!entry) return;
+    const date = String(entry.date || '');
+    const min = Number(entry.durationMin);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(min) && min > 0) sleepByDate.set(date, min);
+  });
+  const days = daily.filter((d) => d && typeof d.date === 'string');
+  const moodOf = (d) => { const m = Number(d.mood); return (m >= 1 && m <= 5) ? m : null; };
+  const avg = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const round1 = (v) => Math.round(v * 10) / 10;
+  const insights = [];
+
+  const daysWithSleep = days.filter((d) => sleepByDate.has(d.date));
+  const shortSleep = daysWithSleep.filter((d) => sleepByDate.get(d.date) < EXPERT_SLEEP_SHORT_MIN);
+  const goodSleep = daysWithSleep.filter((d) => sleepByDate.get(d.date) >= EXPERT_SLEEP_SHORT_MIN);
+
+  // 1. Сон → самочувствие
+  const smShort = shortSleep.map(moodOf).filter((m) => m != null);
+  const smGood = goodSleep.map(moodOf).filter((m) => m != null);
+  if (smShort.length >= EXPERT_MIN_GROUP && smGood.length >= EXPERT_MIN_GROUP) {
+    const diff = avg(smGood) - avg(smShort);
+    if (diff >= EXPERT_MOOD_DIFF) {
+      insights.push({
+        icon: '😴', title: 'Сон и самочувствие',
+        text: 'после сна < 7 ч день в среднем ' + round1(avg(smShort)) + '/5, после 7+ ч — ' + round1(avg(smGood)) + '/5 (по ' + (smShort.length + smGood.length) + ' дн.)'
+      });
+    }
+  }
+
+  // 2. Сон → аппетит (дни с записанной едой; сообщаем только «ели больше»)
+  const sfShort = shortSleep.map((d) => Number(d.foodTotal) || 0).filter((k) => k > 0);
+  const sfGood = goodSleep.map((d) => Number(d.foodTotal) || 0).filter((k) => k > 0);
+  if (sfShort.length >= EXPERT_MIN_GROUP && sfGood.length >= EXPERT_MIN_GROUP) {
+    const diff = avg(sfShort) - avg(sfGood);
+    if (diff >= EXPERT_KCAL_DIFF) {
+      insights.push({
+        icon: '🍽', title: 'Сон и аппетит',
+        text: 'после сна < 7 ч съедали в среднем ' + Math.round(avg(sfShort)) + ' ккал — на ' + Math.round(diff) + ' ккал больше, чем после 7+ ч (' + Math.round(avg(sfGood)) + ')'
+      });
+    }
+  }
+
+  // 3. Вода → самочувствие
+  const moodDays = days.filter((d) => moodOf(d) != null);
+  const wYes = moodDays.filter((d) => (Number(d.waterTotal) || 0) >= (Number(d.waterGoal) || 2500)).map(moodOf);
+  const wNo = moodDays.filter((d) => (Number(d.waterTotal) || 0) < (Number(d.waterGoal) || 2500)).map(moodOf);
+  if (wYes.length >= EXPERT_MIN_GROUP && wNo.length >= EXPERT_MIN_GROUP) {
+    const diff = avg(wYes) - avg(wNo);
+    if (diff >= EXPERT_MOOD_DIFF) {
+      insights.push({
+        icon: '💧', title: 'Вода и самочувствие',
+        text: 'в дни с выполненной нормой воды самочувствие в среднем ' + round1(avg(wYes)) + '/5 против ' + round1(avg(wNo)) + '/5 в «сухие» дни (по ' + (wYes.length + wNo.length) + ' дн.)'
+      });
+    }
+  }
+
+  // 4. Активность → самочувствие
+  const aYes = moodDays.filter((d) => (Number(d.activityMinutes) || 0) > 0).map(moodOf);
+  const aNo = moodDays.filter((d) => (Number(d.activityMinutes) || 0) === 0).map(moodOf);
+  if (aYes.length >= EXPERT_MIN_GROUP && aNo.length >= EXPERT_MIN_GROUP) {
+    const diff = avg(aYes) - avg(aNo);
+    if (diff >= EXPERT_MOOD_DIFF) {
+      insights.push({
+        icon: '🏃', title: 'Активность и самочувствие',
+        text: 'в дни с движением самочувствие в среднем ' + round1(avg(aYes)) + '/5 против ' + round1(avg(aNo)) + '/5 в дни без активности (по ' + (aYes.length + aNo.length) + ' дн.)'
+      });
+    }
+  }
+
+  return insights;
+}
+
+function gatherExpertInsights() {
+  const daily = Array.isArray(state.dailyHistory) ? [...state.dailyHistory] : [];
+  const todaySum = currentDaySummary();
+  const todayMood = getTodayMood();
+  daily.unshift(todayMood ? { ...todaySum, mood: todayMood } : todaySum);
+  const sleep = (state.sleepCheckin && Array.isArray(state.sleepCheckin.log)) ? state.sleepCheckin.log : [];
+  return buildExpertInsights({ daily, sleep });
+}
+
+function buildExpertInsightsHtml() {
+  const insights = gatherExpertInsights();
+  if (insights.length) {
+    return '<li><b>🔗 Локальный эксперт — связи в ваших днях</b> (наблюдения: совпадение ≠ причина):<ul class="expert-insights">'
+      + insights.map((i) => '<li>' + i.icon + ' <b>' + i.title + '</b>: ' + i.text + '</li>').join('')
+      + '</ul></li>';
+  }
+  // Честная заглушка: функция видна уже с первых оценок, но без фальшивых выводов.
+  const sleepCount = (state.sleepCheckin && Array.isArray(state.sleepCheckin.log))
+    ? state.sleepCheckin.log.filter((e) => e && Number.isFinite(Number(e.durationMin))).length : 0;
+  const moodCount = (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).filter((d) => Number(d.mood) >= 1).length + (getTodayMood() ? 1 : 0);
+  if (!sleepCount && !moodCount) return '';
+  return '<li><b>🔗 Локальный эксперт — связи</b>: закономерностей пока не найдено — обычно нужно от 6–8 дней с оценкой самочувствия и/или чек-ином сна. Продолжайте отмечать день, выводы появятся здесь автоматически.</li>';
+}
+
 function generateAiStatsReport() {
   const resultBox = $('#ai-stats-report-box');
   const periodBtn = $('#ai-stats-period button.active');
@@ -7678,6 +7791,7 @@ function generateAiStatsReport() {
     '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
     '<li><b>Гидратация</b>: сегодня выполнено ' + waterPct + '% водной цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
     '<li><b>Активность</b>: сегодня тренировок: ' + workoutsToday + ', всего в дневнике: ' + workoutsCount + '.</li>' +
+    buildExpertInsightsHtml() +
     '<li><b>Совет нутрициолога FitFlow</b>: распределяйте белок равномерно по основным приёмам пищи — так проще сохранять мышцы при похудении.</li>' +
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
@@ -7707,6 +7821,7 @@ function generateAiAnalysis() {
     '<ul>' + fewDataNote +
     '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
     '<li><b>Водный баланс</b>: сегодня выполнено ' + waterPct + '% цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
+    buildExpertInsightsHtml() +
     '<li><b>Рекомендация нутрициолога FitFlow</b>: поддерживайте текущую активность (прогулки, кардио) и равномерно распределяйте белок по приёмам пищи.</li>' +
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
@@ -8292,6 +8407,7 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
+    buildExpertInsights
   };
 }

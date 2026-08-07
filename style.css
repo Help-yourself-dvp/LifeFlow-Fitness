@@ -3346,6 +3346,13 @@ html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="tru
    Сюда JS переносит контейнер поля (Питание/«Своя мл»/поля ИИ) на время
    фокуса. bottom:0 layout-viewport при adjustResize = ровно над клавиатурой;
    z-index выше нижней навигации (30), ниже диалогов (70). */
+.expert-insights {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
 #ime-dock {
   position: fixed;
   left: 0;

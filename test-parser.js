@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -658,6 +658,55 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok2 = m2.value === 0 && m2.date === null;
   if (!ok2) failed++;
   console.log(`${ok2 ? '✓' : '✗'} «Марафонец»: день только из силовой медали не даёт`);
+}
+
+// ---- Локальный эксперт 2.0 (0.3.24): связи сон/вода/активность ↔ самочувствие/калории ----
+{
+  // 3 коротких ночи (хуже дни) + 3 длинных (лучше дни): все четыре связи должны сработать
+  const daily = [
+    { date: '2026-08-01', mood: 2, foodTotal: 2500, waterTotal: 1000, waterGoal: 2500, activityMinutes: 0 },
+    { date: '2026-08-02', mood: 2, foodTotal: 2400, waterTotal: 900,  waterGoal: 2500, activityMinutes: 0 },
+    { date: '2026-08-03', mood: 3, foodTotal: 2600, waterTotal: 1100, waterGoal: 2500, activityMinutes: 0 },
+    { date: '2026-08-04', mood: 4, foodTotal: 1800, waterTotal: 2800, waterGoal: 2500, activityMinutes: 35 },
+    { date: '2026-08-05', mood: 5, foodTotal: 1700, waterTotal: 3000, waterGoal: 2500, activityMinutes: 40 },
+    { date: '2026-08-06', mood: 4, foodTotal: 1900, waterTotal: 2600, waterGoal: 2500, activityMinutes: 30 }
+  ];
+  const sleep = [
+    { date: '2026-08-01', durationMin: 330 }, { date: '2026-08-02', durationMin: 350 }, { date: '2026-08-03', durationMin: 360 },
+    { date: '2026-08-04', durationMin: 470 }, { date: '2026-08-05', durationMin: 480 }, { date: '2026-08-06', durationMin: 460 }
+  ];
+  const ins = buildExpertInsights({ daily, sleep });
+  const titles = ins.map((i) => i.title);
+  const okAll = ['Сон и самочувствие', 'Сон и аппетит', 'Вода и самочувствие', 'Активность и самочувствие']
+    .every((t) => titles.includes(t));
+  if (!okAll) failed++;
+  console.log(`${okAll ? '✓' : '✗'} эксперт: все 4 связи найдены (сон→самочувствие/аппетит, вода/активность→самочувствие)`);
+  const kcalIns = ins.find((i) => i.title === 'Сон и аппетит');
+  const okKcal = kcalIns && kcalIns.text.includes('2500') && kcalIns.text.includes('1800') && kcalIns.text.includes('700');
+  if (!okKcal) failed++;
+  console.log(`${okKcal ? '✓' : '✗'} эксперт: сон→аппетит считает верно (2500 против 1800, +700 ккал)`);
+
+  // Мало данных (по 2 дня в группе): никаких выводов — правдивость важнее
+  const insFew = buildExpertInsights({ daily: daily.slice(0, 4), sleep: sleep.slice(0, 4) });
+  const okFew = Array.isArray(insFew) && insFew.length === 0;
+  if (!okFew) failed++;
+  console.log(`${okFew ? '✓' : '✗'} эксперт: при < 3 дней в группе — честный отказ от выводов`);
+
+  // Без разницы между днями — связей быть не должно
+  const flat = [0, 1, 2, 3, 4, 5].map((i) => ({
+    date: '2026-08-0' + (i + 1), mood: 4, foodTotal: 2000,
+    waterTotal: 2500, waterGoal: 2500, activityMinutes: 20
+  }));
+  const insFlat = buildExpertInsights({ daily: flat, sleep });
+  const okFlat = insFlat.length === 0;
+  if (!okFlat) failed++;
+  console.log(`${okFlat ? '✓' : '✗'} эксперт: ровные дни без разницы → никаких ложных связей`);
+
+  // Устойчивость к мусору на входе
+  const okJunk = buildExpertInsights(null).length === 0 && buildExpertInsights({}).length === 0
+    && buildExpertInsights({ daily: [{}], sleep: [{ date: 'бред', durationMin: 'x' }] }).length === 0;
+  if (!okJunk) failed++;
+  console.log(`${okJunk ? '✓' : '✗'} эксперт: пустой/битый вход → пустой результат без падения`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

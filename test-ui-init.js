@@ -144,5 +144,24 @@ for (const id of ids) {
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} элемент #${id}`);
 }
+// 0.3.24: Локальный эксперт 2.0 — функция, подключение в оба отчёта, дубль источников удалён
+{
+  const app = fs.readFileSync('app.js', 'utf8');
+  const okFn = /function buildExpertInsights\(input\)/.test(app)
+    && /function buildExpertInsightsHtml\(\)/.test(app);
+  if (!okFn) failed++;
+  console.log(`${okFn ? '✓' : '✗'} эксперт 2.0: чистая функция buildExpertInsights + html-обёртка`);
+  const okWired = (app.match(/buildExpertInsightsHtml\(\) \+/g) || []).length === 2;
+  if (!okWired) failed++;
+  console.log(`${okWired ? '✓' : '✗'} эксперт 2.0: подключён в оба отчёта (статистика и ИИ-анализ)`);
+  const okNoDup = !html.includes('Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда')
+    && /id="sources-open"[^>]*>Источники пищевых данных</.test(html);
+  if (!okNoDup) failed++;
+  console.log(`${okNoDup ? '✓' : '✗'} настройки: нет дубля источников, одна кнопка «Источники пищевых данных»`);
+  const okMethod = html.includes('Средняя калорийность и объёмы по умолчанию');
+  if (!okMethod) failed++;
+  console.log(`${okMethod ? '✓' : '✗'} методика: пункт про среднюю калорийность и средние объёмы`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
