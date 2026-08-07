@@ -688,8 +688,31 @@ function parseMealText(raw) {
     // иначе ломаются якорные разборы («сока стакан, », «…минут.»).
     .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, ''))
     .filter(Boolean);
-  const parts = glueSandwichFillings(splitParts);
+  const parts = glueSandwichFillings(splitParts).flatMap(splitWithCompanion);
   return parts.map(parseItem).filter(Boolean);
+}
+
+/* Спутник через «с» (0.3.20, кейс пользователя: «картошка с сосиской»
+   разбиралась только в «картофель 100 г» — сосиска молча пропадала).
+   Делим фразу на два продукта при СТРОГИХ условиях:
+   — на всю фразу нет кураторского составного ключа («кофе с молоком»,
+     «гречка с курицей», «бутерброд с колбасой» — одно блюдо, не трогаем);
+   — обе половины находятся в базе;
+   — правая половина — ШТУЧНЫЙ продукт (сосиска, котлета, яйцо): ей
+     достаётся честная порция «1 шт». Граммовые добавки (масло, сметана,
+     хлеб) не делим: их реальная порция в такой фразе далека от 100 г —
+     разделять было бы новым враньём. */
+function splitWithCompanion(part) {
+  if (/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер|шаурм|блин|сырник|оладь|вафл)[а-яё]*\s+с\s+/iu.test(part)) return [part];
+  const combo = part.match(/^(.+?)\s+с\s+(.+)$/iu);
+  if (!combo) return [part];
+  if ((combo[2] || '').split(/\s+/).length > 2) return [part]; // «с X и Y» — не наш случай
+  const whole = lookupProduct(part);
+  if (whole && whole.key.indexOf(' ') !== -1) return [part]; // кураторская пара есть
+  if (!lookupProduct(combo[1])) return [part];
+  const right = lookupProduct(combo[2]);
+  if (!right || right.per !== 'шт') return [part];
+  return [combo[1], combo[2]];
 }
 
 /* После разбиения по « и » сэндвич-начинки склеиваем обратно:
@@ -1475,7 +1498,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.19';
+const FITFLOW_VERSION = '0.3.20';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2492,7 +2515,7 @@ const PALETTES = [
   { id: 'neon', label: 'Neon' },
   { id: 'sport', label: 'Sport' },
   { id: 'forest', label: 'Лес' },
-  { id: 'berry', label: 'Ягода' }
+  { id: 'berry', label: 'Виноград' } // id технический — НЕ переименовывать (совместимость сохранённых настроек)
 ];
 const PALETTE_IDS = new Set(PALETTES.map((p) => p.id));
 
@@ -6974,15 +6997,12 @@ function init() {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
     scheduleKeyboardShift(field);
-    if (isImeDockField(field)) {
-      // 0.3.19 (пробы build 136): перенос в док В МОМЕНТ focusin гасил подъём
-      // клавиатуры в разделах Питание/Вода — пользователю приходилось тапать
-      // второй раз. Эти поля докуем ОТЛОЖЕННО: по факту просадки viewport
-      // (клавиатура точно открылась) или по таймеру-фолбэку. Поля ИИ докуем
-      // сразу: там тап стабилен, а «поле прилипло к низу» пользователю понравилось.
-      if (isImeDockDeferredField(field)) scheduleDeferredImeDock(field);
-      else openImeDock(field);
-    }
+    // 0.3.20 (пробы build 136–137): док — ТОЛЬКО для полей ИИ. Оба опыта с
+    // Питанием/Водой ломали ввод: мгновенный перенос при focusin гасил
+    // подъём клавиатуры (нужен 2-й тап), отложенный перенос при уже
+    // открытой клавиатуре РВАЛ IME-сессию и прятал её. Проверенный годами
+    // сценарий «поле на месте, adjustResize сам докручивает» возвращён.
+    if (isImeDockField(field)) openImeDock(field);
   });
   // Докрутка — только когда клавиатура реально изменила видимый viewport.
   if (window.visualViewport) {
@@ -6995,7 +7015,6 @@ function init() {
   // не гасит — кнопки «Разобрать»/«Добавить» в нём же перенесены).
   document.addEventListener('focusout', (event) => {
     if (event.target && event.target.matches && event.target.matches('input, textarea')) cancelKeyboardShift();
-    if (event.target === imeDockPending.field) cancelDeferredImeDock();
     if (imeDockState.container) {
       setTimeout(() => {
         const dock = $('#ime-dock');
@@ -7011,13 +7030,6 @@ function init() {
 
   // Клавиатура полностью закрылась (высота вьюпорта восстановилась) → док домой.
   const imeDockViewportHandler = () => {
-    // Клавиатура реально открылась (adjustResize просел) → переносим
-    // отложенное поле в док: кнопки «Добавить» оказываются над клавиатурой.
-    if (imeDockPending.field && window.innerHeight < imeDockBaseHeight * 0.8) {
-      const pendingField = imeDockPending.field;
-      cancelDeferredImeDock();
-      if (document.activeElement === pendingField) openImeDock(pendingField);
-    }
     if (imeDockState.container && window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
   };
   if (window.visualViewport) {
@@ -7250,6 +7262,11 @@ function parseAiQuickEntry() {
     '</ul>' +
     '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
   resultBox.hidden = false;
+  // 0.3.20 (пробы build 137): результат длинный, а клавиатура+док держали
+  // нижнюю треть экрана — до кнопки «Записать» приходилось скроллить вдвойне.
+  // Гасим клавиатуру и возвращаем форму ввода домой — весь результат виден.
+  input.blur();
+  closeImeDock();
   const saveBtn = $('#ai-quick-save-btn');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
@@ -7322,46 +7339,18 @@ function handleWaterVoiceBtn() {
    (bottom:0 layout-viewport; при adjustResize это ровно над клавиатурой).
    Нода переносится без пересоздания — обработчики/фокус/IME-сессия живые.
    Возврат — по focusout наружу, закрытию клавиатуры или смене экрана. */
-const IME_DOCK_FIELD_IDS = ['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input', '#food-input', '#water-custom-ml'];
-// 0.3.19: эти поля докуются отложенно — перенос в момент focusin гасил
-// первый тап с подъёмом клавиатуры (регресс на build 136, пробы пользователя).
-const IME_DOCK_DEFERRED_FIELD_IDS = ['#food-input', '#water-custom-ml'];
-const IME_DOCK_CONTAINERS_SEL = '.ai-input-stack, #food-form, #water-custom-row';
+// 0.3.20: док — ТОЛЬКО поля ИИ-центра. Поля Питания/«Своя мл» исключены:
+// оба автоматических варианта (мгновенный 0.3.18 и отложенный 0.3.19)
+// ломали ввод этих полей — возвращён ручной проверенный сценарий.
+const IME_DOCK_FIELD_IDS = ['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input'];
+const IME_DOCK_CONTAINERS_SEL = '.ai-input-stack';
 let imeDockState = { container: null, placeholder: null };
-let imeDockPending = { field: null, timer: 0 };
 
 function isImeDockField(el) {
   return !!(el && el.matches && el.matches(IME_DOCK_FIELD_IDS.join(',')));
 }
 
-function isImeDockDeferredField(el) {
-  return !!(el && el.matches && el.matches(IME_DOCK_DEFERRED_FIELD_IDS.join(',')));
-}
-
-/* Отложенный док (Питание/«Своя мл»): ждём ФАКТА клавиатуры — просадки
-   visualViewport (обработчик в init). Фолбэк-таймер — на случай «мёртвой
-   первой IME-сессии» GBoard: resize не пришёл, поле в фокусе, клавиатуры нет.
-   Тогда всё равно переносим вниз: повторный тап по полю в доке поднимает
-   клавиатуру так же надёжно, как в ИИ-разделе (пробы build 136). */
-function scheduleDeferredImeDock(field) {
-  cancelDeferredImeDock();
-  imeDockPending.field = field;
-  imeDockPending.timer = setTimeout(() => {
-    const f = imeDockPending.field;
-    cancelDeferredImeDock();
-    if (f && f.isConnected && document.activeElement === f && !imeDockState.container) {
-      openImeDock(f);
-    }
-  }, 700);
-}
-
-function cancelDeferredImeDock() {
-  if (imeDockPending.timer) clearTimeout(imeDockPending.timer);
-  imeDockPending = { field: null, timer: 0 };
-}
-
 function openImeDock(field) {
-  cancelDeferredImeDock();
   const dock = $('#ime-dock');
   if (!dock || !field) return;
   const container = field.closest(IME_DOCK_CONTAINERS_SEL);
@@ -7375,7 +7364,6 @@ function openImeDock(field) {
 }
 
 function closeImeDock() {
-  cancelDeferredImeDock();
   const dock = $('#ime-dock');
   const st = imeDockState;
   if (!st.container) return;
@@ -7405,9 +7393,18 @@ function closeAiCenter() {
   switchView('home');
 }
 
+const AI_TAB_FIELD = { quick: '#ai-quick-input', recipe: '#ai-recipe-input', chat: '#ai-chat-input' };
 function switchAiTab(tabName) {
   $$('#ai-tabs button').forEach((btn) => btn.classList.toggle('active', btn.dataset.aiTab === tabName));
   $$('.ai-tab-panel').forEach((panel) => panel.hidden = panel.id !== 'ai-tab-' + tabName);
+  // 0.3.20 (пробы build 137): вкладки Рецепт/Нутрициолог вели себя хуже
+  // Ввода — поле оставалось наверху, тап → перенос в док → второй тап.
+  // Теперь ЕДИНЫЙ для всех текстовых вкладок сценарий Ввода: программный
+  // фокус (молча «сжигает» IME-сессию) → поле сразу в доке внизу →
+  // тап пользователя поднимает клавиатуру и голос с первого раза.
+  const sel = AI_TAB_FIELD[tabName];
+  const field = sel ? $(sel) : null;
+  if (field) field.focus({ preventScroll: true });
 }
 
 /* Рецепт собирается из РЕАЛЬНО перечисленных продуктов: названия и питательность
@@ -7503,6 +7500,9 @@ function generateAiRecipe() {
     '<p class="settings-hint" style="margin:6px 0 0">' + escapeHtml(fullnessNote) + '</p>' +
     '<button class="btn btn-primary" id="ai-log-recipe-btn" type="button">+ Добавить эти продукты в дневник (' + fmt(Math.round(totals.kcal)) + ' ккал)</button>';
   resultBox.hidden = false;
+  // Как и после «Разобрать» (0.3.20): клавиатуру и док убираем — рецепт длинный.
+  input.blur();
+  closeImeDock();
   const logBtn = $('#ai-log-recipe-btn');
   if (logBtn) {
     logBtn.addEventListener('click', () => {
