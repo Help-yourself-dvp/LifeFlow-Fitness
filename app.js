@@ -57,6 +57,7 @@ const FOOD_DB = {
   // ===== Хлеб и выпечка =====
   'хлеб': { kcal: 250, p: 8, f: 2, c: 48 }, 'ржаной хлеб': { kcal: 200, p: 6.6, f: 1.2, c: 39 }, 'цельнозерновой хлеб': { kcal: 230, p: 9, f: 3, c: 41 },
   'отрубной хлеб': { kcal: 220, p: 9.5, f: 3.5, c: 38 }, 'белый хлеб': { kcal: 265, p: 8, f: 3, c: 50 }, 'батон': { kcal: 265, p: 8, f: 3, c: 50 },
+  'чёрный хлеб': { kcal: 200, p: 6.6, f: 1.2, c: 39 }, // = ржаной по составу (кейс 0.3.21: «кусок чёрного хлеба» падал до голого «хлеб»)
   'багет': { kcal: 270, p: 8.5, f: 2.5, c: 52 }, 'чиабатта': { kcal: 260, p: 8, f: 3, c: 50 }, 'лаваш': { kcal: 275, p: 9, f: 1.2, c: 56 },
   'питы': { kcal: 275, p: 9, f: 1.5, c: 55 }, 'лепешка': { kcal: 250, p: 7, f: 2, c: 50 }, 'тост': { kcal: 300, p: 9, f: 4, c: 55 },
   'сушки': { kcal: 330, p: 11, f: 1.3, c: 70 }, 'сухари': { kcal: 400, p: 12, f: 4, c: 75 }, 'хлебцы': { kcal: 320, p: 11, f: 2.5, c: 63 },
@@ -642,7 +643,7 @@ const PIECE_UNITS = new Set(['шт', 'шт.', 'штук', 'штука', 'шту�
    семейству задаём честные веса нарезки; остальные продукты — по дефолту
    (кусок 100 г, штука 70 г, ломоть/долька 30 г). */
 const BREAD_PIECE_GRAMS = { 'кусок': 40, 'ломоть': 30, 'долька': 15, 'шт': 30 };
-const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной хлеб', 'отрубной хлеб', 'цельнозерновой хлеб', 'батон', 'бородинский']);
+const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной хлеб', 'отрубной хлеб', 'цельнозерновой хлеб', 'батон', 'бородинский', 'чёрный хлеб']);
 function pieceGramsFor(product, normUnit) {
   if (product && product.key && BREAD_KEYS.has(product.key)) {
     const bread = BREAD_PIECE_GRAMS[normUnit];
@@ -908,6 +909,13 @@ function normalizeSmartUnits(text) {
   return String(text || '').replace(
     new RegExp('(^|(?<!\\d)\\s)(' + SMART_CONTAINER_UNITS + ')\\s+([а-яёa-z]+)(\\s+[а-яёa-z]+)?', 'giu'),
     (match, sep, unit, product, tail) => {
+      // 0.3.21 (кейс пользователя «тарелка куриного супа» → терялось «куриного»,
+      // оставался одинокий «суп 100 г»): если сам «продукт» — прилагательное,
+      // а хвост — существительное, переставлять нечего: храним «прил.+сущ.»
+      // вместе, ёмкость в конец: «тарелка куриного супа» → «куриного супа тарелка».
+      if (tail && SMART_ADJ_TAIL.test(product.trim()) && !SMART_ADJ_TAIL.test(tail.trim())) {
+        return (sep ? ', ' : '') + product + tail + ' ' + unit + ', ';
+      }
       const glued = tail && SMART_ADJ_TAIL.test(tail.trim()) ? tail : '';
       return (sep ? ', ' : '') + product + glued + ' ' + unit + ', ' + (glued ? '' : (tail || ''));
     }
@@ -1498,7 +1506,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.20';
+const FITFLOW_VERSION = '0.3.21';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -6997,6 +7005,7 @@ function init() {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
     scheduleKeyboardShift(field);
+    foodKbScrolled = false;
     // 0.3.20 (пробы build 136–137): док — ТОЛЬКО для полей ИИ. Оба опыта с
     // Питанием/Водой ломали ввод: мгновенный перенос при focusin гасил
     // подъём клавиатуры (нужен 2-й тап), отложенный перенос при уже
@@ -7030,12 +7039,29 @@ function init() {
 
   // Клавиатура полностью закрылась (высота вьюпорта восстановилась) → док домой.
   const imeDockViewportHandler = () => {
-    if (imeDockState.container && window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
+    if (!imeDockState.container) return;
+    // 0.3.21 (пробы build 138): фокус ВНУТРИ дока — док живой. Иначе поздний
+    // resize от закрывающейся после blur клавиатуры убивал свежий док вкладки
+    // (гонка «blur quick-поля → клавиатура закрывается 300 мс спустя»).
+    const dockEl = $('#ime-dock');
+    if (dockEl && dockEl.contains(document.activeElement)) return;
+    if (window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
   };
+  let foodKbScrolled = false;
   if (window.visualViewport) {
     var imeDockBaseHeight = window.innerHeight;
     window.visualViewport.addEventListener('resize', () => {
       if (window.innerHeight > imeDockBaseHeight) imeDockBaseHeight = window.innerHeight;
+      // 0.3.21 (п.2 пробы 138): докрутка страницы к полю Питания/«Своей мл»
+      // по ФАКТУ открытия клавиатуры. Без переноса ноды (уроки 0.3.18–0.3.20:
+      // именно перенос убивал IME) — только scrollIntoView, один раз за сессию.
+      if (!foodKbScrolled && window.innerHeight < imeDockBaseHeight * 0.8) {
+        const ae = document.activeElement;
+        if (ae && ae.matches && ae.matches('#food-input, #water-custom-ml')) {
+          foodKbScrolled = true;
+          setTimeout(() => { try { ae.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* поле исчезло */ } }, 80);
+        }
+      }
       imeDockViewportHandler();
     });
   }
@@ -7404,7 +7430,13 @@ function switchAiTab(tabName) {
   // тап пользователя поднимает клавиатуру и голос с первого раза.
   const sel = AI_TAB_FIELD[tabName];
   const field = sel ? $(sel) : null;
-  if (field) field.focus({ preventScroll: true });
+  if (field) {
+    field.focus({ preventScroll: true });
+    // 0.3.21 (пробы build 138 — «поле в середине экрана, тап → переезд → 2-й тап»):
+    // focusin мог проиграть гонку позднему resize от закрывающейся клавиатуры
+    // — док убивался сразу после создания. Открываем док ЯВНО здесь.
+    openImeDock(field);
+  }
 }
 
 /* Рецепт собирается из РЕАЛЬНО перечисленных продуктов: названия и питательность

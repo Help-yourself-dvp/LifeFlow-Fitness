@@ -124,11 +124,13 @@ let failed = 0;
     && /#ime-dock\s*\{[^}]*position:\s*fixed/.test(css2)
     && /isImeDockField\(field\)\)\s*openImeDock\(field\)/.test(app)
     && /IME_DOCK_FIELD_IDS = \['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input'\]/.test(app)
+    && /AI_TAB_FIELD = \{ quick: '#ai-quick-input'/.test(app)
+    && /dockEl && dockEl\.contains\(document\.activeElement\)\) return/.test(app)
     && !/scheduleDeferredImeDock|cancelDeferredImeDock|isImeDockDeferredField/.test(app)
     && !/scheduleImeRetry|warmupHiddenViewsLayout/.test(app)
     && !/\.ai-center-modal/.test(css2);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док только для ИИ-полей (0.3.20), мёртвый код 0.3.18–0.3.19 удалён`);
+  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док только для ИИ-полей + автофокус вкладок + resize-гард фокуса (0.3.21)`);
 }
 
 for (const name of functions) {
