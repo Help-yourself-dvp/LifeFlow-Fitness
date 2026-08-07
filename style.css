@@ -3403,3 +3403,21 @@ html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="tru
 #ime-dock .ai-input-stack { margin-bottom: 0; }
 #ime-dock .food-form { margin: 0; }
 #ime-dock .water-custom-row { margin: 0; }
+
+/* === Мой курс (0.3.30): строки в «Плане дня», чипы приёмов, форма времени === */
+.course-items { margin-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--primary) 30%, transparent); padding-top: 10px; }
+.course-plan-row { display: grid; gap: 6px; }
+.course-plan-head { display: flex; align-items: center; gap: 8px; }
+.course-plan-name { font-weight: 600; flex: 1; }
+.course-day-label { font-weight: 500; color: var(--md-sys-color-on-surface-variant); }
+.course-dose-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.course-dose-chip {
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  background: transparent; color: inherit; border-radius: 999px;
+  padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.course-dose-chip:active { transform: scale(0.95); }
+.course-dose-chip.done { background: color-mix(in srgb, var(--primary) 88%, transparent); color: var(--md-sys-color-on-primary, #fff); border-color: transparent; }
+.course-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.course-times label { display: grid; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
+#course-del-dialog .app-dialog-actions button { width: 100%; }

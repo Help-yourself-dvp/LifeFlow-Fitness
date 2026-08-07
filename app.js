@@ -598,6 +598,9 @@ const FOOD_DB = {
   'каша манная на молоке': { kcal: 100, p: 3.5, f: 3, c: 15 },
   'каша рисовая на молоке': { kcal: 95, p: 3, f: 3, c: 14 },
   'каша овсяная на молоке': { kcal: 100, p: 3.5, f: 4, c: 14 },
+  // Бытовые имена той же молочной каши (0.3.30, кейс пользователя: «каша с молоком»
+  // молча превращалась в «молоко 60 ккал» — потеря блюда, хуже любой оценки).
+  'каша с молоком': { kcal: 100, p: 3.5, f: 4, c: 14 }, 'овсянка с молоком': { kcal: 100, p: 3.5, f: 4, c: 14 }, 'овсянка на молоке': { kcal: 100, p: 3.5, f: 4, c: 14 },
   'каша пшенная на молоке': { kcal: 105, p: 3.5, f: 3.5, c: 15 },
   'каша гречневая на молоке': { kcal: 120, p: 4.5, f: 4, c: 18 },
   'каша кукурузная на молоке': { kcal: 100, p: 3, f: 3, c: 15 },
@@ -709,9 +712,13 @@ function parseMealText(raw) {
      «гречка с курицей», «бутерброд с колбасой» — одно блюдо, не трогаем);
    — обе половины находятся в базе;
    — правая половина — ШТУЧНЫЙ продукт (сосиска, котлета, яйцо): ей
-     достаётся честная порция «1 шт». Граммовые добавки (масло, сметана,
-     хлеб) не делим: их реальная порция в такой фразе далека от 100 г —
-     разделять было бы новым враньём. */
+     достаётся честная порция «1 шт». Граммовые добавки с 0.3.30 делим по
+     карте COMPANION_GRAMS с честными малыми порциями (кейс пользователя
+     «гречка с тушёнкой» — гречка молча ПРОПАДАЛА из разбора; молчаливое
+     враньё хуже честной оценки, которая помечена «≈» и правится руками).
+     Продукт вне карты по фразе правдиво не оценить (молоко в «каше с
+     молоком» — это одно блюдо): такие пары держатся кураторскими
+     ключами базы, остальное не трогаем. */
 function splitWithCompanion(part) {
   if (/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер|шаурм|блин|сырник|оладь|вафл)[а-яё]*\s+с\s+/iu.test(part)) return [part];
   const combo = part.match(/^(.+?)\s+с\s+(.+)$/iu);
@@ -721,8 +728,37 @@ function splitWithCompanion(part) {
   if (whole && whole.key.indexOf(' ') !== -1) return [part]; // кураторская пара есть
   if (!lookupProduct(combo[1])) return [part];
   const right = lookupProduct(combo[2]);
-  if (!right || right.per !== 'шт') return [part];
-  return [combo[1], combo[2]];
+  if (!right) return [part];
+  if (right.per === 'шт') return [combo[1], combo[2]];
+  const grams = COMPANION_GRAMS[right.key];
+  if (!grams) return [part]; // правдиво не оценить — оставляем как есть
+  return [cookedCompanionLeft(combo[1]), combo[2] + ' ' + grams + ' г'];
+}
+
+/* Честные порции граммовых спутников через «с» (0.3.30). Сверка по
+   каноническому ключу базы (right.key) — ё/е и склонения не важны.
+   Значения — бытовые порции добавки, а не «100 г по умолчанию». */
+const COMPANION_GRAMS = {
+  'тушенка': 100, // мясная добавка к гарниру — реальная порция
+  'сыр': 25, 'творожный сыр': 30,
+  'сметана': 20, 'майонез': 15, 'кетчуп': 15, 'соевый соус': 10,
+  'сливочное масло': 10, 'масло': 10, 'оливковое масло': 10,
+  'растительное масло': 10, 'подсолнечное масло': 10,
+  'сахар': 6, 'мед': 10, 'варенье': 20, 'джем': 20
+};
+
+/* Левая часть пары через «с» — почти всегда готовый гарнир. Если способ
+   приготовления не назван, а в базе есть ВАРЁНЫЙ вариант («гречка вареная»,
+   «рис вареный»), берём его: сухая крупа (гречка 313 ккал/100 г) в готовом
+   блюде была бы враньём (0.3.30, правдивость расчётов — приоритет №1). */
+const COMPANION_COOKED_VARIANTS = [' вареная', ' вареный', ' варёная', ' варёный', ' отварные', ' на пару'];
+function cookedCompanionLeft(left) {
+  const text = String(left || '').trim();
+  if (/варен|варён|отварн|жарен|тушён|тушен|запеч|печён|копч|пар/iu.test(text)) return text;
+  for (const variant of COMPANION_COOKED_VARIANTS) {
+    if (lookupProduct(text + variant)) return text + variant;
+  }
+  return text;
 }
 
 /* После разбиения по « и » сэндвич-начинки склеиваем обратно:
@@ -1239,13 +1275,20 @@ function parseItem(text) {
 
   // Поддержка разговорной формы «ложка сметаны» без цифры.
   const implicitSpoon = !amountMatch && text.match(/^(?:столовая\s+|чайная\s+)?ложк[аиу]\s+(.+)$/iu);
-  const implicitPlate = !amountMatch && text.match(/^тарелк[ауи]\s+(.+)$/iu);
+  // 0.3.30 (пробой фразы пользователя): ведущая ёмкость без цифры теперь
+  // вся семья — «стакан кефира», «чашка молока», «миска супа», а не только
+  // тарелка. Веса те же, что у ёмкости ПОСЛЕ продукта (implicitContainer).
+  const implicitPlate = !amountMatch && text.match(/^(стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*)\s+(.+)$/iu);
   if (implicitSpoon) {
     amount = 1;
     unit = 'ложка';
   } else if (implicitPlate) {
     amount = 1;
-    unit = 'тарелка'; // 0.3.23: тарелка 250 г (UNIT_MAP), не «порция» 200 г
+    const rawLead = implicitPlate[1].toLowerCase();
+    unit = rawLead.startsWith('стакан') ? 'стакан'
+      : (rawLead.startsWith('чашк') || rawLead.startsWith('кружк')) ? 'чашка'
+      : rawLead.startsWith('тарелк') ? 'тарелка' // 0.3.23: тарелка 250 г (UNIT_MAP), не «порция» 200 г
+      : 'порция'; // миска/пиала — 200 г (0.3.23)
   }
 
   // Разговорная ёмкость ПОСЛЕ продукта без цифры: «сока стакан», «суп тарелка»,
@@ -1307,7 +1350,7 @@ function parseItem(text) {
   } else if (implicitSpoon) {
     name = implicitSpoon[1];
   } else if (implicitPlate) {
-    name = implicitPlate[1];
+    name = implicitPlate[2]; // 0.3.30: группа 1 — ёмкость, группа 2 — продукт
   } else if (implicitContainer) {
     name = implicitContainer[1];
   } else if (implicitSliceLead) {
@@ -1712,6 +1755,7 @@ const DEFAULTS = {
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
   customFoods: [], // Личная база продуктов (0.3.25): точные значения с упаковки, перекрывают общую
+  myCourses: [], // «Мой курс» (0.3.30, решение пользователя по POSTPONED P8): приёмы по времени + напоминания
   // Карта контуров (0.3.28, решение пользователя): сначала ПОЛНОСТЬЮ офлайн-версия
   // с локальным ИИ (этап 0.4.x), онлайн — потом и только точечно. Этот объект —
   // основа будущего онлайн-контура: всегда ВЫКЛ по умолчанию, включает ТОЛЬКО
@@ -1723,7 +1767,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.29';
+const FITFLOW_VERSION = '0.3.30';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -1766,8 +1810,9 @@ const HOME_CARDS = [
 
 /* Включена ли функция, которой принадлежит карточка (независимо от layout). */
 function isHomeCardFeatureEnabled(id) {
-  // «План дня» живёт, пока включён чек-лист ИЛИ задания (игровой режим).
-  if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled));
+  // «План дня» живёт, пока включён чек-лист ИЛИ задания (игровой режим)
+  // ИЛИ есть активный курс приёмов (0.3.30 — его строки живут в этой карточке).
+  if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled) || getTodayCourses().length > 0);
   if (id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
   return true;
 }
@@ -2454,6 +2499,435 @@ function removeCustomFood(id) {
   return state.customFoods.length !== before;
 }
 
+/* ============================================================
+   💊 «Мой курс» (0.3.30, решение пользователя по POSTPONED P8):
+   приёмы по времени — витамины, спортивные добавки, назначения.
+   Сделано МАЛЫМ, поверх ГОТОВЫХ механик (принцип не-нагромождения):
+   строки живут в карточке «План дня» (ручные отметки — приём нельзя
+   вывести из других записей, только подтверждение пользователя),
+   напоминания едут тем же системным планировщиком, что вода и приёмы
+   пищи. Схем приёма здесь нет и не будет: FitFlow не врач, расписание
+   задаёт сам пользователь по инструкции/назначению специалиста.
+============================================================ */
+const COURSE_REMINDER_CHANNEL = 'fitflow_course_reminders_v1';
+const COURSE_REMINDER_DAYS = 14;          // окно планирования, как у приёмов пищи
+const COURSE_REMINDER_ID_BASE = 60000;    // диапазон id 60000–61999 (вода 75000+)
+const MAX_COURSES = 10;
+const MAX_COURSE_DOSES = 4;
+const COURSE_DOSE_DEFAULT_TIMES = ['08:00', '14:00', '20:00', '22:00'];
+
+function isValidCourseTime(t) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || '').trim()); }
+
+function normalizeCourseTimes(times) {
+  const unique = new Set();
+  return (Array.isArray(times) ? times : [])
+    .map((t) => String(t || '').trim())
+    .filter((t) => isValidCourseTime(t) && !unique.has(t) && unique.add(t))
+    .sort()
+    .slice(0, MAX_COURSE_DOSES);
+}
+
+/* Нормализация одного курса. checkLog: дата → индексы отмеченных приёмов;
+   старше 90 дней выкидываем — счётчик дня выводится из startDate, а не из
+   отметок, поэтому бэкап не пухнет историей. */
+function normalizeCourse(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = String(raw.name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (name.length < 2) return null;
+  const times = normalizeCourseTimes(raw.times);
+  if (!times.length) return null;
+  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.startDate || '')) ? String(raw.startDate) : null;
+  if (!startDate) return null;
+  const daysNum = Math.round(Number(raw.daysTotal));
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffKey = courseDateKey(cutoff);
+  const checkLog = {};
+  if (raw.checkLog && typeof raw.checkLog === 'object') {
+    Object.keys(raw.checkLog).forEach((date) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < cutoffKey) return;
+      const marks = (Array.isArray(raw.checkLog[date]) ? raw.checkLog[date] : [])
+        .map((n) => Math.round(Number(n)))
+        .filter((n, i, arr) => Number.isInteger(n) && n >= 0 && n < times.length && arr.indexOf(n) === i)
+        .sort((a, b) => a - b);
+      if (marks.length) checkLog[date] = marks;
+    });
+  }
+  return {
+    id: String(raw.id || uid()),
+    name, times, startDate,
+    daysTotal: (Number.isFinite(daysNum) && daysNum > 0 && daysNum <= 365) ? daysNum : 0, // 0 = «пока не остановлю»
+    remind: raw.remind !== false,
+    checkLog
+  };
+}
+
+function normalizeCourses() {
+  const ids = new Set();
+  state.myCourses = (Array.isArray(state.myCourses) ? state.myCourses : [])
+    .map(normalizeCourse)
+    .filter((course) => course && !ids.has(course.id) && ids.add(course.id))
+    .slice(0, MAX_COURSES);
+}
+
+function courseDateKey(date) {
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getCourse(id) {
+  return (Array.isArray(state.myCourses) ? state.myCourses : []).find((c) => c.id === id) || null;
+}
+
+function addCourse(input) {
+  if (!Array.isArray(state.myCourses)) state.myCourses = [];
+  if (state.myCourses.length >= MAX_COURSES) return { ok: false, error: 'limit' };
+  const name = String((input && input.name) || '').trim();
+  if (name.length < 2) return { ok: false, error: 'name' };
+  if (!normalizeCourseTimes(input && input.times).length) return { ok: false, error: 'times' };
+  const candidate = normalizeCourse({
+    id: uid(), name, times: input.times,
+    daysTotal: input.daysTotal, startDate: input.startDate || todayKey(),
+    remind: input.remind !== false, checkLog: {}
+  });
+  if (!candidate) return { ok: false, error: 'times' };
+  state.myCourses.push(candidate);
+  saveState();
+  return { ok: true, item: candidate };
+}
+
+function updateCourse(id, patch) {
+  const list = Array.isArray(state.myCourses) ? state.myCourses : [];
+  const idx = list.findIndex((c) => c.id === id);
+  if (idx === -1) return { ok: false, error: 'not-found' };
+  const name = String((patch && patch.name) || '').trim();
+  if (name.length < 2) return { ok: false, error: 'name' };
+  if (!normalizeCourseTimes(patch && patch.times).length) return { ok: false, error: 'times' };
+  const prev = list[idx];
+  const normalized = normalizeCourse({
+    ...prev, ...patch, name,
+    id: prev.id, startDate: prev.startDate, checkLog: prev.checkLog
+  });
+  if (!normalized) return { ok: false, error: 'times' };
+  state.myCourses[idx] = normalized;
+  saveState();
+  return { ok: true, item: normalized };
+}
+
+function removeCourse(id) {
+  const before = (Array.isArray(state.myCourses) ? state.myCourses : []).length;
+  state.myCourses = (Array.isArray(state.myCourses) ? state.myCourses : []).filter((c) => c.id !== id);
+  if (state.myCourses.length !== before) saveState();
+  return state.myCourses.length !== before;
+}
+
+function courseDayNumber(course, dateKey = todayKey()) {
+  if (!course || !course.startDate) return null;
+  const start = new Date(course.startDate + 'T00:00:00');
+  const day = new Date(dateKey + 'T00:00:00');
+  if (isNaN(start.getTime()) || isNaN(day.getTime())) return null;
+  return Math.floor((day - start) / 86400000) + 1;
+}
+
+function isCourseActiveOn(course, dateKey = todayKey()) {
+  const day = courseDayNumber(course, dateKey);
+  if (day == null || day < 1) return false;
+  return !course.daysTotal || day <= course.daysTotal;
+}
+
+function getTodayCourses(dateKey = todayKey()) {
+  return (Array.isArray(state.myCourses) ? state.myCourses : []).filter((c) => isCourseActiveOn(c, dateKey));
+}
+
+/* «день 12 из 30» / «день 12» — текст счётчика курса. */
+function courseDayLabel(course, dateKey = todayKey()) {
+  const day = courseDayNumber(course, dateKey);
+  if (day == null || day < 1) return '';
+  return course.daysTotal ? `день ${day} из ${course.daysTotal}` : `день ${day}`;
+}
+
+function courseEndDateKey(course) {
+  if (!course || !course.daysTotal) return null;
+  const end = new Date(course.startDate + 'T00:00:00');
+  end.setDate(end.getDate() + course.daysTotal - 1);
+  return courseDateKey(end);
+}
+
+function fmtCourseDate(dateKey) {
+  const parts = String(dateKey || '').split('-');
+  return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : String(dateKey || '');
+}
+
+/* Статус курса для списка в Настройках: «день 12 из 30», «начнётся 10.08.2026»,
+   «завершён 30.08.2026». */
+function courseStatusLabel(course, dateKey = todayKey()) {
+  const day = courseDayNumber(course, dateKey);
+  if (day == null) return '';
+  if (day < 1) return 'начнётся ' + fmtCourseDate(course.startDate);
+  if (course.daysTotal && day > course.daysTotal) return 'завершён ' + fmtCourseDate(courseEndDateKey(course));
+  return courseDayLabel(course, dateKey);
+}
+
+function courseDosesForDate(course, dateKey = todayKey()) {
+  const marks = new Set((course && course.checkLog && course.checkLog[dateKey]) || []);
+  return (course ? course.times : []).map((time, index) => ({ index, time, done: marks.has(index) }));
+}
+
+function toggleCourseDose(courseId, doseIndex, dateKey = todayKey()) {
+  const course = getCourse(courseId);
+  if (!course) return false;
+  const idx = Math.round(Number(doseIndex));
+  if (!Number.isInteger(idx) || idx < 0 || idx >= course.times.length) return false;
+  if (!course.checkLog || typeof course.checkLog !== 'object') course.checkLog = {};
+  const marks = new Set(Array.isArray(course.checkLog[dateKey]) ? course.checkLog[dateKey] : []);
+  if (marks.has(idx)) marks.delete(idx); else marks.add(idx);
+  const list = [...marks].sort((a, b) => a - b);
+  if (list.length) course.checkLog[dateKey] = list; else delete course.checkLog[dateKey];
+  saveState();
+  return true;
+}
+
+/* Строки курсов в карточке «План дня»: ручные отметки приёмов сегодня. */
+function buildCoursesPlanHtml(dateKey = todayKey()) {
+  const courses = getTodayCourses(dateKey);
+  if (!courses.length) return '';
+  const mark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
+  return '<div class="checklist-items course-items">' + courses.map((course) => {
+    const doses = courseDosesForDate(course, dateKey);
+    const doneCount = doses.filter((d) => d.done).length;
+    const chips = doses.map((d) =>
+      `<button type="button" class="course-dose-chip${d.done ? ' done' : ''}" data-course-dose="${course.id}:${d.index}">${d.done ? '✓ ' : ''}${d.time}</button>`
+    ).join('');
+    return `<div class="course-plan-row">
+      <div class="course-plan-head">${mark(doneCount === doses.length)}<span class="course-plan-name">💊 ${escapeHtml(course.name)} <small class="course-day-label">${courseDayLabel(course, dateKey)}</small></span><span class="game-tasks-note">${doneCount} из ${doses.length}</span></div>
+      <div class="course-dose-chips">${chips}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+/* ---- Напоминания о курсе: тот же механизм, что вода/питание ---- */
+function courseReminderId(coursePos, dayIdx, doseIdx) {
+  return COURSE_REMINDER_ID_BASE + coursePos * 200 + dayIdx * 10 + doseIdx;
+}
+
+function courseReminderAllIds() {
+  const ids = [];
+  for (let pos = 0; pos < MAX_COURSES; pos++) {
+    for (let d = 0; d < COURSE_REMINDER_DAYS; d++) {
+      for (let k = 0; k < MAX_COURSE_DOSES; k++) ids.push(courseReminderId(pos, d, k));
+    }
+  }
+  return ids;
+}
+
+async function ensureCourseReminderChannel(localNotifications) {
+  if (typeof localNotifications.createChannel !== 'function') return;
+  await localNotifications.createChannel({
+    id: COURSE_REMINDER_CHANNEL,
+    name: 'FitFlow: мой курс',
+    description: 'Напоминания о приёмах по расписанию курса',
+    importance: 3,
+    visibility: 1,
+    sound: 'default',
+    vibrates: false
+  });
+}
+
+async function cancelCourseReminders(localNotifications = getLocalNotifications()) {
+  if (!localNotifications) return;
+  try { await localNotifications.cancel({ notifications: courseReminderAllIds().map((id) => ({ id })) }); } catch (e) { }
+}
+
+async function scheduleCourseReminders({ requestPermission = true } = {}) {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) return { ok: false, message: 'Напоминания о курсе работают только в Android-приложении.' };
+  let allowed = false;
+  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы приходили напоминания о курсе.' };
+  try {
+    await ensureCourseReminderChannel(localNotifications);
+    await cancelCourseReminders(localNotifications);
+    const notifications = [];
+    (Array.isArray(state.myCourses) ? state.myCourses : []).forEach((course, pos) => {
+      if (!course.remind) return;
+      course.times.forEach((time, doseIdx) => {
+        const firstAt = nextReminderDate(time);
+        for (let dayIdx = 0; dayIdx < COURSE_REMINDER_DAYS; dayIdx++) {
+          const at = new Date(firstAt.getTime());
+          at.setDate(at.getDate() + dayIdx);
+          const date = courseDateKey(at);
+          if (!isCourseActiveOn(course, date)) continue;
+          // Сегодняшний приём уже отмечен — не тревожим (0.3.30).
+          if (date === todayKey() && (((course.checkLog || {})[date]) || []).includes(doseIdx)) continue;
+          const day = courseDayNumber(course, date);
+          notifications.push({
+            id: courseReminderId(pos, dayIdx, doseIdx),
+            title: `💊 ${course.name} · ${time}`,
+            body: course.daysTotal
+              ? `Приём ${doseIdx + 1} из ${course.times.length} — день ${day} из ${course.daysTotal}. Отметьте в FitFlow.`
+              : `Приём ${doseIdx + 1} из ${course.times.length} — день ${day}. Отметьте в FitFlow.`,
+            schedule: { at, allowWhileIdle: true },
+            channelId: COURSE_REMINDER_CHANNEL,
+            smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
+            extra: { source: 'fitflow-course-reminder', courseId: course.id }
+          });
+        }
+      });
+    });
+    if (notifications.length) await localNotifications.schedule({ notifications });
+    return { ok: true };
+  } catch (e) {
+    console.warn('Не удалось запланировать напоминания о курсе:', e);
+    return { ok: false, message: 'Не удалось включить напоминания о курсе. Проверьте разрешения Android.' };
+  }
+}
+
+async function refreshCourseRemindersOnLaunch() {
+  if (!getLocalNotifications()) return;
+  const hasActive = (Array.isArray(state.myCourses) ? state.myCourses : []).some((c) => c.remind && isCourseActiveOn(c));
+  if (!hasActive) return;
+  await scheduleCourseReminders({ requestPermission: false });
+}
+
+/* ---- UI «Моего курса» ---- */
+let pendingCourseDeleteId = null;
+let pendingCourseDoseCount = 2;
+let editingCourseId = null;
+
+function renderCoursesSettings() { renderCourseList(); }
+
+function renderCourseList() {
+  const list = $('#course-list');
+  if (!list) return;
+  const empty = $('#course-empty');
+  const courses = Array.isArray(state.myCourses) ? state.myCourses : [];
+  if (empty) empty.hidden = courses.length > 0;
+  list.innerHTML = courses.map((course) =>
+    '<div class="custom-food-row"><span><b>' + escapeHtml(course.name) + '</b>'
+    + '<small>' + escapeHtml(course.times.join(', ')) + ' · ' + courseStatusLabel(course)
+    + (course.remind ? ' · 🔔' : ' · без напоминаний') + '</small></span>'
+    + '<span class="custom-food-actions">'
+    + '<button class="icon-btn course-edit" type="button" data-id="' + course.id + '" aria-label="Изменить курс">✏️</button>'
+    + '<button class="icon-btn course-del" type="button" data-id="' + course.id + '" aria-label="Удалить курс">✕</button></span></div>'
+  ).join('');
+  list.querySelectorAll('.course-edit').forEach((btn) =>
+    btn.addEventListener('click', () => openCourseDialog(btn.dataset.id)));
+  list.querySelectorAll('.course-del').forEach((btn) =>
+    btn.addEventListener('click', () => askDeleteCourse(btn.dataset.id)));
+}
+
+function renderCourseTimeInputs(count, values = []) {
+  const box = $('#course-times');
+  if (!box) return;
+  box.innerHTML = Array.from({ length: count }, (_, i) =>
+    `<label>Приём ${i + 1}<input class="dialog-text-input" type="time" id="course-time-${i}" value="${values[i] || COURSE_DOSE_DEFAULT_TIMES[i]}"></label>`
+  ).join('');
+}
+
+function syncCourseDoseButtons(count) {
+  $$('#course-doses [data-doses]').forEach((btn) =>
+    btn.classList.toggle('active', Number(btn.dataset.doses) === count));
+}
+
+function currentCourseTimeValues() {
+  return $$('#course-times input[type="time"]').map((el) => el.value).filter(Boolean);
+}
+
+function setCourseDoseCount(n) {
+  const count = Math.min(MAX_COURSE_DOSES, Math.max(1, Math.round(Number(n)) || 1));
+  const values = currentCourseTimeValues();
+  pendingCourseDoseCount = count;
+  syncCourseDoseButtons(count);
+  renderCourseTimeInputs(count, values);
+}
+
+function openCourseDialog(id) {
+  const dialog = $('#course-dialog');
+  if (!dialog) return;
+  editingCourseId = id || null;
+  const course = id ? getCourse(id) : null;
+  const title = $('#course-dialog-title');
+  if (title) title.textContent = course ? 'Правка курса' : 'Новый курс';
+  if ($('#course-name')) $('#course-name').value = course ? course.name : '';
+  if ($('#course-days')) $('#course-days').value = course ? course.daysTotal : 30;
+  if ($('#course-remind')) $('#course-remind').checked = course ? course.remind : true;
+  const count = course ? course.times.length : 2;
+  pendingCourseDoseCount = count;
+  syncCourseDoseButtons(count);
+  renderCourseTimeInputs(count, course ? course.times : COURSE_DOSE_DEFAULT_TIMES);
+  dialog.hidden = false;
+  const nameInput = $('#course-name');
+  if (nameInput) nameInput.focus();
+}
+
+function closeCourseDialog() {
+  editingCourseId = null;
+  const dialog = $('#course-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function saveCourseFromDialog() {
+  const name = ($('#course-name') || {}).value || '';
+  const daysRaw = Number(($('#course-days') || {}).value);
+  const input = {
+    name,
+    times: currentCourseTimeValues(),
+    daysTotal: (Number.isFinite(daysRaw) && daysRaw > 0) ? daysRaw : 0,
+    remind: !!($('#course-remind') || {}).checked
+  };
+  const res = editingCourseId ? updateCourse(editingCourseId, input) : addCourse(input);
+  if (!res.ok) {
+    toast(res.error === 'name'
+      ? 'Название — от 2 символов'
+      : res.error === 'limit'
+        ? 'Максимум ' + MAX_COURSES + ' курсов — принцип малого приложения'
+        : 'Проверьте время приёмов: формат ЧЧ:ММ, без повторов');
+    return;
+  }
+  const wasEditing = !!editingCourseId;
+  closeCourseDialog();
+  renderCoursesSettings();
+  renderDayPlan();
+  if (input.remind) {
+    scheduleCourseReminders().then((r) => {
+      if (!r.ok) toast(r.message || 'Курс сохранён, но напоминания не включились — отметки работают');
+    });
+  } else {
+    scheduleCourseReminders({ requestPermission: false });
+  }
+  toast(wasEditing ? '💊 Курс обновлён' : '💊 Курс добавлен — отметки появились в «Плане дня»');
+}
+
+function askDeleteCourse(id) {
+  const course = getCourse(id);
+  if (!course) return;
+  pendingCourseDeleteId = id;
+  const label = $('#course-del-name');
+  if (label) label.textContent = '«' + course.name + '» (' + course.times.join(', ') + ')';
+  const dialog = $('#course-del-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function confirmDeleteCourse() {
+  if (pendingCourseDeleteId) {
+    removeCourse(pendingCourseDeleteId);
+    pendingCourseDeleteId = null;
+    scheduleCourseReminders({ requestPermission: false });
+    toast('💊 Курс удалён');
+    renderCoursesSettings();
+    renderDayPlan();
+  }
+  const dialog = $('#course-del-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function cancelDeleteCourse() {
+  pendingCourseDeleteId = null;
+  const dialog = $('#course-del-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function normalizeDailyHistory() {
   const byDate = new Map();
   (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).forEach((day) => {
@@ -2705,6 +3179,7 @@ function loadState() {
   normalizeHomeLayout();
   normalizeFavoriteMeals();
   normalizeCustomFoods();
+  normalizeCourses();
   normalizeWorkouts();
   normalizeActivityTemplates();
   normalizeWaterReminders();
@@ -3038,10 +3513,14 @@ function renderDayPlan() {
     </div>`;
   }
 
+  // 0.3.30: строки «Моего курса» — ручные отметки приёмов (не вычисляются
+  // из других записей, в отличие от воды/питания — только подтверждение).
+  const coursesPlanHtml = buildCoursesPlanHtml();
   card.innerHTML = `<div class="card checklist-card" aria-label="План дня">
     <div class="checklist-header"><span>📋 План дня</span>${headerNote}</div>
     ${checklistItems}
-    ${showChecklist && showTasks ? '<hr class="day-plan-divider">' : ''}
+    ${coursesPlanHtml}
+    ${(showChecklist || coursesPlanHtml) && showTasks ? '<hr class="day-plan-divider">' : ''}
     ${tasksHtml}
   </div>`;
 }
@@ -5997,7 +6476,7 @@ function bindDialogScrollLock() {
 
 /* Подэкраны настроек (схема В): на первом уровне — компактное меню строк,
    каждый раздел — отдельный экран с «← Назад к настройкам». */
-const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about'];
+const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about', 'settings-courses'];
 
 /* ============================================================
    ❔ Справка по разделам (замечание: «Чек-лист дня — вообще не
@@ -6017,6 +6496,10 @@ const HELP_TOPICS = {
   'settings-notifications': {
     title: 'Уведомления',
     text: 'Напоминания: утренняя мотивация, приёмы пищи, вода в течение дня и вечерняя активность. Работают даже когда приложение закрыто, но Android может «усыплять» его — поэтому есть кнопка проверки настроек системы.'
+  },
+  'settings-courses': {
+    title: 'Мой курс',
+    text: 'Приёмы по времени: витамины, спортивные добавки или назначения врача. Задаются: название, сколько раз в день и в какое время, на сколько дней курс. На Главной в «Плане дня» появляются строки с кнопками-отметками на каждый приём, а в заданное время приходит системное напоминание (как для воды). Схему приёма FitFlow не назначает — её даёт специалист или инструкция; здесь только учёт и напоминания.'
   },
   'settings-ai': {
     title: 'ИИ-помощник',
@@ -6215,6 +6698,7 @@ function switchView(view) {
   if (isNotifications) refreshNotificationSetupState();
   if (isGameMedals) renderGameMedalsView();
   if (view === 'settings-ai') renderAiSettings();
+  if (view === 'settings-courses') renderCoursesSettings();
   if (isSettings || isSettingsSub) applySettingsAccordion();
   window.scrollTo(0, 0);
 }
@@ -6665,6 +7149,7 @@ function handleBackNavigation() {
   const backMap = {
     'settings-general': 'settings', 'settings-profile': 'settings', 'settings-notifications': 'settings',
     'settings-ai': 'settings', 'settings-data': 'settings', 'settings-about': 'settings',
+    'settings-courses': 'settings',
     'notifications': 'settings',
     'water-details': 'stats', 'food-details': 'stats', 'weight-details': 'stats',
     'game-medals': 'home', 'ai': 'home', 'stats': 'home', 'training': 'home', 'settings': 'home'
@@ -6759,6 +7244,7 @@ function init() {
   refreshMealRemindersOnLaunch();
   refreshTrainingReminderOnLaunch();
   refreshWaterRemindersOnLaunch();
+  refreshCourseRemindersOnLaunch();
 
   // Тема
   bindEvent('#theme-toggle', 'click', toggleTheme);
@@ -7011,6 +7497,17 @@ function init() {
       const moodBtn = e.target.closest('#mood-pick-open');
       if (moodBtn) { $('#mood-dialog').hidden = false; }
       if (e.target.closest('[data-sleep-open]')) openSleepCheckinDialog();
+      // 💊 Мой курс (0.3.30): чип приёма — ручная отметка/снятие.
+      // После отметки перепланируем напоминания: сегодняшний принятый
+      // приём уже не должен тревожить.
+      const doseBtn = e.target.closest('[data-course-dose]');
+      if (doseBtn) {
+        const [courseId, idxRaw] = String(doseBtn.dataset.courseDose || '').split(':');
+        if (courseId && toggleCourseDose(courseId, Number(idxRaw))) {
+          renderDayPlan();
+          refreshCourseRemindersOnLaunch();
+        }
+      }
     });
   });
   // Быстрый переход по разделам Главной: плавная прокрутка к карточке
@@ -7132,6 +7629,19 @@ function init() {
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
   bindEvent('#custom-food-del-cancel', 'click', () => { pendingCustomFoodDeleteId = null; const d = $('#custom-food-del-dialog'); if (d) d.hidden = true; });
   bindEvent('#custom-food-del-confirm', 'click', confirmDeleteCustomFood);
+  // 💊 Мой курс (0.3.30)
+  bindEvent('#course-add', 'click', () => openCourseDialog(null));
+  bindEvent('#course-save', 'click', saveCourseFromDialog);
+  bindEvent('#course-cancel', 'click', closeCourseDialog);
+  bindEvent('#course-del-confirm', 'click', confirmDeleteCourse);
+  bindEvent('#course-del-cancel', 'click', cancelDeleteCourse);
+  {
+    const dosesBox = $('#course-doses');
+    if (dosesBox) dosesBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-doses]');
+      if (btn) setCourseDoseCount(Number(btn.dataset.doses));
+    });
+  }
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
@@ -8428,6 +8938,9 @@ function cloudErrorText(err) {
   if (/401|403|API_KEY_INVALID|PERMISSION_DENIED|Unauthenticated/i.test(msg)) return 'Ключ отклонён провайдером: проверьте, что ключ скопирован полностью, без пробелов.';
   if (/User location is not supported|location|region/i.test(msg)) return 'Этот провайдер недоступен из вашего региона — попробуйте DeepSeek или OpenRouter.';
   if (/429|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'Исчерпан лимит запросов (минутный или дневной). Подождите немного или смените модель/провайдера.';
+  // 402 Payment Required (кейс пользователя: голая «ошибка 402» без объяснения):
+  // это не поломка приложения — у провайдера кончился баланс/тариф ключа.
+  if (/HTTP 402|^402|Payment Required|insufficient.{0,24}balance|balance.{0,24}insufficient|credits? (depleted|exhausted)|billing/i.test(msg)) return 'У облачного провайдера закончился баланс или тарифный лимит (ошибка 402). Проверьте счёт ключа у провайдера. Локальные ответы по вашим записям продолжают работать без интернета.';
   const status = msg.match(/HTTP (\d+)/);
   if (status) return 'Провайдер вернул ошибку ' + status[1] + ': ' + msg.replace(/^HTTP \d+:?\s*/, '').slice(0, 160);
   return msg.slice(0, 200);
@@ -8551,9 +9064,17 @@ function sendAiChatCloud(text, resultBox) {
         '<p class="settings-hint" style="margin:8px 0 0">Ответ нейросети может содержать неточности — проверяйте важное. Текст вопроса ушёл в облако выбранного провайдера.</p>';
     })
     .catch((err) => {
-      resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (☁ облако)</h4>' +
+      // 0.3.30 (кейс пользователя: при ошибке облака 402 вопрос «расскажи
+      // как мой прогресс» остался совсем без фактов): сбой сети/баланса не
+      // должен гасить локальные ответы — показываем И честную ошибку, И
+      // факты из записей (та же ветвь, что в полностью локальном режиме).
+      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
         '<p style="color:var(--error)">☁ ' + escapeHtml(cloudErrorText(err)) + '</p>' +
-        '<p class="settings-hint">Пока облако недоступно, я отвечаю локально только фактами из базы продуктов.</p>';
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        buildAiChatAnswer(text) +
+        '<p class="settings-hint">☁ Облако ответить не смогло — ответ выше собран локально, из ваших записей и базы продуктов, без интернета.</p>';
+      const gotoBtn = resultBox.querySelector('#ai-chat-goto-settings');
+      if (gotoBtn) gotoBtn.addEventListener('click', () => { closeAiCenter(); switchView('settings-ai'); });
     });
 }
 
@@ -8740,6 +9261,10 @@ if (typeof module !== 'undefined' && module.exports) {
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
-    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer
+    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer,
+    cloudErrorText, COMPANION_GRAMS,
+    normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
+    toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
+    courseDosesForDate, getTodayCourses, buildCoursesPlanHtml
   };
 }

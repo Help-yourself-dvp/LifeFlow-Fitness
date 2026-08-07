@@ -246,5 +246,50 @@ for (const id of ids) {
   console.log(`${okProg ? '✓' : '✗'} эксперт 2.1: чат «как мой день/прогресс» → пакет фактов (мост к локальному ИИ)`);
 }
 
+// 0.3.30: «Мой курс» (P8 — решение пользователя), правдивость спутников, фолбэк облака
+{
+  const app6 = fs.readFileSync('app.js', 'utf8');
+  const okModel = app6.includes('myCourses: [], // «Мой курс»')
+    && app6.includes('function normalizeCourse(raw)') && app6.includes('function normalizeCourseTimes(')
+    && app6.includes('function buildCoursesPlanHtml(') && app6.includes('async function scheduleCourseReminders(')
+    && app6.includes('refreshCourseRemindersOnLaunch();')
+    && app6.includes('async function cancelCourseReminders(')
+    && app6.includes('getTodayCourses().length > 0'); // «План дня» виден и с одними курсами
+  if (!okModel) failed++;
+  console.log(`${okModel ? '✓' : '✗'} «Мой курс»: модель, напоминания (канал/id-план), запуск с приложением, видимость карточки`);
+  const okWiring = app6.includes("'settings-courses'") && app6.includes("title: 'Мой курс',")
+    && app6.includes('renderCoursesSettings();') && app6.includes("bindEvent('#course-save', 'click', saveCourseFromDialog);")
+    && app6.includes('[data-course-dose]');
+  if (!okWiring) failed++;
+  console.log(`${okWiring ? '✓' : '✗'} «Мой курс»: подэкран в подписках настроек, справка, back-карта, привязки событий`);
+  const okHtml = html.includes('data-settings-view="settings-courses"') && html.includes('id="settings-courses-view"')
+    && html.includes('id="course-dialog"') && html.includes('id="course-del-dialog"')
+    && html.includes('id="course-doses"') && html.includes('id="course-times"')
+    && html.includes('id="course-list"') && html.includes('id="course-add"')
+    && html.includes('id="course-remind"') && html.includes('id="course-days"') && html.includes('id="course-name"');
+  if (!okHtml) failed++;
+  console.log(`${okHtml ? '✓' : '✗'} «Мой курс»: пункт меню, подэкран со списком, диалог с полными параметрами расписания`);
+  const okCss = fs.readFileSync('style.css', 'utf8').includes('.course-dose-chip');
+  if (!okCss) failed++;
+  console.log(`${okCss ? '✓' : '✗'} «Мой курс»: стили чипов приёма на месте`);
+  const okCompanion = app6.includes('const COMPANION_GRAMS = {') && app6.includes('function cookedCompanionLeft')
+    && app6.includes("'тушенка': 100") && app6.includes("'каша с молоком': { kcal: 100");
+  if (!okCompanion) failed++;
+  console.log(`${okCompanion ? '✓' : '✗'} правдивость спутников: карта граммовых добавок, варёная подмена, молочная каша — ключ базы`);
+  const okGlass = app6.includes("text.match(/^(стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*|тарелк[а-яё]*|миск[а-яё]*|пиал[а-яё]*)");
+  if (!okGlass) failed++;
+  console.log(`${okGlass ? '✓' : '✗'} ведущая ёмкость «стакан/чашка/миска + продукт» без цифры распознаётся как 1 единица`);
+  const okFallback = app6.includes('Облако ответить не смогло — ответ выше собран локально')
+    && app6.includes('баланс или тарифный лимит (ошибка 402)');
+  if (!okFallback) failed++;
+  console.log(`${okFallback ? '✓' : '✗'} облако: человеческий 402 + фолбэк чата на локальные факты при сбое`);
+  // Баланс скобок/тегов новой разметки (бытовой самоконтроль)
+  const divOpen = (html.match(/<div/g) || []).length;
+  const divClose = (html.match(/<\/div/g) || []).length;
+  const okBalance = divOpen === divClose;
+  if (!okBalance) failed++;
+  console.log(`${okBalance ? '✓' : '✗'} баланс div в index.html (${divOpen}/${divClose})`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

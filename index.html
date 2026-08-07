@@ -611,6 +611,12 @@
             <span class="help-dot" role="button" tabindex="0" data-help="settings-notifications" aria-label="Справка: Уведомления" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-courses">
+            <span class="settings-menu-emoji" aria-hidden="true">💊</span>
+            <span class="settings-menu-text"><b>Мой курс</b><small>Витамины, добавки и приёмы по расписанию с напоминаниями</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-courses" aria-label="Справка: Мой курс" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-ai">
             <span class="settings-menu-emoji" aria-hidden="true">✨</span>
             <span class="settings-menu-text"><b>ИИ-помощник</b><small>Локальный режим, облачная нейросеть или Gemma на устройстве</small></span>
@@ -874,6 +880,29 @@
     </section>
   </div><!-- /settings-notifications-view -->
 
+  <div id="settings-courses-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">💊</span></div>
+        <div class="card-title-wrap">
+          <h2>Мой курс</h2>
+          <p>Витамины, спортивные добавки и назначения по времени</p>
+        </div>
+      </div>
+      <div class="settings-group">
+        <p class="settings-hint">Добавьте приём по расписанию: название, сколько раз в день и время каждого приёма, на сколько дней курс. На Главной в карточке «План дня» появятся строки с кнопками-отметками, а в заданное время — системное напоминание (тот же механизм, что для воды и приёмов пищи). FitFlow не назначает схемы приёма: их даёт специалист или инструкция, здесь — только учёт и напоминания.</p>
+      </div>
+      <div class="settings-group">
+        <div class="custom-food-list" id="course-list"></div>
+        <p class="settings-hint" id="course-empty">Пока ни одного курса. Добавьте первый — например, «Витамин D» утром в 08:00 на 30 дней.</p>
+      </div>
+      <div class="settings-group">
+        <button class="btn btn-primary" id="course-add" type="button" style="width:100%">＋ Добавить курс</button>
+      </div>
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-courses-view -->
+
   <div id="settings-ai-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
@@ -1016,7 +1045,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.29</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.30</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1381,6 +1410,55 @@
       <div class="app-dialog-actions" style="display:grid;gap:8px">
         <button class="btn btn-primary" id="custom-food-del-confirm" type="button">Да, удалить</button>
         <button class="btn btn-secondary" id="custom-food-del-cancel" type="button">Отмена</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Диалог курса (0.3.30): добавление/правка — все параметры расписания -->
+  <div class="app-dialog-backdrop" id="course-dialog" role="dialog" aria-modal="true" aria-labelledby="course-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💊</div>
+      <h2 id="course-dialog-title">Новый курс</h2>
+      <div class="custom-food-form">
+        <input class="dialog-text-input" id="course-name" type="text" placeholder="Название (напр., «Витамин D»)" maxlength="60">
+        <div class="settings-group" style="margin:0">
+          <p class="settings-label">Приёмов в день</p>
+          <div class="segmented" id="course-doses" role="radiogroup" aria-label="Приёмов в день">
+            <button type="button" data-doses="1">1</button>
+            <button type="button" data-doses="2">2</button>
+            <button type="button" data-doses="3">3</button>
+            <button type="button" data-doses="4">4</button>
+          </div>
+        </div>
+        <div class="course-times" id="course-times"></div>
+        <label class="settings-label" style="display:grid;gap:6px">Длительность курса, дней (0 — пока не остановлю)
+          <input class="dialog-text-input" id="course-days" type="number" inputmode="numeric" min="0" max="365" placeholder="30">
+        </label>
+        <div class="settings-label-row">
+          <p class="settings-label">Напоминания о приёмах</p>
+          <label class="switch" for="course-remind">
+            <input id="course-remind" type="checkbox" role="switch" checked>
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Напоминать о приёмах курса</span>
+          </label>
+        </div>
+        <p class="settings-hint" style="margin:0">Схема «каждые 8 часов» задаётся тремя временами: например 08:00, 16:00 и 00:00. Отметки ставятся вручную в «Плане дня» на Главной — приём нельзя угадать из других записей.</p>
+        <button class="btn btn-primary" id="course-save" type="button">Сохранить курс</button>
+        <button class="btn btn-secondary" id="course-cancel" type="button" style="width:100%">Отмена</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Подтверждение удаления курса (0.3.30) -->
+  <div class="app-dialog-backdrop" id="course-del-dialog" role="dialog" aria-modal="true" aria-labelledby="course-del-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🗑️</div>
+      <h2 id="course-del-title">Удалить курс?</h2>
+      <p id="course-del-name" style="font-weight:600"></p>
+      <p class="settings-hint">Дневные отметки и напоминания этого курса тоже исчезнут. Остальные курсы не пострадают.</p>
+      <div class="app-dialog-actions" style="display:grid;gap:8px">
+        <button class="btn btn-primary" id="course-del-confirm" type="button">Да, удалить</button>
+        <button class="btn btn-secondary" id="course-del-cancel" type="button">Отмена</button>
       </div>
     </section>
   </div>

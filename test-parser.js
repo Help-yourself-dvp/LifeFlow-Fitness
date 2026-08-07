@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -347,7 +347,7 @@ const smartCases = [
   // 0.3.20: спутник через «с» делится только для штучных продуктов
   ['картошка с сосиской', 0, ['картофель', 'сосиска'], []],
   ['кофе с молоком', 0, ['кофе с молоком'], []],
-  ['каша с маслом', 0, ['каша'], []],
+  ['каша с маслом', 0, ['каша', 'масло'], []], // 0.3.30: масло ≈10 г больше не роняется
   ['бутерброд с колбасой', 0, ['бутерброд с колбасой'], []],
   // 0.3.21: «тарелка/чашка + прилагательное + существительное» не ломается перестановкой
   ['тарелка куриного супа', 0, ['куриный суп'], []],
@@ -836,6 +836,143 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && buildProgressAnswer({}).length === 0;
   if (!okJunk) failed++;
   console.log(`${okJunk ? '✓' : '✗'} эксперт 2.1: мусор на входе → пусто без падения`);
+}
+
+// ---- 0.3.30: граммовые спутники через «с» (кейс пользователя «гречка с тушёнкой» — гречка молча пропадала) ----
+{
+  const g = parseMealText('гречка с тушёнкой');
+  const okG = g.length === 2 && g[0].name === 'гречка вареная' && Math.round(g[0].kcal) === 110
+    && g[1].name === 'тушенка' && g[1].amount === 100 && Math.round(g[1].kcal) === 214;
+  if (!okG) failed++;
+  console.log(`${okG ? '✓' : '✗'} «гречка с тушёнкой» → гречка ВАРЁНАЯ 110 + тушёнка 100 г/214 (не сухая крупа, ничего не роняем)`);
+  const m = parseMealText('макароны с сыром');
+  const okM = m.length === 2 && m[0].name === 'макароны' && m[1].name === 'сыр'
+    && m[1].amount === 25 && Math.round(m[1].kcal) === 88;
+  if (!okM) failed++;
+  console.log(`${okM ? '✓' : '✗'} «макароны с сыром» → макароны + сыр ≈25 г/88 (не «100 г сыра»)`);
+  const k = parseMealText('каша с маслом');
+  const okK = k.length === 2 && k[0].name === 'каша' && Math.round(k[0].kcal) === 95
+    && k[1].amount === 10 && Math.round(k[1].kcal) === 72;
+  if (!okK) failed++;
+  console.log(`${okK ? '✓' : '✗'} «каша с маслом» → каша + масло ≈10 г/72 (не «100 г масла»)`);
+  const t = parseMealText('чай с сахаром');
+  const okT = t.length === 1 && t[0].name === 'чай с сахаром' && Math.round(t[0].kcal) === 40;
+  if (!okT) failed++;
+  console.log(`${okT ? '✓' : '✗'} «чай с сахаром» → кураторский ключ базы 40 ккал/чашка (сплит не нужен, пара кураторская)`);
+  const milk = parseMealText('каша с молоком');
+  const okMilk = milk.length === 1 && milk[0].name === 'каша с молоком' && Math.round(milk[0].kcal) === 100;
+  if (!okMilk) failed++;
+  console.log(`${okMilk ? '✓' : '✗'} «каша с молоком» → кураторский ключ 100 (одно блюдо, не «молоко 60»)`);
+  const ovs = parseMealText('овсянка с молоком');
+  const okOvs = ovs.length === 1 && ovs[0].name === 'овсянка с молоком' && Math.round(ovs[0].kcal) === 100;
+  if (!okOvs) failed++;
+  console.log(`${okOvs ? '✓' : '✗'} «овсянка с молоком» → 100 (ранее падало в «овсяное молоко» 47)`);
+  // Регрессии семейства «с»:
+  const s = parseMealText('картошка с сосиской');
+  const okS = s.length === 2 && s[1].name === 'сосиска' && s[1].unit === 'шт';
+  if (!okS) failed++;
+  console.log(`${okS ? '✓' : '✗'} регрессия: «картошка с сосиской» — штучный спутник 1 шт на месте`);
+  const rc = parseMealText('рис с курицей');
+  const okRc = rc.length === 1 && rc[0].name === 'рис с курицей';
+  if (!okRc) failed++;
+  console.log(`${okRc ? '✓' : '✗'} регрессия: «рис с курицей» — кураторская пара не разделяется`);
+  const butter = parseMealText('бутерброд с сыром');
+  const okB = butter.length === 1 && butter[0].name === 'бутерброд с сыром';
+  if (!okB) failed++;
+  console.log(`${okB ? '✓' : '✗'} регрессия: «бутерброд с сыром» — одно блюдо`);
+  // Вся фраза пользователя целиком:
+  const full = parseMealText('Варёная курица, жареная курица, гречка с тушёнкой, два куска белого хлеба, стакан газировки');
+  const names = full.map((i) => i.name);
+  const okFull = full.length === 6 && names.includes('курица вареная') && names.includes('курица жареная')
+    && names.includes('гречка вареная') && names.includes('тушенка') && names.includes('белый хлеб') && names.includes('газировка');
+  if (!okFull) failed++;
+  console.log(`${okFull ? '✓' : '✗'} фраза пользователя целиком → 6 позиций (${names.join(' · ')})`);
+}
+
+// ---- 0.3.30: ведущая ёмкость без цифры («стакан кефира») ----
+{
+  const glass = parseMealText('стакан газировки');
+  const okGlass = glass.length === 1 && glass[0].unit === 'стакан' && Math.round(glass[0].kcal) === 105;
+  if (!okGlass) failed++;
+  console.log(`${okGlass ? '✓' : '✗'} «стакан газировки» → 1 стакан/105 (ранее молчаливое «≈100 г:42»)`);
+  const kef = parseMealText('стакан кефира');
+  const okKef = kef.length === 1 && kef[0].unit === 'стакан' && Math.round(kef[0].kcal) === 100;
+  if (!okKef) failed++;
+  console.log(`${okKef ? '✓' : '✗'} «стакан кефира» → 1 стакан/100`);
+  const bowl = parseMealText('тарелка супа');
+  const okBowl = bowl.length === 1 && bowl[0].unit === 'тарелка' && Math.round(bowl[0].kcal) === 113;
+  if (!okBowl) failed++;
+  console.log(`${okBowl ? '✓' : '✗'} регрессия: «тарелка супа» по-прежнему 1 тарелка/113`);
+}
+
+// ---- 0.3.30: облачные ошибки — человеческий 402, регрессии прочих веток ----
+{
+  const e402 = cloudErrorText(new Error('HTTP 402: {"error":{"message":"Payment Required"}}'));
+  const ok402 = e402.includes('402') && /баланс|тариф/i.test(e402) && !/неизвестная/i.test(e402);
+  if (!ok402) failed++;
+  console.log(`${ok402 ? '✓' : '✗'} cloudErrorText: 402 → честное «баланс/тариф провайдера», не голый код`);
+  const ok429 = cloudErrorText('HTTP 429: too many requests').includes('лимит запросов');
+  const okNet = cloudErrorText(new TypeError('Failed to fetch')).includes('Нет соединения');
+  const ok500 = cloudErrorText('HTTP 500: boom').includes('500');
+  const okBranches = ok429 && okNet && ok500;
+  if (!okBranches) failed++;
+  console.log(`${okBranches ? '✓' : '✗'} cloudErrorText: ветки 429/нет сети/500 не сломаны новой 402`);
+}
+
+// ---- 0.3.30: «Мой курс» — чистая модель ----
+{
+  // Нормализация времени: сортировка, дедупликация, валидация формата.
+  const times = normalizeCourseTimes(['20:00', '08:00', '08:00', 'утром', '24:00', '9:30']);
+  const okTimes = times.join(',') === '08:00,20:00'; // «9:30» без ведущего нуля отклоняем — строгий ЧЧ:ММ
+  if (!okTimes) failed++;
+  console.log(`${okTimes ? '✓' : '✗'} курс: время нормализуется (сортировка + дедуп + формат ЧЧ:ММ)`);
+  // Отказ на мусоре — короткое имя, пустое/битое время, без даты старта.
+  const okBad = normalizeCourse({ name: 'А', times: ['08:00'], startDate: '2026-08-01' }) === null
+    && normalizeCourse({ name: 'Витамин D', times: [], startDate: '2026-08-01' }) === null
+    && normalizeCourse({ name: 'Витамин D', times: ['вечером'], startDate: '2026-08-01' }) === null
+    && normalizeCourse({ name: 'Витамин D', times: ['08:00'] }) === null
+    && normalizeCourse(null) === null;
+  if (!okBad) failed++;
+  console.log(`${okBad ? '✓' : '✗'} курс: мусор на входе → честный отказ без записи`);
+  // Счётчик дня и окно активности.
+  const c = normalizeCourse({ name: 'Витамин D', times: ['08:00', '20:00'], daysTotal: 30, startDate: '2026-08-01' });
+  const okWin = c && courseDayNumber(c, '2026-08-12') === 12
+    && isCourseActiveOn(c, '2026-08-01') && isCourseActiveOn(c, '2026-08-30')
+    && !isCourseActiveOn(c, '2026-08-31') && !isCourseActiveOn(c, '2026-07-31')
+    && courseDayLabel(c, '2026-08-12') === 'день 12 из 30';
+  if (!okWin) failed++;
+  console.log(`${okWin ? '✓' : '✗'} курс: «день 12 из 30», окно активности по датам честное`);
+  // Бессрочный курс.
+  const endless = normalizeCourse({ name: 'Омега-3', times: ['08:00'], daysTotal: 0, startDate: '2026-01-01' });
+  const okEndless = endless && endless.daysTotal === 0 && isCourseActiveOn(endless, '2027-01-01')
+    && courseDayLabel(endless, '2026-01-10') === 'день 10';
+  if (!okEndless) failed++;
+  console.log(`${okEndless ? '✓' : '✗'} курс: длительность 0 = «пока не остановлю», активен всегда`);
+  // Отметки: нормализация журнала + живой тумблер в состоянии (с уборкой за собой).
+  const withLog = normalizeCourse({ name: 'Креатин', times: ['08:00', '20:00'], daysTotal: 0, startDate: '2026-08-01',
+    checkLog: { '2026-08-07': [1, 0, 0, 9, -1], 'плохая дата': [0] } });
+  const doses = courseDosesForDate(withLog, '2026-08-07');
+  const okLog = withLog && doses.length === 2 && doses[0].done === true && doses[1].done === true
+    && !('плохая дата' in withLog.checkLog);
+  if (!okLog) failed++;
+  console.log(`${okLog ? '✓' : '✗'} курс: журнал отметок — дедуп, отсев индексов вне приёмов и битых дат`);
+  const added = addCourse({ name: 'Тестовый курс xx', times: ['08:00', '20:00'], daysTotal: 30 });
+  const t1 = toggleCourseDose(added.item.id, 0);
+  const t2 = toggleCourseDose(added.item.id, 0);
+  const okToggle = added.ok && t1 && t2
+    && toggleCourseDose(added.item.id, 5) === false
+    && toggleCourseDose('нет-такого-id', 0) === false;
+  if (!okToggle) failed++;
+  console.log(`${okToggle ? '✓' : '✗'} курс: тумблер приёма ставит/снимает отметку, мусор отклоняется`);
+  removeCourse(added.item.id);
+  const okUpd = addCourse({ name: 'Тестовый курс yy', times: ['08:00'], daysTotal: 10 });
+  const upd = updateCourse(okUpd.item.id, { name: 'Тестовый курс yy', times: ['09:00', '21:00'], daysTotal: 20 });
+  const okUpdOk = upd.ok && upd.item.times.join(',') === '09:00,21:00' && upd.item.daysTotal === 20
+    && upd.item.startDate === okUpd.item.startDate
+    && updateCourse('нет-такого-id', { name: 'Х', times: ['08:00'] }).ok === false;
+  if (!okUpdOk) failed++;
+  console.log(`${okUpdOk ? '✓' : '✗'} курс: правка меняет время/дни, дату старта и отметки не трогает`);
+  removeCourse(okUpd.item.id);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
