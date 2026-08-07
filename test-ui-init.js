@@ -193,6 +193,10 @@ for (const id of ids) {
     && app3.includes('function askDeleteCustomFood(id)') && app3.includes('function confirmDeleteCustomFood()');
   if (!okDel) failed++;
   console.log(`${okDel ? '✓' : '✗'} подтверждение удаления своего продукта: диалог + функции на месте`);
+  const okEdit = app3.includes('function editCustomFood(id)') && app3.includes('custom-food-edit')
+    && app3.includes('custom: product.custom === true');
+  if (!okEdit) failed++;
+  console.log(`${okEdit ? '✓' : '✗'} «Мои продукты»: ✏️ правка из списка + метка custom в parseItem`);
   const cssAll = fs.readFileSync('style.css', 'utf8');
   const okScroll = cssAll.includes('.ai-result-box::before') && cssAll.includes('#ai-view-back { margin-top: 16px; }');
   if (!okScroll) failed++;
@@ -213,11 +217,13 @@ for (const id of ids) {
     && app4.includes("'курица вареная'") && app4.includes("'грудка жареная'");
   if (!okCook) failed++;
   console.log(`${okCook ? '✓' : '✗'} база: жареная/варёная курица и свинина добавлены`);
-  const okOff = ['custom-food-barcode', 'custom-food-off-btn'].every((id) => new RegExp(`id=["']${id}["']`).test(html))
-    && app4.includes("bindEvent('#custom-food-off-btn', 'click', findCustomFoodByBarcode)")
-    && app4.includes('function parseOffProduct(json)') && html.includes('Open Food Facts, ODbL');
+  // 0.3.28 (карта контуров — решение пользователя): онлайн-строка СКРЫТА,
+  // код-основа сохранён, флаг всегда ВЫКЛ по умолчанию
+  const okOff = !html.includes('custom-food-barcode')
+    && app4.includes('function parseOffProduct(json)') && app4.includes('async function lookupOffByBarcode(code)')
+    && app4.includes('onlineFeatures: { barcodeLookup: false }');
   if (!okOff) failed++;
-  console.log(`${okOff ? '✓' : '✗'} OFF-поиск по штрих-коду: строка, привязка, атрибуция ODbL`);
+  console.log(`${okOff ? '✓' : '✗'} карта контуров: OFF-строка скрыта, код-основа и выключенный флаг на месте`);
   const okIcons = html.includes('>ℹ️ Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
     && html.includes('>🛡️ Условия использования</button>') && html.includes('>💧 Как пользоваться приложением</button>');
   if (!okIcons) failed++;

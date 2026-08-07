@@ -1063,6 +1063,7 @@ function describeFoodItemLine(item) {
     amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
   }
   let line = escapeHtml(item.name) + ' ' + amountText + ' — ' + (item.approx ? '≈ ' : '') + fmt(Math.round(item.kcal)) + ' ккал';
+  if (item.custom) line += ' <small style="opacity:.75" title="Взято из «Моих продуктов» — ваши точные значения с упаковки">🏷 ваши значения</small>';
   if (item.note) line += '<br><small style="opacity:.72">' + escapeHtml(item.note) + '</small>';
   return line;
 }
@@ -1365,7 +1366,8 @@ function parseItem(text) {
     kcal: nutrition.kcal,
     p: nutrition.p,
     f: nutrition.f,
-    c: nutrition.c
+    c: nutrition.c,
+    custom: product.custom === true // 0.3.28: значение из «Моих продуктов» — помечаем в разборе
   };
 }
 
@@ -1400,6 +1402,7 @@ function getCustomFoodDb() {
       c: Number.isFinite(Number(item.c)) ? Number(item.c) : 0
     };
     if (Number(item.pieceG) > 0) entry.pieceG = Number(item.pieceG);
+    entry.custom = true; // значения пользователя (это и есть их преимущество правдивости)
     db[item.name.toLowerCase().trim()] = entry;
   });
   return db;
@@ -1599,6 +1602,21 @@ function confirmDeleteCustomFood() {
   if (dialog) dialog.hidden = true;
 }
 
+function editCustomFood(id) {
+  const item = (Array.isArray(state.customFoods) ? state.customFoods : []).find((x) => x.id === id);
+  if (!item) return;
+  const set = (sel, v) => { const el = $(sel); if (el) el.value = v == null ? '' : v; };
+  set('#custom-food-name', item.name);
+  set('#custom-food-kcal', item.kcal);
+  set('#custom-food-p', item.p);
+  set('#custom-food-f', item.f);
+  set('#custom-food-c', item.c);
+  set('#custom-food-piece', item.pieceG);
+  toast('✏️ Правка: измените значения и нажмите «Сохранить» — старое заменится');
+  const nameInput = $('#custom-food-name');
+  if (nameInput) nameInput.focus();
+}
+
 function renderCustomFoodsList() {
   const list = $('#custom-food-list');
   if (!list) return;
@@ -1609,11 +1627,15 @@ function renderCustomFoodsList() {
         + '<small>' + item.kcal + ' ккал/100 г'
         + (item.pieceG ? ' · 1 шт ≈ ' + item.pieceG + ' г' : '')
         + '</small></span>'
-        + '<button class="icon-btn custom-food-del" type="button" data-id="' + item.id + '" aria-label="Удалить продукт">✕</button></div>'
+        + '<span class="custom-food-actions">'
+        + '<button class="icon-btn custom-food-edit" type="button" data-id="' + item.id + '" aria-label="Изменить продукт">✏️</button>'
+        + '<button class="icon-btn custom-food-del" type="button" data-id="' + item.id + '" aria-label="Удалить продукт">✕</button></span></div>'
       ).join('')
     : '<p class="settings-hint" style="text-align:center">Пока пусто. Добавьте продукт с точными значениями с упаковки — и разбор будет брать их, а не усреднённые.</p>';
   list.querySelectorAll('.custom-food-del').forEach((btn) =>
     btn.addEventListener('click', () => askDeleteCustomFood(btn.dataset.id)));
+  list.querySelectorAll('.custom-food-edit').forEach((btn) =>
+    btn.addEventListener('click', () => editCustomFood(btn.dataset.id)));
 }
 
 function openCustomFoodDialog() {
@@ -1690,13 +1712,18 @@ const DEFAULTS = {
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
   customFoods: [], // Личная база продуктов (0.3.25): точные значения с упаковки, перекрывают общую
+  // Карта контуров (0.3.28, решение пользователя): сначала ПОЛНОСТЬЮ офлайн-версия
+  // с локальным ИИ (этап 0.4.x), онлайн — потом и только точечно. Этот объект —
+  // основа будущего онлайн-контура: всегда ВЫКЛ по умолчанию, включает ТОЛЬКО
+  // пользователь явным действием, каждый запрос в сеть помечен «онлайн».
+  onlineFeatures: { barcodeLookup: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.27';
+const FITFLOW_VERSION = '0.3.28';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7103,7 +7130,6 @@ function init() {
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
-  bindEvent('#custom-food-off-btn', 'click', findCustomFoodByBarcode);
   bindEvent('#custom-food-del-cancel', 'click', () => { pendingCustomFoodDeleteId = null; const d = $('#custom-food-del-dialog'); if (d) d.hidden = true; });
   bindEvent('#custom-food-del-confirm', 'click', confirmDeleteCustomFood);
   bindEvent('#ai-send-chat', 'click', sendAiChat);

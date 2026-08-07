@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -797,6 +797,21 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && parseOffProduct({ status: 1, product: { product_name: 'x', nutriments: { 'energy-kcal_100g': 5000 } } }) === null;
   if (!okJunk) failed++;
   console.log(`${okJunk ? '✓' : '✗'} OFF-разбор: не найден / без ккал / мусор → честный отказ без формы`);
+}
+
+// ---- Пометка «🏷 ваши значения» в разборе (0.3.28) ----
+{
+  const rTag = addCustomFood({ name: 'творог фермерский тест', kcal: 140, p: 16, f: 5, c: 3 });
+  const tagged = parseMealText('творог фермерский тест 200 г')[0];
+  const okTag = tagged && tagged.custom === true && tagged.kcal === 280
+    && describeFoodItemLine(tagged).includes('🏷 ваши значения');
+  if (!okTag) failed++;
+  console.log(`${okTag ? '✓' : '✗'} разбор помечает свой продукт: «200 г → 280 ккал · 🏷 ваши значения»`);
+  const plain = parseMealText('курица 100 г')[0];
+  const okPlain = plain && !plain.custom && !describeFoodItemLine(plain).includes('🏷');
+  if (!okPlain) failed++;
+  console.log(`${okPlain ? '✓' : '✗'} обычный продукт базы — без пометки`);
+  removeCustomFood(rTag.item.id);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
