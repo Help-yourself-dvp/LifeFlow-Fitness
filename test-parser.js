@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -812,6 +812,30 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!okPlain) failed++;
   console.log(`${okPlain ? '✓' : '✗'} обычный продукт базы — без пометки`);
   removeCustomFood(rTag.item.id);
+}
+
+// ---- Эксперт 2.1 (0.3.29): пакет фактов прогресса ----
+{
+  const lines = buildProgressAnswer({
+    today: { waterTotal: 1500, waterGoal: 2500, foodTotal: 1800, foodGoal: 2000, foodP: 85, activityMinutes: 30, mood: 4 },
+    week: { days: 5, kcalAvg: 1900, waterPctAvg: 72, moodAvg: 3.8, sleepAvgMin: 425 },
+    insights: ['😴 Сон и самочувствие: после сна < 7 ч ниже']
+  });
+  const okFull = lines.length === 3
+    && lines[0].includes('1500 из 2500 мл (60%)') && lines[0].includes('1800 из 2000 ккал (90%)')
+    && lines[0].includes('белок 85 г') && lines[0].includes('4/5')
+    && lines[1].includes('1900 ккал/день') && lines[1].includes('7 ч 05 мин')
+    && lines[2].includes('Сон и самочувствие');
+  if (!okFull) failed++;
+  console.log(`${okFull ? '✓' : '✗'} эксперт 2.1: день/неделя/связи собираются с верными числами`);
+  const few = buildProgressAnswer({ today: { waterTotal: 0, waterGoal: 2500, foodTotal: 0, foodGoal: 2000 }, week: { days: 1 } });
+  const okFew = few.length === 1 && few[0].includes('ещё не оценено') && !few.join('').includes('В среднем');
+  if (!okFew) failed++;
+  console.log(`${okFew ? '✓' : '✗'} эксперт 2.1: мало данных — только честный день, без недели и выдумок`);
+  const okJunk = Array.isArray(buildProgressAnswer(null)) && buildProgressAnswer(null).length === 0
+    && buildProgressAnswer({}).length === 0;
+  if (!okJunk) failed++;
+  console.log(`${okJunk ? '✓' : '✗'} эксперт 2.1: мусор на входе → пусто без падения`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

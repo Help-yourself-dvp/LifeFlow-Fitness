@@ -2724,15 +2724,9 @@ html[data-theme="dark"] .segmented button.active {
   box-shadow: inset 0 12px 16px -14px rgb(0 0 0 / 0.45), 0 8px 18px -12px rgb(0 0 0 / 0.30);
   scrollbar-width: thin;
 }
-.ai-result-box::before {
-  content: '';
-  display: block;
-  width: 46px;
-  height: 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--primary) 55%, transparent);
-  margin: 0 auto 10px;
-}
+/* 0.3.29: полоса-«ручка» УБРАНА — ложный аффорданс (обещала drag, была
+   только декором; кейс пользователя «тяну — не влияет»). Отдельность
+   панели теперь честно дают рамка, тень и видимый скроллбар ниже. */
 .ai-result-box::-webkit-scrollbar { width: 6px; }
 .ai-result-box::-webkit-scrollbar-track { background: transparent; }
 .ai-result-box::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 3px; }

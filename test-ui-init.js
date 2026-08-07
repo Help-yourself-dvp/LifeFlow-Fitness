@@ -198,9 +198,12 @@ for (const id of ids) {
   if (!okEdit) failed++;
   console.log(`${okEdit ? '✓' : '✗'} «Мои продукты»: ✏️ правка из списка + метка custom в parseItem`);
   const cssAll = fs.readFileSync('style.css', 'utf8');
-  const okScroll = cssAll.includes('.ai-result-box::before') && cssAll.includes('#ai-view-back { margin-top: 16px; }');
+  // 0.3.29: псевдо-ручка убрана (ложный аффорданс), разделители — рамка/тень/скроллбар
+  const okScroll = !cssAll.includes('.ai-result-box::before')
+    && cssAll.includes('border: 1.5px solid color-mix(in srgb, var(--primary) 40%, transparent)')
+    && cssAll.includes('#ai-view-back { margin-top: 16px; }');
   if (!okScroll) failed++;
-  console.log(`${okScroll ? '✓' : '✗'} ИИ: панель результата визуально отделена (полоса-ручка), «Назад» опущен`);
+  console.log(`${okScroll ? '✓' : '✗'} ИИ: панель результата отделена без ложной «ручки» (рамка+скроллбар), «Назад» опущен`);
   const okAbout = html.includes('>ℹ️ Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
     && html.includes('>🛡️ Условия использования</button>') && html.includes('>💧 Как пользоваться приложением</button>');
   if (!okAbout) failed++;
@@ -232,6 +235,15 @@ for (const id of ids) {
   const okCenter = css5.includes('#custom-food-del-dialog .app-dialog-actions button { width: 100%; }');
   if (!okCenter) failed++;
   console.log(`${okCenter ? '✓' : '✗'} диалог удаления: кнопка «Отмена» растянута (не прижата влево)`);
+}
+
+// 0.3.29: эксперт 2.1 — чат отвечает на вопросы о прогрессе фактами
+{
+  const app5 = fs.readFileSync('app.js', 'utf8');
+  const okProg = app5.includes('function buildProgressAnswer(input)') && app5.includes('function gatherProgressFacts()')
+    && app5.includes('buildProgressAnswer(gatherProgressFacts())');
+  if (!okProg) failed++;
+  console.log(`${okProg ? '✓' : '✗'} эксперт 2.1: чат «как мой день/прогресс» → пакет фактов (мост к локальному ИИ)`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

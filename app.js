@@ -1723,7 +1723,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.28';
+const FITFLOW_VERSION = '0.3.29';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -8009,6 +8009,60 @@ function buildExpertInsights(input) {
   return insights;
 }
 
+/* Эксперт 2.1 (0.3.29): единый «пакет фактов» о прогрессе.
+   Двойное назначение: (1) сейчас — честные ответы чата на вопросы
+   «как мой день / мой прогресс», (2) мост к локальному ИИ 0.4.x — та же
+   структура станет контекстом нейросети на устройстве. Чистое ядро
+   buildProgressAnswer(input) покрыто тестами; сбор gatherProgressFacts()
+   только читает state (без записей — честный «мало данных»). */
+function buildProgressAnswer(input) {
+  const t = (input && input.today) || null;
+  if (!t) return [];
+  const lines = [];
+  const waterPct = t.waterGoal > 0 ? Math.round((Number(t.waterTotal) || 0) / t.waterGoal * 100) : 0;
+  const foodPct = t.foodGoal > 0 ? Math.round((Number(t.foodTotal) || 0) / t.foodGoal * 100) : 0;
+  lines.push('💧 <b>Сегодня</b>: вода ' + Math.round(Number(t.waterTotal) || 0) + ' из ' + t.waterGoal + ' мл (' + waterPct + '%)'
+    + ', питание ' + Math.round(Number(t.foodTotal) || 0) + ' из ' + t.foodGoal + ' ккал (' + foodPct + '%)'
+    + (Number(t.foodP) > 0 ? ', белок ' + Math.round(Number(t.foodP)) + ' г' : '')
+    + (Number(t.activityMinutes) > 0 ? ', активность ' + Math.round(Number(t.activityMinutes)) + ' мин' : '')
+    + '. Самочувствие: ' + (Number(t.mood) >= 1 ? t.mood + '/5' : 'ещё не оценено') + '.');
+  const w = input && input.week;
+  if (w && Number(w.days) >= 3) {
+    const sleepTxt = Number(w.sleepAvgMin) > 0
+      ? ', сон в среднем ' + Math.floor(w.sleepAvgMin / 60) + ' ч ' + String(Math.round(w.sleepAvgMin) % 60).padStart(2, '0') + ' мин'
+      : '';
+    lines.push('📅 <b>В среднем за ' + w.days + ' дн.</b>: ' + Math.round(Number(w.kcalAvg) || 0) + ' ккал/день'
+      + ', вода ' + Math.round(Number(w.waterPctAvg) || 0) + '% цели'
+      + (Number(w.moodAvg) > 0 ? ', самочувствие ' + (Math.round(w.moodAvg * 10) / 10) + '/5' : '') + sleepTxt + '.');
+  }
+  const insights = (input && Array.isArray(input.insights)) ? input.insights : [];
+  if (insights.length) lines.push('🔗 <b>Ваши закономерности</b>: ' + insights.join(' · '));
+  return lines;
+}
+
+function gatherProgressFacts() {
+  const today = currentDaySummary();
+  const mood = getTodayMood();
+  today.mood = mood || null;
+  const cutoff = todayKey();
+  const weekDays = (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).slice(0, 7);
+  weekDays.unshift(today);
+  const days = weekDays.slice(0, 7);
+  const kcalAvg = days.reduce((s, d) => s + (Number(d.foodTotal) || 0), 0) / days.length;
+  const waterPctAvg = days.reduce((s, d) => s + ((Number(d.waterGoal) || 2500) > 0 ? (Number(d.waterTotal) || 0) / d.waterGoal * 100 : 0), 0) / days.length;
+  const moodDays = days.filter((d) => Number(d.mood) >= 1);
+  const sleepEntries = ((state.sleepCheckin && Array.isArray(state.sleepCheckin.log)) ? state.sleepCheckin.log : [])
+    .filter((e) => e && Number.isFinite(Number(e.durationMin)) && e.durationMin > 0).slice(-7, -1);
+  const sleepAvgMin = sleepEntries.length
+    ? Math.round(sleepEntries.reduce((s, e) => s + Number(e.durationMin), 0) / sleepEntries.length) : 0;
+  const insights = gatherExpertInsights().map((i) => i.icon + ' ' + i.title + ': ' + i.text);
+  return {
+    today,
+    week: { days: days.length, kcalAvg, waterPctAvg, moodAvg: moodDays.length ? moodDays.reduce((s, d) => s + d.mood, 0) / moodDays.length : 0, sleepAvgMin },
+    insights
+  };
+}
+
 function gatherExpertInsights() {
   const daily = Array.isArray(state.dailyHistory) ? [...state.dailyHistory] : [];
   const todaySum = currentDaySummary();
@@ -8535,6 +8589,12 @@ function buildAiChatAnswer(text) {
     return '<ul>' + rows + '</ul>' +
       '<p>Данные — из локальной базы FitFlow (925+ продуктов). Чтобы записать блюдо в дневник, откройте вкладку «Ввод» и напишите, например: «' + escapeHtml(foundKeys[0]) + ' 150 г».</p>';
   };
+  // 0) «Как мой день / мой прогресс» — отвечаем вашими же фактами
+  // (эксперт 2.1): цифры дня и недели + найденные закономерности.
+  if (/как (мои?|моя) (дела|день|прогресс)|мой прогресс|как я (питаюсь|ем|сплю|себя чувствую)|разбери мой (день|прогресс)|итог (дня|моего дня)|как у меня дела/iu.test(lower)) {
+    return '<p>' + buildProgressAnswer(gatherProgressFacts()).join('</p><p>') + '</p>'
+      + '<p class="settings-hint">Это ваши собственные записи за сегодня и неделю — без выдуманных выводов.</p>';
+  }
   // 1) «Что приготовить…» — направляем в реальный генератор рецептов.
   if (/приготов|рецепт|сготов|блюдо|из чего/iu.test(lower)) {
     const known = foundKeys.length
@@ -8680,6 +8740,6 @@ if (typeof module !== 'undefined' && module.exports) {
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
-    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct
+    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer
   };
 }
