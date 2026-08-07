@@ -132,6 +132,7 @@ const FOOD_DB = {
   'творожный сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырок творожный': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' },
   'сырок с вареной сгущенкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' }, 'сырок с варёной сгущёнкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' },
   'сырок в шоколаде': { kcal: 215, p: 4, f: 14, c: 17, per: 'шт' }, 'творожок': { kcal: 130, p: 8, f: 5, c: 13 },
+  'творожная масса с изюмом': { kcal: 345, p: 7, f: 22, c: 29 },
   'творожная масса': { kcal: 340, p: 7, f: 23, c: 26 }, 'творожный пудинг': { kcal: 150, p: 10, f: 4, c: 18 },
   'молочный ломтик': { kcal: 118, p: 2.2, f: 7.8, c: 9.5, per: 'шт' }, 'йогурт питьевой с фруктами': { kcal: 75, p: 2.8, f: 1.5, c: 12 },
   // ===== Новые готовые блюда, выпечка и салаты =====
@@ -635,6 +636,23 @@ const UNIT_MAP = {
 const SLICE_UNIT_GRAMS = { 'кусок': 100, 'ломоть': 30, 'долька': 30 };
 const PIECE_UNITS = new Set(['шт', 'шт.', 'штук', 'штука', 'штуки', 'штук.']);
 
+/* Вес доли зависит от ПРОДУКТА (0.3.19, главный приоритет — правдивость).
+   Кейс пользователя: «два куска белого хлеба» посчитались как 2 шт по 70 г
+   = 350 ккал, хотя бытовой кусок/ломтик белого хлеба — 25–40 г. Хлебному
+   семейству задаём честные веса нарезки; остальные продукты — по дефолту
+   (кусок 100 г, штука 70 г, ломоть/долька 30 г). */
+const BREAD_PIECE_GRAMS = { 'кусок': 40, 'ломоть': 30, 'долька': 15, 'шт': 30 };
+const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной хлеб', 'отрубной хлеб', 'цельнозерновой хлеб', 'батон', 'бородинский']);
+function pieceGramsFor(product, normUnit) {
+  if (product && product.key && BREAD_KEYS.has(product.key)) {
+    const bread = BREAD_PIECE_GRAMS[normUnit];
+    if (bread) return bread;
+  }
+  if (PIECE_UNITS.has(normUnit)) return 70;
+  if (Object.prototype.hasOwnProperty.call(SLICE_UNIT_GRAMS, normUnit)) return SLICE_UNIT_GRAMS[normUnit];
+  return null;
+}
+
 /* Канонизация единицы из регулярки: склонения → базовая форма. */
 function canonicalUnit(unitRaw) {
   const u = String(unitRaw || '').toLowerCase().trim();
@@ -939,6 +957,11 @@ function parseSmartEntry(text) {
     rest = rest.replace(activityPattern, ',');
     // Граница слова \b для кириллицы не работает — используем lookahead.
     rest = rest.replace(/\d+(?:[.,]\d+)?\s*(?:мин(?:ут[аы]?)?|час(?:а|ов)?|ч)(?![а-яёa-z])/giu, ',');
+    // «2 куска белого хлеба»: прилагательное МЕЖДУ единицей и существительным.
+    // Общий обмен ниже захватил бы только «белого» → «белого 2 куска хлеба».
+    // (кейс 0.3.19 — всплыл новыми тестами parseSmartEntry; раньше такие фразы
+    // просто терялись). Правило ДО общего обмена, строго по хвосту-прилагательному.
+    rest = rest.replace(/(\d+(?:[.,]\d+)?\s+(?:шт\.?|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*|порци[а-яё]*))\s+([а-яёa-z]+(?:ого|его|ему|ому|ий|ый|ой|ей|ая|яя|ое|ёе|ее|ые|ие|ье|ью|их|ых|ами|ыми|ими))\s+([а-яёa-z]+)/giu, '$2 $3 $1');
     rest = rest.replace(/(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|литр(?:а|ов)?|л(?![а-яё])|стакан(?:а|ов)?|кг|гр|грамм(?:а|ов)?|шт\.?|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*))\s+([а-яёa-z]+)/giu, '$2 $1');
     if (rest.replace(/[\s,;.]/g, '').length > 0) {
       food.push(...parseMealText(rest).filter((item) => item.name !== 'вода'));
@@ -1214,6 +1237,14 @@ function parseItem(text) {
   if (numberWordLead) {
     amount = NUMBER_WORDS[numberWordLead[1].toLowerCase()];
     unit = 'шт';
+    // «два куска белого хлеба» (кейс 0.3.19): слово-доля ПОСЛЕ числительного —
+    // это единица измерения, а не часть названия. Без перехвата «2 куска»
+    // считались как «2 шт по 70 г», а хлебные дольки — по честным весам.
+    const sliceAfterNumber = numberWordLead[2].match(/^(кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*)\s+(.+)$/iu);
+    if (sliceAfterNumber) {
+      unit = canonicalUnit(sliceAfterNumber[1]);
+      numberWordLead[2] = sliceAfterNumber[2];
+    }
   }
   // Цифра первым без единицы: «4 бутерброда с колбасой», «2 яблока» — это штуки,
   // а не «100 г» (ранее цифра 4 терялась и подставлялась целая 100-граммовая порция).
@@ -1303,6 +1334,13 @@ function parseItem(text) {
      окончание до 3 букв («пиццы/пиццу/пицце» → «пицца», «мяса» → «мясо»);
    — при совпадении нескольких ключей побеждает самый длинный.
    Эскейпинг и кэш ключей — чтобы не пересобирать список при каждом поиске. */
+/* Прилагательные в составных ключах склоняются («белого хлеба» vs ключ
+   «белый хлеб» — кейс 0.3.19: фраза падала до голого «хлеб» 250 ккал).
+   Для прилагательных сравниваем ОСНОВЫ: срезаем типичное прилагательное
+   окончание и требуем точного равенства основ. Существительные не режем —
+   иначе «белок» склеился бы с «белый». */
+const ADJ_ENDING_RE = /(?:ыми|ими|ого|его|ому|ему|ых|их|ым|им|ый|ий|ой|ая|яя|ое|ёе|ее|ые|ие|ую|юю)$/u;
+const adjStem = (w) => { const s = String(w).replace(ADJ_ENDING_RE, ''); return (s !== w && s.length >= 3) ? s : w; };
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const FOOD_KEYS_BY_LENGTH = Object.keys(FOOD_DB).sort((a, b) => b.length - a.length);
 
@@ -1338,6 +1376,11 @@ function lookupProduct(name) {
         // срез конечной гласной бессилен. Порог 3–5 букв защищает от ложных пар.
         const wordMatch = (a1, b1) => {
           if (a1 === b1) return true;
+          // Прилагательные в разных падежах: точное равенство основ
+          // («белого»~«белый» → «бел»). «Белок» не страдает: не прилагательное.
+          const sa = adjStem(a1);
+          const sb = adjStem(b1);
+          if ((sa !== a1 || sb !== b1) && sa === sb) return true;
           let i = 0;
           const limit = Math.min(a1.length, b1.length);
           while (i < limit && a1[i] === b1[i]) i++;
@@ -1360,8 +1403,8 @@ function calcNutrition(product, amount, unit) {
 
   const factor = (() => {
     if (amount == null) return 1; // порция по умолчанию: 100 г или 1 шт
-    if (isPiece) return perPiece ? amount : 0.7 * amount; // ~70 г на штуку
-    if (isSlice) return perPiece ? amount : (SLICE_UNIT_GRAMS[normUnit] * amount) / 100;
+    if (isPiece) return perPiece ? amount : (pieceGramsFor(product, normUnit) / 100) * amount;
+    if (isSlice) return perPiece ? amount : (pieceGramsFor(product, normUnit) * amount) / 100;
     if (normUnit === 'кг') return 10 * amount;
     if (normUnit === 'л') return 10 * amount;
     return ((UNIT_MAP[normUnit] || 1) * amount) / 100;
@@ -1371,8 +1414,8 @@ function calcNutrition(product, amount, unit) {
   // null, когда вес зависит от конкретного продукта (штуки без известной массы).
   const grams = (() => {
     if (amount == null) return perPiece ? (product.pieceG || null) : 100;
-    if (isPiece) return perPiece ? (product.pieceG ? product.pieceG * amount : null) : Math.round(70 * amount);
-    if (isSlice) return perPiece ? null : SLICE_UNIT_GRAMS[normUnit] * amount;
+    if (isPiece) return perPiece ? (product.pieceG ? product.pieceG * amount : null) : Math.round(pieceGramsFor(product, normUnit) * amount);
+    if (isSlice) return perPiece ? null : pieceGramsFor(product, normUnit) * amount;
     if (normUnit === 'кг') return 1000 * amount;
     if (normUnit === 'л') return 1000 * amount;
     if (UNIT_MAP[normUnit]) return UNIT_MAP[normUnit] * amount;
@@ -1432,7 +1475,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.18';
+const FITFLOW_VERSION = '0.3.19';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -6931,7 +6974,15 @@ function init() {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
     scheduleKeyboardShift(field);
-    if (isImeDockField(field)) openImeDock(field);
+    if (isImeDockField(field)) {
+      // 0.3.19 (пробы build 136): перенос в док В МОМЕНТ focusin гасил подъём
+      // клавиатуры в разделах Питание/Вода — пользователю приходилось тапать
+      // второй раз. Эти поля докуем ОТЛОЖЕННО: по факту просадки viewport
+      // (клавиатура точно открылась) или по таймеру-фолбэку. Поля ИИ докуем
+      // сразу: там тап стабилен, а «поле прилипло к низу» пользователю понравилось.
+      if (isImeDockDeferredField(field)) scheduleDeferredImeDock(field);
+      else openImeDock(field);
+    }
   });
   // Докрутка — только когда клавиатура реально изменила видимый viewport.
   if (window.visualViewport) {
@@ -6944,6 +6995,7 @@ function init() {
   // не гасит — кнопки «Разобрать»/«Добавить» в нём же перенесены).
   document.addEventListener('focusout', (event) => {
     if (event.target && event.target.matches && event.target.matches('input, textarea')) cancelKeyboardShift();
+    if (event.target === imeDockPending.field) cancelDeferredImeDock();
     if (imeDockState.container) {
       setTimeout(() => {
         const dock = $('#ime-dock');
@@ -6959,6 +7011,13 @@ function init() {
 
   // Клавиатура полностью закрылась (высота вьюпорта восстановилась) → док домой.
   const imeDockViewportHandler = () => {
+    // Клавиатура реально открылась (adjustResize просел) → переносим
+    // отложенное поле в док: кнопки «Добавить» оказываются над клавиатурой.
+    if (imeDockPending.field && window.innerHeight < imeDockBaseHeight * 0.8) {
+      const pendingField = imeDockPending.field;
+      cancelDeferredImeDock();
+      if (document.activeElement === pendingField) openImeDock(pendingField);
+    }
     if (imeDockState.container && window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
   };
   if (window.visualViewport) {
@@ -6970,8 +7029,6 @@ function init() {
   }
 
   maybeShowTerms();
-  // Прогрев layout скрытых экранов — после первой отрисовки, не на пути старта.
-  setTimeout(warmupHiddenViewsLayout, 200);
   } catch (e) {
     console.error('init() error:', e.message, e.stack);
     // Show error visually so user knows something is wrong
@@ -7257,8 +7314,6 @@ function handleWaterVoiceBtn() {
    факт первой (провальной) сессии. Отсюда стратегия 0.3.18: автофокус поля в
    жесте открытия раздела + один программный повтор — автоматический «второй
    тап», невидимый для пользователя. */
-let imeRetryTimer = 0;
-
 /* ===== IME-док (0.3.18): поле ввода + его кнопки над клавиатурой =====
    Жалоба пользователя: «клавиатура подняла поле, но кнопки под полем
    перекрыты — чтобы отправить, нужно скрывать клавиатуру» (ИИ), и пожелание:
@@ -7268,14 +7323,45 @@ let imeRetryTimer = 0;
    Нода переносится без пересоздания — обработчики/фокус/IME-сессия живые.
    Возврат — по focusout наружу, закрытию клавиатуры или смене экрана. */
 const IME_DOCK_FIELD_IDS = ['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input', '#food-input', '#water-custom-ml'];
+// 0.3.19: эти поля докуются отложенно — перенос в момент focusin гасил
+// первый тап с подъёмом клавиатуры (регресс на build 136, пробы пользователя).
+const IME_DOCK_DEFERRED_FIELD_IDS = ['#food-input', '#water-custom-ml'];
 const IME_DOCK_CONTAINERS_SEL = '.ai-input-stack, #food-form, #water-custom-row';
 let imeDockState = { container: null, placeholder: null };
+let imeDockPending = { field: null, timer: 0 };
 
 function isImeDockField(el) {
   return !!(el && el.matches && el.matches(IME_DOCK_FIELD_IDS.join(',')));
 }
 
+function isImeDockDeferredField(el) {
+  return !!(el && el.matches && el.matches(IME_DOCK_DEFERRED_FIELD_IDS.join(',')));
+}
+
+/* Отложенный док (Питание/«Своя мл»): ждём ФАКТА клавиатуры — просадки
+   visualViewport (обработчик в init). Фолбэк-таймер — на случай «мёртвой
+   первой IME-сессии» GBoard: resize не пришёл, поле в фокусе, клавиатуры нет.
+   Тогда всё равно переносим вниз: повторный тап по полю в доке поднимает
+   клавиатуру так же надёжно, как в ИИ-разделе (пробы build 136). */
+function scheduleDeferredImeDock(field) {
+  cancelDeferredImeDock();
+  imeDockPending.field = field;
+  imeDockPending.timer = setTimeout(() => {
+    const f = imeDockPending.field;
+    cancelDeferredImeDock();
+    if (f && f.isConnected && document.activeElement === f && !imeDockState.container) {
+      openImeDock(f);
+    }
+  }, 700);
+}
+
+function cancelDeferredImeDock() {
+  if (imeDockPending.timer) clearTimeout(imeDockPending.timer);
+  imeDockPending = { field: null, timer: 0 };
+}
+
 function openImeDock(field) {
+  cancelDeferredImeDock();
   const dock = $('#ime-dock');
   if (!dock || !field) return;
   const container = field.closest(IME_DOCK_CONTAINERS_SEL);
@@ -7289,6 +7375,7 @@ function openImeDock(field) {
 }
 
 function closeImeDock() {
+  cancelDeferredImeDock();
   const dock = $('#ime-dock');
   const st = imeDockState;
   if (!st.container) return;
@@ -7300,27 +7387,18 @@ function closeImeDock() {
   if (dock) dock.hidden = true;
 }
 
-function scheduleImeRetry(field) {
-  clearTimeout(imeRetryTimer);
-  const h0 = window.innerHeight;
-  imeRetryTimer = setTimeout(() => {
-    if (!field || !field.isConnected || document.activeElement !== field) return;
-    // adjustResize: открытая клавиатура за 450 мс точно уменьшила высоту.
-    // Не уменьшила — сессия провальная: blur+focus = наш «второй тап».
-    if (window.innerHeight < h0 * 0.8) return;
-    field.blur();
-    field.focus({ preventScroll: true });
-  }, 450);
-}
-
 function openAiCenter() {
   switchView('ai');
-  // Вызов из клика (user gesture) — Chromium разрешит показ клавиатуры.
+  // Кейс GBoard — финальная модель (подтверждена пробами build 135–136):
+  // ПЕРВАЯ IME-сессия после холодного старта обречена, вторая и далее — живые;
+  // время и раздел роли не играют. Программно поднять клавиатуру WebView
+  // не даёт Chromium (blur/focus-ретрай 0.3.18 удалён как бесполезный).
+  // Автофокус в жесте тапа МОЛЧА «сжигает» мёртвую первую сессию: реальный
+  // тап пользователя по полю — уже вторая сессия, клавиатура и голосовой
+  // ввод GBoard работают с первого раза. Поле при этом сразу в доке внизу —
+  // пользователь подтвердил, что такой сценарий устраивает.
   const field = $('#ai-quick-input');
-  if (field) {
-    field.focus({ preventScroll: true });
-    scheduleImeRetry(field);
-  }
+  if (field) field.focus({ preventScroll: true });
 }
 
 function closeAiCenter() {
@@ -7349,28 +7427,6 @@ const RECIPE_STEP_BY_CATEGORY = {
   dairy: 'молочное подайте рядом или используйте как лёгкий соус',
   fat: 'заправку добавьте в конце — 1 чайной ложки масла обычно достаточно'
 };
-
-/* Прогрев скрытых экранов при старте (0.3.18, кейс GBoard): по наблюдениям
-   пользователя проваливается ТОЛЬКО первая IME-сессия и ТОЛЬКО если ИИ —
-   первый посещённый раздел после холодного старта. Одно из оставшихся
-   различий: ИИ-экран до первого визита никогда не получал layout. Прогреваем
-   все скрытые экраны принудительным layout БЕЗ paint (visibility:hidden) —
-   дёшево и безопасно; если фактор не layout, прогрев просто безвреден. */
-function warmupHiddenViewsLayout() {
-  const sels = ['#stats-view', '#training-view', '#ai-view', '#settings-view',
-    '#notifications-view', '#game-medals-view', '#water-details-view',
-    '#food-details-view', '#weight-details-view']
-    .concat((typeof SETTINGS_SUBVIEWS !== 'undefined' ? SETTINGS_SUBVIEWS : []).map((s) => `#${s}-view`));
-  sels.forEach((sel) => {
-    const el = $(sel);
-    if (!el || !el.hidden) return;
-    el.style.visibility = 'hidden';
-    el.hidden = false;
-    void el.offsetHeight; // принудительный layout без отрисовки
-    el.hidden = true;
-    el.style.visibility = '';
-  });
-}
 
 function capitalizeFirst(text) {
   const s = String(text || '');

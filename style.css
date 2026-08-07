@@ -3147,28 +3147,111 @@ html[data-palette="forest"][data-theme="dark"] {
   --bg-blob-b: rgb(76 175 80 / 0.07);
 }
 
-/* 🍇 Ягода (0.3.18): малиново-фиолетовая, тёплая */
+/* 🍇 Ягода (0.3.18 → доработка 0.3.19 по примеру Wildberries): фирменная
+   маджента + фиолет + тёплый коралл; больше цветных элементов. Фон НЕ
+   переопределяем (урок sport-dark «всё сливается») — только акцентные токены. */
 html[data-palette="berry"] {
-  --grad-a: #c2185b;
-  --grad-b: #8e24aa;
-  --calorie-accent: #7c4dff;
-  --bg-blob-a: rgb(194 24 91 / 0.09);
-  --bg-blob-b: rgb(142 36 170 / 0.08);
-  --md-sys-color-primary: #c2185b;
+  --grad-a: #cb11ab;
+  --grad-b: #ff4d94;
+  --calorie-accent: #ff7a3d;
+  --bg-blob-a: rgb(203 17 171 / 0.10);
+  --bg-blob-b: rgb(255 77 148 / 0.08);
+  --card-shadow: 0 1px 2px rgb(59 0 51 / 0.05), 0 12px 28px rgb(122 10 100 / 0.10);
+  --md-sys-color-primary: #b30d94;
   --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #ffd9e6;
-  --md-sys-color-on-primary-container: #3f0022;
+  --md-sys-color-primary-container: #ffd7f1;
+  --md-sys-color-on-primary-container: #410033;
+  --md-sys-color-secondary: #7b21c8;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #eeddff;
+  --md-sys-color-on-secondary-container: #2c0052;
+  --md-sys-color-tertiary: #c33c00;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffe0d0;
+  --md-sys-color-on-tertiary-container: #3a0b00;
 }
 html[data-palette="berry"][data-theme="dark"] {
-  --md-sys-color-primary: #ff8fc7;
-  --md-sys-color-on-primary: #4a002d;
-  --md-sys-color-primary-container: #6d1a51;
-  --md-sys-color-on-primary-container: #ffd9ec;
-  --grad-a: #ff8fc7;
-  --grad-b: #ce93d8;
-  --bg-blob-a: rgb(255 143 199 / 0.08);
-  --bg-blob-b: rgb(206 147 216 / 0.07);
+  --md-sys-color-primary: #ff7ad0;
+  --md-sys-color-on-primary: #4a003c;
+  --md-sys-color-primary-container: #801877;
+  --md-sys-color-on-primary-container: #ffd9f0;
+  --md-sys-color-secondary: #d6a4ff;
+  --md-sys-color-on-secondary: #3e006b;
+  --md-sys-color-secondary-container: #5c2499;
+  --md-sys-color-on-secondary-container: #eeddff;
+  --md-sys-color-tertiary: #ffb59b;
+  --md-sys-color-on-tertiary: #5c1900;
+  --md-sys-color-tertiary-container: #8a2800;
+  --md-sys-color-on-tertiary-container: #ffe0d0;
+  --grad-a: #ff7ad0;
+  --grad-b: #b983ff;
+  --calorie-accent: #ffab7a;
+  --bg-blob-a: rgb(255 122 208 / 0.09);
+  --bg-blob-b: rgb(185 131 255 / 0.08);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px rgb(255 122 208 / 0.07);
 }
+
+/* 🍇 Ягода — «маркетплейс»-характер (0.3.19, фидбек «возьми за пример
+   Wildberries, добавь цветных элементов, подумай над шрифтом»):
+   фирменный ягодный градиент на ключевых элементах — кнопки, активная
+   точка меню, чипы, кнопка ✨, приветствие с цветной подсечкой; округлые
+   «пузырьковые» формы. Градиентный ТЕКСТ только у приветствия: там строка
+   без эмодзи (эмодзи при text-fill: transparent могли бы исчезнуть).
+   Собственный файл шрифта — опцией, см. tools/github-workflows/FONT_PATCH.md. */
+html[data-palette="berry"] .greeting-title {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--md-sys-color-primary);
+  background: linear-gradient(120deg, var(--grad-a), var(--grad-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+html[data-palette="berry"] .greeting-title::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  bottom: 0;
+  width: 64px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+}
+html[data-palette="berry"] h2,
+html[data-palette="berry"] .checklist-header,
+html[data-palette="berry"] .settings-label {
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 60%, var(--grad-a));
+}
+html[data-palette="berry"] .btn-primary {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--grad-a) 34%, transparent);
+  font-weight: 700;
+}
+html[data-palette="berry"] .btn-primary:active {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--grad-a) 30%, transparent);
+}
+html[data-palette="berry"] #ai-center-open {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  color: #ffffff;
+  border-radius: 14px;
+}
+html[data-palette="berry"] #ai-center-open:active { filter: brightness(1.08); }
+html[data-palette="berry"] .nav-item.active {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+  border-radius: 16px;
+}
+html[data-palette="berry"] .chip[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  border-color: transparent;
+  color: var(--md-sys-color-on-primary);
+  font-weight: 700;
+}
+html[data-palette="berry"] .card { border-radius: 26px; }
+html[data-palette="berry"] .form-input,
+html[data-palette="berry"] .food-input { border-radius: 16px; }
 
 /* ⚡ Sport, ТОЛЬКО светлая тема (0.3.17→фикс 0.3.18: эти токены раньше стояли
    в общем селекторе html[data-palette="sport"] и по специфичности/порядку

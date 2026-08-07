@@ -41,7 +41,7 @@ const functions = [
   'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
-  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'openImeDock', 'closeImeDock', 'isImeDockField', 'scheduleImeRetry', 'warmupHiddenViewsLayout', 'computeMealsEatenToday', 'cancelKeyboardShift', 'queueKeyboardShift',
+  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'openImeDock', 'closeImeDock', 'isImeDockField', 'isImeDockDeferredField', 'scheduleDeferredImeDock', 'cancelDeferredImeDock', 'computeMealsEatenToday', 'cancelKeyboardShift', 'queueKeyboardShift',
   'getPalette', 'setPalette', 'applyPalette', 'computeMaxCardioDayMinutes',
   // 0.3.12: мини-онбординг
   'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
@@ -122,10 +122,11 @@ let failed = 0;
     && /html\[data-palette="sport"\]:not\(\[data-theme="dark"\]\)[^{]*\{[^}]*--md-sys-color-surface:\s*#f7f4ec/.test(css2)
     && !/html\[data-palette="sport"\]\s*\{[^}]*--md-sys-color-surface/.test(css2)
     && /#ime-dock\s*\{[^}]*position:\s*fixed/.test(css2)
-    && /isImeDockField\(field\)\)\s*openImeDock\(field\)/.test(app)
+    && /isImeDockDeferredField\(field\)\)\s*scheduleDeferredImeDock\(field\)/.test(app)
+    && !/scheduleImeRetry|warmupHiddenViewsLayout/.test(app)
     && !/\.ai-center-modal/.test(css2);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док в CSS и в focusin`);
+  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док в CSS, отложенный док для Питания/Воды, мёртвый код 0.3.18 удалён`);
 }
 
 for (const name of functions) {
