@@ -3108,6 +3108,78 @@ html[data-palette="neon"][data-theme="dark"] {
   --md-sys-color-primary: #4adcf2;
 }
 
+/* 🌃 Neon — «шрифтовой» характер (фидбек 0.3.17: «от стандартной отличается
+   только свечением»): рваный ритм заголовков и градиентные primary-кнопки. */
+html[data-palette="neon"][data-theme="dark"] h1,
+html[data-palette="neon"][data-theme="dark"] h2,
+html[data-palette="neon"][data-theme="dark"] .checklist-header,
+html[data-palette="neon"][data-theme="dark"] .greeting-title {
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+html[data-palette="neon"][data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, var(--grad-b, #4adcf2), var(--grad-a, #7c5cff));
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.25);
+}
+
+/* 🌿 Лес (0.3.18, заказ «ещё 1–2 темы»): спокойная зелень в обоих режимах.
+   Фон НЕ переопределяем намеренно (урок sport-dark «всё сливается») —
+   только акцентные токены. */
+html[data-palette="forest"] {
+  --grad-a: #2e7d32;
+  --grad-b: #9ccc65;
+  --calorie-accent: #e07b39;
+  --bg-blob-a: rgb(46 125 50 / 0.10);
+  --bg-blob-b: rgb(156 204 101 / 0.09);
+  --md-sys-color-primary: #2e7d32;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d9f0d0;
+  --md-sys-color-on-primary-container: #0b2e0f;
+}
+html[data-palette="forest"][data-theme="dark"] {
+  --md-sys-color-primary: #9ccc65;
+  --md-sys-color-on-primary: #1b3400;
+  --md-sys-color-primary-container: #2c4d12;
+  --md-sys-color-on-primary-container: #e2f5c8;
+  --grad-a: #9ccc65;
+  --grad-b: #4caf50;
+  --bg-blob-a: rgb(156 204 101 / 0.09);
+  --bg-blob-b: rgb(76 175 80 / 0.07);
+}
+
+/* 🍇 Ягода (0.3.18): малиново-фиолетовая, тёплая */
+html[data-palette="berry"] {
+  --grad-a: #c2185b;
+  --grad-b: #8e24aa;
+  --calorie-accent: #7c4dff;
+  --bg-blob-a: rgb(194 24 91 / 0.09);
+  --bg-blob-b: rgb(142 36 170 / 0.08);
+  --md-sys-color-primary: #c2185b;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffd9e6;
+  --md-sys-color-on-primary-container: #3f0022;
+}
+html[data-palette="berry"][data-theme="dark"] {
+  --md-sys-color-primary: #ff8fc7;
+  --md-sys-color-on-primary: #4a002d;
+  --md-sys-color-primary-container: #6d1a51;
+  --md-sys-color-on-primary-container: #ffd9ec;
+  --grad-a: #ff8fc7;
+  --grad-b: #ce93d8;
+  --bg-blob-a: rgb(255 143 199 / 0.08);
+  --bg-blob-b: rgb(206 147 216 / 0.07);
+}
+
+/* ⚡ Sport, ТОЛЬКО светлая тема (0.3.17→фикс 0.3.18: эти токены раньше стояли
+   в общем селекторе html[data-palette="sport"] и по специфичности/порядку
+   перебивали ТЁМНЫЙ фон на светлый — «всё сливается» у пользователя):
+   тёплый бумажный фон вместо чисто белого. */
+html[data-palette="sport"]:not([data-theme="dark"]) {
+  --md-sys-color-surface: #f7f4ec;
+  --md-sys-color-surface-bright: #faf7f0;
+  --md-sys-color-surface-dim: #e3ddcf;
+}
+
 /* ⚡ Sport — энергичный оранж с лаймом */
 html[data-palette="sport"] {
   --grad-a: #ff6d00;
@@ -3115,11 +3187,6 @@ html[data-palette="sport"] {
   --calorie-accent: #ff3d6e;
   --bg-blob-a: rgb(255 109 0 / 0.10);
   --bg-blob-b: rgb(132 204 22 / 0.09);
-  /* 0.3.16: фон уже не «чисто белый» — тёплый бумажный оттенок,
-     светлые карточки на нём читаются заметнее (запрос пользователя). */
-  --md-sys-color-surface: #f7f4ec;
-  --md-sys-color-surface-bright: #faf7f0;
-  --md-sys-color-surface-dim: #e3ddcf;
   --md-sys-color-primary: #d84315;
   --md-sys-color-on-primary: #ffffff;
   --md-sys-color-primary-container: #ffd8c2;
@@ -3191,3 +3258,29 @@ html[data-palette="neon"][data-theme="dark"] .segmented button.active { box-shad
 html[data-palette="neon"][data-theme="dark"] .switch input:checked + .switch-track { box-shadow: 0 0 7px rgb(34 229 255 / 0.30); }
 html[data-palette="neon"][data-theme="dark"] .checklist-item.done,
 html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="true"] { box-shadow: 0 0 7px rgb(34 229 255 / 0.15), inset 0 0 0 1px var(--primary); }
+
+/* ===== IME-док (0.3.18): панель ввода над клавиатурой =====
+   Сюда JS переносит контейнер поля (Питание/«Своя мл»/поля ИИ) на время
+   фокуса. bottom:0 layout-viewport при adjustResize = ровно над клавиатурой;
+   z-index выше нижней навигации (30), ниже диалогов (70). */
+#ime-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--md-sys-color-surface-container-low, var(--card-bg));
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 28px rgb(0 0 0 / 0.22);
+  animation: ime-dock-in 0.18s ease-out;
+}
+@keyframes ime-dock-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+#ime-dock[hidden] { display: none; }
+#ime-dock .ai-input-stack { margin-bottom: 0; }
+#ime-dock .food-form { margin: 0; }
+#ime-dock .water-custom-row { margin: 0; }

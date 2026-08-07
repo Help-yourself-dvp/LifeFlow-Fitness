@@ -41,7 +41,7 @@ const functions = [
   'renderSleepCheckinSettings', 'updateSleepCheckinEnabled', 'saveSleepTargets', 'saveSleepWindow', 'isSleepWindowNow',
   'renderSleepDialogControls', 'renderSleepDialogSummary',
   // 0.3.11: объединённый «План дня» + докрутка кнопок над клавиатурой
-  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'cancelKeyboardShift', 'queueKeyboardShift',
+  'renderDayPlan', 'scheduleKeyboardShift', 'ensureFieldActionsVisible', 'openImeDock', 'closeImeDock', 'isImeDockField', 'scheduleImeRetry', 'warmupHiddenViewsLayout', 'computeMealsEatenToday', 'cancelKeyboardShift', 'queueKeyboardShift',
   'getPalette', 'setPalette', 'applyPalette', 'computeMaxCardioDayMinutes',
   // 0.3.12: мини-онбординг
   'openOnboarding', 'closeOnboarding', 'nextOnboardingSlide', 'skipOnboarding',
@@ -79,7 +79,7 @@ const ids = [
   'onboarding-dialog', 'onboarding-emoji', 'onboarding-title', 'onboarding-text',
   'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open',
   'palette-segmented', 'palette-status', 'food-input-clear', 'water-custom-clear',
-  'ai-view', 'ai-view-back', 'ai-center-open', 'ai-tabs'
+  'ai-view', 'ai-view-back', 'ai-center-open', 'ai-tabs', 'ime-dock'
 ];
 
 let failed = 0;
@@ -111,17 +111,21 @@ let failed = 0;
   console.log(`${ok ? '✓' : '✗'} ИИ-центр — экран #ai-view (модалки #ai-dialog нет)`);
 }
 
-/* Регресс-защита (0.3.17, фидбек пользователя): акцентная линия — 3px и
-   ЕДИНЫМ цветом текущей палитры (а не отдельные цвета по типам блоков);
-   тёплый фон светлой Sport-темы сохранён. */
+/* Регресс-защита (0.3.18): акцентная линия 3px единым цветом палитры;
+   фон Sport задан ТОЛЬКО для светлой темы (0.3.17 клал селектором без темы —
+   специфичность/порядок перебивали тёмный фон на светлый: «всё сливается»);
+   IME-док подключён стилями и триггером focusin. */
 {
   const css2 = fs.readFileSync('style.css', 'utf8');
   const ok = /border-left:\s*3px solid color-mix\(in srgb, var\(--primary\) 65%, transparent\)/.test(css2)
     && !/--card-accent:/.test(css2)
-    && /\[data-palette="sport"\][\s\S]*?--md-sys-color-surface:\s*#f7f4ec/.test(css2)
+    && /html\[data-palette="sport"\]:not\(\[data-theme="dark"\]\)[^{]*\{[^}]*--md-sys-color-surface:\s*#f7f4ec/.test(css2)
+    && !/html\[data-palette="sport"\]\s*\{[^}]*--md-sys-color-surface/.test(css2)
+    && /#ime-dock\s*\{[^}]*position:\s*fixed/.test(css2)
+    && /isImeDockField\(field\)\)\s*openImeDock\(field\)/.test(app)
     && !/\.ai-center-modal/.test(css2);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} акцентная линия 3px единым цветом темы, фон Sport, стиля .ai-center-modal нет`);
+  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док в CSS и в focusin`);
 }
 
 for (const name of functions) {

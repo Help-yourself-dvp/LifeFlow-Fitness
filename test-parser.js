@@ -561,10 +561,42 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 {
   const { PALETTES } = require('./app.js');
   const ids = (PALETTES || []).map((p) => p && p.id);
-  const ok = ids.length === 3 && ids[0] === 'standard' && ids.includes('neon') && ids.includes('sport')
+  const ok = ids.length === 5 && ids[0] === 'standard' && ids.includes('neon') && ids.includes('sport')
+    && ids.includes('forest') && ids.includes('berry')
     && (PALETTES || []).every((p) => typeof p.label === 'string' && p.label.length >= 3);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} палитры: стандарт + neon + sport, у всех подписи → ${ids.join(',')}`);
+  console.log(`${ok ? '✓' : '✗'} палитры (5): стандарт + neon + sport + forest + berry, у всех подписи → ${ids.join(',')}`);
+}
+
+// 0.3.18: задание «3 записи питания» = ПРИЁМЫ ПИЩИ (завтрак/обед/ужин),
+// а не число продуктов (кейс пользователя: йогурт+бутерброд+банан в один
+// завтрак давали «3 записи»)
+{
+  const { computeMealsEatenToday } = require('./app.js');
+  const once = computeMealsEatenToday([
+    { name: 'Йогурт', mealTypeId: 'breakfast' },
+    { name: 'Бутерброд', mealTypeId: 'breakfast' },
+    { name: 'Банан', mealTypeId: 'breakfast' }
+  ]) === 1;
+  if (!once) failed++;
+  console.log(`${once ? '✓' : '✗'} три продукта одного завтрака = 1 приём пищи`);
+
+  const full = computeMealsEatenToday([
+    { name: 'Каша', mealTypeId: 'breakfast' },
+    { name: 'Суп', mealTypeId: 'lunch' },
+    { name: 'Курица', mealTypeId: 'dinner' }
+  ]) === 3;
+  if (!full) failed++;
+  console.log(`${full ? '✓' : '✗'} завтрак + обед + ужин = 3 приёма пищи`);
+
+  const snacks = computeMealsEatenToday([
+    { name: 'Яблоко', mealTypeId: 'snack' },
+    { name: 'Орехи', mealTypeId: 'lateSnack' },
+    { name: 'Что-то своё', mealTypeId: 'custom-123' },
+    { name: 'Без типа', mealTypeId: null }
+  ]) === 0;
+  if (!snacks) failed++;
+  console.log(`${snacks ? '✓' : '✗'} перекусы/свои типы/без типа прогресс задания не дают`);
 }
 
 // 0.3.15: «Марафонец» — только бег (кардио); силовая и прогулка не считаются

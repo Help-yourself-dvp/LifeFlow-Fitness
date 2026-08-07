@@ -1432,7 +1432,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.17';
+const FITFLOW_VERSION = '0.3.18';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2447,7 +2447,9 @@ function toggleTheme() {
 const PALETTES = [
   { id: 'standard', label: 'Стандарт' },
   { id: 'neon', label: 'Neon' },
-  { id: 'sport', label: 'Sport' }
+  { id: 'sport', label: 'Sport' },
+  { id: 'forest', label: 'Лес' },
+  { id: 'berry', label: 'Ягода' }
 ];
 const PALETTE_IDS = new Set(PALETTES.map((p) => p.id));
 
@@ -2633,9 +2635,12 @@ function renderDayPlan() {
   // --- Секция чек-листа: авто-отметки по записям дня ---
   let checklistItems = '';
   if (showChecklist) {
-    const waterOk = state.water.total >= state.water.goal * 0.8 && state.water.goal > 0;
+    /* Единый критерий с заданиями (замечание пользователя: «цель по воде не
+       достигнута, а галочка уже стоит» — чек-лист раньше отмечал при 80%,
+       задание — при 100%; теперь галочка = полный план, без расхождений). */
+    const waterOk = state.water.total >= state.water.goal && state.water.goal > 0;
     const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
-    const foodOk = state.food.items.length >= 3 || (foodKcal >= state.food.goal * 0.8 && state.food.goal > 0);
+    const foodOk = computeMealsEatenToday() >= 3 || (foodKcal >= state.food.goal && state.food.goal > 0);
     const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
       .filter((w) => w.date === todayKey()).length > 0;
 
@@ -2767,16 +2772,31 @@ const GAME_TASK_ICONS = {
   activity: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
+/* Задание «3 записи питания» — это ПРИЁМЫ ПИЩИ, а не число продуктов
+   (замечание пользователя 0.3.17→0.3.18: «завтрак йогурт-бутерброд-банан
+   считался за 3 записи — некорректно»). Считаем уникальные основные
+   приёмы дня: завтрак/обед/ужин. Перекусы (полдник, поздний перекус,
+   пользовательские типы) прогресс задания не дают. */
+const MAIN_MEAL_IDS = ['breakfast', 'lunch', 'dinner'];
+function computeMealsEatenToday(items) {
+  const list = Array.isArray(items) ? items : (state.food.items || []);
+  const eaten = new Set();
+  list.forEach((item) => {
+    if (item && MAIN_MEAL_IDS.includes(item.mealTypeId)) eaten.add(item.mealTypeId);
+  });
+  return eaten.size; // 0..3
+}
+
 function computeGameTasks() {
   const waterTotal = Number(state.water.total) || 0;
   const waterGoal = Number(state.water.goal) || DEFAULTS.water.goal;
-  const foodCount = Array.isArray(state.food.items) ? state.food.items.length : 0;
+  const mealsEaten = computeMealsEatenToday();
   const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
     .filter((w) => w.date === todayKey())
     .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
   return [
     { id: 'water', emoji: '💧', icon: GAME_TASK_ICONS.water, title: 'Вода до нормы', cur: waterTotal, target: waterGoal, unit: 'мл' },
-    { id: 'food', emoji: '🥑', icon: GAME_TASK_ICONS.food, title: '3 записи питания', cur: foodCount, target: 3, unit: 'зап.' },
+    { id: 'food', emoji: '🥑', icon: GAME_TASK_ICONS.food, title: 'Завтрак, обед и ужин', cur: mealsEaten, target: 3, unit: 'приём' },
     { id: 'activity', emoji: '🏃', icon: GAME_TASK_ICONS.activity, title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
   ];
 }
@@ -5808,6 +5828,7 @@ function updateActivityFab(isTraining) {
 }
 
 function switchView(view) {
+  closeImeDock();
   const isHome = view === 'home';
   const isStats = view === 'stats';
   const isWaterDetails = view === 'water-details';
@@ -6375,6 +6396,7 @@ function bindEvent(selector, eventName, handler) {
    авто-сворачиванием после добавления и кнопкой «назад»). */
 function collapseWaterCustomRow() {
   if (typeof document === 'undefined') return;
+  closeImeDock(); // если строка сейчас в панели над клавиатурой — вернуть домой
   const row = $('#water-custom-row');
   if (row) row.hidden = true;
   const toggle = $('#water-custom-toggle');
@@ -6909,6 +6931,7 @@ function init() {
     const field = event.target;
     if (!field || !field.matches || !field.matches('input, textarea')) return;
     scheduleKeyboardShift(field);
+    if (isImeDockField(field)) openImeDock(field);
   });
   // Докрутка — только когда клавиатура реально изменила видимый viewport.
   if (window.visualViewport) {
@@ -6916,12 +6939,39 @@ function init() {
       if (KEYBOARD_SHIFT_ASSIST && keyboardShiftState.field) queueKeyboardShift();
     });
   }
-  // Ушли из поля — никаких отложенных докруток.
+  // Ушли из поля — никаких отложенных докруток. Док закрываем только
+  // когда фокус действительно ушёл наружу (тап по кнопке ВНУТРИ дока его
+  // не гасит — кнопки «Разобрать»/«Добавить» в нём же перенесены).
   document.addEventListener('focusout', (event) => {
     if (event.target && event.target.matches && event.target.matches('input, textarea')) cancelKeyboardShift();
+    if (imeDockState.container) {
+      setTimeout(() => {
+        const dock = $('#ime-dock');
+        if (!imeDockState.container) return;
+        const ae = document.activeElement;
+        if (!ae || ae === document.body || !(dock && dock.contains(ae))) {
+          // фокус снаружи дока — сворачиваем; внутри — ждём
+          if (!(dock && dock.contains(ae))) closeImeDock();
+        }
+      }, 0);
+    }
   });
 
+  // Клавиатура полностью закрылась (высота вьюпорта восстановилась) → док домой.
+  const imeDockViewportHandler = () => {
+    if (imeDockState.container && window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
+  };
+  if (window.visualViewport) {
+    var imeDockBaseHeight = window.innerHeight;
+    window.visualViewport.addEventListener('resize', () => {
+      if (window.innerHeight > imeDockBaseHeight) imeDockBaseHeight = window.innerHeight;
+      imeDockViewportHandler();
+    });
+  }
+
   maybeShowTerms();
+  // Прогрев layout скрытых экранов — после первой отрисовки, не на пути старта.
+  setTimeout(warmupHiddenViewsLayout, 200);
   } catch (e) {
     console.error('init() error:', e.message, e.stack);
     // Show error visually so user knows something is wrong
@@ -7200,12 +7250,77 @@ function handleWaterVoiceBtn() {
   startRealVoiceInput('#water-voice-input', 'Говорите объём воды в мл');
 }
 
-/* ИИ-центр — обычный экран (0.3.16): модальный #ai-dialog на фиксированной
-   подложке ломал в WebView первую фокусировку поля после холодного старта
-   (GBoard: клавиатура со 2-го тапа и молчащая диктовка). Имена функций
-   сохранены — вызываются после успешного «Разобрать»/рецепта. */
+/* ИИ-центр — обычный экран (0.3.16). По наблюдениям пользователя (0.3.17,
+   нативный патч adjustResize+requestFocus НЕ помог): после холодного старта
+   ПЕРВАЯ IME-сессия приложения обречена (клавиатура не открывается, диктовка
+   молчит), вторая и дальше — всегда живые; «время» не влияет, влияет сам
+   факт первой (провальной) сессии. Отсюда стратегия 0.3.18: автофокус поля в
+   жесте открытия раздела + один программный повтор — автоматический «второй
+   тап», невидимый для пользователя. */
+let imeRetryTimer = 0;
+
+/* ===== IME-док (0.3.18): поле ввода + его кнопки над клавиатурой =====
+   Жалоба пользователя: «клавиатура подняла поле, но кнопки под полем
+   перекрыты — чтобы отправить, нужно скрывать клавиатуру» (ИИ), и пожелание:
+   «поля Питание и Своя мл пусть тоже приподнимаются над клавиатурой».
+   При фокусе контейнер поля переносится в фиксированную панель #ime-dock
+   (bottom:0 layout-viewport; при adjustResize это ровно над клавиатурой).
+   Нода переносится без пересоздания — обработчики/фокус/IME-сессия живые.
+   Возврат — по focusout наружу, закрытию клавиатуры или смене экрана. */
+const IME_DOCK_FIELD_IDS = ['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input', '#food-input', '#water-custom-ml'];
+const IME_DOCK_CONTAINERS_SEL = '.ai-input-stack, #food-form, #water-custom-row';
+let imeDockState = { container: null, placeholder: null };
+
+function isImeDockField(el) {
+  return !!(el && el.matches && el.matches(IME_DOCK_FIELD_IDS.join(',')));
+}
+
+function openImeDock(field) {
+  const dock = $('#ime-dock');
+  if (!dock || !field) return;
+  const container = field.closest(IME_DOCK_CONTAINERS_SEL);
+  if (!container || (imeDockState.container === container)) return;
+  if (imeDockState.container) closeImeDock();
+  const placeholder = document.createComment('ime-dock-slot');
+  container.parentNode.insertBefore(placeholder, container);
+  dock.appendChild(container);
+  dock.hidden = false;
+  imeDockState = { container, placeholder };
+}
+
+function closeImeDock() {
+  const dock = $('#ime-dock');
+  const st = imeDockState;
+  if (!st.container) return;
+  if (st.placeholder && st.placeholder.parentNode) {
+    st.placeholder.parentNode.insertBefore(st.container, st.placeholder);
+    st.placeholder.remove();
+  }
+  imeDockState = { container: null, placeholder: null };
+  if (dock) dock.hidden = true;
+}
+
+function scheduleImeRetry(field) {
+  clearTimeout(imeRetryTimer);
+  const h0 = window.innerHeight;
+  imeRetryTimer = setTimeout(() => {
+    if (!field || !field.isConnected || document.activeElement !== field) return;
+    // adjustResize: открытая клавиатура за 450 мс точно уменьшила высоту.
+    // Не уменьшила — сессия провальная: blur+focus = наш «второй тап».
+    if (window.innerHeight < h0 * 0.8) return;
+    field.blur();
+    field.focus({ preventScroll: true });
+  }, 450);
+}
+
 function openAiCenter() {
   switchView('ai');
+  // Вызов из клика (user gesture) — Chromium разрешит показ клавиатуры.
+  const field = $('#ai-quick-input');
+  if (field) {
+    field.focus({ preventScroll: true });
+    scheduleImeRetry(field);
+  }
 }
 
 function closeAiCenter() {
@@ -7234,6 +7349,28 @@ const RECIPE_STEP_BY_CATEGORY = {
   dairy: 'молочное подайте рядом или используйте как лёгкий соус',
   fat: 'заправку добавьте в конце — 1 чайной ложки масла обычно достаточно'
 };
+
+/* Прогрев скрытых экранов при старте (0.3.18, кейс GBoard): по наблюдениям
+   пользователя проваливается ТОЛЬКО первая IME-сессия и ТОЛЬКО если ИИ —
+   первый посещённый раздел после холодного старта. Одно из оставшихся
+   различий: ИИ-экран до первого визита никогда не получал layout. Прогреваем
+   все скрытые экраны принудительным layout БЕЗ paint (visibility:hidden) —
+   дёшево и безопасно; если фактор не layout, прогрев просто безвреден. */
+function warmupHiddenViewsLayout() {
+  const sels = ['#stats-view', '#training-view', '#ai-view', '#settings-view',
+    '#notifications-view', '#game-medals-view', '#water-details-view',
+    '#food-details-view', '#weight-details-view']
+    .concat((typeof SETTINGS_SUBVIEWS !== 'undefined' ? SETTINGS_SUBVIEWS : []).map((s) => `#${s}-view`));
+  sels.forEach((sel) => {
+    const el = $(sel);
+    if (!el || !el.hidden) return;
+    el.style.visibility = 'hidden';
+    el.hidden = false;
+    void el.offsetHeight; // принудительный layout без отрисовки
+    el.hidden = true;
+    el.style.visibility = '';
+  });
+}
 
 function capitalizeFirst(text) {
   const s = String(text || '');
@@ -8073,6 +8210,6 @@ if (typeof module !== 'undefined' && module.exports) {
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
-    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes
+    sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday
   };
 }
