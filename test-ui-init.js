@@ -125,12 +125,13 @@ let failed = 0;
     && /isImeDockField\(field\)\)\s*openImeDock\(field\)/.test(app)
     && /IME_DOCK_FIELD_IDS = \['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input'\]/.test(app)
     && /AI_TAB_FIELD = \{ quick: '#ai-quick-input'/.test(app)
-    && /dockEl && dockEl\.contains\(document\.activeElement\)\) return/.test(app)
+    && /if \(field\) openImeDock\(field\);\s*else closeImeDock\(\);/.test(app)
+    && !/imeDockViewportHandler/.test(app)
     && !/scheduleDeferredImeDock|cancelDeferredImeDock|isImeDockDeferredField/.test(app)
     && !/scheduleImeRetry|warmupHiddenViewsLayout/.test(app)
     && !/\.ai-center-modal/.test(css2);
   if (!ok) failed++;
-  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док только для ИИ-полей + автофокус вкладок + resize-гард фокуса (0.3.21)`);
+  console.log(`${ok ? '✓' : '✗'} линия 3px, фон Sport только светлый, IME-док только для ИИ-полей + детерминированный док вкладок (0.3.22)`);
 }
 
 for (const name of functions) {

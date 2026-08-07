@@ -687,7 +687,11 @@ function parseMealText(raw) {
     .split(/\s*(?:[,;](?!\d)|(?<!\d)[,;])\s*|\s+и\s+|[\s\u00A0]?[–—][\s\u00A0]?/iu)
     // Голосовой ввод оставляет висючие запятые/точки — чистим края сегмента,
     // иначе ломаются якорные разборы («сока стакан, », «…минут.»).
-    .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, ''))
+    .map((s) => s.replace(/^[\s,.;:]+|[\s,.;:]+$/g, '')
+      // «супа, и хлеба»: разделитель сработала только запятая — на стыке
+      // остаётся висячее «и » (кейс 0.3.22): оно мешало слову «кусок» стать
+      // единицей (хлеб улетал в «≈100 г» вместо честных 40 г).
+      .replace(/^и\s+/iu, ''))
     .filter(Boolean);
   const parts = glueSandwichFillings(splitParts).flatMap(splitWithCompanion);
   return parts.map(parseItem).filter(Boolean);
@@ -1506,7 +1510,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.21';
+const FITFLOW_VERSION = '0.3.22';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7019,34 +7023,16 @@ function init() {
       if (KEYBOARD_SHIFT_ASSIST && keyboardShiftState.field) queueKeyboardShift();
     });
   }
-  // Ушли из поля — никаких отложенных докруток. Док закрываем только
-  // когда фокус действительно ушёл наружу (тап по кнопке ВНУТРИ дока его
-  // не гасит — кнопки «Разобрать»/«Добавить» в нём же перенесены).
+  // Ушли из поля — никаких отложенных докруток.
+  // 0.3.22: auto-close дока по focusout УДАЛЁН — в гонке с программным фокусом
+  // вкладок он давал «поле скачет». Док живёт, пока активна вкладка ИИ;
+  // закрывается точечно: switchView (любой уход с экрана), вкладка без поля,
+  // успешный «Разобрать»/рецепт (режим чтения результата).
   document.addEventListener('focusout', (event) => {
     if (event.target && event.target.matches && event.target.matches('input, textarea')) cancelKeyboardShift();
-    if (imeDockState.container) {
-      setTimeout(() => {
-        const dock = $('#ime-dock');
-        if (!imeDockState.container) return;
-        const ae = document.activeElement;
-        if (!ae || ae === document.body || !(dock && dock.contains(ae))) {
-          // фокус снаружи дока — сворачиваем; внутри — ждём
-          if (!(dock && dock.contains(ae))) closeImeDock();
-        }
-      }, 0);
-    }
   });
 
   // Клавиатура полностью закрылась (высота вьюпорта восстановилась) → док домой.
-  const imeDockViewportHandler = () => {
-    if (!imeDockState.container) return;
-    // 0.3.21 (пробы build 138): фокус ВНУТРИ дока — док живой. Иначе поздний
-    // resize от закрывающейся после blur клавиатуры убивал свежий док вкладки
-    // (гонка «blur quick-поля → клавиатура закрывается 300 мс спустя»).
-    const dockEl = $('#ime-dock');
-    if (dockEl && dockEl.contains(document.activeElement)) return;
-    if (window.innerHeight > imeDockBaseHeight * 0.97) closeImeDock();
-  };
   let foodKbScrolled = false;
   if (window.visualViewport) {
     var imeDockBaseHeight = window.innerHeight;
@@ -7062,7 +7048,8 @@ function init() {
           setTimeout(() => { try { ae.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (e) { /* поле исчезло */ } }, 80);
         }
       }
-      imeDockViewportHandler();
+      // 0.3.22: закрытия дока по resize больше нет (детерминированная модель —
+      // док держится вкладкой, а не высотой вьюпорта).
     });
   }
 
@@ -7412,7 +7399,10 @@ function openAiCenter() {
   // ввод GBoard работают с первого раза. Поле при этом сразу в доке внизу —
   // пользователь подтвердил, что такой сценарий устраивает.
   const field = $('#ai-quick-input');
-  if (field) field.focus({ preventScroll: true });
+  if (field) {
+    field.focus({ preventScroll: true });
+    openImeDock(field); // 0.3.22: док — не следствие focusin, а явное состояние экрана
+  }
 }
 
 function closeAiCenter() {
@@ -7428,15 +7418,18 @@ function switchAiTab(tabName) {
   // Теперь ЕДИНЫЙ для всех текстовых вкладок сценарий Ввода: программный
   // фокус (молча «сжигает» IME-сессию) → поле сразу в доке внизу →
   // тап пользователя поднимает клавиатуру и голос с первого раза.
+  // 0.3.22 — ДЕТЕРМИНИРОВАННАЯ модель (пробы build 139: «поле скачет вверх/вниз
+  // случайно»). Раньше док зависел от фокуса и таймингов: события blur/resize/
+  // focusin шли в разном порядке, и ловивший их код стихийно открывал/закрывал
+  // док. Теперь док — СВОЙСТВО ВКЛАДКИ: есть текстовое поле → поле внизу в доке
+  // (тап → клавиатура и голос с первого раза), нет поля (Анализ) → док закрыт.
+  // Автофокус на вкладках УБРАН — он и рождал гонки, а пользы не давал
+  // (клавиатуру программно всё равно не поднять, первую IME-сессию уже
+  // «сжёг» автофокус при входе в ИИ-центр).
   const sel = AI_TAB_FIELD[tabName];
   const field = sel ? $(sel) : null;
-  if (field) {
-    field.focus({ preventScroll: true });
-    // 0.3.21 (пробы build 138 — «поле в середине экрана, тап → переезд → 2-й тап»):
-    // focusin мог проиграть гонку позднему resize от закрывающейся клавиатуры
-    // — док убивался сразу после создания. Открываем док ЯВНО здесь.
-    openImeDock(field);
-  }
+  if (field) openImeDock(field);
+  else closeImeDock();
 }
 
 /* Рецепт собирается из РЕАЛЬНО перечисленных продуктов: названия и питательность
