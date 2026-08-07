@@ -163,5 +163,24 @@ for (const id of ids) {
   console.log(`${okMethod ? '✓' : '✗'} методика: пункт про среднюю калорийность и средние объёмы`);
 }
 
+// 0.3.25: Личная база продуктов — элементы, привязки, перекрытие в парсере
+{
+  const app2 = fs.readFileSync('app.js', 'utf8');
+  const okIds = ['custom-food-open', 'custom-food-dialog', 'custom-food-name', 'custom-food-kcal', 'custom-food-save', 'custom-food-close', 'custom-food-list']
+    .every((id) => new RegExp(`id=["']${id}["']`).test(html));
+  if (!okIds) failed++;
+  console.log(`${okIds ? '✓' : '✗'} личная база: все элементы диалога «Мои продукты» на месте`);
+  const okBind = app2.includes("bindEvent('#custom-food-open', 'click', openCustomFoodDialog)")
+    && app2.includes("bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog)")
+    && app2.includes("bindEvent('#custom-food-close', 'click', closeCustomFoodDialog)");
+  if (!okBind) failed++;
+  console.log(`${okBind ? '✓' : '✗'} личная база: кнопки диалога привязаны`);
+  const okLogic = /function lookupProduct\(name\) \{\s*\n\s*\/\/ Сначала личная база/.test(app2)
+    && app2.includes('normalizeCustomFoods();')
+    && /Number\(product\.pieceG\) > 0\) return/.test(app2);
+  if (!okLogic) failed++;
+  console.log(`${okLogic ? '✓' : '✗'} личная база: lookupProduct сначала личная база, вес штуки учитывается`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

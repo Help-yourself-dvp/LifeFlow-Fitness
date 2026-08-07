@@ -169,6 +169,9 @@
           <h2 id="food-title">Питание</h2>
           <p>Умный ввод текстом + калории</p>
         </div>
+        <button class="card-menu icon-btn" id="custom-food-open" type="button" aria-label="Мои продукты" title="Мои продукты — точные значения с упаковки">
+          <span aria-hidden="true" style="font-size:1.05rem">🏷️</span>
+        </button>
         <button class="card-menu icon-btn mic-header-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Надиктовать еду голосом">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
@@ -1013,7 +1016,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.24</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.25</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">Методика расчётов</button>
@@ -1341,6 +1344,29 @@
     </section>
   </div>
 
+  <!-- Мои продукты: личная база с точными значениями с упаковки (0.3.25) -->
+  <div class="app-dialog-backdrop" id="custom-food-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-food-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏷️</div>
+      <h2 id="custom-food-title">Мои продукты</h2>
+      <p class="settings-hint">Точные значения с упаковки вашего бренда или рецепта. Свой продукт перекрывает усреднённый из общей базы — расчёт становится правдивее. Калорийность и БЖУ указываются на 100 г, как на этикетке.</p>
+      <div class="custom-food-form">
+        <input class="dialog-text-input" id="custom-food-name" type="text" placeholder="Название (напр., творог «Простоквашино» 5%)" maxlength="60">
+        <div class="custom-food-grid">
+          <label>ккал/100 г*<input class="dialog-text-input" id="custom-food-kcal" type="number" inputmode="decimal" min="1" max="900" placeholder="105"></label>
+          <label>Белки/100 г<input class="dialog-text-input" id="custom-food-p" type="number" inputmode="decimal" min="0" placeholder="16"></label>
+          <label>Жиры/100 г<input class="dialog-text-input" id="custom-food-f" type="number" inputmode="decimal" min="0" placeholder="5"></label>
+          <label>Углеводы/100 г<input class="dialog-text-input" id="custom-food-c" type="number" inputmode="decimal" min="0" placeholder="3.5"></label>
+          <label>Вес 1 шт, г<input class="dialog-text-input" id="custom-food-piece" type="number" inputmode="decimal" min="0" placeholder="—"></label>
+        </div>
+        <p class="settings-hint" style="margin:0">«Вес 1 шт» — только для штучных продуктов (батончик, сырник, печенье): тогда «2 шт» посчитается честно.</p>
+        <button class="btn btn-primary" id="custom-food-save" type="button">Сохранить продукт</button>
+      </div>
+      <div class="custom-food-list" id="custom-food-list"></div>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="custom-food-close" type="button" style="width:100%">Готово</button></div>
+    </section>
+  </div>
+
   <div class="app-dialog-backdrop" id="methodology-dialog" role="dialog" aria-modal="true" aria-labelledby="methodology-dialog-title" hidden>
     <section class="app-dialog terms-dialog">
       <div class="app-dialog-icon" aria-hidden="true">🧮</div>
@@ -1348,7 +1374,7 @@
       <div class="terms-list">
         <p><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 925+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
         <p><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
-        <p><b>Средняя калорийность и объёмы по умолчанию.</b> Калорийность блюд в базе — усреднённая: у одного и того же блюда рецепты отличаются (суп может быть овощным, а может — с мясом и макаронами), поэтому расчёт показывает честную среднюю оценку, а не точный лабораторный состав именно вашей порции. То же с объёмами без точного указания: «тарелка» считается как ≈250 г, «стакан» — 250 мл, «чашка» — 200 мл, «порция» — 200 г, «кусок» хлеба — 40 г, а еда совсем без количества — осторожные «≈ 100 г». Хотите максимальную точность — укажите вес или рецепт вручную (граммы честнее любых средних).</p>
+        <p><b>Средняя калорийность и объёмы по умолчанию.</b> Калорийность блюд в базе — усреднённая: у одного и того же блюда рецепты отличаются (суп может быть овощным, а может — с мясом и макаронами), поэтому расчёт показывает честную среднюю оценку, а не точный лабораторный состав именно вашей порции. Это не упрощение FitFlow, а реальность открытых научных баз: USDA и Open Food Facts публикуют именно усреднённые значения, а точный состав конкретной порции не знает ни одно приложение. Если у вас есть точные данные с упаковки — внесите продукт в «Мои продукты» (кнопка 🏷 в разделе Питание): ваши значения перекроют усреднённые. То же с объёмами без точного указания: «тарелка» считается как ≈250 г, «стакан» — 250 мл, «чашка» — 200 мл, «порция» — 200 г, «кусок» хлеба — 40 г, а еда совсем без количества — осторожные «≈ 100 г». Хотите максимальную точность — укажите вес или рецепт вручную (граммы честнее любых средних).</p>
         <p><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
         <p><b>Личные нормы воды и калорий.</b> Вода — ориентир ~30 мл на кг веса с надбавкой при высокой активности. Калории — формула Миффлина — Сан Жеора (пол, возраст, рост, вес) с поправкой на среднюю активность; если данные не заполнены, используется упрощённая оценка по весу. Расчёт выполняется на устройстве в Настройках → «Профиль и цели».</p>
         <p><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>

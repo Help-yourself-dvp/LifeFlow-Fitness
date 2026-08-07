@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -707,6 +707,52 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && buildExpertInsights({ daily: [{}], sleep: [{ date: 'бред', durationMin: 'x' }] }).length === 0;
   if (!okJunk) failed++;
   console.log(`${okJunk ? '✓' : '✗'} эксперт: пустой/битый вход → пустой результат без падения`);
+}
+
+// ---- Личная база продуктов (0.3.25): свои значения перекрывают общую базу ----
+{
+  // Свой продукт, граммовка
+  const r1 = addCustomFood({ name: 'протеиновый батончик фитнес', kcal: 350, p: 30, f: 9, c: 28 });
+  const p1 = parseMealText('протеиновый батончик фитнес 50 г')[0];
+  const ok1 = r1.ok && p1 && p1.name === 'протеиновый батончик фитнес' && p1.kcal === 175 && p1.grams === 50 && p1.p === 15;
+  if (!ok1) failed++;
+  console.log(`${ok1 ? '✓' : '✗'} свой продукт: 50 г «протеинового батончика» → 175 ккал, БЖУ из своих данных`);
+
+  // Перекрытие общей базы: своё «яблоко» важнее усреднённого
+  const r2 = addCustomFood({ name: 'яблоко', kcal: 120 });
+  const p2 = parseMealText('яблоко 100 г')[0];
+  const ok2 = r2.ok && p2 && p2.kcal === 120;
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} свой продукт перекрывает общую базу («яблоко» = 120, не усреднённые 52)`);
+
+  // Штучный продукт со своим весом штуки
+  const r3 = addCustomFood({ name: 'сырник домашний', kcal: 220, pieceG: 60 });
+  const p3 = parseMealText('2 сырника домашних')[0];
+  const ok3 = r3.ok && p3 && p3.grams === 120 && p3.kcal === 264;
+  if (!ok3) failed++;
+  console.log(`${ok3 ? '✓' : '✗'} свой вес штуки: «2 сырника домашних» → 120 г / 264 ккал (не 70 г/шт)`);
+
+  // Замена по тому же названию = обновление с новой упаковки
+  addCustomFood({ name: 'протеиновый батончик фитнес', kcal: 300 });
+  const p4 = parseMealText('протеиновый батончик фитнес 100 г')[0];
+  const ok4 = p4 && p4.kcal === 300;
+  if (!ok4) failed++;
+  console.log(`${ok4 ? '✓' : '✗'} повторное сохранение того же продукта — замена значений`);
+
+  // Валидация: мусор не сохраняется
+  const ok5 = !addCustomFood({ name: 'x', kcal: 100 }).ok
+    && !addCustomFood({ name: 'норм название', kcal: 0 }).ok
+    && !addCustomFood({ name: 'норм название', kcal: 901 }).ok;
+  if (!ok5) failed++;
+  console.log(`${ok5 ? '✓' : '✗'} валидация: короткое имя / 0 ккал / >900 ккал отклоняются`);
+
+  // Удаление возвращает общую базу (в базе яблоко = 89 ккал за шт ~180 г)
+  const rmOk = removeCustomFood(r2.item.id) && parseMealText('яблоко 100 г')[0].kcal === 89;
+  if (!rmOk) failed++;
+  console.log(`${rmOk ? '✓' : '✗'} удаление своего «яблока» — снова значение общей базы (89 ккал)`);
+  // Очистка за собой, чтобы не влиять на остальные тесты
+  removeCustomFood(r1.item.id);
+  removeCustomFood(r3.item.id);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

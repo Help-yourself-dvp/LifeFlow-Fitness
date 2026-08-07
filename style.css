@@ -3346,6 +3346,16 @@ html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="tru
    Сюда JS переносит контейнер поля (Питание/«Своя мл»/поля ИИ) на время
    фокуса. bottom:0 layout-viewport при adjustResize = ровно над клавиатурой;
    z-index выше нижней навигации (30), ниже диалогов (70). */
+/* Личная база продуктов (0.3.25) */
+.custom-food-form { display: grid; gap: 10px; margin: 10px 0 12px; text-align: left; }
+.custom-food-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.custom-food-grid label { display: grid; gap: 3px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.custom-food-grid .dialog-text-input { margin-top: 0; padding: 8px 9px; }
+.custom-food-list { display: grid; gap: 6px; margin-bottom: 10px; max-height: 210px; overflow-y: auto; text-align: left; }
+.custom-food-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 12px; background: var(--md-sys-color-surface-container-high); }
+.custom-food-row small { display: block; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.custom-food-row .icon-btn { flex: 0 0 auto; }
+
 .expert-insights {
   margin: 6px 0 2px;
   padding-left: 20px;

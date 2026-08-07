@@ -645,6 +645,7 @@ const PIECE_UNITS = new Set(['шт', 'шт.', 'штук', 'штука', 'шту�
 const BREAD_PIECE_GRAMS = { 'кусок': 40, 'ломоть': 30, 'долька': 15, 'шт': 30 };
 const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной хлеб', 'отрубной хлеб', 'цельнозерновой хлеб', 'батон', 'бородинский', 'чёрный хлеб']);
 function pieceGramsFor(product, normUnit) {
+  if (product && Number(product.pieceG) > 0) return Number(product.pieceG); // 0.3.25: вес штуки из личной базы
   if (product && product.key && BREAD_KEYS.has(product.key)) {
     const bread = BREAD_PIECE_GRAMS[normUnit];
     if (bread) return bread;
@@ -1380,17 +1381,44 @@ const adjStem = (w) => { const s = String(w).replace(ADJ_ENDING_RE, ''); return 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const FOOD_KEYS_BY_LENGTH = Object.keys(FOOD_DB).sort((a, b) => b.length - a.length);
 
+/* Личная база пользователя (0.3.25): свои продукты перекрывают общую —
+   точные значения с упаковки правдивее усреднённых. Хранится в
+   state.customFoods, едет в резервную копию вместе с данными профиля. */
+function getCustomFoodDb() {
+  const db = {};
+  const list = (typeof state !== 'undefined' && state && Array.isArray(state.customFoods)) ? state.customFoods : [];
+  list.forEach((item) => {
+    if (!item || typeof item.name !== 'string' || !item.name.trim()) return;
+    const entry = {
+      kcal: Number(item.kcal) || 0,
+      p: Number.isFinite(Number(item.p)) ? Number(item.p) : 0,
+      f: Number.isFinite(Number(item.f)) ? Number(item.f) : 0,
+      c: Number.isFinite(Number(item.c)) ? Number(item.c) : 0
+    };
+    if (Number(item.pieceG) > 0) entry.pieceG = Number(item.pieceG);
+    db[item.name.toLowerCase().trim()] = entry;
+  });
+  return db;
+}
+
 function lookupProduct(name) {
+  // Сначала личная база (перекрывает общую), затем общая FOOD_DB.
+  const customDb = getCustomFoodDb();
+  return lookupProductIn(customDb, Object.keys(customDb).sort((a, b) => b.length - a.length), name)
+    || lookupProductIn(FOOD_DB, FOOD_KEYS_BY_LENGTH, name);
+}
+
+function lookupProductIn(db, keysByLength, name) {
   const text = String(name || '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (!text) return null;
   // Точное совпадение — приоритет над морфологией: «персик» → «персик»,
   // а не более длинный соседний ключ «персики».
-  if (Object.prototype.hasOwnProperty.call(FOOD_DB, text)) return { key: text, ...FOOD_DB[text] };
+  if (Object.prototype.hasOwnProperty.call(db, text)) return { key: text, ...db[text] };
   // Пользователь пишет «ё» и «е» как удобно («мёд»/«мед») — сравниваем
   // в единой е-форме и текст, и ключи.
   const textE = text.replace(/ё/g, 'е');
-  if (Object.prototype.hasOwnProperty.call(FOOD_DB, textE)) return { key: textE, ...FOOD_DB[textE] };
-  for (const key of FOOD_KEYS_BY_LENGTH) {
+  if (Object.prototype.hasOwnProperty.call(db, textE)) return { key: textE, ...db[textE] };
+  for (const key of keysByLength) {
     const keyE = key.replace(/ё/g, 'е');
     // Стем: отсекаем конечную гласную («пицца»→«пицц») или мягкий знак
     // («миндаль»→«миндал» для «миндаля», «соль»→«сол» для «соли»).
@@ -1399,7 +1427,7 @@ function lookupProduct(name) {
     if (cut !== keyE && cut.length >= 3) stem = cut;
     else if (keyE.endsWith('ь') && keyE.length > 3) stem = keyE.slice(0, -1);
     const pattern = new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
-    if (pattern.test(textE)) return { key, ...FOOD_DB[key] };
+    if (pattern.test(textE)) return { key, ...db[key] };
     // Составной ключ («бутерброд с сыром»): каждое содержательное слово ключа
     // должно найтись в тексте хотя бы по стему — тогда склонения внутри
     // («бутербродА с сыром») не роняют продукт до короткого «сыр».
@@ -1424,7 +1452,7 @@ function lookupProduct(name) {
           return i >= need;
         };
         const allMatch = important.every((kw) => textWords.some((tw) => wordMatch(kw, tw)));
-        if (allMatch) return { key, ...FOOD_DB[key] };
+        if (allMatch) return { key, ...db[key] };
       }
     }
   }
@@ -1469,6 +1497,63 @@ function calcNutrition(product, amount, unit) {
 }
 
 /* ============================================================
+   Личная база продуктов — диалог (0.3.25).
+   Точные значения с упаковки перекрывают усреднённые из базы.
+   ============================================================ */
+function renderCustomFoodsList() {
+  const list = $('#custom-food-list');
+  if (!list) return;
+  const items = Array.isArray(state.customFoods) ? state.customFoods : [];
+  list.innerHTML = items.length
+    ? items.slice().reverse().map((item) =>
+        '<div class="custom-food-row"><span><b>' + escapeHtml(item.name) + '</b>'
+        + '<small>' + item.kcal + ' ккал/100 г'
+        + (item.pieceG ? ' · 1 шт ≈ ' + item.pieceG + ' г' : '')
+        + '</small></span>'
+        + '<button class="icon-btn custom-food-del" type="button" data-id="' + item.id + '" aria-label="Удалить продукт">✕</button></div>'
+      ).join('')
+    : '<p class="settings-hint" style="text-align:center">Пока пусто. Добавьте продукт с точными значениями с упаковки — и разбор будет брать их, а не усреднённые.</p>';
+  list.querySelectorAll('.custom-food-del').forEach((btn) =>
+    btn.addEventListener('click', () => { removeCustomFood(btn.dataset.id); renderCustomFoodsList(); }));
+}
+
+function openCustomFoodDialog() {
+  const dialog = $('#custom-food-dialog');
+  if (!dialog) return;
+  renderCustomFoodsList();
+  dialog.hidden = false;
+  const nameInput = $('#custom-food-name');
+  if (nameInput) nameInput.focus();
+}
+
+function closeCustomFoodDialog() {
+  const dialog = $('#custom-food-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function saveCustomFoodFromDialog() {
+  const val = (id) => { const el = $(id); return el ? el.value : ''; };
+  const result = addCustomFood({
+    name: val('#custom-food-name'),
+    kcal: val('#custom-food-kcal'),
+    p: val('#custom-food-p'),
+    f: val('#custom-food-f'),
+    c: val('#custom-food-c'),
+    pieceG: val('#custom-food-piece')
+  });
+  if (!result.ok) {
+    toast(result.error === 'kcal'
+      ? 'Укажите калорийность: целое число 1–900 ккал на 100 г (с упаковки)'
+      : 'Название должно быть от 2 символов');
+    return;
+  }
+  ['#custom-food-name', '#custom-food-kcal', '#custom-food-p', '#custom-food-f', '#custom-food-c', '#custom-food-piece']
+    .forEach((id) => { const el = $(id); if (el) el.value = ''; });
+  toast('🏷 «' + result.item.name + '» сохранён — разбор теперь берёт ваши значения');
+  renderCustomFoodsList();
+}
+
+/* ============================================================
    ИИ-разбор (подключается позже)
    Онлайн-провайдеры: Gemini, DeepSeek, YandexGPT — в РФ действуют
    ограничения, поэтому ИИ остаётся ОПЦИЕЙ пользователя.
@@ -1505,13 +1590,14 @@ const DEFAULTS = {
   waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
+  customFoods: [], // Личная база продуктов (0.3.25): точные значения с упаковки, перекрывают общую
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.24';
+const FITFLOW_VERSION = '0.3.25';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2193,6 +2279,55 @@ function normalizeFavoriteMeals() {
     .slice(0, 30);
 }
 
+function normalizeCustomFoods() {
+  const names = new Set();
+  state.customFoods = (Array.isArray(state.customFoods) ? state.customFoods : [])
+    .map((item) => {
+      if (!item || typeof item.name !== 'string') return null;
+      const name = item.name.trim().toLowerCase().replace(/\s+/g, ' ');
+      const kcal = Math.round(Number(item.kcal));
+      if (!name || name.length < 2 || !Number.isFinite(kcal) || kcal < 1 || kcal > 900) return null;
+      const num = (v) => { const n = Number(v); return (Number.isFinite(n) && n >= 0 && n < 1000) ? Math.round(n * 10) / 10 : null; };
+      const pieceG = Math.round(Number(item.pieceG));
+      return {
+        id: String(item.id || uid()), name, kcal,
+        p: num(item.p), f: num(item.f), c: num(item.c),
+        pieceG: (Number.isFinite(pieceG) && pieceG > 0 && pieceG <= 2000) ? pieceG : null
+      };
+    })
+    .filter((item) => item && !names.has(item.name) && names.add(item.name))
+    .slice(0, 200);
+}
+
+/* Добавление/замена своего продукта. Совпадение по названию = замена
+   (пользователь обновил данные с новой упаковки). */
+function addCustomFood(input) {
+  if (!Array.isArray(state.customFoods)) state.customFoods = [];
+  const name = String((input && input.name) || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const kcal = Math.round(Number(input && input.kcal));
+  if (!name || name.length < 2) return { ok: false, error: 'name' };
+  if (!Number.isFinite(kcal) || kcal < 1 || kcal > 900) return { ok: false, error: 'kcal' };
+  const num = (v) => { const n = Number(v); return (Number.isFinite(n) && n >= 0 && n < 1000) ? Math.round(n * 10) / 10 : null; };
+  const pieceG = Math.round(Number(input && input.pieceG));
+  state.customFoods = state.customFoods.filter((item) => item.name !== name);
+  const item = {
+    id: uid(), name, kcal,
+    p: num(input.p), f: num(input.f), c: num(input.c),
+    pieceG: (Number.isFinite(pieceG) && pieceG > 0 && pieceG <= 2000) ? pieceG : null
+  };
+  state.customFoods.push(item);
+  normalizeCustomFoods();
+  saveState();
+  return { ok: true, item };
+}
+
+function removeCustomFood(id) {
+  const before = (Array.isArray(state.customFoods) ? state.customFoods : []).length;
+  state.customFoods = (Array.isArray(state.customFoods) ? state.customFoods : []).filter((item) => item.id !== id);
+  if (state.customFoods.length !== before) saveState();
+  return state.customFoods.length !== before;
+}
+
 function normalizeDailyHistory() {
   const byDate = new Map();
   (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).forEach((day) => {
@@ -2443,6 +2578,7 @@ function loadState() {
   normalizeProfileSettings();
   normalizeHomeLayout();
   normalizeFavoriteMeals();
+  normalizeCustomFoods();
   normalizeWorkouts();
   normalizeActivityTemplates();
   normalizeWaterReminders();
@@ -6865,6 +7001,9 @@ function init() {
   $$('#ai-tabs button').forEach((btn) => btn.addEventListener('click', () => switchAiTab(btn.dataset.aiTab)));
   bindEvent('#ai-generate-recipe', 'click', generateAiRecipe);
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
+  bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
+  bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
+  bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
@@ -8408,6 +8547,6 @@ if (typeof module !== 'undefined' && module.exports) {
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
-    buildExpertInsights
+    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb
   };
 }
