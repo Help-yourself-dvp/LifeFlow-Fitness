@@ -1500,6 +1500,29 @@ function calcNutrition(product, amount, unit) {
    Личная база продуктов — диалог (0.3.25).
    Точные значения с упаковки перекрывают усреднённые из базы.
    ============================================================ */
+let pendingCustomFoodDeleteId = null;
+
+function askDeleteCustomFood(id) {
+  const item = (Array.isArray(state.customFoods) ? state.customFoods : []).find((x) => x.id === id);
+  if (!item) return;
+  pendingCustomFoodDeleteId = id;
+  const label = $('#custom-food-del-name');
+  if (label) label.textContent = '«' + item.name + '» (' + item.kcal + ' ккал/100 г)';
+  const dialog = $('#custom-food-del-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function confirmDeleteCustomFood() {
+  if (pendingCustomFoodDeleteId) {
+    removeCustomFood(pendingCustomFoodDeleteId);
+    pendingCustomFoodDeleteId = null;
+    toast('🏷 Свой продукт удалён — снова действуют усреднённые значения базы');
+    renderCustomFoodsList();
+  }
+  const dialog = $('#custom-food-del-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function renderCustomFoodsList() {
   const list = $('#custom-food-list');
   if (!list) return;
@@ -1514,7 +1537,7 @@ function renderCustomFoodsList() {
       ).join('')
     : '<p class="settings-hint" style="text-align:center">Пока пусто. Добавьте продукт с точными значениями с упаковки — и разбор будет брать их, а не усреднённые.</p>';
   list.querySelectorAll('.custom-food-del').forEach((btn) =>
-    btn.addEventListener('click', () => { removeCustomFood(btn.dataset.id); renderCustomFoodsList(); }));
+    btn.addEventListener('click', () => askDeleteCustomFood(btn.dataset.id)));
 }
 
 function openCustomFoodDialog() {
@@ -1597,7 +1620,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.25';
+const FITFLOW_VERSION = '0.3.26';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7004,6 +7027,8 @@ function init() {
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
+  bindEvent('#custom-food-del-cancel', 'click', () => { pendingCustomFoodDeleteId = null; const d = $('#custom-food-del-dialog'); if (d) d.hidden = true; });
+  bindEvent('#custom-food-del-confirm', 'click', confirmDeleteCustomFood);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
@@ -8438,6 +8463,11 @@ function sendAiChat() {
     toast('Напишите ваш вопрос');
     return;
   }
+  // 0.3.26 (кейс пользователя: поле перекрывало низ, «Назад» недоступна):
+  // вопрос отправлен → режим чтения: клавиатуру и док гасим всегда,
+  // и в локальном, и в облачном пути (как в «Разобрать» и «Рецепт»).
+  input.blur();
+  closeImeDock();
   if (isCloudAiReady()) {
     sendAiChatCloud(text, resultBox);
     return;

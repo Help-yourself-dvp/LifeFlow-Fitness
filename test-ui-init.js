@@ -155,7 +155,7 @@ for (const id of ids) {
   if (!okWired) failed++;
   console.log(`${okWired ? '✓' : '✗'} эксперт 2.0: подключён в оба отчёта (статистика и ИИ-анализ)`);
   const okNoDup = !html.includes('Источники пищевых данных: USDA FoodData Central (public domain) и Open Food Facts (ODbL). Калорийность конкретного бренда')
-    && /id="sources-open"[^>]*>Источники пищевых данных</.test(html);
+    && /id="sources-open"[^>]*>.{0,4}Источники пищевых данных<\/button>/u.test(html);
   if (!okNoDup) failed++;
   console.log(`${okNoDup ? '✓' : '✗'} настройки: нет дубля источников, одна кнопка «Источники пищевых данных»`);
   const okMethod = html.includes('Средняя калорийность и объёмы по умолчанию');
@@ -180,6 +180,30 @@ for (const id of ids) {
     && /Number\(product\.pieceG\) > 0\) return/.test(app2);
   if (!okLogic) failed++;
   console.log(`${okLogic ? '✓' : '✗'} личная база: lookupProduct сначала личная база, вес штуки учитывается`);
+}
+
+// 0.3.26: док после «Спросить», подтверждение удаления, скролл-зоны, значки, placeholder
+{
+  const app3 = fs.readFileSync('app.js', 'utf8');
+  const okChat = app3.includes('input.blur();\n  closeImeDock();\n  if (isCloudAiReady())');
+  if (!okChat) failed++;
+  console.log(`${okChat ? '✓' : '✗'} ИИ-чат: после «Спросить» клавиатура и док закрываются (режим чтения)`);
+  const okDel = ['custom-food-del-dialog', 'custom-food-del-confirm', 'custom-food-del-cancel', 'custom-food-del-name']
+    .every((id) => new RegExp(`id=["']${id}["']`).test(html))
+    && app3.includes('function askDeleteCustomFood(id)') && app3.includes('function confirmDeleteCustomFood()');
+  if (!okDel) failed++;
+  console.log(`${okDel ? '✓' : '✗'} подтверждение удаления своего продукта: диалог + функции на месте`);
+  const cssAll = fs.readFileSync('style.css', 'utf8');
+  const okScroll = cssAll.includes('.ai-result-box::before') && cssAll.includes('#ai-view-back { margin-top: 16px; }');
+  if (!okScroll) failed++;
+  console.log(`${okScroll ? '✓' : '✗'} ИИ: панель результата визуально отделена (полоса-ручка), «Назад» опущен`);
+  const okAbout = html.includes('>📚 Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
+    && html.includes('>📜 Условия использования</button>') && html.includes('>🎓 Как пользоваться приложением</button>');
+  if (!okAbout) failed++;
+  console.log(`${okAbout ? '✓' : '✗'} «О приложении»: единые значки у всех кнопок`);
+  const okPh = html.includes('placeholder="Название (напр., «Творог 5%»)"') && !html.includes('«Простоквашино» 5%');
+  if (!okPh) failed++;
+  console.log(`${okPh ? '✓' : '✗'} «Мои продукты»: короткий placeholder виден целиком`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
