@@ -621,7 +621,7 @@ const UNIT_MAP = {
   'стакан': 250, 'стакана': 250, 'стаканов': 250, 'стакану': 250,
   'чашка': 200, 'чашки': 200, 'чашку': 200,
   'кружка': 200, 'кружки': 200, 'кружку': 200,
-  'тарелка': 200, 'тарелки': 200, 'тарелку': 200, 'тарелок': 200,
+  'тарелка': 250, 'тарелки': 250, 'тарелку': 250, 'тарелок': 250, // 0.3.23: реальная глубокая тарелка ~250 г
   'миска': 200, 'миски': 200, 'миску': 200, 'мисок': 200,
   'пиала': 200, 'пиалы': 200, 'пиалу': 200,
   'ст.л': 20, 'ст. л': 20, 'ст.л.': 20, 'ст л': 20, 'столовая ложка': 20,
@@ -1239,7 +1239,7 @@ function parseItem(text) {
     unit = 'ложка';
   } else if (implicitPlate) {
     amount = 1;
-    unit = 'порция';
+    unit = 'тарелка'; // 0.3.23: тарелка 250 г (UNIT_MAP), не «порция» 200 г
   }
 
   // Разговорная ёмкость ПОСЛЕ продукта без цифры: «сока стакан», «суп тарелка»,
@@ -1254,7 +1254,8 @@ function parseItem(text) {
     unit = rawUnit.startsWith('стакан') ? 'стакан'
       : (rawUnit.startsWith('чашк') || rawUnit.startsWith('кружк')) ? 'чашка'
       : (rawUnit.startsWith('литр') || rawUnit === 'л') ? 'л'
-      : (rawUnit.startsWith('тарелк') || rawUnit.startsWith('миск') || rawUnit.startsWith('пиал')) ? 'порция'
+      : rawUnit.startsWith('тарелк') ? 'тарелка' // 0.3.23: тарелка 250 г
+      : (rawUnit.startsWith('миск') || rawUnit.startsWith('пиал')) ? 'порция'
       : canonicalUnit(rawUnit); // кусок / ломоть / долька
   }
   // И наоборот: ёмкость/доля ПЕРЕД продуктом без цифры — «кусок торта», «ломоть хлеба».
@@ -1510,7 +1511,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.22';
+const FITFLOW_VERSION = '0.3.23';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
