@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -753,6 +753,50 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   // Очистка за собой, чтобы не влиять на остальные тесты
   removeCustomFood(r1.item.id);
   removeCustomFood(r3.item.id);
+}
+
+// ---- Виды приготовления (0.3.27): жареная/варёная ≠ обычная ----
+{
+  const cooking = [
+    ['жареная курица', 'курица жареная', 213],
+    ['жареная курица 150 г', 'курица жареная', 320],
+    ['варёная курица', 'курица вареная', 150],
+    ['отварная курица', 'отварная курица', 150],
+    ['жареная грудка', 'грудка жареная', 187],
+    ['жареная куриная грудка', 'куриная грудка жареная', 187],
+    ['свинина жареная 100 г', 'свинина жареная', 318],
+    ['свинина вареная 100 г', 'свинина вареная', 350],
+    ['курица', 'курица', 165]
+  ];
+  let cookingOk = true;
+  for (const [text, name, kcal] of cooking) {
+    const r = parseMealText(text)[0];
+    if (!r || r.name !== name || r.kcal !== kcal) { cookingOk = false; console.log('  ✗ промах:', text, '→', r && r.name, r && r.kcal); }
+  }
+  if (!cookingOk) failed++;
+  console.log(`${cookingOk ? '✓' : '✗'} виды приготовления: жареная/варёная курица-свинина отличаются, простая «курица» не тронута`);
+  // Регресс: старые жареные/варёные ключи на месте
+  const regOk = parseMealText('говядина вареная')[0]?.kcal === 175 && parseMealText('жареной картошки')[0]?.name === 'жареный картофель';
+  if (!regOk) failed++;
+  console.log(`${regOk ? '✓' : '✗'} виды приготовления: регресс (говядина вареная, жареная картошка)`);
+}
+
+// ---- OFF-разбор ответа (0.3.27): чистая функция по штрих-коду ----
+{
+  const full = parseOffProduct({ status: 1, product: { product_name_ru: 'Творог зерновой 5%', product_quantity: '150',
+    nutriments: { 'energy-kcal_100g': 105, proteins_100g: 12.7, fat_100g: 5, carbohydrates_100g: 1.8 } } });
+  const okFull = full && full.name === 'творог зерновой 5%' && full.kcal === 105 && full.p === 12.7 && full.pieceG === 150;
+  if (!okFull) failed++;
+  console.log(`${okFull ? '✓' : '✗'} OFF-разбор: полный ответ → имя, ккал, БЖУ, вес упаковки`);
+  const kj = parseOffProduct({ status: 1, product: { product_name: 'Bar', nutriments: { energy_100g: 837 } } });
+  const okKj = kj && kj.kcal === 200 && kj.p === null;
+  if (!okKj) failed++;
+  console.log(`${okKj ? '✓' : '✗'} OFF-разбор: только кДж → пересчёт в ккал (837 кДж ≈ 200)`);
+  const okJunk = parseOffProduct(null) === null && parseOffProduct({ status: 0 }) === null
+    && parseOffProduct({ status: 1, product: { product_name: 'x' } }) === null
+    && parseOffProduct({ status: 1, product: { product_name: 'x', nutriments: { 'energy-kcal_100g': 5000 } } }) === null;
+  if (!okJunk) failed++;
+  console.log(`${okJunk ? '✓' : '✗'} OFF-разбор: не найден / без ккал / мусор → честный отказ без формы`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

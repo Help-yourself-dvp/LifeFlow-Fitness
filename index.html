@@ -1016,12 +1016,12 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.26</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.27</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
-            <button class="btn btn-secondary" id="sources-open" type="button">📚 Источники пищевых данных</button>
+            <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
-            <button class="btn btn-secondary" id="terms-open" type="button">📜 Условия использования</button>
-            <button class="btn btn-secondary" id="onboarding-open" type="button">🎓 Как пользоваться приложением</button>
+            <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
+            <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
           </div>
           <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
         </div>
@@ -1350,6 +1350,11 @@
       <div class="app-dialog-icon" aria-hidden="true">🏷️</div>
       <h2 id="custom-food-title">Мои продукты</h2>
       <p class="settings-hint">Точные значения с упаковки вашего бренда или рецепта. Свой продукт перекрывает усреднённый из общей базы — расчёт становится правдивее. Калорийность и БЖУ указываются на 100 г, как на этикетке.</p>
+      <div class="custom-food-off">
+        <input class="dialog-text-input" id="custom-food-barcode" type="text" inputmode="numeric" maxlength="14" placeholder="Штрих-код с упаковки (цифры)">
+        <button class="btn btn-secondary" id="custom-food-off-btn" type="button">🔍 Найти онлайн</button>
+      </div>
+      <p class="settings-hint" style="margin:2px 0 6px">Поиск по штрих-коду — онлайн (источник: Open Food Facts, ODbL; данные краудсорсные — сверьте с упаковкой). Сохранённый продукт дальше работает офлайн.</p>
       <div class="custom-food-form">
         <input class="dialog-text-input" id="custom-food-name" type="text" placeholder="Название (напр., «Творог 5%»)" maxlength="60">
         <div class="custom-food-grid">

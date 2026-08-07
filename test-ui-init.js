@@ -197,13 +197,35 @@ for (const id of ids) {
   const okScroll = cssAll.includes('.ai-result-box::before') && cssAll.includes('#ai-view-back { margin-top: 16px; }');
   if (!okScroll) failed++;
   console.log(`${okScroll ? '✓' : '✗'} ИИ: панель результата визуально отделена (полоса-ручка), «Назад» опущен`);
-  const okAbout = html.includes('>📚 Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
-    && html.includes('>📜 Условия использования</button>') && html.includes('>🎓 Как пользоваться приложением</button>');
+  const okAbout = html.includes('>ℹ️ Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
+    && html.includes('>🛡️ Условия использования</button>') && html.includes('>💧 Как пользоваться приложением</button>');
   if (!okAbout) failed++;
   console.log(`${okAbout ? '✓' : '✗'} «О приложении»: единые значки у всех кнопок`);
   const okPh = html.includes('placeholder="Название (напр., «Творог 5%»)"') && !html.includes('«Простоквашино» 5%');
   if (!okPh) failed++;
   console.log(`${okPh ? '✓' : '✗'} «Мои продукты»: короткий placeholder виден целиком`);
+}
+
+// 0.3.27: виды приготовления в базе, OFF-строка, значки из диалогов, Отмена по центру
+{
+  const app4 = fs.readFileSync('app.js', 'utf8');
+  const okCook = app4.includes("'курица жареная': { kcal: 213") && app4.includes("'свинина вареная': { kcal: 350")
+    && app4.includes("'курица вареная'") && app4.includes("'грудка жареная'");
+  if (!okCook) failed++;
+  console.log(`${okCook ? '✓' : '✗'} база: жареная/варёная курица и свинина добавлены`);
+  const okOff = ['custom-food-barcode', 'custom-food-off-btn'].every((id) => new RegExp(`id=["']${id}["']`).test(html))
+    && app4.includes("bindEvent('#custom-food-off-btn', 'click', findCustomFoodByBarcode)")
+    && app4.includes('function parseOffProduct(json)') && html.includes('Open Food Facts, ODbL');
+  if (!okOff) failed++;
+  console.log(`${okOff ? '✓' : '✗'} OFF-поиск по штрих-коду: строка, привязка, атрибуция ODbL`);
+  const okIcons = html.includes('>ℹ️ Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
+    && html.includes('>🛡️ Условия использования</button>') && html.includes('>💧 Как пользоваться приложением</button>');
+  if (!okIcons) failed++;
+  console.log(`${okIcons ? '✓' : '✗'} «О приложении»: значки кнопок = значки самих разделов`);
+  const css5 = fs.readFileSync('style.css', 'utf8');
+  const okCenter = css5.includes('#custom-food-del-dialog .app-dialog-actions button { width: 100%; }');
+  if (!okCenter) failed++;
+  console.log(`${okCenter ? '✓' : '✗'} диалог удаления: кнопка «Отмена» растянута (не прижата влево)`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

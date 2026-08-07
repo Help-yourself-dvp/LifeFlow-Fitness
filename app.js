@@ -465,6 +465,10 @@ const FOOD_DB = {
   'говядина тушеная': { kcal: 220, p: 20, f: 15, c: 2 },
   'говядина вареная': { kcal: 175, p: 22, f: 9, c: 0 },
   'говядина жареная': { kcal: 260, p: 24, f: 17, c: 0 },
+  // 0.3.27: виды приготовления для массовых белков (справочник Скурихина/USDA)
+  'курица жареная': { kcal: 213, p: 26, f: 11, c: 0 }, 'свинина жареная': { kcal: 318, p: 22, f: 24, c: 0 },
+  'куриная грудка жареная': { kcal: 187, p: 29, f: 7, c: 0 }, 'грудка жареная': { kcal: 187, p: 29, f: 7, c: 0 },
+  'курица вареная': { kcal: 150, p: 22, f: 6, c: 0 }, 'свинина вареная': { kcal: 350, p: 18, f: 31, c: 0 },
   'свинина тушеная': { kcal: 300, p: 16, f: 24, c: 2 },
   'свинина запеченная': { kcal: 310, p: 17, f: 25, c: 1 },
   'шашлык': { kcal: 220, p: 20, f: 15, c: 1 },
@@ -1500,6 +1504,78 @@ function calcNutrition(product, amount, unit) {
    Личная база продуктов — диалог (0.3.25).
    Точные значения с упаковки перекрывают усреднённые из базы.
    ============================================================ */
+/* Поиск по штрих-коду в Open Food Facts (0.3.27): онлайн-запрос →
+   сохранение в личную базу → дальше продукт живёт ОФЛАЙН. OFF — краудсорс
+   (ODbL): найденное вежливо просит сверку с упаковкой. Полная локальная
+   база штрих-кодов в APK не упаковывается принципиально (POSTPONED P7):
+   миллионы позиций обновляются ежедневно — честный гибрид вместо вранья. */
+function parseOffProduct(json) {
+  if (!json || Number(json.status) !== 1 || !json.product || typeof json.product !== 'object') return null;
+  const p = json.product;
+  const name = String(p.product_name_ru || p.product_name || '').trim().toLowerCase();
+  const n = (p.nutriments && typeof p.nutriments === 'object') ? p.nutriments : {};
+  const num = (v) => { const x = Number(v); return Number.isFinite(x) ? Math.round(x * 10) / 10 : null; };
+  let kcal = num(n['energy-kcal_100g']);
+  if (kcal == null) {
+    const kj = Number(n.energy_100g);
+    if (Number.isFinite(kj) && kj > 0) kcal = Math.round(kj / 4.184);
+  }
+  if (kcal == null || kcal < 1 || kcal > 900) return null;
+  const piece = Number(p.product_quantity);
+  return {
+    name,
+    kcal: Math.round(kcal),
+    p: num(n.proteins_100g), f: num(n.fat_100g), c: num(n.carbohydrates_100g),
+    pieceG: (Number.isFinite(piece) && piece >= 5 && piece <= 2000) ? Math.round(piece) : null
+  };
+}
+
+async function lookupOffByBarcode(code) {
+  const clean = String(code || '').replace(/[^0-9]/g, '');
+  if (clean.length < 8 || clean.length > 14) return { ok: false, error: 'digits' };
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 9000) : null;
+  try {
+    const res = await fetch('https://world.openfoodfacts.org/api/v2/product/' + encodeURIComponent(clean)
+      + '.json?fields=status,product_name,product_name_ru,product_quantity,nutriments',
+      ctrl ? { signal: ctrl.signal } : {});
+    const parsed = parseOffProduct(await res.json());
+    return parsed ? { ok: true, product: parsed } : { ok: false, error: 'not-found' };
+  } catch (e) {
+    return { ok: false, error: 'network' };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function findCustomFoodByBarcode() {
+  const codeEl = $('#custom-food-barcode');
+  const btn = $('#custom-food-off-btn');
+  if (!codeEl || !btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Ищу…';
+  const result = await lookupOffByBarcode(codeEl.value);
+  btn.disabled = false;
+  btn.textContent = '🔍 Найти онлайн';
+  if (!result.ok) {
+    toast(result.error === 'digits'
+      ? 'Введите 8–14 цифр штрих-кода с упаковки'
+      : result.error === 'not-found'
+        ? 'Не найден в Open Food Facts — внесите значения вручную'
+        : 'Нет соединения — онлайн-поиск недоступен');
+    return;
+  }
+  const pr = result.product;
+  const set = (id, v) => { const el = $(id); if (el && v != null && v !== '') el.value = v; };
+  set('#custom-food-name', pr.name);
+  set('#custom-food-kcal', pr.kcal);
+  set('#custom-food-p', pr.p);
+  set('#custom-food-f', pr.f);
+  set('#custom-food-c', pr.c);
+  set('#custom-food-piece', pr.pieceG);
+  toast('✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт»');
+}
+
 let pendingCustomFoodDeleteId = null;
 
 function askDeleteCustomFood(id) {
@@ -1620,7 +1696,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.26';
+const FITFLOW_VERSION = '0.3.27';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7027,6 +7103,7 @@ function init() {
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
+  bindEvent('#custom-food-off-btn', 'click', findCustomFoodByBarcode);
   bindEvent('#custom-food-del-cancel', 'click', () => { pendingCustomFoodDeleteId = null; const d = $('#custom-food-del-dialog'); if (d) d.hidden = true; });
   bindEvent('#custom-food-del-confirm', 'click', confirmDeleteCustomFood);
   bindEvent('#ai-send-chat', 'click', sendAiChat);
@@ -8577,6 +8654,6 @@ if (typeof module !== 'undefined' && module.exports) {
     isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
-    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb
+    buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct
   };
 }
