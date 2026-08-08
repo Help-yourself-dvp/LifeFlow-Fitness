@@ -132,7 +132,9 @@ class FitFlowLocalAiPlugin : Plugin() {
             return
         }
         val maxTokens = call.getInt("maxTokens") ?: 4096
-        val temperature = (call.getDouble("temperature") ?: 0.7).toFloat()
+        // v0.12.0: SamplerConfig принимает topP/temperature как Double (проверено
+        // по тегированным исходникам — Float-литералы (0.95f) здесь НЕ компилируются).
+        val temperature = call.getDouble("temperature") ?: 0.7
         scope.launch {
             try {
                 // Старый движок освобождаем: две модели в памяти телефона — перебор.
@@ -149,7 +151,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 )
                 newEngine.initialize()
                 val convConfig = ConversationConfig(
-                    samplerConfig = SamplerConfig(topK = 40, topP = 0.95f, temperature = temperature)
+                    samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = temperature)
                 )
                 conversation = newEngine.createConversation(convConfig)
                 engine = newEngine
@@ -242,7 +244,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 try { conversation?.close() } catch (_: Exception) {}
                 conversation = currentEngine.createConversation(
                     ConversationConfig(
-                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95f, temperature = 0.7f)
+                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7)
                     )
                 )
                 call.resolve()

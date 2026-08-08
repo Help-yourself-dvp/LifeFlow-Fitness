@@ -339,6 +339,7 @@ for (const id of ids) {
   const okKotlin = kt.includes('@CapacitorPlugin(name = "FitFlowLocalAI")') && kt.includes('fun importModel(')
     && kt.includes('fun loadModel(') && kt.includes('fun generate(') && kt.includes('fun unloadModel(')
     && kt.includes('litertlm') && !kt.includes('localhost')
+    && kt.includes('SamplerConfig(topK = 40, topP = 0.95') && !kt.includes('topP = 0.95f') // v0.12.0: Double, не Float (ночной провальной сборки 152 урок)
     && gradle.includes('com.google.ai.edge.litertlm:litertlm-android') && gradle.includes('minSdkVersion 24');
   if (!okKotlin) failed++;
   console.log(`${okKotlin ? '✓' : '✗'} локальный ИИ: плагин полный (import/load/generate/unload), LiteRT-LM, minSdk 24`);
