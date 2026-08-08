@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.3.36**
+Текущая версия: **0.3.37**
 
 ---
 
@@ -487,6 +487,10 @@ node test-parser.js
 ## 0.3.36
 
 - **🔧 Kotlin всего модуля — ровно 2.2.21** (третья правка сборки ИИ-модуля; каскад: резолв → компиляция): после ухода от несуществующего мавен-артефакта сборка дошла до компиляции Kotlin и упала на «Module was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.2.0, expected version is 2.0.0» — litertlm-android:0.12.0 тянет kotlin-stdlib/reflect **2.2.21**, а KGP 2.0.21 не читает бинарники Kotlin 2.2. KGP поднят до **2.2.21** (ровно версия транзитивных зависимостей; по официальным «What's new» 2.2 совместим с Gradle 7.6.3–8.14 и AGP-полом 8.2.1 не грозит — повышение минимума AGP до 8.2.2 пришло только в 2.3.0). Прочитано из живого лога job через подписанный URL (закреплённый канал диагностики).
+
+## 0.3.37
+
+- **🔧 Четвёртая итерация сборки ИИ-модуля — по ПРОЧИТАННОму логу.** Канал логов (`gh api -i jobs/<id>/logs` → подписанный URL blob.core.windows.net → fetch_page) раскрыл run 31261706136 целиком: Kotlin-метадата больше не падает (KGP 2.2.21 подтверждён делом — компиляция дошла до разрешения ссылок; лог также показал `dexing-min-sdk=24` — патч minSdk работает). Дальше лог дал ДВЕ новые причины. ① «Unresolved reference 'ActivityResult'» (:fitflow-local-ai:compileDebugKotlin): импорт `com.getcapacitor.ActivityResult` был выдумкой — такого класса в Capacitor 5.7.0 нет вообще (доказано листингом тега); коллбэки `@ActivityCallback` получают `androidx.activity.result.ActivityResult`, а capacitor-android объявляет androidx.activity как `implementation` — наружу не экспортирует (официальные плагины получают класс транзитивно через appcompat). Плагин получил правильный импорт + прямую зависимость `androidx.activity:activity:1.7.0` — ровно версия, pinned в мосте (androidxActivityVersion default 5.7.0). ② «D8: Unsupported class file major version 65» (:app:mergeExtDexDebug на litertlm-android-0.12.0-runtime.jar и error_prone_annotations-2.41.0): библиотека собрана под Java 21, D8 из AGP 8.2.1 читает максимум Java 20. Применён официальный механизм Google — оверрайд R8/D8 через buildscript-classpath корневого android/build.gradle: `classpath 'com.android.tools:r8:8.5.35'`, сам AGP не тронут. Внесено в файл-замену (python-инъекция с проверкой якоря после sed minSdk); пользователю нужно ещё раз заменить `.github/workflows/build.yml` целиком (RAW-ссылка прежняя). Регресс-гарды обеих правок в ui-init.
 
 ## 0.3.35
 

@@ -409,5 +409,22 @@ for (const id of ids) {
   console.log(`${okMirror ? '✓' : '✗'} зеркало build.yml = готовый полный файл (LOCAL_AI + VOICE_PAUSE внутри)`);
 }
 
+// 0.3.37: починка нативной сборки по прочитанному логу (run 31261706136) —
+// ActivityResult только из androidx; R8 8.5.35 в файле-замене для Java-21 dex
+{
+  const ktB = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const gradleB = fs.readFileSync('plugins/fitflow-local-ai/android/build.gradle', 'utf8');
+  const okImports = ktB.includes('import androidx.activity.result.ActivityResult')
+    && !ktB.includes('com.getcapacitor.ActivityResult')
+    && gradleB.includes('androidx.activity:activity:1.7.0');
+  if (!okImports) failed++;
+  console.log(`${okImports ? '✓' : '✗'} починка компиляции: ActivityResult — androidx.activity.result (в Capacitor 5 класса com.getcapacitor.ActivityResult НЕТ), зависимость activity:1.7.0`);
+  const mirrorB = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okR8 = mirrorB.includes("classpath 'com.android.tools:r8:8.5.35'")
+    && mirrorB.includes('major version 65');
+  if (!okR8) failed++;
+  console.log(`${okR8 ? '✓' : '✗'} файл-замена: R8 8.5.35 в buildscript корневого build.gradle — D8 читает Java-21 байткод litertlm (лог 0.3.36)`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

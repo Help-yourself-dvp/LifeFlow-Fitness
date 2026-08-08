@@ -41,6 +41,14 @@ dependencies {
     // Мавен-артефакта com.getcapacitor:capacitor-android НЕ существует в
     // Google/Maven Central (ошибка сборки 0.3.34: «Could not find …:5.7.0»).
     implementation project(':capacitor-android')
+    // AndroidX Activity Result API: тип ActivityResult для @ActivityCallback.
+    // capacitor-android 5.7 объявляет androidx.activity как implementation —
+    // наружу классы НЕ экспортируются (сбой 0.3.36: «Unresolved reference
+    // 'ActivityResult'»; импорт com.getcapacitor.ActivityResult был вовсе неверен —
+    // такого класса в Capacitor 5 нет, проверено листингом тега 5.7.0).
+    // 1.7.0 = ровно версия, pinned у моста (androidxActivityVersion default
+    // capacitor-android 5.7.0) — граф версий без разброда.
+    implementation "androidx.activity:activity:1.7.0"
     // LiteRT-LM — официальный рантайм Google для LLM на устройстве (.litertlm).
     implementation "com.google.ai.edge.litertlm:litertlm-android:0.12.0"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
