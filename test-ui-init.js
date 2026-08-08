@@ -389,5 +389,22 @@ for (const id of ids) {
   console.log(`${okPause ? '✓' : '✗'} голос: патч пауз усилен до 6 с / 2.5 с тишины (просьба «ещё чуть больше»)`);
 }
 
+// 0.3.33: единый акцент карточки в ИИ-разделе (вторая полоса убрана), полный файл-замена в зеркале
+{
+  const css9 = fs.readFileSync('style.css', 'utf8');
+  const aiGroupRule = /\.ai-settings-group\s*\{[^}]*\}/.exec(css9);
+  const okOneBar = (!aiGroupRule || !aiGroupRule[0].includes('border-left'))
+    && css9.includes('border-left: 3px solid color-mix(in srgb, var(--primary) 65%, transparent)')
+    && css9.includes('Дополнительная линия УБРАНА');
+  if (!okOneBar) failed++;
+  console.log(`${okOneBar ? '✓' : '✗'} ИИ-настройки: одна стандартная акцентная линия карточки (вторая полоса убрана)`);
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okMirror = mirror.includes('npm install ./plugins/fitflow-local-ai')
+    && mirror.includes('minSdkVersion = 24')
+    && mirror.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L');
+  if (!okMirror) failed++;
+  console.log(`${okMirror ? '✓' : '✗'} зеркало build.yml = готовый полный файл (LOCAL_AI + VOICE_PAUSE внутри)`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

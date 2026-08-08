@@ -2692,9 +2692,11 @@ button.food-group-header:active { filter: brightness(0.97); }
 .mood-correlation.bad { color: var(--md-sys-color-error); }
 
 /* ===== ИИ-центр и Настройки ИИ FitFlow ===== */
-.ai-settings-group {
-  border-left: 3px solid var(--primary);
-}
+/* 0.3.33 (кейс пользователя: «две вертикальные полосы слева, текст уехал вправо»):
+   у .card уже есть стандартная акцентная линия (primary 65%) — так во ВСЕХ
+   подразделах настроек. Здесь дополнительно жила вторая bar-линия (primary 100%)
+   от раннего дизайна ИИ-раздела: две полосы в ~18px друг от друга, весь текст
+   смещён и сужен. Дополнительная линия УБРАНА — раздел приведён к общему виду. */
 .ai-model-box {
   background: var(--surface-variant);
   border-radius: 12px;
