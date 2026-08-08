@@ -4,7 +4,10 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'
+        // 2.2.21 — ровно версия kotlin-stdlib/reflect, которую тянет
+        // litertlm-android:0.12.0 (ошибка сборки 0.3.35: «metadata 2.2.0,
+        // expected 2.0.0» — KGP 2.0.21 не читает бинарники Kotlin 2.2).
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21'
     }
 }
 

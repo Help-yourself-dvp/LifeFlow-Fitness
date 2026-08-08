@@ -341,6 +341,7 @@ for (const id of ids) {
     && kt.includes('litertlm') && !kt.includes('localhost')
     && kt.includes('SamplerConfig(topK = 40, topP = 0.95') && !kt.includes('topP = 0.95f') // v0.12.0: Double, не Float (ночной провальной сборки 152 урок)
     && gradle.includes('com.google.ai.edge.litertlm:litertlm-android') && gradle.includes('minSdkVersion 24')
+    && gradle.includes('kotlin-gradle-plugin:2.2.21') // ровно версия stdlib от litertlm
     && gradle.includes("implementation project(':capacitor-android')") && !gradle.includes('implementation "com.getcapacitor');
   if (!okKotlin) failed++;
   console.log(`${okKotlin ? '✓' : '✗'} локальный ИИ: плагин полный (import/load/generate/unload), LiteRT-LM, minSdk 24`);
