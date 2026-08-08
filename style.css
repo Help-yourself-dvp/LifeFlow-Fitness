@@ -1348,6 +1348,11 @@ textarea.form-input.ai-textarea {
 .app-dialog-actions .btn {
   flex: 1;
   padding: 11px 10px;
+  /* 0.3.31 (кейс пользователя: «Отмена» на широкой кнопке залипала влево —
+     .btn-secondary это inline-flex без выравнивания): во ВСЕХ диалогах с
+     подтверждением надпись по центру. */
+  justify-content: center;
+  text-align: center;
 }
 
 .app-dialog-hint {
@@ -2587,6 +2592,12 @@ html[data-theme="dark"] .segmented button.active {
 .food-group-header span { flex: 0 0 auto; font-size: .76rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .food-group-items { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 7px; list-style: none; }
 .food-group-items .food-item { background: var(--md-sys-color-surface-container-high); }
+/* 0.3.31: заголовок приёма пищи — кнопка сворачивания (шеврон ▾).
+   С 4+ записями группа стартует свёрнутой — видны «N зап. · X ккал». */
+button.food-group-header { width: 100%; border: 0; font: inherit; cursor: pointer; text-align: left; }
+button.food-group-header:active { filter: brightness(0.97); }
+.food-group-chevron { display: inline-block; transition: transform 0.18s ease; opacity: 0.85; font-size: 0.8rem; }
+.food-group.collapsed .food-group-chevron { transform: rotate(-90deg); }
 
 /* ---------- Шапка и контекст активного профиля ---------- */
 .topbar { gap: 6px; padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
@@ -2727,9 +2738,19 @@ html[data-theme="dark"] .segmented button.active {
 /* 0.3.29: полоса-«ручка» УБРАНА — ложный аффорданс (обещала drag, была
    только декором; кейс пользователя «тяну — не влияет»). Отдельность
    панели теперь честно дают рамка, тень и видимый скроллбар ниже. */
-.ai-result-box::-webkit-scrollbar { width: 6px; }
-.ai-result-box::-webkit-scrollbar-track { background: transparent; }
-.ai-result-box::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 3px; }
+.ai-result-box::-webkit-scrollbar { width: 8px; }
+.ai-result-box::-webkit-scrollbar-track { background: color-mix(in srgb, var(--outline-variant) 30%, transparent); border-radius: 4px; }
+.ai-result-box::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 4px; min-height: 28px; }
+/* 0.3.31 (кейс «внизу нет полосы скролла»): Android WebView рисует скроллбар
+   мельком. Честный стойкий маркер продолжения — градиент у нижней кромки,
+   пока контент реально выше панели (класс ставит watchAiResultBoxes). Градиент
+   — не кнопка и не ручка, ложных обещаний нет (принцип №7). */
+.ai-result-box.ai-scrollable::after {
+  content: ''; display: block; position: sticky; bottom: -14px;
+  height: 22px; margin: 6px -14px -14px; border-radius: 0 0 14px 14px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-variant) 88%, black 12%) 85%);
+  pointer-events: none;
+}
 
 /* «Назад на главную» в ИИ — отлеплен от текста результата над ним (0.3.26) */
 #ai-view-back { margin-top: 16px; }

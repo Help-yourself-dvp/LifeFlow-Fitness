@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -973,6 +973,58 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!okUpdOk) failed++;
   console.log(`${okUpdOk ? '✓' : '✗'} курс: правка меняет время/дни, дату старта и отметки не трогает`);
   removeCourse(okUpd.item.id);
+}
+
+// ---- 0.3.31: яичные блюда «из N яиц» (кейс: «глазунья из двух яиц» теряла число) ----
+{
+  const g = parseMealText('глазунья из двух яиц');
+  const okG = g.length === 1 && g[0].name === 'глазунья' && g[0].amount === 120 && Math.round(g[0].kcal) === 216;
+  if (!okG) failed++;
+  console.log(`${okG ? '✓' : '✗'} «глазунья из двух яиц» → 2×60 г = 120 г/216 ккал (было «100 г»)`);
+  const o = parseMealText('омлет из трёх яиц');
+  const okO = o.length === 1 && o[0].name === 'омлет' && o[0].amount === 240 && Math.round(o[0].kcal) === 372;
+  if (!okO) failed++;
+  console.log(`${okO ? '✓' : '✗'} «омлет из трёх яиц» → 3×80 г = 240 г/372 ккал (омлет с молоком)`);
+  const y = parseMealText('яичница из 2 яиц');
+  const okY = y.length === 1 && y[0].amount === 120;
+  if (!okY) failed++;
+  console.log(`${okY ? '✓' : '✗'} «яичница из 2 яиц» (цифрой) → 120 г`);
+  const bare = parseMealText('глазунья');
+  const okBare = bare.length === 1 && bare[0].amount == null && Math.round(bare[0].kcal) === 180;
+  if (!okBare) failed++;
+  console.log(`${okBare ? '✓' : '✗'} регрессия: просто «глазунья» — по-прежнему ≈100 г/180`);
+}
+
+// ---- 0.3.31: честный кусок колбасы (кейс: «3 куска варёной» → 300 г/780 ккал) ----
+{
+  const c = parseMealText('три куска варёной колбасы');
+  const okC = c.length === 1 && c[0].name === 'вареная колбаса' && c[0].amount === 3
+    && Math.round(c[0].grams) === 135 && Math.round(c[0].kcal) === 351;
+  if (!okC) failed++;
+  console.log(`${okC ? '✓' : '✗'} «три куска варёной колбасы» → 3×45 г = 135 г/351 (было 300 г/780)`);
+  const v = parseMealText('кусок ветчины');
+  const okV = v.length === 1 && Math.round(v[0].grams) === 45 && Math.round(v[0].kcal) === 65;
+  if (!okV) failed++;
+  console.log(`${okV ? '✓' : '✗'} «кусок ветчины» → 45 г/65`);
+  const h = parseMealText('два куска белого хлеба');
+  const okH = h.length === 1 && Math.round(h[0].grams) === 80 && Math.round(h[0].kcal) === 212;
+  if (!okH) failed++;
+  console.log(`${okH ? '✓' : '✗'} регрессия: хлебные веса не тронуты (2×40 г = 80 г/212)`);
+  // Вся фраза пользователя целиком (0.3.31): 6 позиций
+  const full = parseMealText('Глазунья из двух яиц, один помидор, один огурец, два куска хлеба, три куска варёной колбасы, кофе');
+  const names = full.map((i) => i.name);
+  const okFull = full.length === 6 && names.includes('глазунья') && names.includes('помидор')
+    && names.includes('огурец') && names.includes('хлеб') && names.includes('вареная колбаса') && names.includes('кофе')
+    && Math.round(full[0].kcal) === 216 && Math.round(full[4].kcal) === 351;
+  if (!okFull) failed++;
+  console.log(`${okFull ? '✓' : '✗'} фраза пользователя целиком → 6 позиций, глазунья 216, колбаса 351`);
+}
+
+// ---- 0.3.31: локальный ИИ — дремлющая проверка готовности (node: модуля нет) ----
+{
+  const okLlm = canUseLocalLlm() === false; // без нативного модуля строго false
+  if (!okLlm) failed++;
+  console.log(`${okLlm ? '✓' : '✗'} canUseLocalLlm без нативного моста → честное false (режим недоступен)`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

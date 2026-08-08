@@ -3,10 +3,11 @@ node_modules/
 package-lock.json
 npm-debug.log*
 
-# Capacitor
-android/
-ios/
-www/
+# Capacitor (только корневые — генерируются в CI через `npx cap add`;
+# без слэша-якоря паттерн проглатывал и исходники плагина plugins/*/android/)
+/android/
+/ios/
+/www/
 .capacitor/
 
 # Редакторы и ОС

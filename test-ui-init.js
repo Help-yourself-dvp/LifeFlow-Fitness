@@ -185,7 +185,14 @@ for (const id of ids) {
 // 0.3.26: док после «Спросить», подтверждение удаления, скролл-зоны, значки, placeholder
 {
   const app3 = fs.readFileSync('app.js', 'utf8');
-  const okChat = app3.includes('input.blur();\n  closeImeDock();\n  if (isCloudAiReady())');
+  // 0.3.31 (тест обновлён, код 0.3.26 не сломан): между closeImeDock() и облаком
+  // появилась ветка локальной Gemma, поэтому сплошной якорь устарел. Нам важно
+  // поведение: гашение клавиатуры и дока — ПЕРВЫМИ строками и общее для всех
+  // трёх путей ответа (локальный эксперт → litert → облако).
+  const okChat = app3.includes('input.blur();\n  closeImeDock();\n')
+    && app3.includes("state.aiSettings.mode === 'litert' && canUseLocalLlm()")
+    && app3.includes('sendAiChatLocalLlm(text, resultBox);\n    return;')
+    && app3.includes('if (isCloudAiReady()) {\n    sendAiChatCloud(text, resultBox);');
   if (!okChat) failed++;
   console.log(`${okChat ? '✓' : '✗'} ИИ-чат: после «Спросить» клавиатура и док закрываются (режим чтения)`);
   const okDel = ['custom-food-del-dialog', 'custom-food-del-confirm', 'custom-food-del-cancel', 'custom-food-del-name']
@@ -289,6 +296,58 @@ for (const id of ids) {
   const okBalance = divOpen === divClose;
   if (!okBalance) failed++;
   console.log(`${okBalance ? '✓' : '✗'} баланс div в index.html (${divOpen}/${divClose})`);
+}
+
+// 0.3.31: голос→проверка, сворачиваемые приёмы, AI-скролл, «Отмена» по центру, основа локального ИИ
+{
+  const app7 = fs.readFileSync('app.js', 'utf8');
+  const cssAll = fs.readFileSync('style.css', 'utf8');
+  const okVoice = app7.includes('ВСЕГДА проходит через экран') && app7.includes('previewSmartEntry();\n    toast(')
+    && app7.includes('window.onVoiceInputResult(event.results[0][0].transcript);');
+  if (!okVoice) failed++;
+  console.log(`${okVoice ? '✓' : '✗'} голосовой ввод (и нативный, и веб-фолбэк) → экран проверки умного ввода с кнопкой «Сохранить»`);
+  const okFold = app7.includes('foodGroupCollapsed') && app7.includes('data-group-toggle')
+    && app7.includes('group.items.length >= 4')
+    && cssAll.includes('.food-group.collapsed .food-group-chevron');
+  if (!okFold) failed++;
+  console.log(`${okFold ? '✓' : '✗'} приёмы пищи сворачиваются: 4+ записей свёрнуты, заголовок — кнопка-шеврон`);
+  const okCenter = cssAll.includes('.app-dialog-actions .btn {')
+    && cssAll.includes('justify-content: center;')
+    && cssAll.includes('text-align: center;');
+  if (!okCenter) failed++;
+  console.log(`${okCenter ? '✓' : '✗'} все диалоги подтверждения: текст кнопок (включая «Отмена») по центру`);
+  const okScroll = app7.includes('function watchAiResultBoxes()') && app7.includes('watchAiResultBoxes();')
+    && cssAll.includes('.ai-result-box.ai-scrollable::after') && cssAll.includes('width: 8px; }');
+  if (!okScroll) failed++;
+  console.log(`${okScroll ? '✓' : '✗'} ИИ: честный маркер прокрутки (наблюдатель + градиент + заметный скроллбар 8px)`);
+  const okParse = app7.includes('SAUSAGE_SLICE_GRAMS') && app7.includes('function eggPortionCount(')
+    && app7.includes('глазунья|яичница|омлет');
+  if (!okParse) failed++;
+  console.log(`${okParse ? '✓' : '✗'} парсер: яичные «из N яиц» + честный кусок колбасы (карты в коде)`);
+  // Основа локального ИИ (этап 0.4.x): нативный плагин + патч-инструкция + дремлющий JS
+  const okPlugin = fs.existsSync('plugins/fitflow-local-ai/package.json')
+    && fs.existsSync('plugins/fitflow-local-ai/android/build.gradle')
+    && fs.existsSync('plugins/fitflow-local-ai/android/src/main/AndroidManifest.xml')
+    && fs.existsSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt')
+    && fs.existsSync('tools/github-workflows/LOCAL_AI_PATCH.md');
+  if (!okPlugin) failed++;
+  console.log(`${okPlugin ? '✓' : '✗'} локальный ИИ: файлы плагина Capacitor и инструкция-патч на месте`);
+  const kt = fs.existsSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt')
+    ? fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8') : '';
+  const gradle = fs.existsSync('plugins/fitflow-local-ai/android/build.gradle')
+    ? fs.readFileSync('plugins/fitflow-local-ai/android/build.gradle', 'utf8') : '';
+  const okKotlin = kt.includes('@CapacitorPlugin(name = "FitFlowLocalAI")') && kt.includes('fun importModel(')
+    && kt.includes('fun loadModel(') && kt.includes('fun generate(') && kt.includes('fun unloadModel(')
+    && kt.includes('litertlm') && !kt.includes('localhost')
+    && gradle.includes('com.google.ai.edge.litertlm:litertlm-android') && gradle.includes('minSdkVersion 24');
+  if (!okKotlin) failed++;
+  console.log(`${okKotlin ? '✓' : '✗'} локальный ИИ: плагин полный (import/load/generate/unload), LiteRT-LM, minSdk 24`);
+  const okDormant = app7.includes('window.Capacitor.Plugins.FitFlowLocalAI') && app7.includes('function canUseLocalLlm()')
+    && app7.includes('function sendAiChatLocalLlm(') && app7.includes('canUseLocalLlm()')
+    && app7.includes('buildAiSystemContext') && !app7.includes("modelPath = 'local://'")
+    && html.includes('📁 Выбрать файл модели (.litertlm)');
+  if (!okDormant) failed++;
+  console.log(`${okDormant ? '✓' : '✗'} локальный ИИ: дремлющий JS (без модуля — false), общий контекст, без заглушек local://`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

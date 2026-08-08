@@ -651,11 +651,20 @@ const PIECE_UNITS = new Set(['шт', 'шт.', 'штук', 'штука', 'шту�
    (кусок 100 г, штука 70 г, ломоть/долька 30 г). */
 const BREAD_PIECE_GRAMS = { 'кусок': 40, 'ломоть': 30, 'долька': 15, 'шт': 30 };
 const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной хлеб', 'отрубной хлеб', 'цельнозерновой хлеб', 'батон', 'бородинский', 'чёрный хлеб']);
+/* Колбасное семейство — та же правдивость нарезки (0.3.31, кейс пользователя:
+   «три куска варёной колбасы» вылетело в 300 г / 780 ккал). Бытовой кусок
+   варёнки к завтраку — толстый ломтик ~1 см ≈ 40–50 г, а не «граммовка 100». */
+const SAUSAGE_SLICE_GRAMS = { 'кусок': 45, 'ломоть': 25, 'долька': 15 };
+const SAUSAGE_KEYS = new Set(['колбаса', 'вареная колбаса', 'варёная колбаса', 'докторская', 'молочная колбаса', 'сервелат', 'салями', 'сырокопченая колбаса', 'сырокопчёная колбаса', 'ветчина']);
 function pieceGramsFor(product, normUnit) {
   if (product && Number(product.pieceG) > 0) return Number(product.pieceG); // 0.3.25: вес штуки из личной базы
   if (product && product.key && BREAD_KEYS.has(product.key)) {
     const bread = BREAD_PIECE_GRAMS[normUnit];
     if (bread) return bread;
+  }
+  if (product && product.key && SAUSAGE_KEYS.has(product.key)) {
+    const cut = SAUSAGE_SLICE_GRAMS[normUnit];
+    if (cut) return cut; // 0.3.31: честная нарезка колбасных (см. выше)
   }
   if (PIECE_UNITS.has(normUnit)) return 70;
   if (Object.prototype.hasOwnProperty.call(SLICE_UNIT_GRAMS, normUnit)) return SLICE_UNIT_GRAMS[normUnit];
@@ -1255,8 +1264,40 @@ function parseDishFromItem(rawName, amount, unit, nutritionOf) {
   };
 }
 
+/* Число яиц в «глазунье из двух яиц»: цифра или родительное числительное. */
+function eggPortionCount(word) {
+  const w = String(word || '').toLowerCase();
+  if (/^\d+$/.test(w)) return Number(w);
+  const map = { 'одного': 1, 'одной': 1, 'двух': 2, 'трёх': 3, 'трех': 3, 'четырёх': 4, 'четырех': 4, 'пяти': 5, 'шести': 6 };
+  return map[w] || 0;
+}
+
 function parseItem(text) {
   if (!text) return null;
+
+  // Яичные блюда «из N яиц» (0.3.31, кейс пользователя: «глазунья из двух яиц»
+  // теряла число и считалась условными «100 г»). Вес ПОРЦИИ блюда честный:
+  // на 1 яйцо ≈ 60 г глазуньи/яичницы (яйцо без скорлупы ~48–55 г + масло
+  // жарки), ≈ 80 г омлета (с молоком). Результат показываем в граммах — то
+  // есть формула оценки видна прямо в строке разбора.
+  const eggDish = text.match(/^(глазунья|яичница|омлет)\s+из\s+(\d+|одного|одной|двух|трёх|трех|четырёх|четырех|пяти|шести)\s+яиц[а-яё]*$/iu);
+  if (eggDish) {
+    const dishKey = eggDish[1].toLowerCase();
+    const product = lookupProduct(dishKey);
+    const eggs = eggPortionCount(eggDish[2]);
+    if (product && eggs) {
+      const grams = Math.max(1, Math.round(eggs * (dishKey === 'омлет' ? 80 : 60)));
+      const nutrition = calcNutrition(product, grams, 'г');
+      if (nutrition && Number.isFinite(nutrition.kcal)) {
+        return {
+          id: uid(), raw: text.trim(), name: product.key,
+          amount: grams, unit: 'г', grams: nutrition.grams, perPiece: false,
+          kcal: nutrition.kcal, p: nutrition.p, f: nutrition.f, c: nutrition.c,
+          custom: product.custom === true
+        };
+      }
+    }
+  }
 
   // 1) Ищем количество: число + единица (картофель 150 г, пицца 3 куска)
   // Границы (?![а-яёa-z]) у коротких единиц обязательны: иначе «л» съедал бы
@@ -1767,7 +1808,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.30';
+const FITFLOW_VERSION = '0.3.31';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -4812,6 +4853,21 @@ function renderFoodItem(item) {
     </li>`;
 }
 
+/* 0.3.31 (просьба пользователя: с большим завтраком «до веса крутить очень
+   долго»): группы приёмов пищи сворачиваются. Правило уважительное: с 4+
+   записями группа по умолчанию свёрнута (видна строка «N зап. · X ккал» —
+   информация не теряется), короткие развёрнуты; заголовок — кнопка-шеврон,
+   состояние живёт на время сессии приложения. Каруселью вправо-влево
+   сознательно НЕ делаем: в основном дневном потоке свайпы конфликтуют с
+   вертикальным скроллом и прячут контент; кандидат для карусели в будущем —
+   галерейные блоки (медали), не дневник. */
+let foodGroupCollapsed = {};
+function isFoodGroupCollapsed(group) {
+  const key = group.id || '_none';
+  if (!(key in foodGroupCollapsed)) foodGroupCollapsed[key] = group.items.length >= 4;
+  return foodGroupCollapsed[key];
+}
+
 function renderFoodList() {
   const list = $('#food-list');
   const { items } = state.food;
@@ -4822,16 +4878,21 @@ function renderFoodList() {
     return;
   }
 
-  list.innerHTML = groupFoodItemsByMealType(items).map((group) => `
-    <li class="food-group">
-      <div class="food-group-header">
+  list.innerHTML = groupFoodItemsByMealType(items).map((group) => {
+    const collapsed = isFoodGroupCollapsed(group);
+    const gid = group.id || '_none';
+    return `
+    <li class="food-group${collapsed ? ' collapsed' : ''}">
+      <button type="button" class="food-group-header" data-group-toggle="${gid}" aria-expanded="${!collapsed}" aria-label="${collapsed ? 'Развернуть' : 'Свернуть'} приём: ${escapeHtml(group.label)}">
         <h3>${escapeHtml(group.label)}</h3>
-        <span aria-label="Итого ${fmt(group.totalKcal)} килокалорий">${fmt(group.totalKcal)} ккал</span>
-      </div>
-      <ul class="food-group-items" aria-label="${escapeHtml(group.label)}">
+        <span class="food-group-meta">${group.items.length} зап. · <span aria-label="Итого ${fmt(group.totalKcal)} килокалорий">${fmt(group.totalKcal)} ккал</span></span>
+        <span class="food-group-chevron" aria-hidden="true">▾</span>
+      </button>
+      <ul class="food-group-items" aria-label="${escapeHtml(group.label)}"${collapsed ? ' hidden' : ''}>
         ${group.items.map(renderFoodItem).join('')}
       </ul>
-    </li>`).join('');
+    </li>`;
+  }).join('');
 }
 
 function escapeHtml(s) {
@@ -6853,29 +6914,26 @@ if (typeof window !== 'undefined') {
   window.onVoiceInputResult = function (text) {
     if (!text) { toast('Речь не распознана. Попробуйте ещё раз.'); return; }
     const targetId = window._voiceTargetInputId;
-    if (targetId) {
+    // ИИ-поле — как раньше: свой разбор с показом прямо на экране.
+    if (targetId === '#ai-quick-input') {
       const field = $(targetId);
-      if (field) {
-        field.value = text;
-        toast('✓ Распознано: ' + text);
-        if (targetId === '#ai-quick-input') parseAiQuickEntry();
-        return;
-      }
+      if (field) { field.value = text; parseAiQuickEntry(); return; }
     }
+    // 0.3.31 (кейс пользователя: после диктовки на Главной — маленькое поле
+    // и быстро исчезающий toast, непонятно, что именно записано и не ошибся
+    // ли распознаватель): результат голоса ВСЕГДА проходит через экран
+    // проверки умного ввода — видна и расшифровка, и разбор по позициям,
+    // в дневник попадает только после явной кнопки «Сохранить».
     openSmartEntry();
     $('#smart-entry-input').value = text;
     previewSmartEntry();
+    toast('Проверьте расшифровку — если всё верно, нажмите «Сохранить»');
   };
-  window.onModelFileSelected = function (name, size) {
-    if (!name) { toast('Выбор файла отменён'); return; }
-    state.aiSettings.connected = true;
-    state.aiSettings.modelName = name;
-    state.aiSettings.modelPath = 'local://' + name;
-    state.aiSettings.modelSize = size;
-    saveState();
-    renderAiSettings();
-    toast('✓ Подключён локальный файл модели: ' + name);
-  };
+  /* 0.3.31: старый мост window.onModelFileSelected удалён — он был мёртвым
+     (нативной стороны со selectModelFile в текущей сборке нет) и ставил
+     фальшивый modelPath вида 'local://имя', которого на самом деле не
+     существует (принцип «нет кнопок-призраков»). Реальный выбор файла теперь
+     идёт через плагин FitFlowLocalAI → selectLocalModelFile() → importModel. */
   window.onWidgetAction = function (action) {
     if (action && String(action).startsWith('add_water_')) {
       const ml = Number(String(action).replace('add_water_', '')) || 250;
@@ -7342,6 +7400,17 @@ function init() {
     const btn = e.target.closest('[data-remove]');
     if (btn) removeFood(btn.dataset.remove);
   });
+  // Сворачивание приёмов пищи (0.3.31)
+  $('#food-list').addEventListener('click', (e) => {
+    const toggle = e.target.closest('[data-group-toggle]');
+    if (!toggle) return;
+    const key = toggle.dataset.groupToggle;
+    const group = groupFoodItemsByMealType(state.food.items).find((g) => (g.id || '_none') === key);
+    if (group) {
+      foodGroupCollapsed[key] = !isFoodGroupCollapsed(group);
+      renderFoodList();
+    }
+  });
 
   $('#food-goal-minus').addEventListener('click', () => changeFoodGoal(-100));
   $('#food-goal-plus').addEventListener('click', () => changeFoodGoal(100));
@@ -7642,6 +7711,7 @@ function init() {
       if (btn) setCourseDoseCount(Number(btn.dataset.doses));
     });
   }
+  watchAiResultBoxes(); // 0.3.31: видимый признак прокрутки панелей ИИ
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
@@ -7864,10 +7934,25 @@ function renderAiSettings() {
   if (cloudBox) cloudBox.hidden = state.aiSettings.mode !== 'cloud';
 
   if (statusEl) {
-    if (state.aiSettings.modelPath) {
-      statusEl.textContent = '✓ Подключена модель: ' + (state.aiSettings.modelName || 'Gemma LiteRT');
+    const plugin = getLocalAiPlugin();
+    const selectBtn = $('#ai-select-btn');
+    const downloadBtn = $('#ai-download-btn');
+    // 0.3.31: честные состояния без кнопок-призраков.
+    if (!plugin) {
+      statusEl.textContent = '○ Модуль локальной нейросети — в следующей сборке (0.4.x): нативная часть подключается отдельным патчем. Уже выбранный файл модели сохранится и подхватится.';
+      if (selectBtn) selectBtn.hidden = true;
+      if (downloadBtn) downloadBtn.hidden = false; // ведёт на честную инструкцию
+    } else if (hasRealLocalModel()) {
+      const size = state.aiSettings.modelSize ? ' · ' + Math.round(state.aiSettings.modelSize / 1048576) + ' МБ' : '';
+      statusEl.textContent = '✓ Модель на устройстве: ' + (state.aiSettings.modelName || 'модель') + size + '. Отвечает офлайн, без интернета и ключей.';
+      if (selectBtn) { selectBtn.hidden = false; selectBtn.textContent = '📁 Другой файл модели'; }
+      if (downloadBtn) downloadBtn.hidden = true;
     } else {
-      statusEl.textContent = '○ Локальный файл модели LiteRT не подключён.';
+      statusEl.textContent = state.aiSettings.modelPath
+        ? '○ Файл модели был отмечен по-старому, без копии в приложении — выберите его заново кнопкой ниже.'
+        : '○ Модель не выбрана. Укажите скачанный файл .litertlm — дальше всё работает офлайн.';
+      if (selectBtn) { selectBtn.hidden = false; selectBtn.textContent = '📁 Выбрать файл модели (.litertlm)'; }
+      if (downloadBtn) downloadBtn.hidden = false;
     }
   }
 
@@ -7922,7 +8007,7 @@ function setAiMode(mode) {
   renderAiSettings();
   toast(mode === 'expert' ? 'Режим: локальные факты + рецепты (офлайн)'
     : mode === 'cloud' ? 'Режим: 🧪 облачная нейросеть — тестовый (онлайн, ваш ключ)'
-    : 'Режим: Gemma LiteRT (~1.3 ГБ)');
+    : canUseLocalLlm() ? 'Режим: 🧠 нейросеть на устройстве — офлайн, без ключей' : 'Режим: нейросеть на устройстве — выберите или дождитесь модуль');
 }
 
 function setCloudProvider(provider) {
@@ -7936,28 +8021,47 @@ function setCloudProvider(provider) {
   renderAiSettings();
 }
 
+/* Выбор файла модели (0.3.31 — честная замена старой заглушки local://):
+   при живом нативном модуле системный диалог копирует .litertlm в приватную
+   папку приложения и модель РЕАЛЬНО поднимается; без модуля — честный тост,
+   притворяться нечем (принцип «нет кнопок-призраков»). */
 function selectLocalModelFile() {
-  if (typeof window !== 'undefined' && window.FitFlowExport && typeof window.FitFlowExport.selectModelFile === 'function') {
-    window.FitFlowExport.selectModelFile();
+  const plugin = getLocalAiPlugin();
+  const statusEl = $('#ai-model-status');
+  if (!plugin) {
+    toast('Нативный модуль нейросети появится в следующей сборке — локальный ИИ подключается отдельным обновлением.');
     return;
   }
-  const fileInput = $('#ai-model-file-input');
-  if (fileInput) {
-    fileInput.click();
-    fileInput.onchange = (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) {
-        state.aiSettings.connected = true;
-        state.aiSettings.modelName = f.name;
-        state.aiSettings.modelPath = 'local://' + f.name;
-        state.aiSettings.modelSize = f.size;
-        saveState();
-        renderAiSettings();
-        toast('✓ Подключён локальный файл модели: ' + f.name);
-      }
-      e.target.value = '';
-    };
-  }
+  if (statusEl) statusEl.textContent = 'Выберите файл модели (.litertlm) в системном диалоге…';
+  plugin.importModel()
+    .then((res) => {
+      state.aiSettings.connected = true;
+      state.aiSettings.modelName = res.name;
+      state.aiSettings.modelPath = res.path;
+      state.aiSettings.modelSize = res.size;
+      saveState();
+      renderAiSettings();
+      return loadLocalLlmModel();
+    })
+    .catch((err) => {
+      const msg = String((err && err.message) || '');
+      if (!/cancel|отмен/i.test(msg)) toast(msg || 'Не удалось импортировать модель');
+      renderAiSettings();
+    });
+}
+
+/* Подъём выбранной модели в память (признак готовности для чата). */
+function loadLocalLlmModel() {
+  const plugin = getLocalAiPlugin();
+  const statusEl = $('#ai-model-status');
+  if (!plugin || !hasRealLocalModel()) return Promise.resolve(false);
+  if (statusEl) statusEl.textContent = 'Загружаю модель в память: ' + (state.aiSettings.modelName || 'модель') + ' — первая загрузка может занять минуту…';
+  return plugin.loadModel({ path: state.aiSettings.modelPath, maxTokens: 4096, temperature: 0.7 })
+    .then(() => { renderAiSettings(); toast('🧠 Модель готова: отвечает офлайн, без ключей'); return true; })
+    .catch((err) => {
+      if (statusEl) statusEl.textContent = '✕ ' + String((err && err.message) || 'Модель не загрузилась');
+      return false;
+    });
 }
 
 function formatBytes(bytes) {
@@ -7969,14 +8073,14 @@ function formatBytes(bytes) {
 }
 
 function downloadAiModelAutomatically() {
-  const wrap = $('#ai-progress-wrap');
-  const fill = $('#ai-progress-fill');
-  const text = $('#ai-progress-text');
-  if (!wrap || !fill || !text) return;
-  wrap.hidden = false;
-  fill.style.width = '10%';
-  text.textContent = 'Загрузка весов из официального репозитория Hugging Face...';
-  toast('📥 Загрузка файла модели (1.3 ГБ) в папку Download/FitFlow_Models/');
+  // 0.3.31: здесь был ИМИТАТОР прогресса загрузки (полоса на 10% и «качается»,
+  // файл не качался) — признано ложным аффордансом и убрано. Честная
+  // инструкция: модель берётся файлом вручную (у моделей Gemma на Hugging
+  // Face лицензия принимается руками — автоматикой это обходить нельзя).
+  const statusEl = $('#ai-model-status');
+  const hint = 'Где взять модель: файл .litertlm из репозиториев litert-community/*-litert-lm на Hugging Face (например, Gemma 3 1B ≈ 0.7 ГБ или Gemma 4 E2B ≈ 2.3 ГБ). Скачайте через браузер после принятия условий Gemma, затем нажмите «📁 Выбрать файл модели» — уже скачанный файл подхватится. GGUF (llama.cpp) НЕ подходит — другой формат.';
+  if (statusEl) statusEl.textContent = hint;
+  toast('Инструкция выведена в строку статуса — файл добавляется вручную, это честно');
 }
 
 function runAiBenchmark() {
@@ -8094,11 +8198,8 @@ function startRealVoiceInput(targetFieldId, placeholderPrompt) {
     rec.maxAlternatives = 1;
     toast('🎤 Говорите...');
     rec.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      const field = $(targetFieldId);
-      if (field) field.value = text;
-      toast('✓ Распознано: ' + text);
-      if (targetFieldId === '#ai-quick-input') parseAiQuickEntry();
+      // 0.3.31: веб-фолбэк идёт тем же путём проверки, что нативный голос.
+      window.onVoiceInputResult(event.results[0][0].transcript);
     };
     rec.onerror = () => { toast('Не удалось распознать речь. Наберите текст вручную.'); };
     rec.start();
@@ -9041,16 +9142,54 @@ const CLOUD_NUTRITIONIST_SYSTEM = 'Ты — ИИ-помощник и нутри�
   + 'Не выдумывай факты; если не уверен — так и скажи. По медицинским темам мягко напоминай, что это не заменяет врача.\n'
   + 'Данные дня пользователя:\n';
 
+/* ============================================================
+   🧠 Локальная нейросеть на устройстве (0.3.31 — основа этапа 0.4.x):
+   нативный мост FitFlowLocalAI (LiteRT-LM, plugins/fitflow-local-ai).
+   JS устроен «дремлюще»: без нативного модуля вся функциональность
+   скрыта/честно подписана, никаких кнопок-призраков.
+============================================================ */
+function getLocalAiPlugin() {
+  try {
+    return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FitFlowLocalAI) || null;
+  } catch (e) { return null; }
+}
+
+/* modelPath со старых заглушек вида local://... реальной моделью не считаем. */
+function hasRealLocalModel() {
+  const path = (state.aiSettings && state.aiSettings.modelPath) || '';
+  return !!path && !path.startsWith('local://');
+}
+
+function canUseLocalLlm() {
+  return !!(state.aiSettings && state.aiSettings.enabled && state.aiSettings.mode === 'litert'
+    && getLocalAiPlugin() && hasRealLocalModel());
+}
+
+function localLlmErrorText(err) {
+  const msg = String((err && err.message) || err || 'неизвестная ошибка');
+  if (/not_loaded/i.test(msg)) return 'Модель не загружена: Настройки → ИИ-помощник → выбор файла модели.';
+  if (/busy/i.test(msg)) return 'Модель ещё отвечает на предыдущий запрос — дождитесь завершения.';
+  if (/timeout/i.test(msg)) return 'Модель думала слишком долго — запрос остановлен, спросите короче.';
+  if (/unsupported/i.test(msg)) return 'Нейросеть требует Android 7.0 или новее.';
+  return msg.slice(0, 200);
+}
+
 /* История диалога только в памяти сессии (не сохраняется и не попадает в бэкап). */
 let aiChatTurns = [];
 
-function sendAiChatCloud(text, resultBox) {
+/* Системный контекст для нейросети — ОДИН на оба канала (0.3.31): что
+   облаку, что нейросети на устройстве даём одни и те же проверяемые факты. */
+function buildAiSystemContext(text) {
   const facts = findProductsInText(text).map((key) => {
     const it = FOOD_DB[key];
     return key + ' — ' + Math.round(it.kcal) + ' ккал, Б ' + it.p + ', Ж ' + it.f + ', У ' + it.c + ' за 100 г' + (it.per === 'шт' ? ' (или за 1 шт)' : '');
   });
-  const systemText = CLOUD_NUTRITIONIST_SYSTEM + buildCloudDayContext()
+  return CLOUD_NUTRITIONIST_SYSTEM + buildCloudDayContext()
     + (facts.length ? '\nПродукты из вопроса (данные локальной базы FitFlow, опирайся на них):\n' + facts.join('\n') : '');
+}
+
+function sendAiChatCloud(text, resultBox) {
+  const systemText = buildAiSystemContext(text);
   resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (☁ облако)</h4><p>Отправляю вопрос в нейросеть…</p>';
   resultBox.hidden = false;
   const history = aiChatTurns;
@@ -9078,6 +9217,52 @@ function sendAiChatCloud(text, resultBox) {
     });
 }
 
+/* Чат через нейросеть на устройстве (0.3.31). Контекст дня тот же, что у
+   облака (buildAiSystemContext); история диалога живёт в нативной
+   Conversation LiteRT-LM — сброс через resetConversation позже по запросу.
+   Любой сбой модуля → честная ошибка + локальный эксперт под ней:
+   проверяемые факты доступны всегда, без нейросети. */
+function sendAiChatLocalLlm(text, resultBox) {
+  resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (🧠 на устройстве)</h4><p>Модель думает на устройстве — без интернета. Большой модели нужно время (до минуты)…</p>';
+  resultBox.hidden = false;
+  const plugin = getLocalAiPlugin();
+  if (!plugin) { sendAiChat(); return; }
+  const prompt = buildAiSystemContext(text) + '\n\nВопрос пользователя: ' + text
+    + '\n\nОтвечай по-русски, кратко (до 150 слов).';
+  const run = () => plugin.generate({ prompt })
+    .then((out) => {
+      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">🧠 на устройстве</span></h4>' +
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        mdLiteToHtml(out.text) +
+        '<p class="settings-hint" style="margin:8px 0 0">Ответ локальной нейросети может содержать неточности — проверяйте важное. Ничего не покидало устройство.</p>';
+    })
+    .catch((err) => {
+      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
+        '<p style="color:var(--error)">🧠 ' + escapeHtml(localLlmErrorText(err)) + '</p>' +
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        buildAiChatAnswer(text) +
+        '<p class="settings-hint">Локальная нейросеть не ответила — ответ выше собран правилами из ваших записей.</p>';
+      const gotoBtn = resultBox.querySelector('#ai-chat-goto-settings');
+      if (gotoBtn) gotoBtn.addEventListener('click', () => { closeAiCenter(); switchView('settings-ai'); });
+    });
+  // Модель могла выгрузиться вместе с процессом — поднимаем лениво.
+  plugin.status()
+    .then((st) => (st && st.engineLoaded) ? true : loadLocalLlmModel())
+    .then((ready) => {
+      if (ready) { run(); return; }
+      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
+        '<p style="color:var(--error)">🧠 Модель не загрузилась — проверьте файл в Настройках → ИИ-помощник.</p>' +
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        buildAiChatAnswer(text);
+    })
+    .catch(() => {
+      resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
+        '<p style="color:var(--error)">🧠 Модель не поднялась — проверьте файл в Настройках → ИИ-помощник.</p>' +
+        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
+        buildAiChatAnswer(text);
+    });
+}
+
 /* Мини-markdown для ответов нейросети: **жирный**, списки через -, абзацы. */
 function mdLiteToHtml(md) {
   const esc = escapeHtml(String(md || '').trim());
@@ -9092,6 +9277,31 @@ function mdLiteToHtml(md) {
     return '<p>' + lines.join('<br>') + '</p>';
   });
   return blocks.join('').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+/* Android WebView рисует только мельком-наложенный скроллбар — пользователь
+   не видит, что в панели ИИ есть продолжение (кейс 0.3.31: «внизу нет полосы
+   скролла»). Честный сигнал без ложных аффордансов: у панели с переполнением
+   включается класс ai-scrollable — тень-градиент снизу + заметный скроллбар.
+   Наблюдаем MutationObserver-ом: все пути записи результата покрыты сразу. */
+function watchAiResultBoxes() {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+  const refresh = (box) => {
+    requestAnimationFrame(() => {
+      box.classList.toggle('ai-scrollable', box.scrollHeight > box.clientHeight + 6);
+    });
+  };
+  const observer = new MutationObserver((muts) => {
+    muts.forEach((m) => {
+      const target = m.target;
+      const box = target && target.closest ? target.closest('.ai-result-box') : null;
+      if (box) refresh(box);
+    });
+  });
+  $$('.ai-result-box').forEach((box) => {
+    observer.observe(box, { childList: true, subtree: true });
+    refresh(box);
+  });
 }
 
 /* Локальный режим нутрициолога: ТОЛЬКО проверяемые факты из базы продуктов
@@ -9152,6 +9362,13 @@ function sendAiChat() {
   // и в локальном, и в облачном пути (как в «Разобрать» и «Рецепт»).
   input.blur();
   closeImeDock();
+  // Режим «Gemma на устройстве» (0.3.31, основа 0.4.x): нейросеть локально.
+  // Модуль/модели пока нет — честно падаем в локальный эксперт (факты),
+  // подсказка по выбору файла живёт в Настройках → ИИ-помощник.
+  if (state.aiSettings && state.aiSettings.mode === 'litert' && canUseLocalLlm()) {
+    sendAiChatLocalLlm(text, resultBox);
+    return;
+  }
   if (isCloudAiReady()) {
     sendAiChatCloud(text, resultBox);
     return;
@@ -9265,6 +9482,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cloudErrorText, COMPANION_GRAMS,
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
-    courseDosesForDate, getTodayCourses, buildCoursesPlanHtml
+    courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
+    canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS
   };
 }

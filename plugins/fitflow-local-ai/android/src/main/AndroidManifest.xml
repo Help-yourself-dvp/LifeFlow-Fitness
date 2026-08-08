@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- FitFlow Local AI (LiteRT-LM). CPU-backend: специальных разрешений
+         и uses-native-library не требуется. GPU (libOpenCL.so) — отдельной
+         итерацией, когда подтвердим стабильность CPU-пути. -->
+</manifest>
