@@ -1897,7 +1897,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.38';
+const FITFLOW_VERSION = '0.3.39';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -9361,45 +9361,63 @@ function sendAiChatCloud(text, resultBox) {
    Conversation LiteRT-LM — сброс через resetConversation позже по запросу.
    Любой сбой модуля → честная ошибка + локальный эксперт под ней:
    проверяемые факты доступны всегда, без нейросети. */
-function sendAiChatLocalLlm(text, resultBox) {
-  resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (🧠 на устройстве)</h4><p>Модель думает на устройстве — без интернета. Большой модели нужно время (до минуты)…</p>';
+/* Чат через нейросеть на устройстве (0.3.39 — живой стриминг и честные этапы).
+   Полевая боль: «вопрос нутрициологу 3 минуты без результата — бесполезный
+   функционал». Молчание складывается из двух этапов: модель, выгруженная
+   системой, поднимается в память (веса грузятся до минуты) + сама генерация
+   на CPU (медленная печать токенов). Оба этапа теперь видны глазами, а ответ
+   льётся в окно по ходу печати (нативное событие generateProgress). История
+   диалога живёт в нативной Conversation; любой сбой → честная ошибка +
+   локальный эксперт под ней (проверяемые факты доступны всегда). */
+async function sendAiChatLocalLlm(text, resultBox) {
+  resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (🧠 на устройстве)</h4><p>Проверяю модель…</p>';
   resultBox.hidden = false;
   const plugin = getLocalAiPlugin();
   if (!plugin) { sendAiChat(); return; }
   const prompt = buildAiSystemContext(text) + '\n\nВопрос пользователя: ' + text
     + '\n\nОтвечай по-русски, грамотно и кратко: 3–6 коротких предложений, только по сути вопроса. Если не уверен в факте — честно скажи об этом, ничего не выдумывай.';
-  const run = () => plugin.generate({ prompt })
-    .then((out) => {
-      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">🧠 на устройстве</span></h4>' +
-        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
-        mdLiteToHtml(out.text) +
-        '<p class="settings-hint" style="margin:8px 0 0">Ответ локальной нейросети может содержать неточности — проверяйте важное. Ничего не покидало устройство.</p>';
-    })
-    .catch((err) => {
-      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
-        '<p style="color:var(--error)">🧠 ' + escapeHtml(localLlmErrorText(err)) + '</p>' +
-        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
-        buildAiChatAnswer(text) +
-        '<p class="settings-hint">Локальная нейросеть не ответила — ответ выше собран правилами из ваших записей.</p>';
-      const gotoBtn = resultBox.querySelector('#ai-chat-goto-settings');
-      if (gotoBtn) gotoBtn.addEventListener('click', () => { closeAiCenter(); switchView('settings-ai'); });
+  const chatHeader = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">🧠 на устройстве</span></h4>'
+    + '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>';
+  const renderRuleFallback = (hintText) => {
+    resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>'
+      + '<p style="color:var(--error)">🧠 ' + escapeHtml(hintText) + '</p>'
+      + '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>'
+      + buildAiChatAnswer(text);
+  };
+  // Живой поток токенов: долгая генерация на процессоре больше не выглядит
+  // «зависшим приложением» — ответ виден сразу, как печатает нейросеть.
+  let progressHandle = null;
+  try {
+    progressHandle = await plugin.addListener('generateProgress', (ev) => {
+      const partial = ev && typeof ev.text === 'string' ? ev.text : '';
+      if (partial.trim()) {
+        resultBox.innerHTML = chatHeader + mdLiteToHtml(partial)
+          + '<p class="settings-hint" style="margin:8px 0 0">…печатаю на устройстве — можно читать по ходу.</p>';
+      }
     });
-  // Модель могла выгрузиться вместе с процессом — поднимаем лениво.
-  plugin.status()
-    .then((st) => (st && st.engineLoaded) ? true : loadLocalLlmModel())
-    .then((ready) => {
-      if (ready) { run(); return; }
-      resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
-        '<p style="color:var(--error)">🧠 Модель не загрузилась — проверьте файл в Настройках → ИИ-помощник.</p>' +
-        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
-        buildAiChatAnswer(text);
-    })
-    .catch(() => {
-      resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow <span class="ai-cloud-badge ai-local-badge">📦 локально</span></h4>' +
-        '<p style="color:var(--error)">🧠 Модель не поднялась — проверьте файл в Настройках → ИИ-помощник.</p>' +
-        '<p><b>Ваш вопрос</b>: «' + escapeHtml(text) + '»</p>' +
-        buildAiChatAnswer(text);
-    });
+  } catch (e) { progressHandle = null; }
+  const stopProgress = () => {
+    try { if (progressHandle && progressHandle.remove) progressHandle.remove(); } catch (e) { }
+    progressHandle = null;
+  };
+  try {
+    const st = await plugin.status();
+    let ready = !!(st && st.engineLoaded);
+    if (!ready) {
+      resultBox.innerHTML = '<h4>💬 Нутрициолог FitFlow (🧠 на устройстве)</h4><p>Поднимаю модель в память («'
+        + escapeHtml((state.aiSettings && state.aiSettings.modelName) || 'модель')
+        + '») — одна загрузка до минуты, следующие ответы быстрее…</p>';
+      ready = await loadLocalLlmModel();
+    }
+    if (!ready) { stopProgress(); renderRuleFallback('Модель не загрузилась — проверьте файл в Настройках → ИИ-помощник.'); return; }
+    const out = await plugin.generate({ prompt });
+    stopProgress();
+    resultBox.innerHTML = chatHeader + mdLiteToHtml(out.text)
+      + '<p class="settings-hint" style="margin:8px 0 0">Ответ локальной нейросети может содержать неточности — проверяйте важное. Ничего не покидало устройство.</p>';
+  } catch (err) {
+    stopProgress();
+    renderRuleFallback(localLlmErrorText(err));
+  }
 }
 
 /* Мини-markdown для ответов нейросети: **жирный**, списки через -, абзацы. */

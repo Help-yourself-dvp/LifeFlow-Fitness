@@ -202,6 +202,12 @@ class FitFlowLocalAiPlugin : Plugin() {
                 conv.sendMessageAsync(prompt, object : MessageCallback {
                     override fun onMessage(message: Message) {
                         sb.append(message.toString())
+                        // 0.3.39: частичный текст — в WebView (событие generateProgress).
+                        // Долгая генерация на CPU перестаёт быть «мёртвым ожиданием»:
+                        // пользователь читает ответ по ходу печати.
+                        val progress = JSObject()
+                        progress.put("text", sb.toString())
+                        notifyListeners("generateProgress", progress)
                     }
 
                     override fun onDone() {

@@ -386,10 +386,10 @@ for (const id of ids) {
   const patch = fs.existsSync('tools/github-workflows/VOICE_PAUSE_PATCH.md')
     ? fs.readFileSync('tools/github-workflows/VOICE_PAUSE_PATCH.md', 'utf8') : '';
   const okPause = patch.includes('EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 6000L')
-    && patch.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L')
+    && patch.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L')
     && patch.includes('не короче 6 с');
   if (!okPause) failed++;
-  console.log(`${okPause ? '✓' : '✗'} голос: патч пауз усилен до 6 с / 2.5 с тишины (просьба «ещё чуть больше»)`);
+  console.log(`${okPause ? '✓' : '✗'} голос: сессия ≥6 с (нижняя граница, не лимит), тишина 4–4,5 с (полевое «отключается во время ввода»)`);
 }
 
 // 0.3.33: единый акцент карточки в ИИ-разделе (вторая полоса убрана), полный файл-замена в зеркале
@@ -404,7 +404,8 @@ for (const id of ids) {
   const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
   const okMirror = mirror.includes('npm install ./plugins/fitflow-local-ai')
     && mirror.includes('minSdkVersion = 24')
-    && mirror.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L');
+    && mirror.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L')
+    && mirror.includes('EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L');
   if (!okMirror) failed++;
   console.log(`${okMirror ? '✓' : '✗'} зеркало build.yml = готовый полный файл (LOCAL_AI + VOICE_PAUSE внутри)`);
 }
@@ -445,6 +446,26 @@ for (const id of ids) {
     && appC.includes('if (!Number.isInteger(Number(n))) return forms[1];');
   if (!okUnits) failed++;
   console.log(`${okUnits ? '✓' : '✗'} склонение единиц в разборе: «2 куска / 2 стакана / 0,5 стакана», обе ветви describeFoodItemLine`);
+}
+
+// 0.3.39: живой стриминг ответа нейросети (полевая боль «3 минуты молчания») +
+// честный этап «поднимаю модель»; голос — тишина 4/4,5 с с объяснением floor
+{
+  const appD = fs.readFileSync('app.js', 'utf8');
+  const ktD = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const patchD = fs.readFileSync('tools/github-workflows/VOICE_PAUSE_PATCH.md', 'utf8');
+  const okStream = ktD.includes('notifyListeners("generateProgress", progress)')
+    && appD.includes("plugin.addListener('generateProgress',")
+    && appD.includes('…печатаю на устройстве — можно читать по ходу.')
+    && appD.includes('async function sendAiChatLocalLlm(');
+  if (!okStream) failed++;
+  console.log(`${okStream ? '✓' : '✗'} локальная нейросеть: живой стриминг в окно чата (generateProgress), async-цепочка этапов`);
+  const okStage = appD.includes('одна загрузка до минуты, следующие ответы быстрее');
+  if (!okStage) failed++;
+  console.log(`${okStage ? '✓' : '✗'} честный этап «поднимаю модель в память» — долгий старт ≠ зависание приложения`);
+  const okVoice = patchD.includes('НИЖНЯЯ граница') && patchD.includes('4500L') && patchD.includes('4000L');
+  if (!okVoice) failed++;
+  console.log(`${okVoice ? '✓' : '✗'} патч голоса: тишина 4/4,5 с + объяснение «6 с = нижняя граница, не лимит»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

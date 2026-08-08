@@ -301,12 +301,13 @@ jobs:
                                   intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                                   intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
                                   intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-                                  // VOICE_PAUSE_PATCH (0.3.32): говорить можно со вдумчивыми паузами.
-                                  // Сессия не короче 6 с; конец фразы — после 2.5 с тишины
-                                  // (раньше системный дефолт ~0.5 с обрывал на каждой паузе).
+                                  // VOICE_PAUSE_PATCH (0.3.39): «6 с» — НИЖНЯЯ граница сессии, не лимит!
+                                  // Короткая фраза просто дождётся 6-й секунды (это floor). «Отключается
+                                  // посреди ввода» — срабатывание по паузе на обдумывание: тишину подняли
+                                  // 2.5 → 4.0/4.5 с — списки можно диктовать не торопясь.
                                   intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 6000L);
-                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L);
-                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L);
+                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L);
+                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L);
                                   intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Расскажите о воде, еде и активности");
                                   startActivityForResult(intent, REQ_VOICE_INPUT);
                               } catch (Exception e) {
