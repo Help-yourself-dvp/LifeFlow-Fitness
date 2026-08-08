@@ -432,12 +432,12 @@ for (const id of ids) {
 {
   const appC = fs.readFileSync('app.js', 'utf8');
   const ktC = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
-  const okTemp = appC.includes('maxTokens: 4096, temperature: 0.4 }')
-    && !appC.includes('maxTokens: 4096, temperature: 0.7 }')
+  const okTemp = appC.includes('maxTokens: 4096, temperature: 0.7 })')
+    && !appC.includes('maxTokens: 4096, temperature: 0.4 })')
     && ktC.includes('lastTemperature = temperature') && ktC.includes('temperature = lastTemperature)')
     && !ktC.includes('temperature = 0.7)');
   if (!okTemp) failed++;
-  console.log(`${okTemp ? '✓' : '✗'} локальная нейросеть: температура 0.4 везде (loadModel + reset через lastTemperature), залежей 0.7 нет`);
+  console.log(`${okTemp ? '✓' : '✗'} температура 0.7 (0.4.0, просьба пользователя: E2B держит), lastTemperature без рассинхрона`);
   const okPrompt = appC.includes('грамотно и кратко: 3–6 коротких предложений') && appC.includes('Если не уверен в факте — честно скажи');
   if (!okPrompt) failed++;
   console.log(`${okPrompt ? '✓' : '✗'} инструкция локальной модели: кратко, грамотно, честно (не уверен — скажи, не выдумывай)`);
@@ -466,6 +466,24 @@ for (const id of ids) {
   const okVoice = patchD.includes('НИЖНЯЯ граница') && patchD.includes('4500L') && patchD.includes('4000L');
   if (!okVoice) failed++;
   console.log(`${okVoice ? '✓' : '✗'} патч голоса: тишина 4/4,5 с + объяснение «6 с = нижняя граница, не лимит»`);
+}
+
+// 0.4.0: фото еды нейросетью — целевой сценарий ТЗ (зрячая E2B у пользователя),
+// черновая итерация: нейронка описывает снимок строками, расчёты делает парсер
+{
+  const appE = fs.readFileSync('app.js', 'utf8');
+  const ktE = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okPhotoNative = ktE.includes('fun generateWithImage(') && ktE.includes('Content.ImageBytes(')
+    && ktE.includes('visionBackend = if (withVision) Backend.CPU() else null')
+    && ktE.includes('"no_vision"') && ktE.includes('ret.put("vision", visionEnabled)');
+  if (!okPhotoNative) failed++;
+  console.log(`${okPhotoNative ? '✓' : '✗'} фото в нативе: generateWithImage(ImageBytes), зрение→откат text-only, коды no_vision/timeout`);
+  const okPhotoUi = html.includes('id="smart-entry-photo"') && html.includes('id="smart-entry-photo-input"')
+    && appE.includes('const AI_PHOTO_PROMPT') && appE.includes('function cleanPhotoDraftText(')
+    && appE.includes('async function runPhotoFoodRecognition(') && appE.includes('function resizeImageToJpegBase64(')
+    && appE.includes('!st.vision');
+  if (!okPhotoUi) failed++;
+  console.log(`${okPhotoUi ? '✓' : '✗'} фото в UI: кнопка 📷 в умном вводе, сжатие 768px, черновик → parseSmartEntry → подтверждение`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

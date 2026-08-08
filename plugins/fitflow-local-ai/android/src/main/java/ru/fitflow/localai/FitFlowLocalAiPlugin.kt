@@ -3,6 +3,7 @@ package ru.fitflow.localai
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -13,6 +14,8 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
@@ -45,6 +48,8 @@ class FitFlowLocalAiPlugin : Plugin() {
     /** Температура последней загруженной модели: resetConversation собирает
         новый диалог с той же, а не с молчаливым дефолтом (0.3.38). */
     private var lastTemperature: Double = 0.7
+    /** true, если веса модели поднялись со зрением (E2B/E4B); text-only — false (0.4.0). */
+    private var visionEnabled: Boolean = false
     private val generating = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -55,6 +60,7 @@ class FitFlowLocalAiPlugin : Plugin() {
         ret.put("engineLoaded", engine != null)
         ret.put("path", loadedPath)
         ret.put("generating", generating.get())
+        ret.put("vision", visionEnabled)
         call.resolve(ret)
     }
 
@@ -117,6 +123,18 @@ class FitFlowLocalAiPlugin : Plugin() {
         }
     }
 
+    /** Движок: со зрением — visionBackend, текст — null (0.4.0). */
+    private fun buildEngine(path: String, maxTokens: Int, withVision: Boolean): Engine {
+        return Engine(
+            EngineConfig(
+                modelPath = path,
+                backend = Backend.CPU(),
+                visionBackend = if (withVision) Backend.CPU() else null,
+                maxNumTokens = maxTokens
+            )
+        )
+    }
+
     /** Загрузка модели в память. Первая загрузка большой модели может занять десятки секунд. */
     @PluginMethod
     fun loadModel(call: PluginCall) {
@@ -146,23 +164,29 @@ class FitFlowLocalAiPlugin : Plugin() {
                 try { engine?.close() } catch (_: Exception) {}
                 conversation = null
                 engine = null
-                val newEngine = Engine(
-                    EngineConfig(
-                        modelPath = path,
-                        backend = Backend.CPU(),
-                        maxNumTokens = maxTokens
-                    )
-                )
-                newEngine.initialize()
+                // 0.4.0 (фото): сначала пробуем движок СО ЗРЕНИЕМ; текстовые веса
+                // (Gemma3-1B) честно откатываются на text-only, флаг vision виден в status().
+                var withVision = true
+                var newEngine = buildEngine(path, maxTokens, true)
+                try {
+                    newEngine.initialize()
+                } catch (visionError: Exception) {
+                    try { newEngine.close() } catch (_: Exception) {}
+                    withVision = false
+                    newEngine = buildEngine(path, maxTokens, false)
+                    newEngine.initialize()
+                }
                 val convConfig = ConversationConfig(
                     samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = temperature)
                 )
                 conversation = newEngine.createConversation(convConfig)
                 engine = newEngine
+                visionEnabled = withVision
                 loadedPath = path
                 val ret = JSObject()
                 ret.put("loaded", true)
                 ret.put("path", path)
+                ret.put("vision", withVision)
                 call.resolve(ret)
             } catch (e: Exception) {
                 try { engine?.close() } catch (_: Exception) {}
@@ -237,6 +261,75 @@ class FitFlowLocalAiPlugin : Plugin() {
             } catch (e: Exception) {
                 generating.set(false)
                 call.reject("generate_failed", "Ошибка генерации: ${e.message}", e)
+            }
+        }
+    }
+
+    /** Разбор фото еды (0.4.0, целевой сценарий ТЗ): картинка + промпт,
+        живой стриминг — зрение на CPU медленнее текста, процесс виден. */
+    @PluginMethod
+    fun generateWithImage(call: PluginCall) {
+        val prompt = call.getString("prompt") ?: ""
+        val imageBase64 = call.getString("imageBase64")
+        if (imageBase64.isNullOrBlank()) {
+            call.reject("empty_image", "Нет данных изображения.")
+            return
+        }
+        val conv = conversation
+        if (conv == null) {
+            call.reject("not_loaded", "Модель не загружена: Настройки → ИИ-помощник.")
+            return
+        }
+        if (!visionEnabled) {
+            call.reject("no_vision", "Эта модель без зрения — фото не разберёт. Нужна зрячая Gemma E2B/E4B (.litertlm).")
+            return
+        }
+        if (!generating.compareAndSet(false, true)) {
+            call.reject("busy", "Модель ещё отвечает на предыдущий запрос — дождитесь завершения.")
+            return
+        }
+        scope.launch {
+            val sb = StringBuilder()
+            val latch = CountDownLatch(1)
+            val seenError = arrayOfNulls<Throwable>(1)
+            try {
+                val imageBytes = Base64.decode(imageBase64, Base64.DEFAULT)
+                val contents = Contents.of(Content.ImageBytes(imageBytes), Content.Text(prompt))
+                conv.sendMessageAsync(contents, object : MessageCallback {
+                    override fun onMessage(message: Message) {
+                        sb.append(message.toString())
+                        val progress = JSObject()
+                        progress.put("text", sb.toString())
+                        notifyListeners("generateProgress", progress)
+                    }
+
+                    override fun onDone() {
+                        latch.countDown()
+                    }
+
+                    override fun onError(throwable: Throwable) {
+                        seenError[0] = throwable
+                        latch.countDown()
+                    }
+                })
+                val finished = latch.await(300, TimeUnit.SECONDS)
+                generating.set(false)
+                if (!finished) {
+                    call.reject("timeout", "Модель разглядывала фото дольше 5 минут — остановлено. Попробуйте снимок светлее и ближе.")
+                    return@launch
+                }
+                seenError[0]?.let { throw it }
+                val text = sb.toString().trim()
+                if (text.isEmpty()) {
+                    call.reject("empty_answer", "Модель ничего не ответила по фото — попробуйте другой снимок.")
+                    return@launch
+                }
+                val ret = JSObject()
+                ret.put("text", text)
+                call.resolve(ret)
+            } catch (e: Exception) {
+                generating.set(false)
+                call.reject("photo_failed", "Не удалось разобрать фото: ${e.message}", e)
             }
         }
     }

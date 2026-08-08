@@ -1239,8 +1239,109 @@ async function saveSmartEntry() {
   await syncMealRemindersForToday();
   await syncTrainingReminderForToday();
   closeSmartEntry();
+
   toast('Записи добавлены. Проверьте их в воде, питании и активности.');
 }
+
+/* 📷 Фото еды нейросетью (0.4.0 — целевой сценарий ТЗ, черновая итерация).
+   Цепь: снимок → сжатие до 768px JPEG на canvas → зрячая модель (E2B/E4B)
+   на устройстве → строки «название ~граммы» → склейка через запятую → ТОТ ЖЕ
+   parseSmartEntry и экран подтверждения. Принцип проекта: нейросеть только
+   ОПИСЫВАЕТ фото текстом; правдивость расчётов делает проверенный парсер и
+   база, незнакомое честно уходит в «⚠️ Не разобрал», в дневник — только
+   после глаз пользователя (то же подтверждение, что после голоса). */
+const AI_PHOTO_PROMPT = 'Посмотри на фото. Перечисли блюда и продукты, видимые на нём, по одному пункту в отдельной СТРОКЕ вида «борщ 300 г». Вес оценивай реалистично по посуде (например, тарелка супа — примерно 300 граммов). Никаких пояснений, вступлений и подписей — только строки списка. Если еды на фото нет, напиши одно слово «нет».';
+
+function resizeImageToJpegBase64(file, maxSide, quality) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl.split(',')[1] || '');
+      } catch (e) { URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('файл не картинка')); };
+    img.src = url;
+  });
+}
+
+function cleanPhotoDraftText(text) {
+  // Маленькие зрячие модели любят «Вот список:», markdown-ограждения и
+  // маркеры списков — снимаем шелуху, позиции склеиваем через запятую
+  // (парсер разделяет фразу по запятым, не по переводам строк).
+  const lines = String(text || '').split(/\r?\n/)
+    .map((line) => line.replace(/```[a-z]*/gi, '').trim())
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/u, '').trim())
+    .filter((line) => line.length > 1 && /[а-яА-Яa-zA-Z]/.test(line)
+      && !/^(вот|список|конечно|итог|ответ|состав)[\s:!.,-]*$/i.test(line));
+  return lines.join(', ');
+}
+
+async function handleSmartEntryPhoto() {
+  const plugin = getLocalAiPlugin();
+  if (!plugin) { toast('Фото-разбор работает с нейросетью на устройстве: Настройки → ИИ-помощник.'); return; }
+  const st = await plugin.status().catch(() => null);
+  if (!st || !st.engineLoaded) {
+    toast('Поднимаю модель в память — до минуты один раз, дальше фото начнётся сразу.');
+    const ok = await loadLocalLlmModel();
+    if (ok) toast('🧠 Модель готова — нажмите 📷 ещё раз.');
+    return;
+  }
+  if (!st.vision) { toast('Эта модель без зрения — фото не разберёт. Нужна зрячая Gemma E2B/E4B (.litertlm).'); return; }
+  const fileInput = $('#smart-entry-photo-input');
+  if (fileInput) { fileInput.value = ''; fileInput.click(); }
+}
+
+async function runPhotoFoodRecognition(file) {
+  const plugin = getLocalAiPlugin();
+  const preview = $('#smart-entry-preview');
+  if (!plugin || !preview) return;
+  const photoHeader = '<b>📷 Разбор фото нейросетью</b>';
+  let progressHandle = null;
+  const detach = () => {
+    try { if (progressHandle && progressHandle.remove) progressHandle.remove(); } catch (e) { }
+    progressHandle = null;
+  };
+  try {
+    preview.hidden = false;
+    preview.innerHTML = photoHeader + '<p>Сжимаю снимок для нейросети…</p>';
+    const base64 = await resizeImageToJpegBase64(file, 768, 0.85);
+    preview.innerHTML = photoHeader + '<p>Ушло в нейросеть. Зрение на процессоре — не спринт: текст появится по ходу…</p>';
+    progressHandle = await plugin.addListener('generateProgress', (ev) => {
+      const partial = ev && typeof ev.text === 'string' ? ev.text : '';
+      if (partial.trim()) {
+        preview.innerHTML = photoHeader
+          + '<p style="white-space:pre-wrap">' + escapeHtml(partial) + '</p>'
+          + '<p class="settings-hint">…смотрю на фото, можно читать по ходу.</p>';
+      }
+    });
+    const out = await plugin.generateWithImage({ prompt: AI_PHOTO_PROMPT, imageBase64: base64 });
+    detach();
+    const draft = cleanPhotoDraftText(out.text);
+    if (!draft || /^нет\b/i.test(draft)) {
+      preview.innerHTML = photoHeader + '<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>';
+      return;
+    }
+    $('#smart-entry-input').value = draft;
+    // Канонический путь предпросмотра: те же ≈-оценки, база и честный «⚠️ Не разобрал».
+    previewSmartEntry();
+  } catch (err) {
+    detach();
+    preview.innerHTML = photoHeader
+      + '<p style="color:var(--error)">📷 ' + escapeHtml(localLlmErrorText(err)) + '</p>';
+  }
+}
+
 
 function openSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = false; }
 function closeSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = true; }
@@ -1897,7 +1998,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.39';
+const FITFLOW_VERSION = '0.4.0';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7655,6 +7756,20 @@ function init() {
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
   $('#smart-entry-voice').addEventListener('click', startVoiceEntry);
+  // 📷 (0.4.0): кнопка фото — без нативного моста прячем (никаких призраков);
+  // сама проверка зрения — в handleSmartEntryPhoto по честным статусам.
+  const smartPhotoBtn = $('#smart-entry-photo');
+  const smartPhotoInput = $('#smart-entry-photo-input');
+  if (smartPhotoBtn) {
+    smartPhotoBtn.hidden = !getLocalAiPlugin();
+    smartPhotoBtn.addEventListener('click', () => { handleSmartEntryPhoto(); });
+  }
+  if (smartPhotoInput) {
+    smartPhotoInput.addEventListener('change', () => {
+      const file = smartPhotoInput.files && smartPhotoInput.files[0];
+      if (file) runPhotoFoodRecognition(file);
+    });
+  }
   $('#smart-entry-save').addEventListener('click', saveSmartEntry);
   $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
   $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
@@ -8154,10 +8269,11 @@ function loadLocalLlmModel() {
   const statusEl = $('#ai-model-status');
   if (!plugin || !hasRealLocalModel()) return Promise.resolve(false);
   if (statusEl) statusEl.textContent = 'Загружаю модель в память: ' + (state.aiSettings.modelName || 'модель') + ' — первая загрузка может занять минуту…';
-  // 0.3.38 (полевой тест, build 158): на 0.7 одномиллиардная модель «фантазирует» —
-  // грамматика ломается, советы самопротиворечивы («перед сном… дайте кофе»).
-  // 0.4 = суше и правдивее; креатив нутрициологу не нужен, нужна точность.
-  return plugin.loadModel({ path: state.aiSettings.modelPath, maxTokens: 4096, temperature: 0.4 })
+  // 0.4.0 (прямая просьба пользователя): вернули 0.7 — на зрячей E2B-модели
+  // ответы связные и без «бреда» 1B, а текст читается живее. Памятка: на
+  // текстовой 1B при 0.7 были сбивчивые «фантазии» — если модель снова
+  // поменяется на маленькую, вернуть 0.4 (см. историю 0.3.38).
+  return plugin.loadModel({ path: state.aiSettings.modelPath, maxTokens: 4096, temperature: 0.7 })
     .then(() => { renderAiSettings(); toast('🧠 Модель готова: отвечает офлайн, без ключей'); return true; })
     .catch((err) => {
       if (statusEl) statusEl.textContent = '✕ ' + String((err && err.message) || 'Модель не загрузилась');

@@ -1045,7 +1045,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.39</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.0</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1571,9 +1571,11 @@
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
         <button class="btn btn-secondary" id="smart-entry-voice" type="button">🎙 Надиктовать</button>
+        <button class="btn btn-secondary" id="smart-entry-photo" type="button">📷 Фото</button>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
       <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
+      <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>
     </section>
   </div>
 
