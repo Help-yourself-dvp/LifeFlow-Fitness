@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1025,6 +1025,79 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const okLlm = canUseLocalLlm() === false; // без нативного модуля строго false
   if (!okLlm) failed++;
   console.log(`${okLlm ? '✓' : '✗'} canUseLocalLlm без нативного моста → честное false (режим недоступен)`);
+}
+
+// ---- 0.3.32: суп с добавкой «со/с» (кейс: «щи со свининой» превращались в «свинина 100 г», щи пропадали) ----
+{
+  const s = parseMealText('щи со свининой');
+  const okS = s.length === 2 && s[0].name === 'щи' && s[0].grams === SOUP_PORTION_GRAMS
+    && Math.round(s[0].kcal) === 93 && s[0].approx === true && /тарелка/.test(s[0].note)
+    && s[1].name === 'свинина' && s[1].grams === SOUP_MEAT_GRAMS && Math.round(s[1].kcal) === 130
+    && s[1].approx === true && /добавки в супе/.test(s[1].note);
+  if (!okS) failed++;
+  console.log(`${okS ? '✓' : '✗'} «щи со свининой» → щи ≈300 г/93 + свинина ≈50 г/130 (обе с пометкой оценки, было: только свинина 259)`);
+  const b = parseMealText('борщ со сметаной');
+  const okB = b.length === 2 && b[0].name === 'борщ' && b[0].grams === 300
+    && b[1].name === 'сметана' && b[1].grams === 20; // приправы — по карте COMPANION_GRAMS, а не «мясо 50 г»
+  if (!okB) failed++;
+  console.log(`${okB ? '✓' : '✗'} «борщ со сметаной» → борщ 300 г + сметана по карте приправ ≈20 г (не 50 г)`);
+  const g = parseMealText('щи');
+  const okG = g.length === 1 && g[0].name === 'щи' && g[0].grams === 300 && g[0].approx === true && Math.round(g[0].kcal) === 93;
+  if (!okG) failed++;
+  console.log(`${okG ? '✓' : '✗'} голый суп «щи» — честная тарелка ≈300 г/93 (было ≈100 г/31, как щепотка)`);
+  const d = parseMealText('щи 250 г');
+  const okD = d.length === 1 && d[0].amount === 250 && d[0].unit === 'г' && !d[0].approx; // точная запись не тронута
+  if (!okD) failed++;
+  console.log(`${okD ? '✓' : '✗'} регрессия: «щи 250 г» — точные граммы без оценочной пометки`);
+  const k = parseMealText('солянка с котлетой');
+  const okK = k.length === 2 && k[0].name === 'солянка' && k[1].name === 'котлета' && k[1].perPiece === true;
+  if (!okK) failed++;
+  console.log(`${okK ? '✓' : '✗'} «солянка с котлетой» → суп 300 г + штучная котлета 1 шт`);
+}
+
+// ---- 0.3.32: гарантия «ничего не теряется молча» (непонятный остаток виден) ----
+{
+  const d1 = app => app; // читаемость
+  const r = parseMealTextDetailed('щи со стекляшкой');
+  const okR = r.items.length === 1 && r.items[0].name === 'щи' && r.missed.length === 1 && r.missed[0] === 'стекляшкой';
+  if (!okR) failed++;
+  console.log(`${okR ? '✓' : '✗'} неизвестная добавка «со стекляшкой» → суп распознан + остаток в missed (не молчим)`);
+  const smart = parseSmartEntry('банан, хорькундель 300 г');
+  const ok2 = smart.food.length === 1 && smart.food[0].name === 'банан'
+    && Array.isArray(smart.unparsed) && smart.unparsed.join(' ').includes('хорькундель');
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} parseSmartEntry: «хорькундель 300 г» ушёл в unparsed, банан разобран`);
+  const clean = parseSmartEntry('гречка 150 г, курица 100 г');
+  const ok3 = clean.unparsed.length === 0;
+  if (!ok3) failed++;
+  console.log(`${ok3 ? '✓' : '✗'} регрессия: полностью понятная фраза не даёт ложных «не разобрал»`);
+  const noise = parseSmartEntry('овсянка 150 г 300 ккал'); // «300 ккал» не должно стать ложным «не разобрал»
+  const ok4 = noise.food.some((i) => i.name === 'овсянка');
+  if (!ok4) failed++;
+  console.log(`${ok4 ? '✓' : '✗'} регрессия: «овсянка 150 г 300 ккал» — овсянка разобрана`);
+}
+
+// ---- 0.3.32: вся фраза пользователя (обед 8.08) — щи на месте, ничего не потеряно ----
+{
+  const full = parseSmartEntry('щи со свининой, два куска чёрного хлеба, два куска белого хлеба, четыре куска колбасы, стакан газировки');
+  const names = full.food.map((i) => i.name);
+  const total = Math.round(full.food.reduce((sum, i) => sum + i.kcal, 0));
+  const ok = full.food.length === 6 && names[0] === 'щи' && names[1] === 'свинина'
+    && Math.round(full.food[0].kcal) === 93 && Math.round(full.food[1].kcal) === 130
+    && total === 1242 && full.unparsed.length === 0;
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} фраза обеда целиком → 6 позиций, 1242 ккал (было: 5 позиций, 1278, щи украдены)`);
+}
+
+// ---- 0.3.32: ruForms — склонения для «Плана дня» ----
+{
+  const ok = ruForms(1, ['приём', 'приёма', 'приёмов']) === 'приём'
+    && ruForms(2, ['приём', 'приёма', 'приёмов']) === 'приёма'
+    && ruForms(5, ['приём', 'приёма', 'приёмов']) === 'приёмов'
+    && ruForms(11, ['позиция', 'позиции', 'позиций']) === 'позиций'
+    && ruForms(21, ['позиция', 'позиции', 'позиций']) === 'позиция';
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} ruForms: 1 приём, 2 приёма, 5 приёмов, 11 позиций, 21 позиция`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

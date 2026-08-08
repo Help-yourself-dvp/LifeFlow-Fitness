@@ -2738,9 +2738,28 @@ button.food-group-header:active { filter: brightness(0.97); }
 /* 0.3.29: полоса-«ручка» УБРАНА — ложный аффорданс (обещала drag, была
    только декором; кейс пользователя «тяну — не влияет»). Отдельность
    панели теперь честно дают рамка, тень и видимый скроллбар ниже. */
-.ai-result-box::-webkit-scrollbar { width: 8px; }
+/* 0.3.32 (просьба пользователя): полосы прокрутки приведены к единому
+   семейству. Основной экран — приглушённая primary 30%, тонкая 5px;
+   текстовые окна с разбором (ИИ-ответы, предпросмотр умного ввода) — чуть
+   уже прежних 8px (6px) и насыщеннее (55%), чтобы зоны различались
+   оттенком, а не «серая против зелёной». */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--primary) 42%, transparent); }
+
+.ai-result-box::-webkit-scrollbar { width: 6px; }
 .ai-result-box::-webkit-scrollbar-track { background: color-mix(in srgb, var(--outline-variant) 30%, transparent); border-radius: 4px; }
-.ai-result-box::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 4px; min-height: 28px; }
+.ai-result-box::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 3px; min-height: 28px; }
+
+/* Предпросмотр умного ввода — тот же насыщенный оттенок, что у ИИ: оба
+   окна показывают разбор текста. */
+.smart-preview::-webkit-scrollbar { width: 6px; }
+.smart-preview::-webkit-scrollbar-track { background: color-mix(in srgb, var(--outline-variant) 30%, transparent); border-radius: 3px; }
+.smart-preview::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 3px; min-height: 28px; }
+
+/* Пункт 3 (0.3.32): «?» стал классическим значком справа от надписи. */
+.smart-help-btn .smart-help-dot { margin-left: 6px; flex: none; }
 /* 0.3.31 (кейс «внизу нет полосы скролла»): Android WebView рисует скроллбар
    мельком. Честный стойкий маркер продолжения — градиент у нижней кромки,
    пока контент реально выше панели (класс ставит watchAiResultBoxes). Градиент

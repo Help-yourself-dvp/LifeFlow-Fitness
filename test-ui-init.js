@@ -317,9 +317,9 @@ for (const id of ids) {
   if (!okCenter) failed++;
   console.log(`${okCenter ? '✓' : '✗'} все диалоги подтверждения: текст кнопок (включая «Отмена») по центру`);
   const okScroll = app7.includes('function watchAiResultBoxes()') && app7.includes('watchAiResultBoxes();')
-    && cssAll.includes('.ai-result-box.ai-scrollable::after') && cssAll.includes('width: 8px; }');
+    && cssAll.includes('.ai-result-box.ai-scrollable::after') && cssAll.includes('.ai-result-box::-webkit-scrollbar { width: 6px; }');
   if (!okScroll) failed++;
-  console.log(`${okScroll ? '✓' : '✗'} ИИ: честный маркер прокрутки (наблюдатель + градиент + заметный скроллбар 8px)`);
+  console.log(`${okScroll ? '✓' : '✗'} ИИ: честный маркер прокрутки (наблюдатель + градиент + скроллбар 6px, 0.3.32 — чуть тоньше)`);
   const okParse = app7.includes('SAUSAGE_SLICE_GRAMS') && app7.includes('function eggPortionCount(')
     && app7.includes('глазунья|яичница|омлет');
   if (!okParse) failed++;
@@ -348,6 +348,45 @@ for (const id of ids) {
     && html.includes('📁 Выбрать файл модели (.litertlm)');
   if (!okDormant) failed++;
   console.log(`${okDormant ? '✓' : '✗'} локальный ИИ: дремлющий JS (без модуля — false), общий контекст, без заглушек local://`);
+}
+
+// 0.3.32: честный остаток парсера, «План дня» (приёмы · позиции), значок «?» справа,
+// единое семейство скроллбаров, усиленные паузы голоса (патч)
+{
+  const app8 = fs.readFileSync('app.js', 'utf8');
+  const css8 = fs.readFileSync('style.css', 'utf8');
+  const okSoup = app8.includes('function parseSoupCombo(') && app8.includes('const SOUP_PORTION_GRAMS = 300;')
+    && app8.includes('const SOUP_MEAT_GRAMS = 50;') && app8.includes('COMPANION_GRAMS[right.key] || SOUP_MEAT_GRAMS');
+  if (!okSoup) failed++;
+  console.log(`${okSoup ? '✓' : '✗'} парсер: суп «со/с» — тарелка 300 г + добавка (приправы по карте, штучные — 1 шт)`);
+  const okMiss = app8.includes('function parseMealTextDetailed(') && app8.includes('function isMeaningfulMiss(')
+    && app8.includes('unparsed.push(...segDetailed.missed)') && app8.includes("'⚠️ Не разобрал: «'")
+    && app8.includes('<b>Не разобрал</b>');
+  if (!okMiss) failed++;
+  console.log(`${okMiss ? '✓' : '✗'} честность ввода: непонятный остаток виден и в умном вводе, и в ИИ-поле (не молчим)`);
+  const okPlan = app8.includes('function ruForms(') && app8.includes("['приём', 'приёма', 'приёмов']")
+    && app8.includes("['позиция', 'позиции', 'позиций']") && app8.includes('const foodMealsLogged = computeMealsEatenToday()');
+  if (!okPlan) failed++;
+  console.log(`${okPlan ? '✓' : '✗'} «План дня»: честные единицы — приёмы · позиции (не «11 зап.» продуктов)`);
+  const okHint = html.includes('О голосовом офлайн-вводе <span class="help-dot smart-help-dot"')
+    && !html.includes('>? О голосовом офлайн-вводе</button>')
+    && !html.includes('Голосовой режим появится после отдельного тестирования моделей');
+  if (!okHint) failed++;
+  console.log(`${okHint ? '✓' : '✗'} «?» — классически справа от надписи; справка о голосе правдива (голос уже работает)`);
+  const okBars = css8.includes('::-webkit-scrollbar { width: 5px; height: 5px; }')
+    && css8.includes('var(--primary) 30%, transparent); border-radius: 3px; }')
+    && css8.includes('.smart-preview::-webkit-scrollbar { width: 6px; }')
+    && css8.includes('.ai-result-box::-webkit-scrollbar { width: 6px; }')
+    && css8.includes('.home-quicknav::-webkit-scrollbar { display: none; }');
+  if (!okBars) failed++;
+  console.log(`${okBars ? '✓' : '✗'} скроллбары: единое семейство — экран primary 30%/5px, окна разбора 55%/6px (быстрый нав — без полосы)`);
+  const patch = fs.existsSync('tools/github-workflows/VOICE_PAUSE_PATCH.md')
+    ? fs.readFileSync('tools/github-workflows/VOICE_PAUSE_PATCH.md', 'utf8') : '';
+  const okPause = patch.includes('EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 6000L')
+    && patch.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L')
+    && patch.includes('не короче 6 с');
+  if (!okPause) failed++;
+  console.log(`${okPause ? '✓' : '✗'} голос: патч пауз усилен до 6 с / 2.5 с тишины (просьба «ещё чуть больше»)`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

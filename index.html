@@ -1045,7 +1045,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.3.31</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.3.32</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1566,7 +1566,7 @@
       <h2 id="smart-entry-title">Быстрый ввод</h2>
       <p>Напишите или надиктуйте одной фразой воду, еду и активность. FitFlow разложит понятные части по разделам и попросит подтверждение.</p>
       <textarea id="smart-entry-input" rows="4" placeholder="Например: позанимался 45 минут, выпил 500 мл воды и съел банан"></textarea>
-      <button class="smart-help-btn" id="smart-voice-help-open" type="button">? О голосовом офлайн-вводе</button>
+      <button class="smart-help-btn" id="smart-voice-help-open" type="button">О голосовом офлайн-вводе <span class="help-dot smart-help-dot" aria-hidden="true">?</span></button>
       <div class="smart-preview" id="smart-entry-preview" hidden></div>
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
@@ -1580,13 +1580,14 @@
   <div class="app-dialog-backdrop" id="smart-voice-help-dialog" role="dialog" aria-modal="true" aria-labelledby="smart-voice-help-title" hidden>
     <section class="app-dialog terms-dialog">
       <div class="app-dialog-icon" aria-hidden="true">🎙️</div>
-      <h2 id="smart-voice-help-title">Голосовой ввод офлайн</h2>
+      <h2 id="smart-voice-help-title">Голосовой ввод</h2>
       <div class="terms-list">
-        <p><b>Лёгкий режим.</b> Распознаёт голос на устройстве и разбирает распространённые команды без тяжёлой модели.</p>
-        <p><b>Продвинутый режим.</b> Необязательная скачиваемая модель сможет понимать длинные свободные фразы и предлагать распределение действий.</p>
-        <p><b>Приватность.</b> После загрузки модели голос обрабатывается на устройстве, без VPN, регистрации и облачных запросов.</p>
+        <p><b>Как работает сейчас.</b> Нажмите «🎙 Надиктовать» — текст появится в этом же окне для проверки вместе с разбором по позициям, и попадёт в дневник только после кнопки «Сохранить записи».</p>
+        <p><b>Без интернета.</b> FitFlow просит у Android офлайн-распознавание: если языковой пакет Google скачан на устройство, диктовка работает и без сети.</p>
+        <p><b>Продвинутый режим.</b> Скачиваемая нейросеть (Настройки → ИИ-помощник, режим «Gemma на устройстве») будет понимать длинные свободные фразы целиком на телефоне — подключается отдельным обновлением.</p>
+        <p><b>Приватность.</b> Распознавание и разбор выполняются на устройстве; в облако ничего не отправляется.</p>
       </div>
-      <p class="app-dialog-hint">Голосовой режим появится после отдельного тестирования моделей. Сейчас доступен текстовый умный ввод.</p>
+      <p class="app-dialog-hint">Если распознавание обрывает фразу на паузе — это системный таймер речи Android; его терпимость увеличивается отдельным обновлением нативной сборки (инструкция уже подготовлена).</p>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="smart-voice-help-ok" type="button">Понятно</button></div>
     </section>
   </div>

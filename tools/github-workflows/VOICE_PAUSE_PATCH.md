@@ -6,6 +6,9 @@
 
 Претензия пользователя к «Голосу 2.0»: системный распознаватель обрывает
 прослушивание на малейшей паузе — диктовать приходится быстро и без остановок.
+(0.3.32, новая просьба: «сделайте задержку ещё чуть больше, чтобы успевать
+продумывать фразы при диктовке» — значения ниже усилены до 6 с / 2.5 с.
+Честно: прежние 4 с / 1.6 с ни в одной сборке не жили, патч ждал применения.)
 
 ## Механика
 
@@ -17,10 +20,11 @@
 - `EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS` — «мягкий»
   порог возможного конца.
 
-Ставим: сессия не короче 4 с, конец фразы — после 1.6 с полной тишины.
-Говорить станет можно со вдумчивыми паузами, как при живом разговоре.
-Параметры носят рекомендательный характер: на отдельных устройствах
-распознаватель может их округлить — это нормально, хуже не станет.
+Ставим: сессия не короче 6 с, конец фразы — после 2.5 с полной тишины
+(вторичное уточнение по просьбе пользователя — «ещё чуть больше»).
+Говорить станет можно со вдумчивыми паузами на обдумывание, как при живом
+разговоре. Параметры носят рекомендательный характер: на отдельных
+устройствах распознаватель может их округлить — это нормально, хуже не станет.
 
 ## Что НЕ вошло (честно)
 
@@ -47,16 +51,17 @@
                                   intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                                   intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
                                   intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-                                  // VOICE_PAUSE_PATCH: говорить можно со вдумчивыми паузами.
-                                  // Сессия не короче 4 с; конец фразы — после 1.6 с тишины
+                                  // VOICE_PAUSE_PATCH: говорить можно со вдумчивыми паузами (0.3.32: 6 с / 2.5 с).
+                                  // Сессия не короче 6 с; конец фразы — после 2.5 с тишины
                                   // (раньше системный дефолт ~0.5 с обрывал на каждой паузе).
-                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 4000L);
-                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1600L);
-                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1600L);
+                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 6000L);
+                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L);
+                                  intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L);
                                   intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Расскажите о воде, еде и активности");
 ```
 
 4. Commit changes в ту же ветку → сборка пойдёт сама.
-5. Проверка: 🎤 → сказать фразу с паузами по 1–2 секунды («выпил стакан воды…
-   и съел тарелку куриного супа») — распознаватель не должен закрываться
-   на первой паузе. Откат — удалить три строки `EXTRA_SPEECH_INPUT_*`.
+5. Проверка: 🎤 → сказать фразу с паузами на обдумывание по 2–2,5 секунды
+   («выпил стакан воды… и съел тарелку куриного супа») — распознаватель
+   не должен закрываться на такой паузе. Откат — удалить три строки
+   `EXTRA_SPEECH_INPUT_*`.

@@ -693,8 +693,13 @@ function canonicalUnit(unitRaw) {
 /* ============================================================
    Парсер текста: «картофель 150г, котлета 1шт»
    ============================================================ */
-function parseMealText(raw) {
-  if (!raw || !raw.trim()) return [];
+/* Детальный разбор: кроме позиций возвращает НЕПОНЯТНЫЕ куски фразы
+   (0.3.32, жалоба пользователя: продукт «всегда сырой», потому что
+   нераспознанные слова тихо пропадали — щи из «щи со свининой»).
+   Отвечаем честностью: всё, что не распознано, показывается явной
+   пометкой «⚠️ Не разобрал» — гарантия «ничего не теряется молча». */
+function parseMealTextDetailed(raw) {
+  if (!raw || !raw.trim()) return { items: [], missed: [] };
   // Разделители: запятая/точка с запятой перед буквой, «и» между словами,
   // тире/дефисы. \b не используем — в JS он не понимает кириллицу.
   const splitParts = raw
@@ -711,7 +716,79 @@ function parseMealText(raw) {
       .replace(/^и\s+/iu, ''))
     .filter(Boolean);
   const parts = glueSandwichFillings(splitParts).flatMap(splitWithCompanion);
-  return parts.map(parseItem).filter(Boolean);
+  const items = [];
+  const missed = [];
+  parts.forEach((part) => {
+    const soupCombo = parseSoupCombo(part);
+    if (soupCombo) {
+      items.push(...soupCombo.items);
+      if (soupCombo.missed) missed.push(soupCombo.missed);
+      return;
+    }
+    const item = parseItem(part);
+    if (item) items.push(item);
+    else if (isMeaningfulMiss(part)) missed.push(part.trim());
+  });
+  return { items, missed };
+}
+
+/* Обёртка для прежних вызовов: им нужны только позиции. */
+function parseMealText(raw) {
+  return parseMealTextDetailed(raw).items;
+}
+
+/* Какие пропущенные куски стоит показать пользователю: слова от 3 букв.
+   Потерянные числа/единицы без названия («250», «шт») не пугаем — они
+   обычно артефакты разделителей. */
+function isMeaningfulMiss(part) {
+  const t = String(part || '').trim();
+  if (!t) return false;
+  if (/^\d+[\s.,]?\d*\s*(г|гр|грамм[а-яё]*|кг|мл|л|шт\.?[а-яё]*|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ложк[а-яё]*|стакан[а-яё]*|тарелк[а-яё]*)?$/iu.test(t)) return false;
+  const letters = t.replace(/[^а-яёa-z]/giu, '');
+  return letters.length >= 3;
+}
+
+/* Суп с добавкой «со/с» (0.3.32, кейс пользователя: «щи со свининой» из
+   голосового ввода превращались в «свинина ≈ 100 г — 259 ккал», а сами щи
+   молча ПРОПАДАЛИ из разбора). Суп — это тарелка ≈300 г; мясо/рыба в супе ≈50 г;
+   приправы — по карте COMPANION_GRAMS (сметана ≈20 г). Обе позиции помечены «≈»
+   и получают пояснение — оценка порции видна и правится руками перед сохранением.
+   Голый суп без количества («щи») — тоже тарелка ≈300 г, а не «100 г». */
+const SOUP_PORTION_GRAMS = 300;
+const SOUP_MEAT_GRAMS = 50;
+function parseSoupCombo(part) {
+  const text = String(part || '').trim();
+  if (!text) return null;
+  if (/\d/u.test(text)) return null; // «щи 250 г» — обычный честный разбор
+  const whole = lookupProduct(text);
+  if (whole && whole.key.indexOf(' ') !== -1) return null; // составной ключ базы («суп харчо»)
+  const combo = text.match(/^(щи|борщ|солянка|рассольник|окрошка|уха|свекольник|харчо|суп)\s+(?:со|с)\s+(.+)$/iu);
+  const bare = combo ? null : text.match(/^(щи|борщ|солянка|рассольник|окрошка|уха|свекольник|харчо|суп)$/iu);
+  if (!combo && !bare) return null;
+  const soup = lookupProduct(combo ? combo[1] : bare[1]);
+  if (!soup) return null;
+  const mk = (product, grams, note) => {
+    const n = calcNutrition(product, grams, 'г');
+    if (!n || !Number.isFinite(n.kcal)) return null;
+    return {
+      id: uid(), raw: text, name: product.key, amount: grams, unit: 'г',
+      grams: n.grams != null ? n.grams : grams, perPiece: false,
+      kcal: n.kcal, p: n.p, f: n.f, c: n.c, approx: true, note,
+      custom: product.custom === true
+    };
+  };
+  const soupItem = mk(soup, SOUP_PORTION_GRAMS, 'оценка порции: тарелка ≈ ' + SOUP_PORTION_GRAMS + ' г');
+  if (!soupItem) return null;
+  if (bare) return { items: [soupItem] };
+  const right = lookupProduct(combo[2]);
+  if (!right) return { items: [soupItem], missed: combo[2].trim() }; // добавку не знаем — честно покажем
+  if (right.per === 'шт') {
+    const pieceItem = parseItem(combo[2]); // «суп с котлетой» — 1 шт
+    return pieceItem ? { items: [soupItem, pieceItem] } : { items: [soupItem] };
+  }
+  const addGrams = COMPANION_GRAMS[right.key] || SOUP_MEAT_GRAMS;
+  const addItem = mk(right, addGrams, 'оценка добавки в супе ≈ ' + addGrams + ' г');
+  return addItem ? { items: [soupItem, addItem] } : { items: [soupItem] };
 }
 
 /* Спутник через «с» (0.3.20, кейс пользователя: «картошка с сосиской»
@@ -985,7 +1062,7 @@ let pendingSmartEntry = null;
 
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
-  if (!source) return { waterMl: 0, activities: [], activity: null, food: [] };
+  if (!source) return { waterMl: 0, activities: [], activity: null, food: [], unparsed: [] };
   const lower = normalizeSmartUnits(normalizeNumberWords(normalizeCommandText(source)));
 
   let waterMl = 0;
@@ -1019,6 +1096,7 @@ function parseSmartEntry(text) {
   }
 
   const food = [];
+  const unparsed = []; // 0.3.32: непонятные куски фразы — покажем честно, без молчаливых потерь
   // [\s,]+ — после глагола допускаем запятую (её могла вставить нормализация ёмкостей).
   const foodPattern = /(?:съел(?:а)?|поел(?:а)?|съесть|выпил(?:а)?|выпить)[\s,]+(.+?)(?=(?:\s+(?:выпил(?:а)?|попил(?:а)?|занимал(?:ся|ась)|тренировал(?:ся|ась)|плавал(?:а)?|бегал(?:а)?|побегал(?:а)?|гулял(?:а)?|ходил(?:а)?|сходил(?:а)?|катал(?:ся|ась)|прош[её]л(?:а)?|съел(?:а)?|поел(?:а)?))|$)/giu;
   while ((match = foodPattern.exec(lower))) {
@@ -1028,7 +1106,9 @@ function parseSmartEntry(text) {
       /^(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|л|литр(?:а|ов)?|стакан(?:а|ов)?))\s+(.+)$/iu,
       '$2 $1'
     );
-    food.push(...parseMealText(segment).filter((item) => item.name !== 'вода'));
+    const segDetailed = parseMealTextDetailed(segment);
+    food.push(...segDetailed.items.filter((item) => item.name !== 'вода'));
+    unparsed.push(...segDetailed.missed);
   }
   // Если глаголов «съел/выпил» не было — фраза может быть простым списком
   // продуктов: «овсянка 150г, персик». Разбираем её тем же парсером,
@@ -1049,10 +1129,12 @@ function parseSmartEntry(text) {
     rest = rest.replace(/(\d+(?:[.,]\d+)?\s+(?:шт\.?|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*|порци[а-яё]*))\s+([а-яёa-z]+(?:ого|его|ему|ому|ий|ый|ой|ей|ая|яя|ое|ёе|ее|ые|ие|ье|ью|их|ых|ами|ыми|ими))\s+([а-яёa-z]+)/giu, '$2 $3 $1');
     rest = rest.replace(/(\d+(?:[.,]\d+)?\s*(?:мл|миллилитр(?:ов|а)?|литр(?:а|ов)?|л(?![а-яё])|стакан(?:а|ов)?|кг|гр|грамм(?:а|ов)?|шт\.?|штук[а-яё]*|кусо[а-яё]*|куск[а-яё]*|ломот[а-яё]*|ломт[а-яё]*|дольк[а-яё]*|горст[а-яё]*|щепотк[а-яё]*))\s+([а-яёa-z]+)/giu, '$2 $1');
     if (rest.replace(/[\s,;.]/g, '').length > 0) {
-      food.push(...parseMealText(rest).filter((item) => item.name !== 'вода'));
+      const restDetailed = parseMealTextDetailed(rest);
+      food.push(...restDetailed.items.filter((item) => item.name !== 'вода'));
+      unparsed.push(...restDetailed.missed);
     }
   }
-  return { waterMl, activities, activity: activities[0] || null, food };
+  return { waterMl, activities, activity: activities[0] || null, food, unparsed };
 }
 
 function startVoiceEntry() {
@@ -1125,7 +1207,14 @@ function previewSmartEntry() {
     lines.push(`🍽️ Питание · всего ${fmt(Math.round(total))} ккал:`);
     parsed.food.forEach((item) => lines.push('▫️ ' + describeFoodItemLine(item)));
   }
-  if (lines.length === 0) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
+  // 0.3.32: честный отчёт о непонятных кусках — ничего не пропадает молча
+  // (жалоба пользователя: «продукт будет сырым всегда», если потери невидимы).
+  const hasContent = parsed.waterMl > 0 || parsed.activities.length > 0 || parsed.food.length > 0;
+  if (parsed.unparsed && parsed.unparsed.length) {
+    const uniqMiss = Array.from(new Set(parsed.unparsed));
+    lines.push('⚠️ Не разобрал: «' + escapeHtml(uniqMiss.join('», «')) + '» — в дневник не попадёт. Переформулируйте или добавьте отдельно.');
+  }
+  if (!hasContent) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
   const preview = $('#smart-entry-preview');
   preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${line}</p>`).join('')}`;
@@ -1808,7 +1897,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.31';
+const FITFLOW_VERSION = '0.3.32';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -3505,7 +3594,16 @@ function renderDayPlan() {
     const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
 
     const waterText = waterOk ? 'цель достигнута' : fmt(state.water.total) + ' из ' + fmt(state.water.goal) + ' мл';
-    const foodText = foodOk ? 'основной рацион учтён' : (state.food.items.length > 0 ? 'в процессе (' + state.food.items.length + ' зап.)' : 'ничего не добавлено');
+    // 0.3.32 (кейс пользователя): «11 зап.» при заполненных завтраке и обеде —
+    // цифра была числом ПРОДУКТОВ, а не записей. Честно: столько-то приёмов
+    // (заполненные завтрак/обед/ужин) и столько-то позиций в них.
+    const foodItemsLogged = state.food.items.length;
+    const foodMealsLogged = computeMealsEatenToday();
+    const foodText = foodOk ? 'основной рацион учтён' : (foodItemsLogged > 0
+      ? 'в процессе (' + (foodMealsLogged > 0
+          ? foodMealsLogged + ' ' + ruForms(foodMealsLogged, ['приём', 'приёма', 'приёмов']) + ' · ' : '')
+        + foodItemsLogged + ' ' + ruForms(foodItemsLogged, ['позиция', 'позиции', 'позиций']) + ')'
+      : 'ничего не добавлено');
     const activityText = activityOk ? 'отмечена' : 'сегодня без активности';
 
     // Пункт «Сон» — когда включён чек-ин сна: кликабельная строка, открывает диалог.
@@ -8138,12 +8236,15 @@ function parseAiQuickEntry() {
   const parsed = parseSmartEntry(text);
   const waterMl = Number(parsed.waterMl) || 0;
   const foods = Array.isArray(parsed.food) ? parsed.food : [];
+  const unparsed = Array.isArray(parsed.unparsed) ? Array.from(new Set(parsed.unparsed)) : [];
   const acts = (Array.isArray(parsed.activities) ? parsed.activities : [])
     .map((a) => ({ ...a, label: (ACTIVITY_TYPES[a.type] || ACTIVITY_TYPES.other).label }));
 
   if (!waterMl && !foods.length && !acts.length) {
     resultBox.innerHTML = '<h4>⚡ Разбор фразы</h4>' +
-      '<p>Пока ничего не удалось распознать. Попробуйте, например: «вода 300 мл, гречка 150 г, гулял 30 мин».</p>';
+      (unparsed.length
+        ? '<p>Не удалось понять: «' + escapeHtml(unparsed.join('», «')) + '». Попробуйте, например: «вода 300 мл, гречка 150 г, гулял 30 мин».</p>'
+        : '<p>Пока ничего не удалось распознать. Попробуйте, например: «вода 300 мл, гречка 150 г, гулял 30 мин».</p>');
     resultBox.hidden = false;
     return;
   }
@@ -8154,6 +8255,7 @@ function parseAiQuickEntry() {
     (waterMl > 0 ? '<li>💧 <b>Вода</b>: +' + fmt(waterMl) + ' мл</li>' : '') +
     (foods.length > 0 ? '<li>🥑 <b>Питание</b>:<br>' + foods.map(i => describeFoodItemLine(i)).join('<br>') + '</li>' : '') +
     (acts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + acts.map(a => escapeHtml(a.label) + ' (' + a.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
+    (unparsed.length ? '<li>⚠️ <b>Не разобрал</b>: «' + escapeHtml(unparsed.join('», «')) + '» — не запишется. Переформулируйте или добавьте вручную.</li>' : '') +
     '</ul>' +
     '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
   resultBox.hidden = false;
@@ -8515,6 +8617,16 @@ function handleAiRecipeCameraPhoto(file) {
 /* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
 function getDiaryDaysCount() {
   return Array.isArray(state.dailyHistory) ? state.dailyHistory.length : 0;
+}
+
+/* Склонение русских форм по числу: ruForms(2, ['приём','приёма','приёмов']) → 'приёма'. */
+function ruForms(n, forms) {
+  const a = Math.abs(Number(n) || 0) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b > 1 && b < 5) return forms[1];
+  if (b === 1) return forms[0];
+  return forms[2];
 }
 
 function pluralDaysRu(n) {
@@ -9479,7 +9591,7 @@ if (typeof module !== 'undefined' && module.exports) {
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
     buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer,
-    cloudErrorText, COMPANION_GRAMS,
+    cloudErrorText, COMPANION_GRAMS, parseMealTextDetailed, ruForms, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS,
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
