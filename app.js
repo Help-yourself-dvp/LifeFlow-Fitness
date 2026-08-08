@@ -1183,11 +1183,11 @@ function describeFoodItemLine(item) {
     amountText = item.amount + ' шт' + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
     if (item.perPiece && item.amount > 1) amountText += ' (по ' + fmt(Math.round(item.kcal / item.amount)) + ' ккал/шт)';
   } else if (Object.prototype.hasOwnProperty.call(SLICE_UNIT_GRAMS, item.unit)) {
-    amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
+    amountText = item.amount + ' ' + ruUnitName(item.amount, item.unit) + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
   } else if (item.unit === 'г' || item.unit === 'мл') {
     amountText = item.amount + ' ' + item.unit;
   } else {
-    amountText = item.amount + ' ' + item.unit + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
+    amountText = item.amount + ' ' + ruUnitName(item.amount, item.unit) + (item.grams ? ' ≈ ' + fmt(item.grams) + ' г' : '');
   }
   let line = escapeHtml(item.name) + ' ' + amountText + ' — ' + (item.approx ? '≈ ' : '') + fmt(Math.round(item.kcal)) + ' ккал';
   if (item.custom) line += ' <small style="opacity:.75" title="Взято из «Моих продуктов» — ваши точные значения с упаковки">🏷 ваши значения</small>';
@@ -1897,7 +1897,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.3.37';
+const FITFLOW_VERSION = '0.3.38';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -8154,7 +8154,10 @@ function loadLocalLlmModel() {
   const statusEl = $('#ai-model-status');
   if (!plugin || !hasRealLocalModel()) return Promise.resolve(false);
   if (statusEl) statusEl.textContent = 'Загружаю модель в память: ' + (state.aiSettings.modelName || 'модель') + ' — первая загрузка может занять минуту…';
-  return plugin.loadModel({ path: state.aiSettings.modelPath, maxTokens: 4096, temperature: 0.7 })
+  // 0.3.38 (полевой тест, build 158): на 0.7 одномиллиардная модель «фантазирует» —
+  // грамматика ломается, советы самопротиворечивы («перед сном… дайте кофе»).
+  // 0.4 = суше и правдивее; креатив нутрициологу не нужен, нужна точность.
+  return plugin.loadModel({ path: state.aiSettings.modelPath, maxTokens: 4096, temperature: 0.4 })
     .then(() => { renderAiSettings(); toast('🧠 Модель готова: отвечает офлайн, без ключей'); return true; })
     .catch((err) => {
       if (statusEl) statusEl.textContent = '✕ ' + String((err && err.message) || 'Модель не загрузилась');
@@ -8621,12 +8624,36 @@ function getDiaryDaysCount() {
 
 /* Склонение русских форм по числу: ruForms(2, ['приём','приёма','приёмов']) → 'приёма'. */
 function ruForms(n, forms) {
+  if (!Number.isInteger(Number(n))) return forms[1]; // «0,5 стакана» — средняя форма
   const a = Math.abs(Number(n) || 0) % 100;
   const b = a % 10;
   if (a > 10 && a < 20) return forms[2];
   if (b > 1 && b < 5) return forms[1];
   if (b === 1) return forms[0];
   return forms[2];
+}
+
+/* Русские формы единиц в разборе (0.3.38, полевая заметка пользователя:
+   «хлеб 2 кусок», «молоко 2 стакан» — режет глаз; должно быть «2 куска»,
+   «2 стакана»). Карта только для склоняемых единиц парсера, прочие — как есть. */
+const UNIT_RU_FORMS = {
+  'кусок': ['кусок', 'куска', 'кусков'],
+  'кусочек': ['кусочек', 'кусочка', 'кусочков'],
+  'ломоть': ['ломоть', 'ломтя', 'ломтей'],
+  'ломтик': ['ломтик', 'ломтика', 'ломтиков'],
+  'долька': ['долька', 'дольки', 'долек'],
+  'стакан': ['стакан', 'стакана', 'стаканов'],
+  'чашка': ['чашка', 'чашки', 'чашек'],
+  'тарелка': ['тарелка', 'тарелки', 'тарелок'],
+  'миска': ['миска', 'миски', 'мисок'],
+  'порция': ['порция', 'порции', 'порций'],
+  'банка': ['банка', 'банки', 'банок'],
+  'бутылка': ['бутылка', 'бутылки', 'бутылок'],
+  'упаковка': ['упаковка', 'упаковки', 'упаковок']
+};
+function ruUnitName(n, unit) {
+  const forms = UNIT_RU_FORMS[unit];
+  return forms ? ruForms(n, forms) : unit;
 }
 
 function pluralDaysRu(n) {
@@ -9340,7 +9367,7 @@ function sendAiChatLocalLlm(text, resultBox) {
   const plugin = getLocalAiPlugin();
   if (!plugin) { sendAiChat(); return; }
   const prompt = buildAiSystemContext(text) + '\n\nВопрос пользователя: ' + text
-    + '\n\nОтвечай по-русски, кратко (до 150 слов).';
+    + '\n\nОтвечай по-русски, грамотно и кратко: 3–6 коротких предложений, только по сути вопроса. Если не уверен в факте — честно скажи об этом, ничего не выдумывай.';
   const run = () => plugin.generate({ prompt })
     .then((out) => {
       resultBox.innerHTML = '<h4>💬 Ответ нутрициолога FitFlow <span class="ai-cloud-badge ai-local-badge">🧠 на устройстве</span></h4>' +
@@ -9591,7 +9618,7 @@ if (typeof module !== 'undefined' && module.exports) {
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
     buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer,
-    cloudErrorText, COMPANION_GRAMS, parseMealTextDetailed, ruForms, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS,
+    cloudErrorText, COMPANION_GRAMS, parseMealTextDetailed, ruForms, ruUnitName, UNIT_RU_FORMS, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS,
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,

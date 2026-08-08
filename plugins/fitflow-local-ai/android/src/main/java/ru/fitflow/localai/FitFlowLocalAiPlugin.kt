@@ -42,6 +42,9 @@ class FitFlowLocalAiPlugin : Plugin() {
     private var engine: Engine? = null
     private var conversation: Conversation? = null
     private var loadedPath: String? = null
+    /** Температура последней загруженной модели: resetConversation собирает
+        новый диалог с той же, а не с молчаливым дефолтом (0.3.38). */
+    private var lastTemperature: Double = 0.7
     private val generating = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -135,6 +138,7 @@ class FitFlowLocalAiPlugin : Plugin() {
         // v0.12.0: SamplerConfig принимает topP/temperature как Double (проверено
         // по тегированным исходникам — Float-литералы (0.95f) здесь НЕ компилируются).
         val temperature = call.getDouble("temperature") ?: 0.7
+        lastTemperature = temperature
         scope.launch {
             try {
                 // Старый движок освобождаем: две модели в памяти телефона — перебор.
@@ -244,7 +248,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 try { conversation?.close() } catch (_: Exception) {}
                 conversation = currentEngine.createConversation(
                     ConversationConfig(
-                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.7)
+                        samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = lastTemperature)
                     )
                 )
                 call.resolve()

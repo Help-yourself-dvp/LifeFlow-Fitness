@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1098,6 +1098,17 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && ruForms(21, ['позиция', 'позиции', 'позиций']) === 'позиция';
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} ruForms: 1 приём, 2 приёма, 5 приёмов, 11 позиций, 21 позиция`);
+}
+
+// ---- 0.3.38: ruUnitName + дробные формы — грамотные единицы в разборе ----
+{
+  const ok = ruUnitName(1, 'кусок') === 'кусок' && ruUnitName(2, 'кусок') === 'куска'
+    && ruUnitName(5, 'кусок') === 'кусков' && ruUnitName(2, 'стакан') === 'стакана'
+    && ruUnitName(3, 'чашка') === 'чашки' && ruUnitName(11, 'тарелка') === 'тарелок'
+    && ruUnitName(0.5, 'стакан') === 'стакана' && ruUnitName(2, 'несуществующая') === 'несуществующая'
+    && ruUnitName(21, 'долька') === 'долька';
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} ruUnitName: 1 кусок, 2 куска, 5 кусков, 2 стакана, 3 чашки, 11 тарелок, 0,5 стакана, незнакомая — как есть`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

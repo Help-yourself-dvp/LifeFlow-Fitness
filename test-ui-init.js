@@ -426,5 +426,26 @@ for (const id of ids) {
   console.log(`${okR8 ? '✓' : '✗'} файл-замена: R8 8.5.35 в buildscript корневого build.gradle — D8 читает Java-21 байткод litertlm (лог 0.3.36)`);
 }
 
+// 0.3.38: температура 0.4 против «фантазий» 1B (полевой тест build 158), честная
+// инструкция краткости; склонение единиц в разборе («2 куска», «2 стакана»)
+{
+  const appC = fs.readFileSync('app.js', 'utf8');
+  const ktC = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okTemp = appC.includes('maxTokens: 4096, temperature: 0.4 }')
+    && !appC.includes('maxTokens: 4096, temperature: 0.7 }')
+    && ktC.includes('lastTemperature = temperature') && ktC.includes('temperature = lastTemperature)')
+    && !ktC.includes('temperature = 0.7)');
+  if (!okTemp) failed++;
+  console.log(`${okTemp ? '✓' : '✗'} локальная нейросеть: температура 0.4 везде (loadModel + reset через lastTemperature), залежей 0.7 нет`);
+  const okPrompt = appC.includes('грамотно и кратко: 3–6 коротких предложений') && appC.includes('Если не уверен в факте — честно скажи');
+  if (!okPrompt) failed++;
+  console.log(`${okPrompt ? '✓' : '✗'} инструкция локальной модели: кратко, грамотно, честно (не уверен — скажи, не выдумывай)`);
+  const okUnits = appC.includes('function ruUnitName(') && appC.includes("'стакан': ['стакан', 'стакана', 'стаканов']")
+    && (appC.match(/ruUnitName\(item\.amount, item\.unit\)/g) || []).length === 2
+    && appC.includes('if (!Number.isInteger(Number(n))) return forms[1];');
+  if (!okUnits) failed++;
+  console.log(`${okUnits ? '✓' : '✗'} склонение единиц в разборе: «2 куска / 2 стакана / 0,5 стакана», обе ветви describeFoodItemLine`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
