@@ -1287,59 +1287,106 @@ function cleanPhotoDraftText(text) {
   return lines.join(', ');
 }
 
-async function handleSmartEntryPhoto() {
-  const plugin = getLocalAiPlugin();
-  if (!plugin) { toast('Фото-разбор работает с нейросетью на устройстве: Настройки → ИИ-помощник.'); return; }
-  const st = await plugin.status().catch(() => null);
-  if (!st || !st.engineLoaded) {
-    toast('Поднимаю модель в память — до минуты один раз, дальше фото начнётся сразу.');
-    const ok = await loadLocalLlmModel();
-    if (ok) toast('🧠 Модель готова — нажмите 📷 ещё раз.');
-    return;
-  }
-  if (!st.vision) { toast('Эта модель без зрения — фото не разберёт. Нужна зрячая Gemma E2B/E4B (.litertlm).'); return; }
-  const fileInput = $('#smart-entry-photo-input');
-  if (fileInput) { fileInput.value = ''; fileInput.click(); }
+/* Единый локальный фото-движок (0.4.1 — полевой баг: входная точка камеры ИИ-поля
+   вела на тост-заглушку «Фото получено…» 2,4 с и ничего не делала, а кнопка 📷
+   умного ввода не поднимала модель из холода). Один путь для 📷 умного ввода,
+   камеры ИИ-поля и камеры рецептов: ВСЕ этапы пишем в панель на экране — не в
+   исчезающий тост («не успеваю почитать»), зрение видно по стримингу. Ничего не
+   записываем сами: нейросеть лишь предлагает текст, дальше канонический экран
+   «перечисление распознанного → правка руками → подтвердить» (просьба 0.4.1). */
+function markPhotoProvenance(box) {
+  if (!box || box.hidden) return;
+  const note = document.createElement('p');
+  note.className = 'settings-hint';
+  note.style.margin = '0 0 8px';
+  note.innerHTML = '📷 Список составлен нейросетью на устройстве по фото, посчитан локальной базой. '
+    + 'Что-то не так? Поправьте текст в поле выше и нажмите «Разобрать».';
+  box.insertBefore(note, box.firstChild);
 }
 
-async function runPhotoFoodRecognition(file) {
+async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) {
   const plugin = getLocalAiPlugin();
-  const preview = $('#smart-entry-preview');
-  if (!plugin || !preview) return;
-  const photoHeader = '<b>📷 Разбор фото нейросетью</b>';
+  const header = '<b>📷 Разбор фото нейросетью на устройстве</b>';
+  const setStage = (html) => {
+    if (!statusHost) return;
+    statusHost.hidden = false;
+    statusHost.innerHTML = header + html;
+  };
+  if (!plugin) {
+    setStage('<p style="color:var(--error)">Нет нативного ИИ-моста — фото-разбор доступен в Android-сборке с нейросетью.</p>');
+    return;
+  }
   let progressHandle = null;
   const detach = () => {
     try { if (progressHandle && progressHandle.remove) progressHandle.remove(); } catch (e) { }
     progressHandle = null;
   };
   try {
-    preview.hidden = false;
-    preview.innerHTML = photoHeader + '<p>Сжимаю снимок для нейросети…</p>';
+    setStage('<p>Проверяю модель…</p>');
+    let st = await plugin.status().catch(() => null);
+    if (!st || !st.engineLoaded) {
+      setStage('<p>Поднимаю модель в память — один раз до минуты, снимок подождёт…</p>');
+      const ok = await loadLocalLlmModel();
+      if (!ok) throw new Error('Модель не поднялась в память — Настройки → ✨ ИИ-помощник.');
+      st = await plugin.status().catch(() => null);
+    }
+    if (!st || !st.vision) {
+      setStage('<p style="color:var(--error)">Загружена модель без зрения — фото не разберёт. '
+        + 'Нужна зрячая Gemma E2B/E4B (.litertlm): Настройки → ✨ ИИ-помощник.</p>');
+      return;
+    }
+    setStage('<p>Сжимаю снимок для нейросети…</p>');
     const base64 = await resizeImageToJpegBase64(file, 768, 0.85);
-    preview.innerHTML = photoHeader + '<p>Ушло в нейросеть. Зрение на процессоре — не спринт: текст появится по ходу…</p>';
+    setStage('<p>Смотрю на снимок. Зрение на процессоре — не спринт: текст появится по ходу…</p>');
     progressHandle = await plugin.addListener('generateProgress', (ev) => {
       const partial = ev && typeof ev.text === 'string' ? ev.text : '';
       if (partial.trim()) {
-        preview.innerHTML = photoHeader
-          + '<p style="white-space:pre-wrap">' + escapeHtml(partial) + '</p>'
-          + '<p class="settings-hint">…смотрю на фото, можно читать по ходу.</p>';
+        setStage('<p style="white-space:pre-wrap">' + escapeHtml(partial) + '</p>'
+          + '<p class="settings-hint">…смотрю на фото, можно читать по ходу.</p>');
       }
     });
     const out = await plugin.generateWithImage({ prompt: AI_PHOTO_PROMPT, imageBase64: base64 });
     detach();
     const draft = cleanPhotoDraftText(out.text);
-    if (!draft || /^нет\b/i.test(draft)) {
-      preview.innerHTML = photoHeader + '<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>';
+    // «Нет еды на фото» проверяем устойчиво к юникоду: \b в JS — только ASCII,
+    // для кириллицы границы слова нет (фоллбэк-ловушка, вскрыта node-прогоном 0.4.1).
+    if (!draft || /^нет([^a-zа-яё0-9]|$)/i.test(draft.trim())) {
+      setStage('<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>');
       return;
     }
-    $('#smart-entry-input').value = draft;
-    // Канонический путь предпросмотра: те же ≈-оценки, база и честный «⚠️ Не разобрал».
-    previewSmartEntry();
+    if (targetInput) targetInput.value = draft;
+    // Канонический путь подтверждения (те же ≈-оценки, база и «⚠️ Не разобрал»),
+    // сверху — честная пометка, что список составлен нейросетью и его можно поправить.
+    if (typeof onFilled === 'function') onFilled(draft);
+    markPhotoProvenance(statusHost);
   } catch (err) {
     detach();
-    preview.innerHTML = photoHeader
-      + '<p style="color:var(--error)">📷 ' + escapeHtml(localLlmErrorText(err)) + '</p>';
+    setStage('<p style="color:var(--error)">📷 ' + escapeHtml(localLlmErrorText(err)) + '</p>');
   }
+}
+
+function handleSmartEntryPhoto() {
+  const plugin = getLocalAiPlugin();
+  if (!plugin) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
+  if (!hasRealLocalModel()) {
+    toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000);
+    return;
+  }
+  // Пикер открываем СРАЗУ: после await на статус жест пользователя «протухает»
+  // и системный выбор файла может не открыться. Проверки «модель в памяти /
+  // зрение есть» — с наглядными этапами внутри recognizeFoodPhotoLocal.
+  const fileInput = $('#smart-entry-photo-input');
+  if (fileInput) { fileInput.value = ''; fileInput.click(); }
+}
+
+async function runPhotoFoodRecognition(file) {
+  // Итог всегда показываем в открытом диалоге умного ввода: там поле для правки
+  // текста, «Разобрать» и подтверждение сохранения (просьба 0.4.1 — окно с
+  // перечислением распознанного, ручной поправкой и кнопкой «подтвердить»).
+  const dlg = $('#smart-entry-dialog');
+  if (dlg && dlg.hidden) openSmartEntry();
+  await recognizeFoodPhotoLocal(file, $('#smart-entry-input'), $('#smart-entry-preview'),
+    () => { previewSmartEntry(); });
 }
 
 
@@ -1998,7 +2045,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.0';
+const FITFLOW_VERSION = '0.4.1';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7335,12 +7382,12 @@ async function resetAll() {
    Toast
    ============================================================ */
 let toastTimer = null;
-function toast(message) {
+function toast(message, ms) {
   const el = $('#toast');
   el.textContent = message;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms || 2400);
 }
 
 /* ============================================================
@@ -8721,6 +8768,11 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled) {
 function handleAiRecipeCameraPhoto(file) {
   const recipeInput = $('#ai-recipe-input');
   const resultBox = $('#ai-recipe-result');
+  // 0.4.1: локальная зрячая модель — офлайн-фото (пункт №1 ТЗ), облако — запасной путь.
+  if (getLocalAiPlugin() && hasRealLocalModel()) {
+    recognizeFoodPhotoLocal(file, recipeInput, resultBox, () => generateAiRecipe());
+    return;
+  }
   if (isCloudAiReady() && getCloudProviderDef().vision) {
     recognizeFoodPhoto(file, recipeInput, resultBox, () => generateAiRecipe());
     return;
@@ -9377,13 +9429,27 @@ function findProductsInText(text) {
 /* Снимок дня пользователя для персонализации ответа нейросети. */
 function buildCloudDayContext() {
   const parts = [];
-  parts.push('Цель воды: ' + fmt(state.water.goal || 2500) + ' мл, выпито сегодня ' + fmt(state.water.total) + ' мл.');
+  const waterGoal = state.water.goal || 2500;
+  const waterLeft = waterGoal - (state.water.total || 0);
+  parts.push('Цель воды: ' + fmt(waterGoal) + ' мл, выпито сегодня ' + fmt(state.water.total) + ' мл — '
+    + (waterLeft > 0
+      ? 'осталось выпить ' + fmt(waterLeft) + ' мл (выпито МЕНЬШЕ нормы).'
+      : 'норма воды выполнена (выпито НЕ меньше нормы).'));
   const food = state.food.items || [];
   const kcal = food.reduce((s, i) => s + (i.kcal || 0), 0);
   const p = food.reduce((s, i) => s + (i.p || 0), 0);
   const f = food.reduce((s, i) => s + (i.f || 0), 0);
   const c = food.reduce((s, i) => s + (i.c || 0), 0);
-  parts.push('Цель калорий: ' + fmt(state.food.goal || 2000) + ' ккал, съедено сегодня ' + fmt(Math.round(kcal)) + ' ккал (Б ' + fmt(Math.round(p)) + ' / Ж ' + fmt(Math.round(f)) + ' / У ' + fmt(Math.round(c)) + ' г).');
+  const kcalGoal = state.food.goal || 2000;
+  const kcalNow = Math.round(kcal);
+  const kcalLeft = kcalGoal - kcalNow;
+  // 0.4.1 (полевой кейс «2300 — это БОЛЬШЕ 2500»): маленькая нейросеть ненадёжно
+  // сравнивает числа — сравнение и остаток считаем мы, модель лишь пересказывает.
+  const kcalVerdict = kcalLeft > 0
+    ? 'это МЕНЬШЕ цели на ' + fmt(kcalLeft) + ' ккал, осталось до цели ' + fmt(kcalLeft) + ' ккал'
+    : (kcalLeft < 0 ? 'это БОЛЬШЕ цели на ' + fmt(-kcalLeft) + ' ккал (перебор нормы)' : 'это ровно суточная цель');
+  parts.push('Цель калорий: ' + fmt(kcalGoal) + ' ккал, съедено сегодня ' + fmt(kcalNow) + ' ккал — ' + kcalVerdict
+    + ' (Б ' + fmt(Math.round(p)) + ' / Ж ' + fmt(Math.round(f)) + ' / У ' + fmt(Math.round(c)) + ' г).');
   const w = state.profileSettings.weightKg;
   if (w) parts.push('Текущий вес: ' + w + ' кг.');
   const acts = (state.workouts || []).filter((a) => a.date === todayKey());
@@ -9394,6 +9460,7 @@ function buildCloudDayContext() {
 const CLOUD_NUTRITIONIST_SYSTEM = 'Ты — ИИ-помощник и нутрициолог в приложении-дневнике FitFlow. Отвечай по-русски, кратко (до 180 слов), по делу, дружелюбно, без воды. '
   + 'Пользователь может спросить ЧТО УГОДНО — отвечай корректно на любой вопрос, даже не про еду (например, «назови столицу Канады» — дай прямой ответ). '
   + 'Если вопрос про питание/здоровье — учитывай данные его дня ниже. '
+  + 'Сравнения «больше/меньше нормы» и остатки в данных дня уже посчитаны безошибочно: цитируй их как есть и никогда не выполняй арифметику и не сравнивай числа между собой сам. '
   + 'Не выдумывай факты; если не уверен — так и скажи. По медицинским темам мягко напоминай, что это не заменяет врача.\n'
   + 'Данные дня пользователя:\n';
 
@@ -9722,16 +9789,23 @@ function handleAiQuickCamera(file) {
   const input = $('#ai-quick-input');
   const resultBox = $('#ai-quick-result');
   if (!input) return;
+  // 0.4.1 (полевой баг «тост и тишина»): локальная зрячая модель — первый путь,
+  // это и есть пункт №1 ТЗ «фото в ai-вводе офлайн». Тост-заглушка удалена:
+  // этапы и ошибки — в панели, итог — экран подтверждения с правкой.
+  if (getLocalAiPlugin() && hasRealLocalModel()) {
+    recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());
+    return;
+  }
   if (isCloudAiReady() && getCloudProviderDef().vision) {
     recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());
     return;
   }
   input.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
-    toast('📷 У выбранного провайдера нет распознавания фото (нужен Gemini). Опишите состав блюда в поле — посчитает локальная база.');
+    toast('📷 У выбранного облачного провайдера нет зрения (нужен Gemini). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
     return;
   }
-  toast('📷 Фото получено. Распознавание по фото работает с облачным ИИ (Gemini): Настройки → «✨ ИИ-помощник». Пока опишите состав в поле — калории и БЖУ посчитает локальная база.');
+  toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный Gemini.', 6000);
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */

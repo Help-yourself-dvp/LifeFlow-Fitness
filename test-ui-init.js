@@ -486,5 +486,46 @@ for (const id of ids) {
   console.log(`${okPhotoUi ? '✓' : '✗'} фото в UI: кнопка 📷 в умном вводе, сжатие 768px, черновик → parseSmartEntry → подтверждение`);
 }
 
+// 0.4.1: полевые баги фото — (а) камера ИИ-поля вела на тост-заглушку
+// «Фото получено…» и ничего не делала; (б) этапы прятались в исчезающие тосты;
+// (в) кнопка 📷 умного ввода не поднимала модель из холода. Плюс правдивость:
+// сравнения «больше/меньше нормы» считает JS, не нейросеть (кейс «2300 > 2500»).
+{
+  const appF = fs.readFileSync('app.js', 'utf8');
+  const okEngine = appF.includes('async function recognizeFoodPhotoLocal(')
+    && appF.includes('function markPhotoProvenance(')
+    && appF.includes("plugin.addListener('generateProgress',");
+  if (!okEngine) failed++;
+  console.log(`${okEngine ? '✓' : '✗'} единый локальный фото-движок: этапы в панели, стриминг зрения, пометка-провенанс`);
+
+  const okQuickCam = appF.indexOf('function handleAiQuickCamera(file) {') >= 0
+    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());')
+      > appF.indexOf('function handleAiQuickCamera(file) {')
+    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());')
+      < appF.indexOf('recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());')
+    && !appF.includes('Распознавание по фото работает с облачным ИИ (Gemini): Настройки');
+  if (!okQuickCam) failed++;
+  console.log(`${okQuickCam ? '✓' : '✗'} камера ИИ-поля: локальный зрячий путь ПЕРВЫМ, тост-заглушка удалена`);
+
+  const okRecipeCam = appF.includes("recognizeFoodPhotoLocal(file, recipeInput, resultBox, () => generateAiRecipe());");
+  if (!okRecipeCam) failed++;
+  console.log(`${okRecipeCam ? '✓' : '✗'} камера рецептов: тот же локальный путь, облако — запасной`);
+
+  const okOpenDlg = appF.includes('if (dlg && dlg.hidden) openSmartEntry();')
+    && appF.includes("toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000)");
+  if (!okOpenDlg) failed++;
+  console.log(`${okOpenDlg ? '✓' : '✗'} умный ввод: диалог гарантированно открыт, длинная инструкция (6 с) вместо мелькания`);
+
+  const okNetCheck = appF.includes('/^нет([^a-zа-яё0-9]|$)/i.test(draft.trim())');
+  if (!okNetCheck) failed++;
+  console.log(`${okNetCheck ? '✓' : '✗'} честный отказ фото: «нет» проверяется юникодо-устойчиво (\\b с кириллицей не работает)`);
+
+  const okTruth = appF.includes("'это МЕНЬШЕ цели на '") && appF.includes("'это БОЛЬШЕ цели на '")
+    && appF.includes('kcalLeft') && appF.includes('никогда не выполняй арифметику и не сравнивай числа между собой сам');
+  if (!okTruth) failed++;
+  console.log(`${okTruth ? '✓' : '✗'} правдивость чисел нутрициолога: сравнения/остатки считает JS, модель пересказывает`);
+
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
