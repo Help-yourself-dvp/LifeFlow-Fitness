@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1109,6 +1109,15 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && ruUnitName(21, 'долька') === 'долька';
   if (!ok) failed++;
   console.log(`${ok ? '✓' : '✗'} ruUnitName: 1 кусок, 2 куска, 5 кусков, 2 стакана, 3 чашки, 11 тарелок, 0,5 стакана, незнакомая — как есть`);
+}
+
+// ---- 0.4.2: честный отказ фото-детектора «нет еды» ----
+{
+  const t = isPhotoNoFoodAnswer;
+  const ok = t('нет') && t('Нет.') && t('на фото нет еды') && t('Еды нет') && t('не вижу еды') && t('продуктов нет') && t('')
+    && !t('нетто 200 г') && !t('бананы 5 шт') && !t('кальмар сушёный 70 г') && !t('борщ 300 г');
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} isPhotoNoFoodAnswer: отказы ловит любые формулировки, цифры = доверие («нетто 200 г» — не отказ)`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

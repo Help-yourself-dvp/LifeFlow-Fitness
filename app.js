@@ -113,6 +113,9 @@ const FOOD_DB = {
 
   // ===== Морепродукты =====
   'креветки': { kcal: 85, p: 18, f: 1, c: 0 }, 'краб': { kcal: 87, p: 17.5, f: 1, c: 1 }, 'кальмар': { kcal: 75, p: 15.5, f: 1.4, c: 0 },
+  // 0.4.2: вяленая/сушёная стружка — в ~4 раза калорийнее варёного кальмара (почти без воды),
+  // типичная упаковка 35–70 г; молчаливая подмена «кальмаром» грешила бы в 4 раза вниз.
+  'кальмар вяленый': { kcal: 300, p: 57, f: 3, c: 7 }, 'кальмар сушёный': { kcal: 300, p: 57, f: 3, c: 7 }, 'кальмар сушеный': { kcal: 300, p: 57, f: 3, c: 7 },
   'осьминог': { kcal: 82, p: 15, f: 1.5, c: 2 }, 'мидии': { kcal: 86, p: 12, f: 2, c: 4 }, 'раки': { kcal: 76, p: 15, f: 1, c: 1 },
   'устрицы': { kcal: 72, p: 9, f: 2, c: 4 }, 'крабовые палочки': { kcal: 95, p: 6, f: 0.5, c: 15 }, 'икра': { kcal: 240, p: 28, f: 13, c: 2 },
   'морской гребешок': { kcal: 88, p: 17, f: 1, c: 3 },
@@ -129,6 +132,8 @@ const FOOD_DB = {
   'творог 9%': { kcal: 169, p: 16.7, f: 9, c: 2 }, 'творожная масса': { kcal: 232, p: 12, f: 15, c: 12 },
   // ===== Сырочки, творожные десерты и молочные сладости =====
   'глазированный сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырок глазированный': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' },
+  // 0.4.2: чупа-чупс — штучный леденец 12 г (~46 ккал/шт), на фото-сценарии частый гость.
+  'чупа-чупс': { kcal: 46, p: 0, f: 0, c: 11.4, per: 'шт' }, 'чупа чупс': { kcal: 46, p: 0, f: 0, c: 11.4, per: 'шт' },
   'сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырки': { kcal: 407, p: 8, f: 25, c: 35 }, 'сырки глазированные': { kcal: 407, p: 8, f: 25, c: 35 },
   'творожный сырок': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' }, 'сырок творожный': { kcal: 210, p: 4, f: 14, c: 17, per: 'шт' },
   'сырок с вареной сгущенкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' }, 'сырок с варёной сгущёнкой': { kcal: 220, p: 4, f: 15, c: 18, per: 'шт' },
@@ -1250,7 +1255,32 @@ async function saveSmartEntry() {
    ОПИСЫВАЕТ фото текстом; правдивость расчётов делает проверенный парсер и
    база, незнакомое честно уходит в «⚠️ Не разобрал», в дневник — только
    после глаз пользователя (то же подтверждение, что после голоса). */
-const AI_PHOTO_PROMPT = 'Посмотри на фото. Перечисли блюда и продукты, видимые на нём, по одному пункту в отдельной СТРОКЕ вида «борщ 300 г». Вес оценивай реалистично по посуде (например, тарелка супа — примерно 300 граммов). Никаких пояснений, вступлений и подписей — только строки списка. Если еды на фото нет, напиши одно слово «нет».';
+// 0.4.2 (полевой тест): зрение маленькой модели СЧИТАЕТ предметы надёжно, а ВЕСИТ
+// слабо («связка 5 бананов = 2000 г», «1 помидор = 300 г»). Поэтому штучное просим
+// КОЛИЧЕСТВОМ — вес за штуку посчитает локальная база (банан 1 шт, яйцо 1 шт…),
+// граммы оставляем только нештучному и указываем якоря реалистичности.
+const AI_PHOTO_PROMPT = 'Посмотри на фото и перечисли еду и продукты по одному пункту в отдельной СТРОКЕ. '
+  + 'Правила. Штучные продукты пиши КОЛИЧЕСТВОМ, не весом: «бананы 5 шт», «яйца 2 шт», «чупа-чупс 3 шт». '
+  + 'Вес в граммах пиши только для нештучного: «каша 200 г», «борщ 300 г», «кальмар сушёный 70 г»; '
+  + 'оценивай по посуде и упаковке (тарелка супа — примерно 300 граммов, средний помидор — примерно 120, '
+  + 'у упаковки бери вес с надписи). Никаких пояснений и вступлений — только строки списка. '
+  + 'Если еды и продуктов на фото нет — ответь РОВНО одним словом: нет.';
+
+// Экстракция с фото ≠ разговор: фантазии здесь вреднее всего («2 кг бананов»,
+// выдуманная еда на пустом фото) — для фото температура ниже чатовой (0.7→0.2).
+// Нативная сторона пересобирает диалог на эту температуру и возвращает чатовую.
+const AI_PHOTO_TEMPERATURE = 0.2;
+
+/* Честный отказ «еды нет» проверяем умнее одного слова: E2B пишет и «нет»,
+   и «на фото нет еды». Правило юникодо-устойчиво (\b — ASCII-only) и доверяет
+   цифрам: где граммы/штуки — там позиции, даже если есть «нетто» (нетто 200 г). */
+function isPhotoNoFoodAnswer(draft) {
+  const d = String(draft || '').trim().toLowerCase();
+  if (!d) return true;
+  if (/[0-9]/.test(d)) return false;
+  return /^нет([^a-zа-яё0-9]|$)/i.test(d)
+    || /нет еды|еды нет|не вижу еды|продуктов нет|ничего нет/i.test(d);
+}
 
 function resizeImageToJpegBase64(file, maxSide, quality) {
   return new Promise((resolve, reject) => {
@@ -1345,12 +1375,10 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) 
           + '<p class="settings-hint">…смотрю на фото, можно читать по ходу.</p>');
       }
     });
-    const out = await plugin.generateWithImage({ prompt: AI_PHOTO_PROMPT, imageBase64: base64 });
+    const out = await plugin.generateWithImage({ prompt: AI_PHOTO_PROMPT, imageBase64: base64, temperature: AI_PHOTO_TEMPERATURE });
     detach();
     const draft = cleanPhotoDraftText(out.text);
-    // «Нет еды на фото» проверяем устойчиво к юникоду: \b в JS — только ASCII,
-    // для кириллицы границы слова нет (фоллбэк-ловушка, вскрыта node-прогоном 0.4.1).
-    if (!draft || /^нет([^a-zа-яё0-9]|$)/i.test(draft.trim())) {
+    if (isPhotoNoFoodAnswer(draft)) {
       setStage('<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>');
       return;
     }
@@ -2045,7 +2073,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.1';
+const FITFLOW_VERSION = '0.4.2';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -9822,7 +9850,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
     describeFoodItemLine, parseSandwichItem, parseDishFromItem,
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
-    isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS,
+    isHomeCardShown, isHomeCardFeatureEnabled, medalBadgeSvg, HELP_TOPICS, isPhotoNoFoodAnswer,
     computeSleepDurationMin, evaluateSleepOnSchedule, getSleepCheckinSummary,
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
     buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer,

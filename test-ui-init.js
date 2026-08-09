@@ -516,7 +516,8 @@ for (const id of ids) {
   if (!okOpenDlg) failed++;
   console.log(`${okOpenDlg ? '✓' : '✗'} умный ввод: диалог гарантированно открыт, длинная инструкция (6 с) вместо мелькания`);
 
-  const okNetCheck = appF.includes('/^нет([^a-zа-яё0-9]|$)/i.test(draft.trim())');
+  // 0.4.2: проверка переехала в функцию isPhotoNoFoodAnswer (расширенный детектор)
+  const okNetCheck = appF.includes('/^нет([^a-zа-яё0-9]|$)/i.test(d)');
   if (!okNetCheck) failed++;
   console.log(`${okNetCheck ? '✓' : '✗'} честный отказ фото: «нет» проверяется юникодо-устойчиво (\\b с кириллицей не работает)`);
 
@@ -524,6 +525,39 @@ for (const id of ids) {
     && appF.includes('kcalLeft') && appF.includes('никогда не выполняй арифметику и не сравнивай числа между собой сам');
   if (!okTruth) failed++;
   console.log(`${okTruth ? '✓' : '✗'} правдивость чисел нутрициолога: сравнения/остатки считает JS, модель пересказывает`);
+
+}
+
+// 0.4.2: полевой тест фото №2 — галерея (без capture пикер даёт выбор камера/файлы),
+// веса: зрение считает ШТУКИ, весит база; температура фото 0.2 против фантазий;
+// детектор честного отказа шире одного слова; база знает вяленого кальмара и чупа-чупс.
+{
+  const appG = fs.readFileSync('app.js', 'utf8');
+  const ktG = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okGallery = !html.includes('capture="environment"');
+  if (!okGallery) failed++;
+  console.log(`${okGallery ? '✓' : '✗'} галерея: capture убран у всех камер — системный пикер предложит и камеру, и галерею`);
+
+  const okPrompt = appG.includes('Штучные продукты пиши КОЛИЧЕСТВОМ, не весом') && appG.includes('одним словом: нет')
+    && appG.includes('средний помидор — примерно 120');
+  if (!okPrompt) failed++;
+  console.log(`${okPrompt ? '✓' : '✗'} промпт 0.4.2: штучное количеством (вес даёт база), якоря веса, строгий «нет»`);
+
+  const okTemp = appG.includes('const AI_PHOTO_TEMPERATURE = 0.2;')
+    && appG.includes('imageBase64: base64, temperature: AI_PHOTO_TEMPERATURE')
+    && ktG.includes('private fun recreateConversation(temp: Double)')
+    && ktG.includes('if (photoTemp != null && photoTemp != chatTemp) recreateConversation(chatTemp)');
+  if (!okTemp) failed++;
+  console.log(`${okTemp ? '✓' : '✗'} температура фото 0.2 (экстракция ≠ разговор), чатовая возвращается после`);
+
+  const okNoFood = appG.includes('function isPhotoNoFoodAnswer(draft)')
+    && appG.includes('if (isPhotoNoFoodAnswer(draft))');
+  if (!okNoFood) failed++;
+  console.log(`${okNoFood ? '✓' : '✗'} честный отказ расширен: «на фото нет еды», «не вижу еды» тоже отказ`);
+
+  const okDb = appG.includes("'кальмар вяленый': { kcal: 300") && appG.includes("'чупа-чупс': { kcal: 46, p: 0, f: 0, c: 11.4, per: 'шт' }");
+  if (!okDb) failed++;
+  console.log(`${okDb ? '✓' : '✗'} база: вяленый/сушёный кальмар (в 4 раза калорийнее варёного), чупа-чупс штучный`);
 
 }
 

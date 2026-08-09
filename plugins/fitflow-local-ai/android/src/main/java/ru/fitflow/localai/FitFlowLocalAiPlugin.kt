@@ -265,8 +265,22 @@ class FitFlowLocalAiPlugin : Plugin() {
         }
     }
 
+    /** Пересобрать диалог с новой температурой (движок и веса не трогаем —
+        это дёшево). 0.4.2: фото-экстракция идёт на 0.2 против фантазий
+        («2 кг бананов»), чат остаётся на своей температуре (0.4.0 — 0.7). */
+    private fun recreateConversation(temp: Double) {
+        val eng = engine ?: return
+        try { conversation?.close() } catch (_: Exception) {}
+        conversation = eng.createConversation(
+            ConversationConfig(samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = temp))
+        )
+        lastTemperature = temp
+    }
+
     /** Разбор фото еды (0.4.0, целевой сценарий ТЗ): картинка + промпт,
-        живой стриминг — зрение на CPU медленнее текста, процесс виден. */
+        живой стриминг — зрение на CPU медленнее текста, процесс виден.
+        0.4.2: опциональный параметр temperature — диалог пересобирается на неё
+        и честно возвращается к чатовой после ответа/ошибки/таймаута. */
     @PluginMethod
     fun generateWithImage(call: PluginCall) {
         val prompt = call.getString("prompt") ?: ""
@@ -275,8 +289,7 @@ class FitFlowLocalAiPlugin : Plugin() {
             call.reject("empty_image", "Нет данных изображения.")
             return
         }
-        val conv = conversation
-        if (conv == null) {
+        if (conversation == null) {
             call.reject("not_loaded", "Модель не загружена: Настройки → ИИ-помощник.")
             return
         }
@@ -288,6 +301,9 @@ class FitFlowLocalAiPlugin : Plugin() {
             call.reject("busy", "Модель ещё отвечает на предыдущий запрос — дождитесь завершения.")
             return
         }
+        val photoTemp = call.getDouble("temperature")
+        val chatTemp = lastTemperature
+        if (photoTemp != null && photoTemp != chatTemp) recreateConversation(photoTemp)
         scope.launch {
             val sb = StringBuilder()
             val latch = CountDownLatch(1)
@@ -295,6 +311,7 @@ class FitFlowLocalAiPlugin : Plugin() {
             try {
                 val imageBytes = Base64.decode(imageBase64, Base64.DEFAULT)
                 val contents = Contents.of(Content.ImageBytes(imageBytes), Content.Text(prompt))
+                val conv = conversation ?: throw IllegalStateException("Модель выгружена посреди разбора фото.")
                 conv.sendMessageAsync(contents, object : MessageCallback {
                     override fun onMessage(message: Message) {
                         sb.append(message.toString())
@@ -314,6 +331,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 })
                 val finished = latch.await(300, TimeUnit.SECONDS)
                 generating.set(false)
+                if (photoTemp != null && photoTemp != chatTemp) recreateConversation(chatTemp)
                 if (!finished) {
                     call.reject("timeout", "Модель разглядывала фото дольше 5 минут — остановлено. Попробуйте снимок светлее и ближе.")
                     return@launch
@@ -329,6 +347,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 call.resolve(ret)
             } catch (e: Exception) {
                 generating.set(false)
+                if (photoTemp != null && photoTemp != chatTemp) recreateConversation(chatTemp)
                 call.reject("photo_failed", "Не удалось разобрать фото: ${e.message}", e)
             }
         }
