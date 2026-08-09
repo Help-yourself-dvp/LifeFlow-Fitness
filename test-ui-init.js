@@ -588,5 +588,17 @@ for (const id of ids) {
 
 }
 
+// 0.4.4: приоритет кадра (просьба пользователя): главное = полностью в кадре по
+// центру; периферия — только явная еда/напиток; фон/декор — не называть.
+{
+  const appI = fs.readFileSync('app.js', 'utf8');
+  const okFocus = appI.includes('Кадр читай по приоритету фотографа')
+    && appI.includes('целиком поместилось в кадр и лежит в центре')
+    && appI.includes('декор, цветы на посуде, скатерть, руки, мебель и неузнаваемое не называй');
+  if (!okFocus) failed++;
+  console.log(`${okFocus ? '✓' : '✗'} промпт 0.4.4: приоритет кадра — центр первичен, периферия только явная еда, фон — молчание`);
+
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
