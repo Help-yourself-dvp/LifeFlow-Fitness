@@ -561,5 +561,32 @@ for (const id of ids) {
 
 }
 
+// 0.4.3: полевой тест №3 — (а) пункт «Камера» пропал из пикера (manifest!),
+// (б) «Бутылка воды» молча пропадала из итога, (в) «Тарелка 300 г» — артефакт
+// якоря; «Пакет с…» занижал штуки; листья салата взвешивались блюдом-салатом.
+{
+  const appH = fs.readFileSync('app.js', 'utf8');
+  const wfH = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okCam = wfH.includes('android.permission.CAMERA') && wfH.includes('android.hardware.camera.any')
+    && wfH.includes('CAMERA_CHOOSER_PATCH');
+  if (!okCam) failed++;
+  console.log(`${okCam ? '✓' : '✗'} зеркало workflow: CAMERA permission + uses-feature (пункт «Камера» в пикере — требует замены файла пользователем)`);
+
+  const okWater = appH.includes('бутылк[а-яё]*') && appH.includes('waterBottleFirst')
+    && appH.includes('wateryPart') && appH.includes("unparsed.push(wateryPart)");
+  if (!okWater) failed++;
+  console.log(`${okWater ? '✓' : '✗'} вода: «бутылка воды» 500 мл обеими порядками + страж «не молчим про воду без объёма»`);
+
+  const okPrompt43 = appH.includes('Посуду и тару без содержимого не называй')
+    && appH.includes('«чупа-чупс 7 шт»') && appH.includes('«бутылка воды»');
+  if (!okPrompt43) failed++;
+  console.log(`${okPrompt43 ? '✓' : '✗'} промпт 0.4.3: «тарелка 300 г»/«пакет с…» — не позиции, пакет считать штуками`);
+
+  const okGreens = appH.includes("'салат листовой': { kcal: 14") && appH.includes("'листья салата': { kcal: 14");
+  if (!okGreens) failed++;
+  console.log(`${okGreens ? '✓' : '✗'} база: листовая зелень 14 ккал — не блюдо-салат с маслом (55) подставой`);
+
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

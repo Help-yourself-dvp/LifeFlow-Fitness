@@ -1120,5 +1120,20 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok ? '✓' : '✗'} isPhotoNoFoodAnswer: отказы ловит любые формулировки, цифры = доверие («нетто 200 г» — не отказ)`);
 }
 
+// ---- 0.4.3: вода «бутылка» + страж правдивости ----
+{
+  const w = (t) => parseSmartEntry(t);
+  const ok = w('бутылка воды').waterMl === 500 && w('две бутылки воды').waterMl === 1000
+    && w('стакан воды').waterMl === 250 && w('вода 300 мл').waterMl === 300
+    && w('две бутылки воды').waterMl === 1000;
+  const guard = w('попил воды');
+  const ok2 = ok && guard.waterMl === 0 && (guard.unparsed || []).join(' ').includes('попил воды')
+    && w('водка 100 г').waterMl === 0
+    && w('Бананы 6 шт, Кальмар сушёный 70 г, Бутылка воды').waterMl === 500;
+  if (!ok2) failed++;
+  console.log(`${ok2 ? '✓' : '✗'} вода: бутылка 500 мл, две — 1000; «попил воды» без объёма — честный ⚠️, «водка» не вода`);
+
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
