@@ -1428,18 +1428,64 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) 
 /* 0.4.7 (урок capture): камера — через input capture (системный интент камеры
    не требует permission и работает на любой оболочке), галерея — отдельной
    кнопкой с input без capture. Проверки «модель в памяти/зрение» — с этапами
-   внутри recognizeFoodPhotoLocal; пикер открываем синхронно по жесту. */
-function openSmartPhotoPicker(inputId) {
+   внутри recognizeFoodPhotoLocal; пикер открываем синхронно по жесту.
+   0.4.8 (полевой урок «после ✓ вышвырнуло на главный экран»): пока модель лежит
+   в памяти (~3 ГБ у E4B), съёмка проигрывает ей гонку за RAM — система выгружает
+   наш процесс целиком, и при возврате приложение стартует заново на главном
+   экране: change-событие со снимком умирает вместе со старым процессом. Поэтому
+   перед ОТКРЫТИЕМ КАМЕРЫ выгружаем модель из памяти (процесс становится лёгким
+   и переживает камеру); после возврата recognizeFoodPhotoLocal сама поднимет её
+   обратно — этап «Поднимаю модель…» виден в панели. Выгрузку не ждём await:
+   .click() инпута обязан остаться синхронным жестом, а сотен миллисекунд фона
+   хватает, чтобы память освободилась, пока открывается камера. Галерею не
+   трогаем: она лёгкая и полевыми прогонами доказанно переживается рядом с
+   горячей моделью. */
+/* Страховка «не молчать»: перед любым фото-пикером ставим свежую метку. Если
+   система нас всё же убила — старый процесс унёс и снимок, зато НОВЫЙ старт
+   видит непогашенную метку и честно говорит, что случилось (вызов в init).
+   Метку гасим тремя путями: change с файлом; возврат видимости без change
+   (пикер просто отменён — значит, тот же процесс жив); давность > 10 минут. */
+function unloadLocalModelForCamera() {
+  const plugin = getLocalAiPlugin();
+  if (!plugin || typeof plugin.unloadModel !== 'function') return;
+  try {
+    const res = plugin.unloadModel();
+    if (res && typeof res.catch === 'function') res.catch(() => {});
+  } catch (e) { /* не получилось выгрузить — камеру всё равно открываем */ }
+}
+function markPhotoPickerPending() {
+  try { localStorage.setItem('ff.photoPick.pending', String(Date.now())); } catch (e) {}
+}
+function clearPhotoPickerPending() {
+  try { localStorage.removeItem('ff.photoPick.pending'); } catch (e) {}
+}
+function reportInterruptedPhotoPick() {
+  let stamp = 0;
+  try { stamp = Number(localStorage.getItem('ff.photoPick.pending')) || 0; } catch (e) {}
+  if (!stamp) return;
+  clearPhotoPickerPending();
+  if (Date.now() - stamp > 10 * 60 * 1000) return; // давняя метка — не пугаем
+  toast('📷 Съёмка прервалась: системе не хватило памяти, приложение перезапустилось, фото потерялось. '
+    + 'Память под камеру теперь освобождается заранее — снимите ещё раз, должно получиться.', 8000);
+}
+function openPhotoPickerInput(inputId, opts) {
+  const fileInput = $(inputId);
+  if (!fileInput) return;
+  if (opts && opts.camera) unloadLocalModelForCamera();
+  markPhotoPickerPending();
+  fileInput.value = '';
+  fileInput.click();
+}
+function openSmartPhotoPicker(inputId, opts) {
   const plugin = getLocalAiPlugin();
   if (!plugin) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
   if (!hasRealLocalModel()) {
     toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000);
     return;
   }
-  const fileInput = $(inputId);
-  if (fileInput) { fileInput.value = ''; fileInput.click(); }
+  openPhotoPickerInput(inputId, opts);
 }
-function handleSmartEntryPhoto() { openSmartPhotoPicker('#smart-entry-photo-input'); }
+function handleSmartEntryPhoto() { openSmartPhotoPicker('#smart-entry-photo-input', { camera: true }); }
 function handleSmartEntryPhotoGallery() { openSmartPhotoPicker('#smart-entry-photo-file-input'); }
 
 async function runPhotoFoodRecognition(file) {
@@ -2112,7 +2158,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.7';
+const FITFLOW_VERSION = '0.4.8';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7610,6 +7656,14 @@ function init() {
   if (aboutVersion) aboutVersion.textContent = `v${FITFLOW_VERSION}`;
   renderAll();
   renderProfiles();
+  // 0.4.8: честный след прерванного фото-пикера (см. openPhotoPickerInput): если
+  // система убила нас во время съёмки — на старте скажем об этом, а не промолчим;
+  // если вернулись живыми без change (пикер отменён) — метку гасим сами, с паузой,
+  // чтобы успеть отдать change-обработчику снимок первым.
+  setTimeout(reportInterruptedPhotoPick, 1500);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) setTimeout(clearPhotoPickerPending, 400);
+  });
   installActivityNotificationListener();
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
@@ -7882,11 +7936,13 @@ function init() {
   smartPhotoBtn?.addEventListener('click', () => { handleSmartEntryPhoto(); });
   smartPhotoGalleryBtn?.addEventListener('click', () => { handleSmartEntryPhotoGallery(); });
   $('#smart-entry-photo-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
     if (file) runPhotoFoodRecognition(file);
   });
   $('#smart-entry-photo-file-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
     if (file) runPhotoFoodRecognition(file);
@@ -8049,13 +8105,15 @@ function init() {
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
-  bindEvent('#ai-quick-camera-btn', 'click', () => $('#ai-quick-camera-input')?.click());
-  bindEvent('#ai-quick-gallery-btn', 'click', () => $('#ai-quick-gallery-input')?.click());
+  bindEvent('#ai-quick-camera-btn', 'click', () => openPhotoPickerInput('#ai-quick-camera-input', { camera: true }));
+  bindEvent('#ai-quick-gallery-btn', 'click', () => openPhotoPickerInput('#ai-quick-gallery-input'));
   $('#ai-quick-gallery-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
     e.target.value = '';
   });
   $('#ai-quick-camera-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
     e.target.value = '';
   });
@@ -8076,13 +8134,15 @@ function init() {
     }));
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
-  bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
-  bindEvent('#ai-recipe-gallery-btn', 'click', () => $('#ai-recipe-gallery-input')?.click());
+  bindEvent('#ai-recipe-camera-btn', 'click', () => openPhotoPickerInput('#ai-recipe-camera-input', { camera: true }));
+  bindEvent('#ai-recipe-gallery-btn', 'click', () => openPhotoPickerInput('#ai-recipe-gallery-input'));
   $('#ai-recipe-gallery-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
     e.target.value = '';
   });
   $('#ai-recipe-camera-input')?.addEventListener('change', (e) => {
+    clearPhotoPickerPending();
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
     e.target.value = '';
   });

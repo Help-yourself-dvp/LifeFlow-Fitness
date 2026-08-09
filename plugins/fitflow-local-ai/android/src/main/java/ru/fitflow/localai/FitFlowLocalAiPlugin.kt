@@ -388,6 +388,11 @@ class FitFlowLocalAiPlugin : Plugin() {
 
     @PluginMethod
     fun unloadModel(call: PluginCall) {
+        // 0.4.8: app.js вызывает перед открытием камеры — освобождает ~3 ГБ под
+        // съёмку, чтобы система не убила наш процесс (полевой OOM: после «✓»
+        // приложение перезапускалось на главный экран, снимок терялся).
+        // Во время генерации движок не трогаем: текущий ответ важнее.
+        if (generating.get()) { call.resolve(); return; }
         try { conversation?.close() } catch (_: Exception) {}
         try { engine?.close() } catch (_: Exception) {}
         conversation = null

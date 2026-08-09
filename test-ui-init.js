@@ -654,5 +654,32 @@ for (const id of ids) {
   console.log(`${okToast ? '✓' : '✗'} тост поднят над IME-доком (читаем с открытой клавиатурой)`);
 }
 
+// 0.4.8: полевой OOM «после ✓ вышвырнуло на главный экран» — перед камерой
+// выгружаем модель (~3 ГБ → процесс переживает съёмку); метка прерванного
+// пикера с честным сообщением на старте; выгрузка не трогает занятый движок.
+{
+  const appK = fs.readFileSync('app.js', 'utf8');
+  const ktL = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okUnload = appK.includes('function unloadLocalModelForCamera()')
+    && appK.includes('plugin.unloadModel()')
+    && appK.includes("openSmartPhotoPicker('#smart-entry-photo-input', { camera: true })")
+    && appK.includes("openPhotoPickerInput('#ai-quick-camera-input', { camera: true })")
+    && appK.includes("openPhotoPickerInput('#ai-recipe-camera-input', { camera: true })");
+  if (!okUnload) failed++;
+  console.log(`${okUnload ? '✓' : '✗'} камера 0.4.8: модель выгружается из памяти перед съёмкой на всех 3 точках (OOM-профилактика)`);
+
+  const okMark = appK.includes("localStorage.setItem('ff.photoPick.pending'")
+    && appK.includes('function reportInterruptedPhotoPick()')
+    && appK.includes('setTimeout(reportInterruptedPhotoPick, 1500)')
+    && appK.includes("document.addEventListener('visibilitychange'")
+    && (appK.match(/clearPhotoPickerPending\(\);/g) || []).length >= 7;
+  if (!okMark) failed++;
+  console.log(`${okMark ? '✓' : '✗'} «не молчать» 0.4.8: метка прерванного пикера → честный тост на старте; отмена пикера гасится по видимости`);
+
+  const okKt = ktL.includes('if (generating.get()) { call.resolve(); return; }');
+  if (!okKt) failed++;
+  console.log(`${okKt ? '✓' : '✗'} Kotlin 0.4.8: выгрузка не трогает движок во время генерации (busy-гард)`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
