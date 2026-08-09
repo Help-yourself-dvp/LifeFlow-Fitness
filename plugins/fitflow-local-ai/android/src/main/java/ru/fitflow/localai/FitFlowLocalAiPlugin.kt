@@ -57,6 +57,8 @@ class FitFlowLocalAiPlugin : Plugin() {
     private var lastTemperature: Double = 0.7
     /** true, если веса модели поднялись со зрением (E2B/E4B); text-only — false (0.4.0). */
     private var visionEnabled: Boolean = false
+    /** Фактический бэкенд движка: GPU удалось инициализировать (0.4.6). */
+    @Volatile private var gpuEnabled = false
     private val generating = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -68,6 +70,7 @@ class FitFlowLocalAiPlugin : Plugin() {
         ret.put("path", loadedPath)
         ret.put("generating", generating.get())
         ret.put("vision", visionEnabled)
+            ret.put("gpu", gpuEnabled)
         call.resolve(ret)
     }
 
@@ -130,13 +133,15 @@ class FitFlowLocalAiPlugin : Plugin() {
         }
     }
 
-    /** Движок: со зрением — visionBackend, текст — null (0.4.0). */
-    private fun buildEngine(path: String, maxTokens: Int, withVision: Boolean): Engine {
+    /** Движок: со зрением — visionBackend, текст — null (0.4.0); GPU-бэкенд
+        ускоряет prefill (0.4.6 — «думает дольше», E4B зрение ~10 с): не у всех
+        весов/чипов он инициализируется — честный откат на CPU в loadModel. */
+    private fun buildEngine(path: String, maxTokens: Int, withVision: Boolean, useGpu: Boolean): Engine {
         return Engine(
             EngineConfig(
                 modelPath = path,
-                backend = Backend.CPU(),
-                visionBackend = if (withVision) Backend.CPU() else null,
+                backend = if (useGpu) Backend.GPU() else Backend.CPU(),
+                visionBackend = if (withVision) (if (useGpu) Backend.GPU() else Backend.CPU()) else null,
                 maxNumTokens = maxTokens
             )
         )
@@ -171,17 +176,27 @@ class FitFlowLocalAiPlugin : Plugin() {
                 try { engine?.close() } catch (_: Exception) {}
                 conversation = null
                 engine = null
-                // 0.4.0 (фото): сначала пробуем движок СО ЗРЕНИЕМ; текстовые веса
-                // (Gemma3-1B) честно откатываются на text-only, флаг vision виден в status().
+                // Откатный каскад (0.4.0 зрение, 0.4.6 GPU): функциональность
+                // (зрение — сценарий ТЗ) важнее скорости: GPU+зрение →
+                // CPU+зрение → CPU text-only; каждый провал инициализации
+                // честно фиксируется в status() флагами vision/gpu.
                 var withVision = true
-                var newEngine = buildEngine(path, maxTokens, true)
+                var withGpu = true
+                var newEngine = buildEngine(path, maxTokens, true, true)
                 try {
                     newEngine.initialize()
-                } catch (visionError: Exception) {
+                } catch (gpuError: Exception) {
                     try { newEngine.close() } catch (_: Exception) {}
-                    withVision = false
-                    newEngine = buildEngine(path, maxTokens, false)
-                    newEngine.initialize()
+                    withGpu = false
+                    newEngine = buildEngine(path, maxTokens, true, false)
+                    try {
+                        newEngine.initialize()
+                    } catch (visionError: Exception) {
+                        try { newEngine.close() } catch (_: Exception) {}
+                        withVision = false
+                        newEngine = buildEngine(path, maxTokens, false, false)
+                        newEngine.initialize()
+                    }
                 }
                 val convConfig = ConversationConfig(
                     samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = temperature)
@@ -189,6 +204,7 @@ class FitFlowLocalAiPlugin : Plugin() {
                 conversation = newEngine.createConversation(convConfig)
                 engine = newEngine
                 visionEnabled = withVision
+                gpuEnabled = withGpu
                 loadedPath = path
                 val ret = JSObject()
                 ret.put("loaded", true)

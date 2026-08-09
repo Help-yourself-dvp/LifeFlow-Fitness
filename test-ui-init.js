@@ -474,7 +474,7 @@ for (const id of ids) {
   const appE = fs.readFileSync('app.js', 'utf8');
   const ktE = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
   const okPhotoNative = ktE.includes('fun generateWithImage(') && ktE.includes('Content.ImageBytes(')
-    && ktE.includes('visionBackend = if (withVision) Backend.CPU() else null')
+    && ktE.includes('visionBackend = if (withVision) (if (useGpu) Backend.GPU() else Backend.CPU()) else null') /* 0.4.6: GPU-каскад */
     && ktE.includes('"no_vision"') && ktE.includes('ret.put("vision", visionEnabled)');
   if (!okPhotoNative) failed++;
   console.log(`${okPhotoNative ? '✓' : '✗'} фото в нативе: generateWithImage(ImageBytes), зрение→откат text-only, коды no_vision/timeout`);
@@ -617,6 +617,18 @@ for (const id of ids) {
     && appJ.includes("'куриные кусочки': { kcal: 78");
   if (!okPack) failed++;
   console.log(`${okPack ? '✓' : '✗'} честные пометки: «пакет с…» ≠ молчаливая 1 шт; база знает «куриные кусочки» ≈78 ккал/шт`);
+
+}
+
+// 0.4.6: GPU-бэкенд LiteRT-LM с честным откатом (полевая боль «E4B думает ~10 с»).
+// Каскад функциональность>скорость: GPU+зрение → CPU+зрение → CPU text-only.
+{
+  const ktK = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okGpu = ktK.includes('Backend.GPU()') && ktK.includes('backend = if (useGpu) Backend.GPU() else Backend.CPU()')
+    && ktK.includes('gpuEnabled = withGpu') && ktK.includes('ret.put("gpu", gpuEnabled)')
+    && ktK.includes('buildEngine(path, maxTokens, true, true)') && ktK.includes('buildEngine(path, maxTokens, true, false)');
+  if (!okGpu) failed++;
+  console.log(`${okGpu ? '✓' : '✗'} GPU-каскад: GPU+зрение → CPU+зрение → CPU text-only, флаг gpu в status()`);
 
 }
 
