@@ -514,6 +514,9 @@ const FOOD_DB = {
   'сдобная булочка': { kcal: 320, p: 7, f: 12, c: 46, per: 'шт' },
   'ватрушка': { kcal: 270, p: 10, f: 10, c: 34, per: 'шт' },
   'пирожок с мясом': { kcal: 250, p: 10, f: 12, c: 24, per: 'шт' },
+  // 0.4.5: куски запечённой курицы с фото («куриные кусочки 5 шт») — 1 кусочек
+  // шашлычного типа ≈ 45 г жареной курицы (≈78 ккал): честная ≈, но мясо не теряется.
+  'куриные кусочки': { kcal: 78, p: 10.8, f: 3.6, c: 0, per: 'шт' }, 'кусочки курицы': { kcal: 78, p: 10.8, f: 3.6, c: 0, per: 'шт' },
   'пирожок с капустой': { kcal: 200, p: 5, f: 8, c: 28, per: 'шт' },
   'пирожок с яйцом': { kcal: 220, p: 7, f: 10, c: 26, per: 'шт' },
   'пирожок с картошкой': { kcal: 210, p: 5, f: 8, c: 30, per: 'шт' },
@@ -1422,13 +1425,23 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) 
   }
 }
 
-function handleSmartEntryPhoto() {
+/* Пункт «Камера» в системном выборе фото виден только при выданном разрешении.
+   Старые мосты (без метода) просто пропускаем — галерея работает и так. */
+async function ensureCameraPermissionForPicker() {
+  const plugin = getLocalAiPlugin();
+  if (!plugin || typeof plugin.ensureCameraPermission !== 'function') return true;
+  try { await plugin.ensureCameraPermission(); return true; }
+  catch (e) { toast(String((e && e.message) || e || 'Нет разрешения камеры'), 7000); return false; }
+}
+
+async function handleSmartEntryPhoto() {
   const plugin = getLocalAiPlugin();
   if (!plugin) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
   if (!hasRealLocalModel()) {
     toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000);
     return;
   }
+  if (!(await ensureCameraPermissionForPicker())) return;
   // Пикер открываем СРАЗУ: после await на статус жест пользователя «протухает»
   // и системный выбор файла может не открыться. Проверки «модель в памяти /
   // зрение есть» — с наглядными этапами внутри recognizeFoodPhotoLocal.
@@ -1733,6 +1746,9 @@ function parseItem(text) {
   // Штучный продукт без явного количества («бутерброд с сыром») — это 1 шт,
   // а не «100 г»: иначе превью показывало «≈ 100 г — 80 ккал», хотя 80 — за штуку.
   const perPiece = product.per === 'шт' && (amount == null || PIECE_UNITS.has((unit || '').toLowerCase().trim()));
+  // 0.4.5 (полевая находка фото): «пакет/упаковка с X» без числа — принимаем
+  // 1 шт, но ЧЕСТНО помечаем занижение: в пакете почти всегда больше.
+  const packNoCount = perPiece && amount == null && /пакет|упаковк|пачк/iu.test(text);
   return {
     id: uid(),
     raw: text.trim(),
@@ -1741,6 +1757,7 @@ function parseItem(text) {
     unit: (amount == null && perPiece) ? 'шт' : (unit || 'г'),
     grams: nutrition.grams,
     perPiece,
+    note: packNoCount ? 'упаковка без количества — принято 1 шт; поправьте, если больше' : undefined,
     kcal: nutrition.kcal,
     p: nutrition.p,
     f: nutrition.f,
@@ -2102,7 +2119,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.4';
+const FITFLOW_VERSION = '0.4.5';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -8032,7 +8049,9 @@ function init() {
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
-  bindEvent('#ai-quick-camera-btn', 'click', () => $('#ai-quick-camera-input')?.click());
+  bindEvent('#ai-quick-camera-btn', 'click', async () => {
+    if (await ensureCameraPermissionForPicker()) $('#ai-quick-camera-input')?.click();
+  });
   $('#ai-quick-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
     e.target.value = '';
@@ -8054,7 +8073,9 @@ function init() {
     }));
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
-  bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
+  bindEvent('#ai-recipe-camera-btn', 'click', async () => {
+    if (await ensureCameraPermissionForPicker()) $('#ai-recipe-camera-input')?.click();
+  });
   $('#ai-recipe-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
     e.target.value = '';

@@ -336,7 +336,7 @@ for (const id of ids) {
     ? fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8') : '';
   const gradle = fs.existsSync('plugins/fitflow-local-ai/android/build.gradle')
     ? fs.readFileSync('plugins/fitflow-local-ai/android/build.gradle', 'utf8') : '';
-  const okKotlin = kt.includes('@CapacitorPlugin(name = "FitFlowLocalAI")') && kt.includes('fun importModel(')
+  const okKotlin = kt.includes('name = "FitFlowLocalAI"') /* 0.4.5: аннотация многострочная (permissions) */ && kt.includes('fun importModel(')
     && kt.includes('fun loadModel(') && kt.includes('fun generate(') && kt.includes('fun unloadModel(')
     && kt.includes('litertlm') && !kt.includes('localhost')
     && kt.includes('SamplerConfig(topK = 40, topP = 0.95') && !kt.includes('topP = 0.95f') // v0.12.0: Double, не Float (ночной провальной сборки 152 урок)
@@ -597,6 +597,26 @@ for (const id of ids) {
     && appI.includes('декор, цветы на посуде, скатерть, руки, мебель и неузнаваемое не называй');
   if (!okFocus) failed++;
   console.log(`${okFocus ? '✓' : '✗'} промпт 0.4.4: приоритет кадра — центр первичен, периферия только явная еда, фон — молчание`);
+
+}
+
+// 0.4.5: полевой баг «разрешение declared, но пункта Камера нет» — WebView видит
+// только GRANTED: спрашиваем по делу при нажатии 📷 (не при старте). Плюс честные
+// пометки: упаковка без числа ≠ 1 шт молча; «куриные кусочки» со шашлычного фото.
+{
+  const appJ = fs.readFileSync('app.js', 'utf8');
+  const ktJ = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+  const okPerm = ktJ.includes('requestPermissionForAlias("camera", call, "cameraPermCallback")')
+    && ktJ.includes('Permission(alias = "camera", strings = [Manifest.permission.CAMERA])')
+    && appJ.includes('async function ensureCameraPermissionForPicker()')
+    && (appJ.match(/await ensureCameraPermissionForPicker\(\)/g) || []).length === 3;
+  if (!okPerm) failed++;
+  console.log(`${okPerm ? '✓' : '✗'} камера-пикер: разрешение спрашивается по нажатию 📷 на всех трёх точках (не при старте)`);
+
+  const okPack = appJ.includes('упаковка без количества — принято 1 шт') && appJ.includes('packNoCount')
+    && appJ.includes("'куриные кусочки': { kcal: 78");
+  if (!okPack) failed++;
+  console.log(`${okPack ? '✓' : '✗'} честные пометки: «пакет с…» ≠ молчаливая 1 шт; база знает «куриные кусочки» ≈78 ккал/шт`);
 
 }
 
