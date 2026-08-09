@@ -1135,5 +1135,49 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 
 }
 
+// ---- 0.4.9: регресс «за вчерашний день нет данных» (normalizeDailyHistory молча обнуляла историю) ----
+{
+  const { normalizeDailyHistoryList } = require('./app.js');
+  const list = normalizeDailyHistoryList([
+    { date: '2026-08-08', waterTotal: 1500, waterGoal: 2000, foodTotal: 2100, foodGoal: 2500, foodP: 90.04, foodF: 70, foodC: 250, activityMinutes: 30, mood: 4 },
+    { date: '2026-08-07', waterTotal: 800, waterGoal: 2000, foodTotal: 0, foodGoal: 2500, foodP: 0, foodF: 0, foodC: 0, activityMinutes: 0 },
+    { date: '2026-08-08', waterTotal: 1800, waterGoal: 2000, foodTotal: 2200, foodGoal: 2500, foodP: 95, foodF: 72, foodC: 255, activityMinutes: 45 },
+    { date: 'не-дата', waterTotal: 999 },
+    null
+  ]);
+  const ok = list.length === 2
+    && list[0].date === '2026-08-08' && list[1].date === '2026-08-07'
+    && list[0].waterTotal === 1800 && list[0].foodTotal === 2200
+    && list[0].mood === undefined // дедуп last-wins: поздняя запись без mood заменяет раннюю с mood
+    && Math.abs(list[0].foodP - 95) < 0.01
+    && list.every((d) => d.waterGoal === 2000 && d.foodGoal === 2500);
+  if (!ok) failed++;
+  console.log(`${ok ? '✓' : '✗'} история дней: записи СОХРАНЯЮТСЯ, дедуп по дате (поздняя побеждает), сортировка по убыванию, мусор отсеян`);
+}
+
+// ---- 0.4.9: бутербродная композиция (полевой обед «…с маслом сыром и колбасой») ----
+{
+  const full = parseSmartEntry('тарелка манной каши, два бутерброда с маслом сыром и колбасой');
+  const sandwich = full.food.find((i) => /бутерброд/.test(i.name));
+  const okFull = full.food.length === 2 && sandwich && sandwich.amount === 2
+    && /хлеб 30 г \+ масло 8 г \+ сыр 15 г \+ колбаса 15 г/.test(sandwich.note || '')
+    && sandwich.kcal === 471 && sandwich.approx === true
+    && full.unparsed.length === 0;
+  const withCommas = parseSmartEntry('бутерброд с маслом, сыром и колбасой').food;
+  const okCommas = withCommas.length === 1 && withCommas[0].kcal === 235;
+  const noFalseGlue = parseSmartEntry('бутерброд с маслом, кофе с молоком');
+  const okCoffee = noFalseGlue.food.length === 2
+    && noFalseGlue.food.some((i) => i.name === 'кофе с молоком' && i.kcal === 20);
+  const twoFill = parseSmartEntry('бутерброд с маслом и сыром').food;
+  const okTwo = twoFill.length === 1 && twoFill[0].kcal === 190 && /сыр 15 г/.test(twoFill[0].note || '');
+  const crab = parseSmartEntry('бутерброд с крабовыми палочками').food;
+  const okCrab = crab.length === 1 && /крабовые палочки/.test(crab[0].name);
+  const ham = parseSmartEntry('два бутерброда с ветчиной сыром').food;
+  const okHam = ham.length === 1 && /ветчина 15 г \+ сыр 15 г/.test(ham[0].note || '') && ham[0].amount === 2;
+  const okAll = okFull && okCommas && okCoffee && okTwo && okCrab && okHam;
+  if (!okAll) failed++;
+  console.log(`${okAll ? '✓' : '✗'} бутерброды: начинки без «и» собираются в состав (масло 8 + сыр 15 + колбаса 15 на шт), «кофе с молоком» не вклеивается, «и чай» остаётся отдельным`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

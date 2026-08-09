@@ -681,5 +681,26 @@ for (const id of ids) {
   console.log(`${okKt ? '✓' : '✗'} Kotlin 0.4.8: выгрузка не трогает движок во время генерации (busy-гард)`);
 }
 
+// 0.4.9: полевой баг «за вчерашний день нет информации вообще» — объект дня
+// собирали, но в byDate НЕ клали: история обнулялась при каждом сохранении.
+// byDate.set на месте, операция чистая с node-прогоном; статистика в дни без
+// сводки берёт правду минут из журнала тренировок. Плюс P11-бутерброд.
+{
+  const appL = fs.readFileSync('app.js', 'utf8');
+  const okHist = appL.includes('byDate.set(normalized.date, normalized);')
+    && appL.includes('function normalizeDailyHistoryList(list)')
+    && appL.includes('state.dailyHistory = normalizeDailyHistoryList(state.dailyHistory);')
+    && appL.includes('activityMinutes: activityMinutesForDate(date)');
+  if (!okHist) failed++;
+  console.log(`${okHist ? '✓' : '✗'} история дней 0.4.9: byDate.set восстановлен (silent wipe закрыт), минуты активности — из живого журнала`);
+
+  const okSand = appL.includes('function sandwichTailLooksFillings(prev)')
+    && appL.includes('!/(?:^|\\s)с\\s+\\S/iu.test(part)')
+    && appL.includes('function splitJuxtaposedFillings(chunk)')
+    && appL.includes('splitJuxtaposedFillings(part) || [part]');
+  if (!okSand) failed++;
+  console.log(`${okSand ? '✓' : '✗'} P11-бутерброд 0.4.9: хвост начинок любой длины, страж от «кофе с молоком», перечисление без союза «и»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

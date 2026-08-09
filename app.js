@@ -872,14 +872,33 @@ function glueSandwichFillings(split) {
     const words = part.trim().split(/\s+/);
     const lastWord = (words[words.length - 1] || '').replace(/[,.;]+$/g, '');
     const looksFilling = words.length <= 3 && !/\d/u.test(part)
+      // «кофе с молоком» — самостоятельный предмет со своей конструкцией «с»,
+      // а не продолжение чужой начинки (0.4.9: найдено прогоном — такой
+      // кандидат раньше МОЛЧА вклеивался в сэндвич куском «кофе с молоком 15 г»).
+      && !/(?:^|\s)с\s+\S/iu.test(part)
       && /(?:о|е)м$|ой$|ей$|ью$|ыми$|ими$/iu.test(lastWord);
-    if (prev && looksFilling && /(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер)[а-яё]*\s+с\s+\S+$/iu.test(prev)) {
+    if (prev && looksFilling && sandwichTailLooksFillings(prev)) {
       out[out.length - 1] = prev + ' и ' + part;
     } else {
       out.push(part);
     }
   }
   return out;
+}
+
+/* 0.4.9 (полевой обед: «два бутерброда с маслом сыром и колбасой» → колбаса
+   ≈100 г уходила ОТДЕЛЬНОЙ позицией, сыр терялся из состава). Старый тест
+   требовал после «с» РОВНО одно слово — речь без союзов («с маслом сыром»)
+   и уже склеенная цепочка («с маслом и сыром») его ломали. Голова валидна,
+   если весь хвост после «<сэндвич> с » состоит из начинко-слов (творительный
+   падеж) и союзов «и». «бутерброд с маслом был вкусный» — не пройдёт. */
+function sandwichTailLooksFillings(prev) {
+  const m = String(prev || '').match(/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер)[а-яё]*\s+с\s+(.+)$/iu);
+  if (!m) return false;
+  return m[1].trim().split(/\s+/).every((raw) => {
+    const w = raw.replace(/[,.;]+$/g, '');
+    return w === 'и' || /(?:о|е)м$|ой$|ей$|ью$|ыми$|ими$/iu.test(w);
+  });
 }
 
 const COMMAND_DICTIONARY = {
@@ -1511,6 +1530,36 @@ function closeSmartVoiceHelp() { $('#smart-voice-help-dialog').hidden = true; }
 /* «Бутерброд/сэндвич с Y»: считаем по составу — хлебная основа + начинка Y из базы.
    Возвращает item или null (null = «это не сэндвич-фраза», продолжаем обычный путь). */
 const SANDWICH_BREAD = { g: 30, kcal: 80, p: 2.4, f: 0.9, c: 15 }; // ломтик батона/белого хлеба
+
+/* «маслом сыром» → [«маслом», «сыром»]: жадно откусываем самый длинный
+   словарный продукт (1–3 слова). Вернём null, если какой-то кусок не нашёлся —
+   сигнал «не перечисление, а одна неизвестная начинка».
+   Ловушка: lookupProduct умеет угадывать по префиксу («маслом сыром» → «масло») —
+   это НЕ доказательство составного ключа. Принимаем кандидата только когда
+   число слов ключа базы равно числу слов кандидата («крабовые палочки» 2=2 —
+   настоящий ключ; «маслом сыром»→«масло» 1≠2 — не перечисление доказано ложно). */
+function splitJuxtaposedFillings(chunk) {
+  const words = String(chunk || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 5) return null;
+  const isGenuineCompound = (candidate) => {
+    const product = lookupProduct(candidate);
+    return !!(product && product.key && product.key.split(/\s+/).length === candidate.split(/\s+/).length);
+  };
+  const out = [];
+  let i = 0;
+  while (i < words.length) {
+    let hit = null;
+    for (let len = Math.min(3, words.length - i); len >= 1; len--) {
+      const candidate = words.slice(i, i + len).join(' ');
+      if (isGenuineCompound(candidate)) { hit = candidate; break; }
+    }
+    if (!hit) return null;
+    out.push(hit);
+    i += hit.split(/\s+/).length;
+  }
+  return out;
+}
+
 function sandwichFillingGrams(name) {
   if (/масл/u.test(name) && !/маслин|тест/u.test(name)) return 8;
   if (/паштет/u.test(name)) return 12;
@@ -1526,7 +1575,21 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
   // Начинок может быть несколько: «с сыром и маслом», «с икрой, огурцом и зеленью».
   const fillingParts = fillingText.split(/\s*(?:,|;)\s*|\s+и\s+/iu)
     .map((s) => s.trim().replace(/^с\s+/iu, ''))
-    .filter(Boolean);
+    .filter(Boolean)
+    // 0.4.9: речь роняет союз «и» между начинками («с маслом сыром») — такой
+    // кусок целиком не находится в базе и молча ронял ВСЮ композицию в
+    // кураторский ключ по первому слову. Докраиваем перечисление по словарным
+    // словам; режем строго целиком (каждый кусок — известный продукт), иначе
+    // оставляем как есть — честное «без учёта» лучше силовой нарезки.
+    // Префикс-угадайка lookupProduct здесь не доказатель: «маслом сыром» →
+    // «масло» не значит «составной ключ» (см. splitJuxtaposedFillings).
+    .flatMap((part) => {
+      const partWords = part.split(/\s+/).filter(Boolean);
+      if (partWords.length < 2) return [part];
+      const whole = lookupProduct(part);
+      if (whole && whole.key && whole.key.split(/\s+/).length === partWords.length) return [part];
+      return splitJuxtaposedFillings(part) || [part];
+    });
   if (!fillingParts.length) return null;
   const fillings = fillingParts.map((part) => ({ part, product: lookupProduct(part) }));
   const known = fillings.filter((f) => f.product);
@@ -2158,7 +2221,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.8';
+const FITFLOW_VERSION = '0.4.9';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -3319,9 +3382,17 @@ function cancelDeleteCourse() {
   if (dialog) dialog.hidden = true;
 }
 
-function normalizeDailyHistory() {
+/* 0.4.9 (ПОЛЕВОЙ БАГ-противоречие №1 «правдивость расчётов»: «за вчерашний день
+   нет информации вообще»): объект дня здесь СОБИРАЛИ, но в карту byDate НИКОГДА
+   НЕ КЛАЛИ — каждая нормализация молча обнуляла всю историю (recordDailySummary
+   зовёт её при каждом saveState): день жил, пока был «сегодня», и стирался на
+   переходе через полночь. Лечение Инженерное: операция вынесена в ЧИСТУЮ
+   функцию с node-прогоном — регресс «собрать, но не сохранить» теперь ловится
+   тестом, а не владельцем продукта через неделю. Дедуп по дате: поздняя запись
+   побеждает (соответствует recordDailySummary — он обновляет тот же день). */
+function normalizeDailyHistoryList(list) {
   const byDate = new Map();
-  (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).forEach((day) => {
+  (Array.isArray(list) ? list : []).forEach((day) => {
     if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day.date)) return;
     const normalized = {
       date: day.date,
@@ -3335,8 +3406,23 @@ function normalizeDailyHistory() {
       activityMinutes: Math.max(0, Math.round(Number(day.activityMinutes) || 0)),
       mood: (function(m){ const v = Number(m); return (v >= 1 && v <= 5 && Number.isInteger(v)) ? v : undefined; })(day.mood)
     };
+    byDate.set(normalized.date, normalized);
   });
-  state.dailyHistory = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
+  return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
+}
+
+function normalizeDailyHistory() {
+  state.dailyHistory = normalizeDailyHistoryList(state.dailyHistory);
+}
+
+/* Тренировки лежат в журнале state.workouts с датами и переживают переход
+   через полночь (в отличие от счётчиков дня) — минуты активности за любую
+   дату можно посчитать правдиво в любой момент (0.4.9: используется и при
+   архивной сводке, и для честного фона статистики в дни без сводки). */
+function activityMinutesForDate(date) {
+  return (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((workout) => workout && workout.date === date)
+    .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
 }
 
 function recordDailySummary(date) {
@@ -3349,9 +3435,7 @@ function recordDailySummary(date) {
   const foodP = foodItems.reduce((sum, item) => sum + (Number(item.p) || 0), 0);
   const foodF = foodItems.reduce((sum, item) => sum + (Number(item.f) || 0), 0);
   const foodC = foodItems.reduce((sum, item) => sum + (Number(item.c) || 0), 0);
-  const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
-    .filter((workout) => workout.date === date)
-    .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
+  const activityMinutes = activityMinutesForDate(date);
 
   // Не создаём пустые дни, если пользователь в этот день ничего не отмечал.
   if (waterTotal <= 0 && foodTotal <= 0 && activityMinutes <= 0) return;
@@ -5002,7 +5086,11 @@ function getStatsDays(period = activeStatsPeriod) {
       ? currentDaySummary()
       : (historyByDate.get(date) || {
         date, waterTotal: 0, waterGoal: DEFAULTS.water.goal,
-        foodTotal: 0, foodGoal: DEFAULTS.food.goal, activityMinutes: 0
+        foodTotal: 0, foodGoal: DEFAULTS.food.goal,
+        // 0.4.9: сводки дня может не быть (см. урок normalizeDailyHistory), но
+        // журнал тренировок хранит даты сам — минуты активности показываем
+        // правдиво (это факт журнала, не выдумка), вода/еда без сводки — нули.
+        activityMinutes: activityMinutesForDate(date)
       }));
   }
   return days;
@@ -9962,7 +10050,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
+    normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
     normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
     describeFoodItemLine, parseSandwichItem, parseDishFromItem,
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
