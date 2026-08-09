@@ -1425,29 +1425,22 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) 
   }
 }
 
-/* Пункт «Камера» в системном выборе фото виден только при выданном разрешении.
-   Старые мосты (без метода) просто пропускаем — галерея работает и так. */
-async function ensureCameraPermissionForPicker() {
-  const plugin = getLocalAiPlugin();
-  if (!plugin || typeof plugin.ensureCameraPermission !== 'function') return true;
-  try { await plugin.ensureCameraPermission(); return true; }
-  catch (e) { toast(String((e && e.message) || e || 'Нет разрешения камеры'), 7000); return false; }
-}
-
-async function handleSmartEntryPhoto() {
+/* 0.4.7 (урок capture): камера — через input capture (системный интент камеры
+   не требует permission и работает на любой оболочке), галерея — отдельной
+   кнопкой с input без capture. Проверки «модель в памяти/зрение» — с этапами
+   внутри recognizeFoodPhotoLocal; пикер открываем синхронно по жесту. */
+function openSmartPhotoPicker(inputId) {
   const plugin = getLocalAiPlugin();
   if (!plugin) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
   if (!hasRealLocalModel()) {
     toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000);
     return;
   }
-  if (!(await ensureCameraPermissionForPicker())) return;
-  // Пикер открываем СРАЗУ: после await на статус жест пользователя «протухает»
-  // и системный выбор файла может не открыться. Проверки «модель в памяти /
-  // зрение есть» — с наглядными этапами внутри recognizeFoodPhotoLocal.
-  const fileInput = $('#smart-entry-photo-input');
+  const fileInput = $(inputId);
   if (fileInput) { fileInput.value = ''; fileInput.click(); }
 }
+function handleSmartEntryPhoto() { openSmartPhotoPicker('#smart-entry-photo-input'); }
+function handleSmartEntryPhotoGallery() { openSmartPhotoPicker('#smart-entry-photo-file-input'); }
 
 async function runPhotoFoodRecognition(file) {
   // Итог всегда показываем в открытом диалоге умного ввода: там поле для правки
@@ -2119,7 +2112,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.6';
+const FITFLOW_VERSION = '0.4.7';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -7877,20 +7870,27 @@ function init() {
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
   $('#smart-entry-voice').addEventListener('click', startVoiceEntry);
-  // 📷 (0.4.0): кнопка фото — без нативного моста прячем (никаких призраков);
-  // сама проверка зрения — в handleSmartEntryPhoto по честным статусам.
+  // 📷 (0.4.7): камера (capture-интент — разрешение не нужно, работает на любой
+  // оболочке) и 🖼 галерея (input без capture) — два отдельных пути; без
+  // нативного моста кнопки прячем (запрет призраков, как было 0.4.0).
   const smartPhotoBtn = $('#smart-entry-photo');
-  const smartPhotoInput = $('#smart-entry-photo-input');
-  if (smartPhotoBtn) {
-    smartPhotoBtn.hidden = !getLocalAiPlugin();
-    smartPhotoBtn.addEventListener('click', () => { handleSmartEntryPhoto(); });
+  const smartPhotoGalleryBtn = $('#smart-entry-photo-gallery');
+  if (!getLocalAiPlugin()) {
+    if (smartPhotoBtn) smartPhotoBtn.hidden = true;
+    if (smartPhotoGalleryBtn) smartPhotoGalleryBtn.hidden = true;
   }
-  if (smartPhotoInput) {
-    smartPhotoInput.addEventListener('change', () => {
-      const file = smartPhotoInput.files && smartPhotoInput.files[0];
-      if (file) runPhotoFoodRecognition(file);
-    });
-  }
+  smartPhotoBtn?.addEventListener('click', () => { handleSmartEntryPhoto(); });
+  smartPhotoGalleryBtn?.addEventListener('click', () => { handleSmartEntryPhotoGallery(); });
+  $('#smart-entry-photo-input')?.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (file) runPhotoFoodRecognition(file);
+  });
+  $('#smart-entry-photo-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (file) runPhotoFoodRecognition(file);
+  });
   $('#smart-entry-save').addEventListener('click', saveSmartEntry);
   $('#smart-voice-help-open').addEventListener('click', openSmartVoiceHelp);
   $('#smart-voice-help-ok').addEventListener('click', closeSmartVoiceHelp);
@@ -8049,8 +8049,11 @@ function init() {
   bindEvent('#ai-send-chat', 'click', sendAiChat);
   bindEvent('#ai-quick-parse-btn', 'click', parseAiQuickEntry);
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
-  bindEvent('#ai-quick-camera-btn', 'click', async () => {
-    if (await ensureCameraPermissionForPicker()) $('#ai-quick-camera-input')?.click();
+  bindEvent('#ai-quick-camera-btn', 'click', () => $('#ai-quick-camera-input')?.click());
+  bindEvent('#ai-quick-gallery-btn', 'click', () => $('#ai-quick-gallery-input')?.click());
+  $('#ai-quick-gallery-input')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
+    e.target.value = '';
   });
   $('#ai-quick-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
@@ -8073,8 +8076,11 @@ function init() {
     }));
   bindEvent('#food-voice-btn', 'click', handleFoodVoiceBtn);
   bindEvent('#water-voice-btn', 'click', handleWaterVoiceBtn);
-  bindEvent('#ai-recipe-camera-btn', 'click', async () => {
-    if (await ensureCameraPermissionForPicker()) $('#ai-recipe-camera-input')?.click();
+  bindEvent('#ai-recipe-camera-btn', 'click', () => $('#ai-recipe-camera-input')?.click());
+  bindEvent('#ai-recipe-gallery-btn', 'click', () => $('#ai-recipe-gallery-input')?.click());
+  $('#ai-recipe-gallery-input')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);
+    e.target.value = '';
   });
   $('#ai-recipe-camera-input')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) handleAiRecipeCameraPhoto(e.target.files[0]);

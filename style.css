@@ -1036,7 +1036,9 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(96px + env(safe-area-inset-bottom));
+  /* 0.4.7 (полевая жалоба): короткий тост перекрывался полем ввода + IME-доком
+     клавиатуры — поднят выше зоны gboard, читается и с открытой клавиатурой. */
+  bottom: calc(45vh + env(safe-area-inset-bottom));
   transform: translateX(-50%) translateY(20px);
   z-index: 50;
   max-width: min(92vw, 420px);

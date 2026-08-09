@@ -1,6 +1,5 @@
 package ru.fitflow.localai
 
-import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,11 +9,8 @@ import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
-import com.getcapacitor.PermissionState
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.annotation.Permission
-import com.getcapacitor.annotation.PermissionCallback
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -43,10 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * файл подхватывается из «Загрузок» и копируется в приватную папку
  * приложения (filesDir/models).
  */
-@CapacitorPlugin(
-    name = "FitFlowLocalAI",
-    permissions = [Permission(alias = "camera", strings = [Manifest.permission.CAMERA])]
-)
+@CapacitorPlugin(name = "FitFlowLocalAI")
 class FitFlowLocalAiPlugin : Plugin() {
 
     private var engine: Engine? = null
@@ -57,8 +50,6 @@ class FitFlowLocalAiPlugin : Plugin() {
     private var lastTemperature: Double = 0.7
     /** true, если веса модели поднялись со зрением (E2B/E4B); text-only — false (0.4.0). */
     private var visionEnabled: Boolean = false
-    /** Фактический бэкенд движка: GPU удалось инициализировать (0.4.6). */
-    @Volatile private var gpuEnabled = false
     private val generating = AtomicBoolean(false)
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -70,7 +61,6 @@ class FitFlowLocalAiPlugin : Plugin() {
         ret.put("path", loadedPath)
         ret.put("generating", generating.get())
         ret.put("vision", visionEnabled)
-            ret.put("gpu", gpuEnabled)
         call.resolve(ret)
     }
 
@@ -133,15 +123,17 @@ class FitFlowLocalAiPlugin : Plugin() {
         }
     }
 
-    /** Движок: со зрением — visionBackend, текст — null (0.4.0); GPU-бэкенд
-        ускоряет prefill (0.4.6 — «думает дольше», E4B зрение ~10 с): не у всех
-        весов/чипов он инициализируется — честный откат на CPU в loadModel. */
-    private fun buildEngine(path: String, maxTokens: Int, withVision: Boolean, useGpu: Boolean): Engine {
+    /** Движок: со зрением — visionBackend, текст — null (0.4.0).
+        ПАМЯТКА 0.4.7: GPU-бэкенд (0.4.6) на устройстве пользователя оказался
+        МЕДЛЕННЕЕ CPU (decode токенов + дольше подъём) при том же качестве —
+        откачен по решению владельца. Возвращать GPU только с бенчем decode
+        на целевом чипе — бенч производителя (S24/S26 Ultra) не равен полю. */
+    private fun buildEngine(path: String, maxTokens: Int, withVision: Boolean): Engine {
         return Engine(
             EngineConfig(
                 modelPath = path,
-                backend = if (useGpu) Backend.GPU() else Backend.CPU(),
-                visionBackend = if (withVision) (if (useGpu) Backend.GPU() else Backend.CPU()) else null,
+                backend = Backend.CPU(),
+                visionBackend = if (withVision) Backend.CPU() else null,
                 maxNumTokens = maxTokens
             )
         )
@@ -176,27 +168,17 @@ class FitFlowLocalAiPlugin : Plugin() {
                 try { engine?.close() } catch (_: Exception) {}
                 conversation = null
                 engine = null
-                // Откатный каскад (0.4.0 зрение, 0.4.6 GPU): функциональность
-                // (зрение — сценарий ТЗ) важнее скорости: GPU+зрение →
-                // CPU+зрение → CPU text-only; каждый провал инициализации
-                // честно фиксируется в status() флагами vision/gpu.
+                // 0.4.0 (фото): сначала пробуем движок СО ЗРЕНИЕМ; текстовые веса
+                // (Gemma3-1B) честно откатываются на text-only, флаг vision виден в status().
                 var withVision = true
-                var withGpu = true
-                var newEngine = buildEngine(path, maxTokens, true, true)
+                var newEngine = buildEngine(path, maxTokens, true)
                 try {
                     newEngine.initialize()
-                } catch (gpuError: Exception) {
+                } catch (visionError: Exception) {
                     try { newEngine.close() } catch (_: Exception) {}
-                    withGpu = false
-                    newEngine = buildEngine(path, maxTokens, true, false)
-                    try {
-                        newEngine.initialize()
-                    } catch (visionError: Exception) {
-                        try { newEngine.close() } catch (_: Exception) {}
-                        withVision = false
-                        newEngine = buildEngine(path, maxTokens, false, false)
-                        newEngine.initialize()
-                    }
+                    withVision = false
+                    newEngine = buildEngine(path, maxTokens, false)
+                    newEngine.initialize()
                 }
                 val convConfig = ConversationConfig(
                     samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = temperature)
@@ -204,7 +186,6 @@ class FitFlowLocalAiPlugin : Plugin() {
                 conversation = newEngine.createConversation(convConfig)
                 engine = newEngine
                 visionEnabled = withVision
-                gpuEnabled = withGpu
                 loadedPath = path
                 val ret = JSObject()
                 ret.put("loaded", true)
@@ -300,20 +281,11 @@ class FitFlowLocalAiPlugin : Plugin() {
         lastTemperature = temp
     }
 
-    /** Пункт «Камера» в системном выборе фото WebView виден только при ВЫДАННОМ
-        разрешении (0.4.5, полевой баг: declared в манифесте мало — спросить
-        надо заранее и по делу, при первом нажатии 📷, а не при старте). */
-    @PluginMethod
-    fun ensureCameraPermission(call: PluginCall) {
-        if (getPermissionState("camera") == PermissionState.GRANTED) { call.resolve(); return }
-        requestPermissionForAlias("camera", call, "cameraPermCallback")
-    }
-
-    @PermissionCallback
-    private fun cameraPermCallback(call: PluginCall) {
-        if (getPermissionState("camera") == PermissionState.GRANTED) call.resolve()
-        else call.reject("no_camera", "Без разрешения камеры пункт «Снять фото» в выборе не появится. Разрешите вручную: Настройки → Приложения → FitFlow → Разрешения → Камера.")
-    }
+    /* ПАМЯТКА 0.4.7 (снятие ненужного подхода): запрос runtime-разрешения
+       камеры для пункта «Камера» в системном выборе (0.4.5) на полевой оболочке
+       не пробился — ряд пикеров камеры не имеет вовсе. Надёжный путь камеры —
+       input с атрибутом capture (делегированный интент — разрешения не требует),
+       галерея — отдельным input без capture. Метод и аннотация сняты как мёртвый код. */
 
     /** Разбор фото еды (0.4.0, целевой сценарий ТЗ): картинка + промпт,
         живой стриминг — зрение на CPU медленнее текста, процесс виден.

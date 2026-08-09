@@ -474,7 +474,7 @@ for (const id of ids) {
   const appE = fs.readFileSync('app.js', 'utf8');
   const ktE = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
   const okPhotoNative = ktE.includes('fun generateWithImage(') && ktE.includes('Content.ImageBytes(')
-    && ktE.includes('visionBackend = if (withVision) (if (useGpu) Backend.GPU() else Backend.CPU()) else null') /* 0.4.6: GPU-каскад */
+    && ktE.includes('visionBackend = if (withVision) Backend.CPU() else null') /* 0.4.7: GPU откачена */
     && ktE.includes('"no_vision"') && ktE.includes('ret.put("vision", visionEnabled)');
   if (!okPhotoNative) failed++;
   console.log(`${okPhotoNative ? '✓' : '✗'} фото в нативе: generateWithImage(ImageBytes), зрение→откат text-only, коды no_vision/timeout`);
@@ -534,9 +534,12 @@ for (const id of ids) {
 {
   const appG = fs.readFileSync('app.js', 'utf8');
   const ktG = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
-  const okGallery = !html.includes('capture="environment"');
+  // 0.4.7: промежуточный вывод «убрать capture» опровергнут оболочками —
+  // финальная схема: capture-инпут (камера) + отдельный инпут (галерея).
+  const okGallery = html.includes('id="ai-quick-gallery-input" accept="image/*" hidden>')
+    && html.includes('id="ai-quick-camera-input" accept="image/*" capture="environment"');
   if (!okGallery) failed++;
-  console.log(`${okGallery ? '✓' : '✗'} галерея: capture убран у всех камер — системный пикер предложит и камеру, и галерею`);
+  console.log(`${okGallery ? '✓' : '✗'} галерея/камера: два пути — capture (камера) и галерея (0.4.7, урок оболочек)`);
 
   const okPrompt = appG.includes('Штучные продукты пиши КОЛИЧЕСТВОМ, не весом') && appG.includes('одним словом: нет')
     && appG.includes('средний помидор — примерно 120');
@@ -606,12 +609,13 @@ for (const id of ids) {
 {
   const appJ = fs.readFileSync('app.js', 'utf8');
   const ktJ = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
-  const okPerm = ktJ.includes('requestPermissionForAlias("camera", call, "cameraPermCallback")')
-    && ktJ.includes('Permission(alias = "camera", strings = [Manifest.permission.CAMERA])')
-    && appJ.includes('async function ensureCameraPermissionForPicker()')
-    && (appJ.match(/await ensureCameraPermissionForPicker\(\)/g) || []).length === 3;
+  // 0.4.7 (урок capture): permission-подход откачен — у оболочек пикер камеры
+  // лишён совсем; capture-интент разрешения не требует и работает везде.
+  const okPerm = !ktJ.includes('requestPermissionForAlias("camera"')
+    && !appJ.includes('ensureCameraPermissionForPicker')
+    && appJ.includes('function handleSmartEntryPhotoGallery()');
   if (!okPerm) failed++;
-  console.log(`${okPerm ? '✓' : '✗'} камера-пикер: разрешение спрашивается по нажатию 📷 на всех трёх точках (не при старте)`);
+  console.log(`${okPerm ? '✓' : '✗'} камера-пикер: capture-путь (без permission) + отдельная галерея (урок оболочек)`);
 
   const okPack = appJ.includes('упаковка без количества — принято 1 шт') && appJ.includes('packNoCount')
     && appJ.includes("'куриные кусочки': { kcal: 78");
@@ -620,16 +624,34 @@ for (const id of ids) {
 
 }
 
-// 0.4.6: GPU-бэкенд LiteRT-LM с честным откатом (полевая боль «E4B думает ~10 с»).
-// Каскад функциональность>скорость: GPU+зрение → CPU+зрение → CPU text-only.
+// 0.4.7 (откат 0.4.6 по полевому замеру владельца): GPU оказался медленнее CPU
+// на его чипе при неизменном качестве — CPU-каскад возвращён, памятка на месте.
 {
   const ktK = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
-  const okGpu = ktK.includes('Backend.GPU()') && ktK.includes('backend = if (useGpu) Backend.GPU() else Backend.CPU()')
-    && ktK.includes('gpuEnabled = withGpu') && ktK.includes('ret.put("gpu", gpuEnabled)')
-    && ktK.includes('buildEngine(path, maxTokens, true, true)') && ktK.includes('buildEngine(path, maxTokens, true, false)');
-  if (!okGpu) failed++;
-  console.log(`${okGpu ? '✓' : '✗'} GPU-каскад: GPU+зрение → CPU+зрение → CPU text-only, флаг gpu в status()`);
+  const okGpuRevert = !ktK.includes('Backend.GPU()') && ktK.includes('backend = Backend.CPU()')
+    && ktK.includes('ПАМЯТКА 0.4.7: GPU-бэкенд (0.4.6)');
+  if (!okGpuRevert) failed++;
+  console.log(`${okGpuRevert ? '✓' : '✗'} GPU-откат 0.4.7: поле важнее бенча производителя, CPU-каскад с памяткой`);
+}
 
+// 0.4.7: UI камеры — capture-инпуты вернулись на всех трёх точках + 🖼 галерея;
+// тост поднят выше IME-дока (перекрытие полем/клавиатурой — полевая жалоба).
+{
+  const cap47 = html.includes('id="smart-entry-photo-input" accept="image/*" capture="environment"')
+    && html.includes('id="ai-quick-camera-input" accept="image/*" capture="environment"')
+    && html.includes('id="ai-recipe-camera-input" accept="image/*" capture="environment"');
+  const gal47 = html.includes('id="smart-entry-photo-file-input" accept="image/*" hidden>')
+    && html.includes('id="ai-quick-gallery-input" accept="image/*" hidden>')
+    && html.includes('id="ai-recipe-gallery-input" accept="image/*" hidden>')
+    && html.includes('id="ai-quick-gallery-btn"') && html.includes('id="ai-recipe-gallery-btn"')
+    && html.includes('id="smart-entry-photo-gallery"');
+  const okCamUi = cap47 && gal47;
+  if (!okCamUi) failed++;
+  console.log(`${okCamUi ? '✓' : '✗'} UI камеры: 📷 capture × 3 + 🖼 галерея × 3 (отдельные надёжные пути)`);
+  const css47 = fs.readFileSync('style.css', 'utf8');
+  const okToast = css47.includes('bottom: calc(45vh + env(safe-area-inset-bottom))');
+  if (!okToast) failed++;
+  console.log(`${okToast ? '✓' : '✗'} тост поднят над IME-доком (читаем с открытой клавиатурой)`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

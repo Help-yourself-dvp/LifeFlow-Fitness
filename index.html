@@ -1045,7 +1045,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1245,12 +1245,20 @@
                 <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
               </svg>
             </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-gallery-btn" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </button>
             <button class="icon-btn ai-icon-btn" id="ai-quick-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
-            <input type="file" id="ai-quick-camera-input" accept="image/*" hidden>
+            <input type="file" id="ai-quick-camera-input" accept="image/*" capture="environment" hidden>
+            <input type="file" id="ai-quick-gallery-input" accept="image/*" hidden>
           </div>
         </div>
         <div id="ai-quick-result" class="ai-result-box" hidden></div>
@@ -1273,12 +1281,20 @@
                 <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
               </svg>
             </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-gallery-btn" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </button>
             <button class="icon-btn ai-icon-btn" id="ai-recipe-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
             <span class="ai-actions-spacer"></span>
             <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
-            <input type="file" id="ai-recipe-camera-input" accept="image/*" hidden>
+            <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
+            <input type="file" id="ai-recipe-gallery-input" accept="image/*" hidden>
           </div>
         </div>
         <div id="ai-recipe-result" class="ai-result-box" hidden></div>
@@ -1571,11 +1587,13 @@
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
         <button class="btn btn-secondary" id="smart-entry-voice" type="button">🎙 Надиктовать</button>
-        <button class="btn btn-secondary" id="smart-entry-photo" type="button">📷 Фото</button>
+        <button class="btn btn-secondary" id="smart-entry-photo" type="button">📷 Камера</button>
+        <button class="btn btn-secondary" id="smart-entry-photo-gallery" type="button">🖼 Галерея</button>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
       <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
-      <input type="file" id="smart-entry-photo-input" accept="image/*" hidden>
+      <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>
+      <input type="file" id="smart-entry-photo-file-input" accept="image/*" hidden>
     </section>
   </div>
 
