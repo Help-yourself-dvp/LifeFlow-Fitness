@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @CapacitorPlugin(
     name = "FitFlowLocalAI",
     permissions = [Permission(alias = "camera", strings = [Manifest.permission.CAMERA])]
-
+)
 class FitFlowLocalAiPlugin : Plugin() {
 
     private var engine: Engine? = null
