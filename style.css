@@ -3466,6 +3466,70 @@ html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="tru
 .course-times label { display: grid; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
 #course-del-dialog .app-dialog-actions button { width: 100%; }
 
+/* Уникальные файловые шрифты тем (0.4.11, просьба владельца: «не стандартные,
+   а уникальные под каждую тему, встроенные в неё»): .ttf грузит владелец по
+   инструкции tools/github-workflows/FONTS_THEME_PATCH.md (лицензии SIL OFL 1.1,
+   кириллица из коробки). До появления файлов каскад ТИХО откатывается на
+   системные семейства — никаких битых надписей и ложных аффордансов.
+   Каскад: тематический шрифт — база темы; ручной выбор (data-font, блок ниже)
+   идёт после этих правил и перекрывает их. */
+@font-face {
+  font-family: "Manrope";
+  src: url("assets/fonts/manrope.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Russo One";
+  src: url("assets/fonts/russoone.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Custom";
+  src: url("assets/fonts/ptserif-regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Custom";
+  src: url("assets/fonts/ptserif-bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Comfortaa";
+  src: url("assets/fonts/comfortaa.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+
+html[data-palette="neon"] body,
+html[data-palette="neon"] .btn,
+html[data-palette="neon"] .form-input {
+  font-family: "Manrope", Roboto, sans-serif;
+}
+html[data-palette="sport"] body {
+  font-family: "Russo One", "sans-serif-condensed", Roboto, sans-serif;
+}
+html[data-palette="sport"] h1,
+html[data-palette="sport"] h2,
+html[data-palette="sport"] .checklist-header,
+html[data-palette="sport"] .greeting-title,
+html[data-palette="sport"] .home-weight-current,
+html[data-palette="sport"] .game-task-numbers,
+html[data-palette="sport"] .weight-current,
+html[data-palette="sport"] .settings-label {
+  font-family: "Russo One", "sans-serif-condensed", Roboto, sans-serif;
+}
+html[data-palette="forest"] body {
+  font-family: "PT Serif Custom", "Noto Serif", "Droid Serif", Georgia, serif;
+}
+html[data-palette="forest"] h1,
+html[data-palette="forest"] h2 {
+  font-family: "PT Serif Custom", "Noto Serif", "Droid Serif", Georgia, serif;
+}
+html[data-palette="berry"] body,
+html[data-palette="berry"] h1,
+html[data-palette="berry"] h2 {
+  font-family: "Comfortaa", Roboto, sans-serif;
+}
+
 /* Шрифты тем (0.4.10): системные семейства Android — офлайн, APK не растёт.
    Специфичность html[data-font] body выше базового body — правило побеждает
    в любом положении файла; поля ввода унаследованы (font-family: inherit). */

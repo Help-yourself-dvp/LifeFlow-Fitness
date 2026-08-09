@@ -1199,5 +1199,21 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok5 ? '✓' : '✗'} дедуп 0.4.10: одинаковые позиции суммируются с честной пометкой (горошек ×2 = 400 г 292), разные не тронуты, фото-тарелка: 5 позиций вместо 6`);
 }
 
+// ---- 0.4.11: разговорный «перец» = перец болгарский (полевой ⚠️ нашёл дыру базы) ----
+{
+  const pepper = parseSmartEntry('перец 40 г');
+  const okPepper = pepper.food.length === 1 && pepper.food[0].name === 'перец'
+    && pepper.food[0].grams === 40 && pepper.food[0].kcal === 11 && pepper.unparsed.length === 0;
+  const sweet = parseSmartEntry('перец сладкий 50 г');
+  const okSweet = sweet.food.length === 1 && sweet.food[0].kcal === 14;
+  const full = parseSmartEntry('макароны 180 г, куриное филе 120 г, морковь 40 г, горошек 30 г, зелёный горошек 30 г, лук 30 г, перец 40 г');
+  const okFull = full.unparsed.length === 0 && full.food.length === 6
+    && full.food.filter((i) => i.name === 'горошек').length === 1
+    && full.food.find((i) => i.name === 'горошек').grams === 60;
+  const ok6 = okPepper && okSweet && okFull;
+  if (!ok6) failed++;
+  console.log(`${ok6 ? '✓' : '✗'} «перец» 0.4.11: 40 г = 11 ккал разобраны (⚠️-страж сработал верно и привёл к ключу базы); полевая тарелка — 6/6 без пропусков`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

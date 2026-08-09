@@ -49,6 +49,7 @@ jobs:
           cp index.html www/
           cp style.css www/
           cp app.js www/
+          mkdir -p www/assets/fonts && cp assets/fonts/*.ttf www/assets/fonts/ 2>/dev/null || true
           cp food-db.js www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
           cp icon.png www/ 2>/dev/null || true

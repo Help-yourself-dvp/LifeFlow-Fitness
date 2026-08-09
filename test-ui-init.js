@@ -737,5 +737,33 @@ for (const id of ids) {
   console.log(`${okFontCss ? '✓' : '✗'} шрифты тем 0.4.10: Стандарт/Узкий/Книжный из системных семейств (офлайн, 0 байт в APK), выбор сохраняется`);
 }
 
+// 0.4.11: уникальные ФАЙЛОВЫЕ шрифты тем (Neon=Manrope, Sport=Russo One,
+// Лес=PT Serif, Виноград=Comfortaa; до загрузки .ttf — тихий системный откат;
+// ручной выбор шрифта идёт ПОСЛЕ и сильнее). Плюс база «перец» и зеркало.
+{
+  const cssN = fs.readFileSync('style.css', 'utf8');
+  const appN = fs.readFileSync('app.js', 'utf8');
+  const wfN = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okFaces = cssN.includes('font-family: "Manrope"') && cssN.includes('assets/fonts/manrope.ttf')
+    && cssN.includes('font-family: "Russo One"') && cssN.includes('assets/fonts/russoone.ttf')
+    && cssN.includes('font-family: "PT Serif Custom"') && cssN.includes('ptserif-regular.ttf') && cssN.includes('ptserif-bold.ttf')
+    && cssN.includes('font-family: "Comfortaa"') && cssN.includes('assets/fonts/comfortaa.ttf');
+  const okThemeFonts = cssN.includes('html[data-palette="neon"] body,')
+    && cssN.includes('html[data-palette="sport"] body')
+    && cssN.includes('html[data-palette="forest"] body')
+    && cssN.includes('html[data-palette="berry"] body,');
+  // Ручной выбор (data-font) стоит ПОЗЖЕ тематических правил — перекрывает их.
+  const okOrder = cssN.indexOf('html[data-font="condensed"] body') > cssN.indexOf('html[data-palette="berry"] body,');
+  const okFonts = okFaces && okThemeFonts && okOrder;
+  if (!okFonts) failed++;
+  console.log(`${okFonts ? '✓' : '✗'} файловые шрифты тем 0.4.11: 5 @font-face + правила на 4 темы, ручной выбор сильнее тематического`);
+
+  const okDb = appN.includes("'перец': { kcal: 27") && appN.includes("'перец сладкий': { kcal: 27");
+  const okMirror = wfN.includes('cp assets/fonts/*.ttf www/assets/fonts/');
+  const okAll = okDb && okMirror;
+  if (!okAll) failed++;
+  console.log(`${okAll ? '✓' : '✗'} база «перец» (⚠️-находка) + зеркало workflow копирует assets/fonts в APK`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
