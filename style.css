@@ -3465,3 +3465,16 @@ html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="tru
 .course-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .course-times label { display: grid; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
 #course-del-dialog .app-dialog-actions button { width: 100%; }
+
+/* Шрифты тем (0.4.10): системные семейства Android — офлайн, APK не растёт.
+   Специфичность html[data-font] body выше базового body — правило побеждает
+   в любом положении файла; поля ввода унаследованы (font-family: inherit). */
+html[data-font="condensed"] body {
+  font-family: "sans-serif-condensed", "Roboto Condensed", Roboto, "Segoe UI", sans-serif;
+}
+html[data-font="serif"] body {
+  font-family: "Noto Serif", "Droid Serif", Georgia, serif;
+}
+html[data-font="serif"] h1, html[data-font="serif"] h2, html[data-font="serif"] h3 {
+  font-family: "Noto Serif", "Droid Serif", Georgia, serif;
+}

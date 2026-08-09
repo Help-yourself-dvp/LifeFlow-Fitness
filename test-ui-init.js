@@ -702,5 +702,40 @@ for (const id of ids) {
   console.log(`${okSand ? '✓' : '✗'} P11-бутерброд 0.4.9: хвост начинок любой длины, страж от «кофе с молоком», перечисление без союза «и»`);
 }
 
+// 0.4.10: правдивость фото-разбора (якоря веса + запрет дублей в промпте,
+// дедуп в парсере), рецепты — нейросеть на устройстве (local → cloud → шаблон),
+// шрифты тем из системных семейств (без роста APK и без сети).
+{
+  const appM = fs.readFileSync('app.js', 'utf8');
+  const okPrompt = appM.includes('повторы запрещены: «горошек» и «зелёный горошек» — один продукт')
+    && appM.includes('Слово «порция» не используй')
+    && appM.includes('овощной смеси 30–50 граммов');
+  if (!okPrompt) failed++;
+  console.log(`${okPrompt ? '✓' : '✗'} фото-промпт 0.4.10: граммы вместо «порций», якоря тарелки (150–200/100–150/30–50), дубли запрещены`);
+
+  const okMerge = appM.includes('function mergeDuplicateFoodItems(items)')
+    && appM.includes('food: mergeDuplicateFoodItems(food), unparsed');
+  if (!okMerge) failed++;
+  console.log(`${okMerge ? '✓' : '✗'} дедуп 0.4.10: mergeDuplicateFoodItems в parseSmartEntry (страховка против двойного счёта)`);
+
+  const okRecipe = appM.includes('async function enhanceRecipeWithLocalLlm(')
+    && appM.includes("getLocalAiPlugin() && hasRealLocalModel() && state.aiSettings.mode !== 'cloud'")
+    && appM.includes('enhanceRecipeWithLocalLlm(resultBox, stepsBoxId, items, volumeText)')
+    && appM.includes('🧠 …печатаю рецепт на устройстве')
+    && appM.includes('🧠 Нейросеть не ответила (')
+    && appM.includes('else if (isCloudAiReady()) {');
+  if (!okRecipe) failed++;
+  console.log(`${okRecipe ? '✓' : '✗'} рецепты 0.4.10: нейросеть на устройстве со стримингом (local → cloud только по явному выбору → шаблон), КБЖУ — локальная база`);
+
+  const okFont = html.includes('id="font-segmented"')
+    && html.includes('data-font="standard"') && html.includes('data-font="condensed"') && html.includes('data-font="serif"')
+    && appM.includes('function applyFont(font)') && appM.includes('applyFont(getFont());')
+    && appM.includes("localStorage.getItem('fitflow:font')");
+  const cssM = fs.readFileSync('style.css', 'utf8');
+  const okFontCss = okFont && cssM.includes('html[data-font="condensed"] body') && cssM.includes('html[data-font="serif"] body');
+  if (!okFontCss) failed++;
+  console.log(`${okFontCss ? '✓' : '✗'} шрифты тем 0.4.10: Стандарт/Узкий/Книжный из системных семейств (офлайн, 0 байт в APK), выбор сохраняется`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

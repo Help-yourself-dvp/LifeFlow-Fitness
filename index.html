@@ -670,6 +670,15 @@
         <p class="settings-hint" id="palette-status">Стиль работает поверх светлого/тёмного режима. Neon эффектнее всего в тёмном режиме, Sport — с оранжевым характером, Лес и Виноград — спокойные в обоих режимах.</p>
       </div>
       <div class="settings-group">
+        <p class="settings-label">Шрифт</p>
+        <div class="segmented" id="font-segmented" role="radiogroup" aria-label="Шрифт интерфейса">
+          <button type="button" data-font="standard">Стандарт</button>
+          <button type="button" data-font="condensed">✂ Узкий</button>
+          <button type="button" data-font="serif">📖 Книжный</button>
+        </div>
+        <p class="settings-hint" id="font-status">Шрифты — системные (уже есть в телефоне): работают офлайн и не увеличивают размер приложения. Узкий подходит спортивным темам, книжный — спокойным.</p>
+      </div>
+      <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">Чек-лист дня <span class="help-dot" role="button" tabindex="0" data-help="day-checklist" aria-label="Справка: Чек-лист дня" title="Что это и зачем?">?</span></p>
           <label class="switch" for="day-checklist-toggle">
@@ -1045,7 +1054,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.9</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.10</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>

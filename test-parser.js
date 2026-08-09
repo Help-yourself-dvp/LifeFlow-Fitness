@@ -1179,5 +1179,25 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${okAll ? '✓' : '✗'} бутерброды: начинки без «и» собираются в состав (масло 8 + сыр 15 + колбаса 15 на шт), «кофе с молоком» не вклеивается, «и чай» остаётся отдельным`);
 }
 
+// ---- 0.4.10: дедуп одинаковых продуктов (полевое фото «горошек» и «зелёный горошек» → двойной счёт) ----
+{
+  const dup = parseSmartEntry('горошек 1 порция, зелёный горошек 1 порция');
+  const okDup = dup.food.length === 1 && dup.food[0].name === 'горошек'
+    && dup.food[0].amount === 2 && dup.food[0].grams === 400 && dup.food[0].kcal === 292
+    && /повтор в фразе объединил \(×2\)/u.test(dup.food[0].note || '');
+  const milk = parseSmartEntry('молоко 100 г, молоко 50 г');
+  const okMilk = milk.food.length === 1 && milk.food[0].amount === 150 && milk.food[0].kcal === 90;
+  const apple = parseSmartEntry('яблоко 1 шт, яблоко 1 шт');
+  const okApple = apple.food.length === 1 && apple.food[0].amount === 2 && apple.food[0].kcal === 178;
+  const distinct = parseSmartEntry('морковь 1 порция, горошек 1 порция');
+  const okDistinct = distinct.food.length === 2
+    && !/повтор в фразе/.test((distinct.food[0].note || '') + (distinct.food[1].note || ''));
+  const photoPlate = parseSmartEntry('макароны 1 порция, курица 1 порция, горошек 1 порция, морковь 1 порция, зелёный горошек 1 порция, зелёная стручковая фасоль 1 порция');
+  const okPlate = photoPlate.food.length === 5 && photoPlate.food.filter((i) => i.name === 'горошек').length === 1;
+  const ok5 = okDup && okMilk && okApple && okDistinct && okPlate;
+  if (!ok5) failed++;
+  console.log(`${ok5 ? '✓' : '✗'} дедуп 0.4.10: одинаковые позиции суммируются с честной пометкой (горошек ×2 = 400 г 292), разные не тронуты, фото-тарелка: 5 позиций вместо 6`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

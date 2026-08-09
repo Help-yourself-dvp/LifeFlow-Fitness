@@ -1088,6 +1088,38 @@ function detectActivityType(chunk) {
   return found ? found.type : 'other';
 }
 
+/* 0.4.10 (полевой разбор фото-тарелки): нейросеть и речь любят назвать один
+   продукт дважды («горошек 1 порция» и «зелёный горошек 1 порция» → оба стали
+   «горошек», дневник получил двойной счёт). Позиции с одинаковыми именем и
+   единицей объединяем СУММОЙ с честной пометкой «повтор объединил» — вход не
+   выдумываем и не скрываем. Чистая функция — регресс держится node-прогоном. */
+function mergeDuplicateFoodItems(items) {
+  const out = [];
+  const byKey = new Map();
+  const counts = new Map();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    if (!item || !item.name) return;
+    const key = item.name + '|' + (item.unit || '') + '|' + (item.perPiece ? 'шт' : 'вес');
+    const prev = byKey.get(key);
+    if (!prev) { byKey.set(key, item); out.push(item); counts.set(key, 1); return; }
+    counts.set(key, counts.get(key) + 1);
+    if (Number.isFinite(prev.amount) && Number.isFinite(item.amount)) prev.amount += item.amount;
+    else if (!Number.isFinite(prev.amount) && Number.isFinite(item.amount)) prev.amount = item.amount;
+    const g = (Number(prev.grams) || 0) + (Number(item.grams) || 0);
+    if (g > 0) prev.grams = Math.round(g);
+    prev.kcal = Math.round((Number(prev.kcal) || 0) + (Number(item.kcal) || 0));
+    prev.p = Math.round(((Number(prev.p) || 0) + (Number(item.p) || 0)) * 10) / 10;
+    prev.f = Math.round(((Number(prev.f) || 0) + (Number(item.f) || 0)) * 10) / 10;
+    prev.c = Math.round(((Number(prev.c) || 0) + (Number(item.c) || 0)) * 10) / 10;
+    prev.approx = prev.approx || item.approx;
+    const tag = 'повтор в фразе объединил (×' + counts.get(key) + ')';
+    prev.note = prev.note && /повтор в фразе объединил/u.test(prev.note)
+      ? prev.note.replace(/повтор в фразе объединил \(×\d+\)/u, tag)
+      : (prev.note ? prev.note + '; ' + tag : tag);
+  });
+  return out;
+}
+
 let pendingSmartEntry = null;
 
 function parseSmartEntry(text) {
@@ -1184,7 +1216,7 @@ function parseSmartEntry(text) {
       unparsed.push(...restDetailed.missed);
     }
   }
-  return { waterMl, activities, activity: activities[0] || null, food, unparsed };
+  return { waterMl, activities, activity: activities[0] || null, food: mergeDuplicateFoodItems(food), unparsed };
 }
 
 function startVoiceEntry() {
@@ -1314,6 +1346,12 @@ const AI_PHOTO_PROMPT = 'Посмотри на фото и перечисли е
   + 'у упаковки бери вес с надписи). Посуду и тару без содержимого не называй: пустая тарелка, скатерть, '
   + 'стол, «тарелка 300 г» — НЕ позиции. Напиток в бутылке называй с сосудом: «бутылка воды». '
   + 'Пакет или упаковку со штучным содержимым считай штуками: «чупа-чупс 7 шт», а не «пакет с чупа-чупсами». '
+  + 'Один и тот же продукт — одна строка, повторы запрещены: «горошек» и «зелёный горошек» — один продукт. '
+    // 0.4.10 (полевая тарелка «макароны+курица+овощная смесь»): модель писала
+    // «1 порция» каждому компоненту (база честно брала 200 г на каждый →
+    // тарелка 1,2 кг) и дублировала овощи. Якоря реалистичной тарелки:
+    // гарнир 150–200 г, белок 100–150 г, овощ в смеси 30–50 г.
+  + 'Слово «порция» не используй: каждой позиции вес в граммах по якорям тарелки — гарнир (макароны, рис, гречка, картофель) 150–200 граммов, курица или мясо на ней 100–150 граммов, каждый овощ в овощной смеси 30–50 граммов. '
   + 'Никаких пояснений и вступлений — только строки списка. '
   + 'Если еды и продуктов на фото нет — ответь РОВНО одним словом: нет.';
 
@@ -2221,7 +2259,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.9';
+const FITFLOW_VERSION = '0.4.10';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -3717,6 +3755,7 @@ function applyThemeMode(mode) {
 function initTheme() {
   applyThemeMode(getThemeMode());
   applyPalette(getPalette());
+  applyFont(getFont());
 
   // Следим за системной темой в режиме «Авто»
   window.matchMedia('(prefers-color-scheme: dark)')
@@ -3766,6 +3805,33 @@ function setPalette(palette) {
   toast('🎨 Стиль: ' + label + (p === 'neon' ? ' — эффектнее всего в тёмном режиме' : ''));
 }
 
+
+/* Шрифты тем из СИСТЕМНЫХ семейств Android (0.4.10, просьба «доп. шрифты в
+   темах»): ноль файлов в APK, ноль сети — WebView гарантированно имеет
+   sans-serif (Roboto), sans-serif-condensed (он играет Sport) и serif.
+   Авторский файловый шрифт (Comfortaa для «Винограда») — отдельная опция
+   пользователя через tools/github-workflows/FONT_PATCH.md (нужна ручная
+   правка workflow и загрузка .ttf, памятка там же). */
+const FONT_OPTIONS = ['standard', 'condensed', 'serif'];
+const FONT_LABELS = { standard: 'Стандарт', condensed: 'Узкий (Condensed)', serif: 'Книжный с засечками' };
+function getFont() {
+  const saved = localStorage.getItem('fitflow:font');
+  return FONT_OPTIONS.includes(saved) ? saved : 'standard';
+}
+function applyFont(font) {
+  const f = FONT_OPTIONS.includes(font) ? font : 'standard';
+  if (f === 'standard') document.documentElement.removeAttribute('data-font');
+  else document.documentElement.setAttribute('data-font', f);
+  $$('#font-segmented button').forEach((btn) =>
+    btn.classList.toggle('active', btn.dataset.font === f));
+}
+function setFont(font) {
+  const f = FONT_OPTIONS.includes(font) ? font : 'standard';
+  if (f === 'standard') localStorage.removeItem('fitflow:font');
+  else localStorage.setItem('fitflow:font', f);
+  applyFont(f);
+  toast('🔤 Шрифт: ' + FONT_LABELS[f]);
+}
 /* ============================================================
    Рендер
    ============================================================ */
@@ -8289,6 +8355,8 @@ function init() {
     btn.addEventListener('click', () => setThemeMode(btn.dataset.themeMode)));
   $$('#palette-segmented button').forEach((btn) =>
     btn.addEventListener('click', () => setPalette(btn.dataset.palette)));
+  $$('#font-segmented button').forEach((btn) =>
+    btn.addEventListener('click', () => setFont(btn.dataset.font)));
 
   // Настройки: утренние фразы, вечерний вопрос и разрешения Android
   $('#morning-motivation-toggle').addEventListener('change', (e) =>
@@ -8845,6 +8913,60 @@ function toInstrumental(name) {
   return s + 'ом';
 }
 
+/* Рецепт от нейросети НА УСТРОЙСТВЕ (0.4.10, полевая просьба: «шаблон
+   однообразен, подключить рецепты к ИИ»). Модель сочиняет ТЕКСТ (название,
+   состав с граммами, шаги, совет); калории и БЖУ остаются нашими — посчитаны
+   локальной базой (правдивость чисел — у кода, как и везде). Ответ льётся
+   стримингом в блок шагов поверх шаблонных: первый текст появляется через
+   пару секунд и читается по ходу печати. Любой сбой → шаблон остаётся +
+   честная пометка (тот же принцип, что у чата и фото). */
+async function enhanceRecipeWithLocalLlm(resultBox, stepsBoxId, items, volumeText) {
+  const stepsBox = resultBox.querySelector('#' + stepsBoxId);
+  if (!stepsBox) return;
+  const plugin = getLocalAiPlugin();
+  if (!plugin) return;
+  stepsBox.insertAdjacentHTML('beforebegin',
+    '<p class="settings-hint" id="ai-recipe-local-note">🧠 Сочиняю рецепт нейросетью на устройстве — офлайн, без интернета…</p>');
+  const listText = items.map((i) => i.name + (i.grams ? ' ~' + Math.round(i.grams) + ' г' : (i.amount ? ' ×' + i.amount : ''))).join(', ');
+  const prompt = 'Составь практичный рецепт строго из этих продуктов: ' + listText + '. Общий объём набора ' + volumeText + '.\n'
+    + 'Формат ответа: 1) короткое аппетитное название **жирным**; 2) ингредиенты маркированным списком с граммами рядом с каждым; '
+    + '3) 4–6 шагов нумерованным списком, каждый шаг — одно предложение; 4) один короткий совет в конце.\n'
+    + 'Не пиши калории, белки, жиры и углеводы — их считает приложение. Русский язык, до 140 слов, без вступлений и без эмодзи.';
+  let progressHandle = null;
+  try {
+    progressHandle = await plugin.addListener('generateProgress', (ev) => {
+      const partial = ev && typeof ev.text === 'string' ? ev.text : '';
+      if (partial.trim()) {
+        stepsBox.innerHTML = mdLiteToHtml(partial)
+          + '<p class="settings-hint" style="margin:6px 0 0">🧠 …печатаю рецепт на устройстве — можно читать по ходу.</p>';
+      }
+    });
+  } catch (e) { progressHandle = null; }
+  const stop = () => { try { if (progressHandle && progressHandle.remove) progressHandle.remove(); } catch (e) {} progressHandle = null; };
+  try {
+    const st = await plugin.status().catch(() => null);
+    let ready = !!(st && st.engineLoaded);
+    if (!ready) {
+      const noteEl = resultBox.querySelector('#ai-recipe-local-note');
+      if (noteEl) noteEl.textContent = '🧠 Поднимаю модель в память — одна загрузка до минуты, дальше рецепты быстрее…';
+      ready = await loadLocalLlmModel();
+    }
+    if (!ready) throw new Error('not_loaded');
+    const out = await plugin.generate({ prompt });
+    stop();
+    const draft = String((out && out.text) || '').trim();
+    if (!draft) throw new Error('empty_answer');
+    stepsBox.innerHTML = mdLiteToHtml(draft)
+      + '<p class="settings-hint" style="margin:6px 0 0">🧠 Текст рецепта: нейросеть на устройстве, офлайн · граммы в её списке — оценка ≈, калории и БЖУ ниже посчитаны локальной базой по вашим продуктам.</p>';
+    const noteEl = resultBox.querySelector('#ai-recipe-local-note');
+    if (noteEl) noteEl.remove();
+  } catch (err) {
+    stop();
+    const noteEl = resultBox.querySelector('#ai-recipe-local-note');
+    if (noteEl) noteEl.textContent = '🧠 Нейросеть не ответила (' + localLlmErrorText(err) + ') — выше проверенная шаблонная версия рецепта.';
+  }
+}
+
 function generateAiRecipe() {
   const input = $('#ai-recipe-input');
   const resultBox = $('#ai-recipe-result');
@@ -8923,9 +9045,13 @@ function generateAiRecipe() {
       toast('🥑 Продукты из рецепта добавлены в дневник!');
     });
   }
-  // Облачное усиление: нейросеть пишет человечный текст рецепта, а цифры
-  // КБЖУ и объём остаются наши, посчитанные локально (нейросети не доверяем).
-  if (isCloudAiReady()) {
+  // 0.4.10: первый путь — нейросеть на устройстве (офлайн по умолчанию);
+  // облако — только если пользователь его ЯВНО включил в настройках; иначе
+  // остаётся проверенный шаблон выше. Цифры КБЖУ и объём — всегда наши,
+  // посчитанные локально (нейросети в расчётах не доверяем).
+  if (getLocalAiPlugin() && hasRealLocalModel() && state.aiSettings.mode !== 'cloud') {
+    enhanceRecipeWithLocalLlm(resultBox, stepsBoxId, items, volumeText);
+  } else if (isCloudAiReady()) {
     const stepsBox = resultBox.querySelector('#' + stepsBoxId);
     if (stepsBox) {
       stepsBox.insertAdjacentHTML('beforebegin', '<p class="settings-hint" id="ai-recipe-cloud-note">☁ Уточняю текст рецепта у нейросети…</p>');
@@ -10050,7 +10176,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
+    normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, mergeDuplicateFoodItems, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
     normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
     describeFoodItemLine, parseSandwichItem, parseDishFromItem,
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
