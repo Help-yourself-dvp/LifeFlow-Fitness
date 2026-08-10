@@ -65,7 +65,7 @@
   <div id="home-view">
     <section class="greeting">
       <p class="greeting-title" id="greeting-title">Доброе утро!</p>
-      <p class="greeting-sub">Сегодня отличный день, чтобы заботиться о себе 💪</p>
+      <p class="greeting-sub" id="greeting-sub">Маленькие шаги каждый день важнее идеального понедельника</p>
       <p class="greeting-profile"><span aria-hidden="true">👤</span><span>Профиль:</span><strong id="home-active-profile">Мой профиль</strong></p>
     </section>
 
@@ -147,7 +147,8 @@
 
         <div class="goal-row">
           <span class="goal-label">Дневная цель</span>
-          <div class="goal-stepper">
+          <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#water-goal-stepper" aria-expanded="false" title="Изменить дневную цель">Цель</button>
+          <div class="goal-stepper" id="water-goal-stepper" hidden>
             <button class="mini-btn" id="water-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
             <span class="goal-value" id="water-goal">2500 мл</span>
             <button class="mini-btn" id="water-goal-plus" type="button" aria-label="Увеличить цель">+</button>
@@ -167,7 +168,7 @@
         </div>
         <div class="card-title-wrap">
           <h2 id="food-title">Питание</h2>
-          <p>Умный ввод текстом + калории</p>
+          <p>Дневник питания и БЖУ</p>
         </div>
         <button class="card-menu icon-btn" id="custom-food-open" type="button" aria-label="Мои продукты" title="Мои продукты — точные значения с упаковки">
           <span aria-hidden="true" style="font-size:1.05rem">🏷️</span>
@@ -206,14 +207,17 @@
           </button>
         </div>
         <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+        <button class="chip chip-sm" id="food-combo-star" type="button" title="Сохранить текст поля как комбо (фраза-шаблон на будущее — без записи в дневник)">☆ В комбо</button>
       </form>
 
       <p class="parse-error" id="food-error" hidden></p>
 
       <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
+      <!-- 0.4.15 (п.5 владельца): «Быстрые записи» — единый блок; разница ясна из подписи -->
+      <p class="quick-records-title">⚡ Быстрые записи <span class="quick-records-sub">⭐ комбо — фраза на всё сразу (вода, еда, активность) · 🍽 блюдо — точные ккал с упаковки</span></p>
       <div class="combo-section" id="combo-section" aria-label="Мои комбо — записать набор одним нажатием">
         <div class="combo-head">
-          <span class="combo-title">⭐ Мои комбо</span>
+          <span class="combo-title">⭐ Комбо — умные фразы</span>
           <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Ещё…</button>
         </div>
         <div class="quick-chips" id="combo-chips"></div>
@@ -262,7 +266,7 @@
 
       <section class="collapsible-block">
         <button class="collapsible-toggle" type="button" data-collapse-target="favorite-meals-content" aria-expanded="false">
-          <span>Мои блюда</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>🍽 Мои блюда — готовые шаблоны</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="collapsible-content" id="favorite-meals-content"><div class="quick-meals favorite-meals-section">
           <div class="quick-chips" id="favorite-meals"></div>
@@ -283,7 +287,8 @@
 
       <div class="goal-row">
         <span class="goal-label">Цель по калориям</span>
-        <div class="goal-stepper">
+        <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#food-goal-stepper" aria-expanded="false" title="Изменить дневную цель">Цель</button>
+            <div class="goal-stepper" id="food-goal-stepper" hidden>
           <button class="mini-btn" id="food-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
           <span class="goal-value" id="food-goal">2 000 ккал</span>
           <button class="mini-btn" id="food-goal-plus" type="button" aria-label="Увеличить цель">+</button>
@@ -322,16 +327,12 @@
       <div class="card-header">
         <div class="card-icon ai-stats-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
         <div>
-          <h2 id="ai-stats-title">ИИ-аналитик FitFlow</h2>
-          <p class="card-subtitle">Умное подведение итогов, анализ привычек и самочувствия</p>
+          <h2 id="ai-stats-title">Анализ периода · Помощник FitFlow</h2>
+          <p class="card-subtitle">Выводы по записям — за период, выбранный в статистике ниже</p>
         </div>
       </div>
       <div class="settings-row" style="margin:10px 0 12px">
-        <div class="segmented" id="ai-stats-period" role="radiogroup" aria-label="Период ИИ-анализа">
-          <button class="active" type="button" data-ai-stats-period="7">За неделю (7 дней)</button>
-          <button type="button" data-ai-stats-period="30">За месяц (30 дней)</button>
-        </div>
-        <button class="btn btn-primary" id="ai-stats-run-btn" type="button">✨ Анализ</button>
+        <button class="btn btn-primary" id="ai-stats-run-btn" type="button">✨ Анализировать выбранный период</button>
       </div>
       <div id="ai-stats-report-box" class="ai-result-box" hidden></div>
     </section>
@@ -507,7 +508,8 @@
             <span class="training-summary-label">Цель на последние 7 дней</span>
             <strong id="weekly-activity-total">0 мин из 150 мин</strong>
           </div>
-          <div class="goal-stepper">
+          <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
+            <div class="goal-stepper" id="weekly-goal-stepper" hidden>
             <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
             <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
           </div>
@@ -548,6 +550,8 @@
           </div>
         </div>
 
+        <p class="training-hint" id="activity-kcal-hint" aria-live="polite"></p>
+
         <label class="workout-duration-label" for="workout-duration">
           <span>Длительность</span>
           <span class="workout-duration-input-wrap">
@@ -557,19 +561,26 @@
         </label>
         <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
 
-        <label class="activity-note-label" for="activity-note">Заметка <span>(необязательно)</span>
-          <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
-        </label>
+        <section class="collapsible-block">
+          <button class="collapsible-toggle" type="button" data-collapse-target="activity-extra-content" aria-expanded="false">
+            <span>Дополнительно: заметка и готовый вариант</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="collapsible-content" id="activity-extra-content"><div>
+            <label class="activity-note-label" for="activity-note">Заметка <span>(необязательно)</span>
+              <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
+            </label>
 
-        <label class="activity-save-template-toggle">
-          <input id="activity-save-template" type="checkbox">
-          <span>Одновременно сохранить как готовый вариант</span>
-        </label>
-        <div class="activity-template-inline" id="activity-template-inline">
-          <label for="activity-template-name">Название готового варианта</label>
-          <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
-          <p class="training-hint">Сохранится вместе с текущей записью, без повторного ввода времени.</p>
-        </div>
+            <label class="activity-save-template-toggle">
+              <input id="activity-save-template" type="checkbox">
+              <span>Одновременно сохранить как готовый вариант</span>
+            </label>
+            <div class="activity-template-inline" id="activity-template-inline">
+              <label for="activity-template-name">Название готового варианта</label>
+              <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
+              <p class="training-hint">Сохранится вместе с текущей записью, без повторного ввода времени.</p>
+            </div>
+          </div></div>
+        </section>
 
         <button class="btn btn-primary training-add-btn" type="submit">Сохранить активность</button>
       </form>
@@ -629,8 +640,8 @@
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-ai">
             <span class="settings-menu-emoji" aria-hidden="true">✨</span>
-            <span class="settings-menu-text"><b>ИИ-помощник</b><small>Локальный режим, облачная нейросеть или Gemma на устройстве</small></span>
-            <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: ИИ-помощник" title="Что это за раздел?">?</span>
+            <span class="settings-menu-text"><b>Помощник FitFlow</b><small>Офлайн-анализ, облачная нейросеть или модель на устройстве</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: Помощник FitFlow" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-data">
@@ -754,17 +765,18 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="profile">👤</span></div>
         <div class="card-title-wrap">
           <h2>Профиль и цели</h2>
-          <p>Необязательные данные моего профиля для точных норм воды и калорий</p>
+          <p>Данные для расчёта ориентировочных целей (все поля необязательны)</p>
         </div>
       </div>
 
       <div class="settings-group profile-basics-group">
-        <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, хранятся только на вашем устройстве и никуда не передаются.</p>
+        <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, по умолчанию хранятся только на вашем устройстве. Сеть используется, только если вы явно включите онлайн-функции (облачный ИИ — Настройки → Помощник).</p>
         <div id="profile-basics-options">
           <p class="settings-label">Пол</p>
           <div class="segmented" id="profile-sex-choices" role="radiogroup" aria-label="Пол">
             <button type="button" data-profile-sex="female">Женский</button>
             <button type="button" data-profile-sex="male">Мужской</button>
+            <button type="button" data-profile-sex="none">Не указан</button>
           </div>
           <p class="settings-hint">Повторное нажатие на выбранный вариант снимает выбор.</p>
           <div class="profile-basics-row">
@@ -780,10 +792,11 @@
             <button type="button" data-profile-activity="low">Низкая</button>
             <button type="button" data-profile-activity="medium">Умеренная</button>
             <button type="button" data-profile-activity="high">Высокая</button>
+            <button type="button" data-profile-activity="none">Не указан</button>
           </div>
           <p class="settings-hint">Низкая — в основном сидячий день. Умеренная — прогулки или тренировки 2–4 раза в неделю. Высокая — занятия спортом почти каждый день или физическая работа.</p>
-          <button class="btn btn-secondary" id="norms-calc-btn" type="button">Рассчитать мои нормы воды и калорий</button>
-          <p class="settings-hint">Дневные цели можно в любой момент подстроить вручную кнопками −/+ на карточках «Вода» и «Питание» на Главной.</p>
+          <button class="btn btn-secondary" id="norms-calc-btn" type="button">Рассчитать ориентировочные цели (вода и ккал)</button>
+          <p class="settings-hint">Дневные цели подстраиваются на карточках «Вода» и «Питание»: нажмите «Цель» — откроются шаги −/+.</p>
         </div>
       </div>
 
@@ -800,6 +813,8 @@
           <p>Утренняя мотивация, приёмы пищи, вода и вечерняя активность</p>
         </div>
       </div>
+
+      <p class="settings-hint" id="notif-daily-summary" role="status"></p>
 
       <div class="settings-group">
         <div class="settings-label-row">
@@ -844,7 +859,6 @@
           <div class="meal-reminders-list" id="meal-reminders-list"></div>
         </div>
         <p class="settings-hint" id="meal-reminders-status">Напоминания о питании выключены.</p>
-        <button class="btn btn-secondary reminder-test-btn" id="meal-reminder-test" type="button">Проверить напоминание о питании</button>
       </div>
       <div class="settings-group">
         <div class="settings-label-row">
@@ -863,7 +877,6 @@
           </div>
         </div>
         <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
-        <button class="btn btn-secondary reminder-test-btn" id="activity-reminder-test" type="button">Проверить вечернюю активность</button>
       </div>
       <div class="settings-group">
         <p class="settings-label">Напоминания о воде</p>
@@ -927,7 +940,7 @@
       <div class="card-header">
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="ai">✨</span></div>
         <div class="card-title-wrap">
-          <h2>ИИ-помощник</h2>
+          <h2>Помощник FitFlow</h2>
           <p>Локальные факты из базы или настоящая нейросеть через ваш ключ</p>
         </div>
       </div>
@@ -935,14 +948,14 @@
       <div class="settings-group ai-settings-group">
         <div class="settings-label-row">
           <div>
-            <p class="settings-label">✨ ИИ-помощник FitFlow</p>
+            <p class="settings-label">✨ Помощник FitFlow</p>
             <p class="settings-hint">Три честных режима: локальные факты из базы продуктов (мгновенно, офлайн), облачная нейросеть через ваш ключ (ответит на любой вопрос, распознает фото) или Gemma прямо на устройстве (офлайн, без ключей).</p>
           </div>
           <button class="settings-group-collapse" type="button" data-collapse-for="ai-settings-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <label class="switch" for="ai-toggle">
             <input id="ai-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-            <span class="sr-only">Включить ИИ-помощника</span>
+            <span class="sr-only">Включить Помощника FitFlow</span>
           </label>
         </div>
         <div id="ai-settings-options" hidden>
@@ -954,12 +967,13 @@
           </div>
           <div id="ai-cloud-box" class="ai-model-box" hidden>
             <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — по вашему ключу</p>
-            <p class="settings-hint">Более свободные ответы нутрициолога, живой текст рецептов и анализа, распознавание фото моделью Gemini. Нужен интернет и ваш личный ключ; текст запроса уходит выбранному провайдеру. Бесплатные варианты: OpenRouter (модели с пометкой «free», ~50 запросов в день) и Gemini (дневной лимит; доступность зависит от страны). Для ежедневной работы приложения облако не требуется. Ключ хранится только на устройстве.</p>
+            <p class="settings-hint">Более свободные ответы о питании, живой текст рецептов и анализа, распознавание фото моделью Gemini. Нужен интернет и ваш личный ключ; текст запроса уходит выбранному провайдеру. Бесплатные варианты: OpenRouter (модели с пометкой «free», ~50 запросов в день) и Gemini (дневной лимит; доступность зависит от страны). Для ежедневной работы приложения облако не требуется. Ключ хранится только на устройстве.</p>
             <div class="segmented" id="ai-cloud-provider" role="radiogroup" aria-label="Провайдер облачного ИИ">
               <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
               <button type="button" data-cloud-provider="deepseek">DeepSeek</button>
               <button type="button" data-cloud-provider="openrouter">OpenRouter</button>
               <button type="button" data-cloud-provider="pollinations">Pollinations</button>
+              <button type="button" data-cloud-provider="gigachat">GigaChat</button>
               <button type="button" data-cloud-provider="custom">Свой сервер</button>
             </div>
             <p class="settings-hint" id="ai-cloud-hint" style="margin-top:8px"></p>
@@ -1032,6 +1046,7 @@
       <div class="settings-group">
         <p class="settings-label">Резервное копирование</p>
         <div class="settings-row">
+          <p class="settings-hint" id="backup-last-info" role="status">Резервная копия ещё не создавалась.</p>
           <button class="btn btn-secondary" id="export-btn" type="button">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1069,7 +1084,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.14</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.15</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1241,19 +1256,19 @@
       <div class="ai-center-head">
         <div class="card-icon ai-center-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
         <div class="card-title-wrap">
-          <h2 id="ai-center-title">ИИ-помощник FitFlow</h2>
-          <p>Быстрый ввод записей, рецепт, анализ периода и нутрициолог</p>
+          <h2 id="ai-center-title">Помощник FitFlow</h2>
+          <p>Быстрый ввод, рецепт, анализ периода и вопросы о питании</p>
         </div>
       </div>
 <div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
         <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2.5 5.5 14H11l-1.5 7.5L17 10h-5.5L13 2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Ввод</button>
         <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.6c2.3-.9 4.6-.7 7 .9 2.4-1.6 4.7-1.8 7-.9v14c-2.3-.9-4.6-.7-7 .9-2.4-1.6-4.7-1.8-7-.9v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Рецепт</button>
         <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 16.5v-4M12.5 16.5v-8M17.5 16.5v-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Анализ</button>
-        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Нутрициолог</button>
+        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Спросить</button>
       </div>
       <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
       <div id="ai-tab-quick" class="ai-tab-panel">
-        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня (офлайн, база 960+ продуктов). С облачным ИИ (Настройки → ИИ-помощник) можно и сфотографировать блюдо — нейросеть составит список продуктов.</p>
+        <p class="settings-hint" style="margin-top:0">Одной фразой — всё сразу: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит по разделам (офлайн, база 960+ продуктов). Можно надиктовать голосом или сфотографировать блюдо. <button class="chip chip-sm" id="ai-quick-example" type="button" title="Подставить пример фразы в поле ниже">Подставить пример</button></p>
         <div class="ai-input-stack">
           <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
           <div class="ai-actions-row">
@@ -1328,8 +1343,8 @@
         <p class="settings-hint" style="margin-top:0">FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
         <div class="ai-input-stack">
           <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
-            <button class="active" type="button" data-ai-period="7">За неделю (7 дней)</button>
-            <button type="button" data-ai-period="30">За месяц (30 дней)</button>
+            <button class="active" type="button" data-ai-period="7">7 дней</button>
+            <button type="button" data-ai-period="30">30 дней</button>
           </div>
           <div class="ai-actions-row">
             <span class="ai-actions-spacer"></span>
@@ -1338,11 +1353,11 @@
         </div>
         <div id="ai-analysis-result" class="ai-result-box" hidden></div>
       </div>
-      <!-- Вкладка: Вопрос нутрициологу -->
+      <!-- Вкладка: Спросить о питании -->
       <div id="ai-tab-chat" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами. Локально отвечу фактами из базы продуктов; с облачным ИИ (Настройки → ИИ-помощник) нейросеть ответит на любой вопрос с учётом вашего дня. Вопрос можно и надиктовать.</p>
+        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами. Локально отвечу фактами из базы продуктов; с облачным ИИ (Настройки → Помощник) нейросеть ответит на любой вопрос с учётом вашего дня. Вопрос можно и надиктовать.</p>
         <div class="ai-input-stack">
-          <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос нутрициологу"></textarea>
+          <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос о питании"></textarea>
           <div class="ai-actions-row">
             <button class="icon-btn ai-icon-btn" id="ai-chat-voice-btn" type="button" title="Надиктовать вопрос голосом" aria-label="Надиктовать вопрос голосом">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1387,15 +1402,16 @@
     </button>
     <button class="nav-item" data-nav="settings" type="button">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
-        <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
-              stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M4 7h8M18 7h2M4 12h2M10 12h10M4 17h11M19 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="15" cy="7" r="2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="7" cy="12" r="2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="16.5" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/>
       </svg>
       <span>Настройки</span>
     </button>
   </nav>
 
-  <button class="activity-fab" id="activity-fab" type="button" hidden>＋ Запись</button>
+  <button class="activity-fab" id="activity-fab" type="button" hidden>↓ К форме</button>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1514,7 +1530,7 @@
         <p><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
         <p><b>Личные нормы воды и калорий.</b> Вода — ориентир ~30 мл на кг веса с надбавкой при высокой активности. Калории — формула Миффлина — Сан Жеора (пол, возраст, рост, вес) с поправкой на среднюю активность; если данные не заполнены, используется упрощённая оценка по весу. Расчёт выполняется на устройстве в Настройках → «Профиль и цели».</p>
         <p><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
-        <p><b>Локальный эксперт и анализ.</b> Разделы «Анализ», «Рецепт» и «Вопрос нутрициологу» работают по правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо: рецепт собирается из реально перечисленных продуктов, ответы чата строятся по тематическим правилам и базе продуктов. Если в дневнике мало записей, выводы честно помечаются как общие. Полноценная нейросеть уже может работать прямо на телефоне или по вашему ключу (Настройки → «ИИ-помощник»): она пишет рецепты и анализ живым текстом и распознаёт еду по фото.</p>
+        <p><b>Встроенный анализ.</b> Разделы «Анализ», «Рецепт» и «Спросить» работают офлайн: по правилам, словарям и вашим записям — без отправки данных куда-либо. Рецепт собирается из реально перечисленных продуктов, ответы — по тематическим правилам и базе 960+ продуктов; при малом числе записей выводы честно помечаются как общие. Полноценная нейросеть — опционально: на устройстве (без интернета) или облачно по вашему ключу (Настройки → Помощник): она пишет живой текст и оценивает еду по фото (≈ оценку всегда можно исправить перед сохранением).</p>
         <p><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
       </div>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="methodology-dialog-ok" type="button">Понятно</button></div>
@@ -1524,12 +1540,12 @@
   <div class="app-dialog-backdrop" id="norms-dialog" role="dialog" aria-modal="true" aria-labelledby="norms-dialog-title" hidden>
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">🎯</div>
-      <h2 id="norms-dialog-title">Мои нормы на день</h2>
+      <h2 id="norms-dialog-title">Ориентировочные цели на день</h2>
       <p id="norms-dialog-text" style="font-size:1.05rem;text-align:center">—</p>
       <p class="app-dialog-hint" id="norms-dialog-hint">—</p>
       <div class="app-dialog-actions">
         <button class="btn btn-secondary" id="norms-dialog-cancel" type="button">Отмена</button>
-        <button class="btn btn-primary" id="norms-dialog-apply" type="button">Применить</button>
+        <button class="btn btn-primary" id="norms-dialog-apply" type="button">Использовать как цель</button>
       </div>
     </section>
   </div>
@@ -1552,7 +1568,7 @@
       <p class="profiles-dialog-hint">Нажмите название, чтобы сразу перейти в профиль. Стрелка откроет его параметры.</p>
       <div class="profile-list" id="profile-list"></div>
       <div class="profile-add-row">
-        <input id="profile-new-name" type="text" maxlength="40" placeholder="Например, Жена">
+        <input id="profile-new-name" type="text" maxlength="40" placeholder="Имя нового профиля">
         <button class="btn btn-secondary" id="profile-add" type="button">Добавить</button>
       </div>
       <button class="btn btn-secondary theme-dialog-cancel" id="profiles-dialog-cancel" type="button">Закрыть</button>
@@ -1644,7 +1660,7 @@
       <div class="terms-list">
         <p><b>Как работает сейчас.</b> Нажмите «🎙 Надиктовать» — текст появится в этом же окне для проверки вместе с разбором по позициям, и попадёт в дневник только после кнопки «Сохранить записи».</p>
         <p><b>Без интернета.</b> FitFlow просит у Android офлайн-распознавание: если языковой пакет Google скачан на устройство, диктовка работает и без сети.</p>
-        <p><b>Продвинутый режим.</b> Скачиваемая нейросеть (Настройки → ИИ-помощник, режим «Gemma на устройстве») будет понимать длинные свободные фразы целиком на телефоне — подключается отдельным обновлением.</p>
+        <p><b>Продвинутый режим.</b> Скачиваемая нейросеть (Настройки → Помощник, режим «Gemma на устройстве») будет понимать длинные свободные фразы целиком на телефоне — подключается отдельным обновлением.</p>
         <p><b>Приватность.</b> Распознавание и разбор выполняются на устройстве; в облако ничего не отправляется.</p>
       </div>
       <p class="app-dialog-hint">Если распознавание обрывает фразу на паузе — это ограничение распознавателя телефона: надиктуйте короче или продолжите второй фразой, разбор поймёт обе части (например: «каша 200 г, … второй бутерброд»).</p>
@@ -1740,21 +1756,7 @@
     </section>
   </div>
 
-  <div class="app-dialog-backdrop" id="mood-dialog" role="dialog" aria-modal="true" aria-labelledby="mood-dialog-title" hidden>
-    <section class="app-dialog">
-      <div class="app-dialog-icon" aria-hidden="true">📊</div>
-      <h2 id="mood-dialog-title">Как прошёл день?</h2>
-      <p>Это общая оценка всего дня — удобнее всего отмечать вечером. Она помогает увидеть связь между привычками и настроением.</p>
-      <div class="mood-picker" id="mood-picker">
-        <button class="mood-btn" type="button" data-mood="1" aria-label="Очень плохо"><span>😔</span><small>1</small></button>
-        <button class="mood-btn" type="button" data-mood="2" aria-label="Плохо"><span>🙁</span><small>2</small></button>
-        <button class="mood-btn" type="button" data-mood="3" aria-label="Нормально"><span>😐</span><small>3</small></button>
-        <button class="mood-btn" type="button" data-mood="4" aria-label="Хорошо"><span>🙂</span><small>4</small></button>
-        <button class="mood-btn" type="button" data-mood="5" aria-label="Отлично"><span>😊</span><small>5</small></button>
-      </div>
-      <div class="app-dialog-actions"><button class="btn btn-secondary" id="mood-dialog-cancel" type="button">Отмена</button></div>
-    </section>
-  </div>
+  
   <div class="app-dialog-backdrop" id="activity-reminder-dialog" role="dialog" aria-modal="true" aria-labelledby="activity-reminder-dialog-title" hidden>
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">🌿</div>

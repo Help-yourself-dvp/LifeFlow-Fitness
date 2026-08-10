@@ -2582,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.14';
+const FITFLOW_VERSION = '0.4.15';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -3115,12 +3115,12 @@ function renderProfileBasics() {
   const sexChoices = $('#profile-sex-choices');
   if (sexChoices) {
     $$('#profile-sex-choices button').forEach((btn) =>
-      btn.classList.toggle('active', profile.sex !== null && btn.dataset.profileSex === profile.sex));
+      btn.classList.toggle('active', (profile.sex || null) === (btn.dataset.profileSex === 'none' ? null : btn.dataset.profileSex)));
   }
   const activityChoices = $('#profile-activity-choices');
   if (activityChoices) {
     $$('#profile-activity-choices button').forEach((btn) =>
-      btn.classList.toggle('active', profile.activityLevel !== null && btn.dataset.profileActivity === profile.activityLevel));
+      btn.classList.toggle('active', (profile.activityLevel || null) === (btn.dataset.profileActivity === 'none' ? null : btn.dataset.profileActivity)));
   }
   const ageInput = $('#profile-age-input');
   if (ageInput && document.activeElement !== ageInput) ageInput.value = profile.ageYears || '';
@@ -3144,8 +3144,8 @@ function saveProfileBasicField(field, rawValue) {
 
 function toggleProfileChoice(kind, value) {
   const key = kind === 'sex' ? 'sex' : 'activityLevel';
-  // Повторное нажатие на тот же вариант снимает выбор (поле необязательное).
-  state.profileSettings[key] = state.profileSettings[key] === value ? null : value;
+  // 0.4.15 (аудит А2/А3): «Не указан» — явный пункт; повторный тап больше НЕ снимает выбор.
+  state.profileSettings[key] = (value === 'none' || value === '' || value == null) ? null : value;
   saveState();
   renderProfileBasics();
 }
@@ -3881,7 +3881,7 @@ function renderProfiles() {
         <div class="profile-card-header">
           <button type="button" class="profile-select" data-profile-id="${profileId}" aria-label="${isActive ? 'Текущий профиль' : 'Перейти в профиль'}: ${profileName}">
             <span class="profile-card-name">${profileName}</span>
-            <span class="profile-card-status">${isActive ? 'Текущий' : 'Перейти'}</span>
+            <span class="profile-card-status">${isActive ? 'Текущий' : 'Перейти ›'}</span>
           </button>
           <button class="profile-expand-btn" type="button" data-profile-expand="${profileId}" aria-expanded="${isOpen}" aria-controls="${detailsId}" aria-label="${isOpen ? 'Свернуть' : 'Открыть'} параметры профиля ${profileName}">
             <span aria-hidden="true">⌄</span>
@@ -3921,8 +3921,9 @@ async function switchProfile(id) {
   await cancelMealReminders();
   await cancelWaterReminders();
   await cancelMorningMotivation();
-  await cancelWaterReminders();
-  await cancelWaterReminders();
+  // 0.4.15 (аудит А3#29): курсовые напоминания тоже гасим при смене профиля
+  // (раньше спасала только перезагрузка); случайные дубли cancelWater убраны.
+  try { await cancelCourseReminders(); } catch (e) { }
   profilesState.activeId = id;
   saveProfiles();
   location.reload();
@@ -3977,9 +3978,8 @@ async function confirmDeleteProfile() {
   const wasActive = profilesState.activeId === id;
   if (wasActive) {
     await cancelTrainingReminder(); await cancelMealReminders();
-  await cancelWaterReminders(); await cancelMorningMotivation();
-  await cancelWaterReminders();
-  await cancelWaterReminders();
+    await cancelWaterReminders(); await cancelMorningMotivation();
+    try { await cancelCourseReminders(); } catch (e) { } // 0.4.15: как и в switchProfile
     profilesState.activeId = 'default';
   }
   saveProfiles();
@@ -4203,15 +4203,19 @@ function getFont() {
 }
 function applyFont(font) {
   const f = FONT_OPTIONS.includes(font) ? font : 'standard';
-  if (f === 'standard') document.documentElement.removeAttribute('data-font');
+  // 0.4.15 (п.4 владельца): «Стандарт» выбран ЯВНО (ключ сохранён) —
+  // единый системный шрифт поверх всех тем; ключ ещё не задан — тематические шрифты живут.
+  if (f === 'standard') {
+    if (localStorage.getItem('fitflow:font') === 'standard') document.documentElement.setAttribute('data-font', 'standard');
+    else document.documentElement.removeAttribute('data-font');
+  }
   else document.documentElement.setAttribute('data-font', f);
   $$('#font-segmented button').forEach((btn) =>
     btn.classList.toggle('active', btn.dataset.font === f));
 }
 function setFont(font) {
   const f = FONT_OPTIONS.includes(font) ? font : 'standard';
-  if (f === 'standard') localStorage.removeItem('fitflow:font');
-  else localStorage.setItem('fitflow:font', f);
+  localStorage.setItem('fitflow:font', f); // 0.4.15: «Стандарт» — тоже явный выбор
   applyFont(f);
   toast('🔤 Шрифт: ' + FONT_LABELS[f]);
 }
@@ -4219,6 +4223,18 @@ function setFont(font) {
    Рендер
    ============================================================ */
 const RING_CIRCUMFERENCE = 2 * Math.PI * 54;
+// 0.4.15 (аудит А2): статичное «Сегодня отличный день…» выцветало — небольшой пул,
+// детерминированная ротация по дню года (без случайности и повторных сюрпризов).
+const GREETING_SUBTITLES = [
+  'Маленькие шаги каждый день важнее идеального понедельника',
+  'Стакан воды и короткая прогулка — уже хороший день',
+  'Записывайте по факту — FitFlow сам всё посчитает',
+  'Сегодняшние записи — завтрашняя честная статистика',
+  'Без спешки: ровный ритм побеждает рывки',
+  'Вода, еда, движение, сон — остальное приложится',
+  'Данные остаются на устройстве — дневник только ваш',
+  'Любая запись лучше, чем день без записей'
+];
 let activeStatsPeriod = 'week';
 let activeWaterDetailPeriod = 'week';
 let activeFoodDetailPeriod = 'week';
@@ -4261,16 +4277,18 @@ function renderAll() {
   renderTraining();
   renderActivityIntensity();
   renderDurationUnit();
-  renderReminderSettings();
-  renderMealRemindersSettings();
-  renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+  renderReminderSettings(); renderNotificationBudget();
+  renderMealRemindersSettings(); renderNotificationBudget();
+  renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
   renderDayChecklistSettings();
   renderDayChecklist();
   renderGameMode();
   renderGameModeSettings();
   renderSleepCheckinSettings();
   renderAiSettings();
+  renderBackupInfo(); // 0.4.15
+  renderNotificationBudget(); // 0.4.15
   renderProfileBasics();
   applySettingsAccordion();
   updateNativeWidget();
@@ -4353,8 +4371,22 @@ function renderStatsWeightChart() {
         ? 'График охватывает последние 3 месяца — записей пока мало, он заполнится по мере регулярных взвешиваний.'
         : 'По записям за последние 3 месяца.';
   }
+  // 0.4.15 (аудит А3): одна точка — не график, а честный текст.
+  const distinctWeightDates = new Set(shown.map((entry) => entry.date));
+  if (shown.length < 2 || distinctWeightDates.size < 2) {
+    chart.innerHTML = '';
+    if (caption) caption.textContent = shown.length
+      ? 'Пока одна запись веса (' + formatWeightDate(shown[shown.length - 1].date) + ') — добавьте ещё одну, появится линия динамики.'
+      : 'Записей веса пока нет — добавьте первую на Главной.';
+    return;
+  }
   drawWeightChartInto(wrap, chart, shown);
 }
+
+/* 0.4.15 (аудит А2/А3): «компактный план» — одна строка вместо подробного списка,
+   по желанию; вид главной по умолчанию не меняется. */
+function isDayPlanCollapsed() { try { return localStorage.getItem('fitflow:dayplan-collapsed') === '1'; } catch (e) { return false; } }
+function toggleDayPlanCollapsed() { try { localStorage.setItem('fitflow:dayplan-collapsed', isDayPlanCollapsed() ? '0' : '1'); } catch (e) { } renderDayPlan(); }
 
 /* «План дня» — объединённая карточка (0.3.11, идея пользователя):
    чек-лист и задания дня выглядели слишком похоже — теперь это одно
@@ -4408,7 +4440,9 @@ function renderDayPlan() {
       if (entry && entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
       if (entry && entry.rating != null) bits.push(`оценка ${entry.rating}/5`);
       const sleepText = entry ? (bits.join(' · ') || 'отмечен') : 'не отмечен — оценить';
-      sleepRow = `<button type="button" class="${itemText(!!entry)} checklist-sleep-btn" data-sleep-open>${itemMark(!!entry)} Сон — ${sleepText}</button>`;
+      // 0.4.15 (аудит А3): сон — факт отметки, а не достигнутая цель: нейтральная метка.
+      const sleepMark = entry ? '<span class="checklist-icon noted">✓</span>' : '<span class="checklist-icon pending">○</span>';
+      sleepRow = `<button type="button" class="${entry ? 'checklist-item noted' : 'checklist-item'} checklist-sleep-btn" data-sleep-open>${sleepMark} Сон — ${sleepText}</button>`;
     }
 
     checklistItems = `<div class="checklist-items">
@@ -4425,7 +4459,7 @@ function renderDayPlan() {
   if (showTasks) {
     const tasks = computeGameTasks();
     const doneCount = tasks.filter((t) => t.cur >= t.target).length;
-    headerNote = `<span class="game-tasks-note">${doneCount} из ${tasks.length}</span>`;
+    headerNote = `<span class="game-tasks-note">Задания: ${doneCount} из ${tasks.length}</span>`;
     tasksHtml = tasks.map((t) => {
       const done = t.cur >= t.target;
       const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
@@ -4448,9 +4482,20 @@ function renderDayPlan() {
 
   // 0.3.30: строки «Моего курса» — ручные отметки приёмов (не вычисляются
   // из других записей, в отличие от воды/питания — только подтверждение).
+  // 0.4.15: свёрнутый вид — одна честная сводная строка.
+  if (isDayPlanCollapsed()) {
+    const foodKcalNow = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+    const actNow = (Array.isArray(state.workouts) ? state.workouts : [])
+      .filter((w) => w.date === todayKey()).reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
+    card.innerHTML = `<div class="card checklist-card" aria-label="План дня">
+    <div class="checklist-header"><span>📋 План дня</span>${headerNote}<button class="day-plan-toggle" type="button" data-dayplan-toggle aria-label="Развернуть план дня" title="Развернуть">▸</button></div>
+    <p class="day-plan-collapsed-line">💧 ${fmt(state.water.total)}/${fmt(state.water.goal)} мл · 🔥 ${fmt(foodKcalNow)}/${fmt(state.food.goal)} ккал · 🏃 ${actNow} мин</p>
+  </div>`;
+    return;
+  }
   const coursesPlanHtml = buildCoursesPlanHtml();
   card.innerHTML = `<div class="card checklist-card" aria-label="План дня">
-    <div class="checklist-header"><span>📋 План дня</span>${headerNote}</div>
+    <div class="checklist-header"><span>📋 План дня</span>${headerNote}<button class="day-plan-toggle" type="button" data-dayplan-toggle aria-label="Свернуть план дня" title="Свернуть">▾</button></div>
     ${checklistItems}
     ${coursesPlanHtml}
     ${(showChecklist || coursesPlanHtml) && showTasks ? '<hr class="day-plan-divider">' : ''}
@@ -4470,23 +4515,32 @@ function renderDayMoodCard() {
   const card = $('#day-mood-card');
   if (!card) return;
   const shown = isHomeCardShown('day-mood');
-  card.hidden = !shown;
-  if (!shown) return;
-
+  if (!shown) { card.hidden = true; return; }
   const mood = getTodayMood();
-  const emojis = ['', '😔', '🙁', '😐', '🙂', '😊'];
-  const labels = ['', 'Очень плохо', 'Плохо', 'Нормально', 'Хорошо', 'Отлично'];
+  const emojis = { 1: '😞', 2: '🙁', 3: '😐', 4: '🙂', 5: '😄' };
+  const labels = { 1: 'тяжёлый', 2: 'слабый', 3: 'обычный', 4: 'хороший', 5: 'отличный' };
+  // 0.4.15 (решение владельца по А2/А3): инлайн-смайлы — один тап = записано
+  // (наш паттерн чек-ина сна). Днём карточка компактная строка; полная — вечером.
+  const buttons = [1, 2, 3, 4, 5].map((n) =>
+    `<button type="button" class="mood-inline-btn${mood === n ? ' active' : ''}" data-mood-inline="${n}" title="${n} из 5 — ${labels[n]}" aria-label="Оценить день на ${n} из 5">${emojis[n]}</button>`).join('');
+  const evening = new Date().getHours() >= 17;
+  card.hidden = false;
+  if (!mood && !evening) {
+    card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
+    <div class="mood-card-row mood-compact-row"><span class="mood-compact-label">🌗 Самочувствие <span class="mood-compact-note">итоги — ближе к вечеру</span></span><span class="mood-inline-row">${buttons}</span></div>
+  </div>`;
+    return;
+  }
   const valueHtml = mood
     ? `<span class="mood-card-value"><span class="mood-emoji">${emojis[mood]}</span> ${labels[mood]} · ${mood}/5</span>`
     : `<span class="mood-card-value" style="color:var(--md-sys-color-on-surface-variant);font-weight:600">Сегодня ещё не оценён</span>`;
-
   card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
     <div class="checklist-header"><span>🌗 Самочувствие за день</span></div>
     <div class="mood-card-row">
       ${valueHtml}
-      <button class="btn btn-secondary mood-pick-btn" type="button" id="mood-pick-open" style="font-size:0.74rem;padding:6px 12px">${mood ? 'Изменить' : 'Оценить день'}</button>
+      <span class="mood-inline-row">${buttons}</span>
     </div>
-    <div class="checklist-hint">Это общая оценка всего дня, а не только утра — удобнее отмечать вечером, подводя итоги.</div>
+    <div class="checklist-hint">Один тап по смайлу — оценка записана. Удобнее вечером, подводя итоги дня; оценки складываются в статистику.</div>
   </div>`;
 }
 
@@ -4548,7 +4602,7 @@ function computeGameTasks() {
     .filter((w) => w.date === todayKey())
     .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
   return [
-    { id: 'water', emoji: '💧', icon: GAME_TASK_ICONS.water, title: 'Вода до нормы', cur: waterTotal, target: waterGoal, unit: 'мл' },
+    { id: 'water', emoji: '💧', icon: GAME_TASK_ICONS.water, title: 'Норма воды', cur: waterTotal, target: waterGoal, unit: 'мл' },
     { id: 'food', emoji: '🥑', icon: GAME_TASK_ICONS.food, title: 'Завтрак, обед и ужин', cur: mealsEaten, target: 3, unit: 'приём' },
     { id: 'activity', emoji: '🏃', icon: GAME_TASK_ICONS.activity, title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
   ];
@@ -5189,8 +5243,14 @@ function renderWeightOverview() {
   const statsTotal = $('#stats-weight-total');
   const statsHint = $('#stats-weight-hint');
   if (statsTotal) statsTotal.textContent = shownWeight ? `${Number(shownWeight).toLocaleString('ru-RU')} кг` : '—';
+  // 0.4.15 (аудит А3): крупная дельта за 30 дней — самый читаемый показатель.
+  const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30);
+  const key30 = `${cutoff30.getFullYear()}-${String(cutoff30.getMonth() + 1).padStart(2, '0')}-${String(cutoff30.getDate()).padStart(2, '0')}`;
+  const base30 = history.filter((entry) => entry.date >= key30)[0];
+  const d30 = (base30 && latest && base30.date !== latest.date) ? Math.round((latest.weightKg - base30.weightKg) * 10) / 10 : null;
+  const d30Text = d30 == null ? '' : ' · 30 дн: ' + (d30 > 0 ? '+' : '') + Number(d30).toLocaleString('ru-RU') + ' кг';
   if (statsHint) statsHint.textContent = latest
-    ? (delta == null ? `Последняя запись: ${formatWeightDate(latest.date)}` : `${deltaText} · ${history.length} зап.`)
+    ? (delta == null ? `Последняя запись: ${formatWeightDate(latest.date)}` : `${deltaText} · ${history.length} зап.${d30Text}`)
     : 'Добавьте запись веса на Главной или откройте подробный график.';
 }
 
@@ -5562,6 +5622,7 @@ function renderStatsBars(container, days, valueKey, maxValue, period) {
     const value = Number(day[valueKey]) || 0;
     const height = Math.max(2, Math.min(100, (value / safeMax) * 100));
     return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${Math.round(value)}">
+      ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${Math.round(value)}</span>` : ''}
       <div class="stats-bar" style="height:${height}%"></div>
       <span class="stats-bar-label">${statsDateLabel(day.date, period)}</span>
     </div>`;
@@ -5582,9 +5643,23 @@ function renderStats() {
   const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
   $('#stats-period-caption').textContent = captions[period];
   $('#stats-water-total').textContent = `${fmt(waterTotal)} мл`;
-  $('#stats-water-hint').textContent = `${Math.round(waterGoal ? (waterTotal / waterGoal) * 100 : 0)}% от цели · в среднем ${fmt(waterTotal / count)} мл/день`;
+  // 0.4.15 (аудит А2/А3): «нет записи» — не «0». Средние и % цели считаем
+  // по дням С ЗАПИСЯМИ; дни без записей честно показываем отдельно.
+  const waterDataDays = days.filter((day) => day.waterTotal > 0);
+  const wGoalData = waterDataDays.reduce((sum, day) => sum + day.waterGoal, 0);
+  const wPct = Math.round(wGoalData ? (waterTotal / wGoalData) * 100 : 0);
+  const wAvg = waterDataDays.length ? waterTotal / waterDataDays.length : 0;
+  $('#stats-water-hint').textContent = waterDataDays.length
+    ? `${wPct}% от цели в дни с записями · в среднем ${fmt(wAvg)} мл/день` + (waterDataDays.length < days.length ? ` · записи: ${waterDataDays.length} из ${days.length} дн.` : '')
+    : 'Записей о воде за период нет';
   $('#stats-food-total').textContent = `${fmt(foodTotal)} ккал`;
-  $('#stats-food-hint').textContent = `${Math.round(foodGoal ? (foodTotal / foodGoal) * 100 : 0)}% от цели · в среднем ${fmt(foodTotal / count)} ккал/день`;
+  const foodDataDays = days.filter((day) => day.foodTotal > 0);
+  const fGoalData = foodDataDays.reduce((sum, day) => sum + day.foodGoal, 0);
+  const fPct = Math.round(fGoalData ? (foodTotal / fGoalData) * 100 : 0);
+  const fAvg = foodDataDays.length ? foodTotal / foodDataDays.length : 0;
+  $('#stats-food-hint').textContent = foodDataDays.length
+    ? `${fPct}% от цели в дни с записями · в среднем ${fmt(fAvg)} ккал/день` + (foodDataDays.length < days.length ? ` · записи: ${foodDataDays.length} из ${days.length} дн.` : '')
+    : 'Записей о питании за период нет';
   $('#stats-activity-total').textContent = formatActivityDuration(activityMinutes);
   $('#stats-activity-hint').textContent = activityMinutes
     ? `В среднем ${formatActivityDuration(activityMinutes / count)} в день`
@@ -5610,7 +5685,11 @@ function renderWaterDetails() {
   const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
   $('#water-details-caption').textContent = captions[period];
   $('#water-details-total').textContent = `${fmt(total)} мл`;
-  $('#water-details-average').textContent = `В среднем ${fmt(total / days.length)} мл в день · ${Math.round(goal ? total / goal * 100 : 0)}% от цели`;
+  const waterDataDays = days.filter((day) => day.waterTotal > 0);
+  const waterDataGoal = waterDataDays.reduce((sum, day) => sum + day.waterGoal, 0);
+  $('#water-details-average').textContent = waterDataDays.length
+    ? `В среднем ${fmt(total / waterDataDays.length)} мл в дни с записями · ${Math.round(waterDataGoal ? total / waterDataGoal * 100 : 0)}% от цели` + (waterDataDays.length < days.length ? ` (записи: ${waterDataDays.length} из ${days.length} дн.)` : '')
+    : 'Записей о воде за период нет';
   $('#water-details-insight').textContent = achieved
     ? `Цель по воде выполнена в ${achieved} из ${days.length} дней.`
     : 'Добавляйте воду на Главной — здесь появится история выполнения цели.';
@@ -5628,7 +5707,11 @@ function renderFoodDetails() {
   const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
   $('#food-details-caption').textContent = captions[period];
   $('#food-details-total').textContent = `${fmt(total)} ккал`;
-  $('#food-details-average').textContent = `В среднем ${fmt(total / days.length)} ккал в день · ${Math.round(goal ? total / goal * 100 : 0)}% от цели`;
+  const foodDataDays = days.filter((day) => day.foodTotal > 0);
+  const foodDataGoal = foodDataDays.reduce((sum, day) => sum + day.foodGoal, 0);
+  $('#food-details-average').textContent = foodDataDays.length
+    ? `В среднем ${fmt(total / foodDataDays.length)} ккал в дни с записями · ${Math.round(foodDataGoal ? total / foodDataGoal * 100 : 0)}% от цели` + (foodDataDays.length < days.length ? ` (записи: ${foodDataDays.length} из ${days.length} дн.)` : '')
+    : 'Записей о питании за период нет';
   $('#food-details-insight').textContent = withinGoal
     ? `Цель по калориям не превышена в ${withinGoal} из ${days.length} дней с записями.`
     : 'Добавляйте питание на Главной — здесь появятся дневные итоги.';
@@ -5669,7 +5752,7 @@ function renderMealTypePicker() {
   const current = $('#meal-type-current');
   if (current) {
     const type = getSelectedMealType();
-    const autoMark = type && !mealTypeTouched ? ' <span class="meal-type-auto">авто</span>' : '';
+    const autoMark = type && !mealTypeTouched ? ' <span class="meal-type-auto" title="Определено автоматически по времени суток">авто</span>' : '';
     current.innerHTML = type
       ? `Приём пищи: <b>${escapeHtml(type.label)}</b>${autoMark}`
       : 'Приём пищи: <b>Без типа</b>';
@@ -5689,7 +5772,7 @@ function addCustomMealType() {
   $('#custom-meal-type-inline').classList.remove('is-open');
   saveState();
   renderMealTypePicker();
-  renderMealRemindersSettings();
+  renderMealRemindersSettings(); renderNotificationBudget();
   toast(`Тип «${label}» добавлен`);
 }
 
@@ -5827,6 +5910,7 @@ function changeWaterGoal(delta) {
   state.water.goal = next;
   saveState();
   renderWater();
+  renderDayPlan(); // 0.4.15: План дня показывал старую цель (аудит)
 }
 
 /* ============================================================
@@ -6198,6 +6282,7 @@ function changeFoodGoal(delta) {
   state.food.goal = next;
   saveState();
   renderFood();
+  renderDayPlan(); // 0.4.15
 }
 
 /* ============================================================
@@ -6303,8 +6388,37 @@ function estimateActivityKcal(workout) {
   const met = (ACTIVITY_MET[workout.type] || ACTIVITY_MET.other)[workout.intensity || 'medium'];
   return Math.round(met * weight * (workout.durationMinutes / 60));
 }
+/* 0.4.15 (аудит А3#13): интенсивность запоминается по типу активности
+   (прогулка → средняя, силовая → высокая…); рядом честная оценка ≈ккал. */
+function intensityMemoryLoad(type) {
+  try { const m = JSON.parse(localStorage.getItem('fitflow:intensity-by-type') || '{}'); return m[type] || null; } catch (e) { return null; }
+}
+function intensityMemorySave(type, value) {
+  try { const m = JSON.parse(localStorage.getItem('fitflow:intensity-by-type') || '{}'); m[type] = value; localStorage.setItem('fitflow:intensity-by-type', JSON.stringify(m)); } catch (e) { }
+}
+function currentDurationMinutes() {
+  const input = $('#workout-duration');
+  const raw = parseFloat(String((input && input.value) || '').replace(',', '.'));
+  const base = Number.isFinite(raw) && raw > 0 ? raw : 30;
+  const unitLabel = (($('#workout-duration-unit-label') || {}).textContent) || 'мин';
+  return unitLabel.indexOf('ч') !== -1 ? Math.round(base * 60) : Math.round(base);
+}
+function updateActivityKcalHint() {
+  const hint = $('#activity-kcal-hint');
+  if (!hint) return;
+  const mins = currentDurationMinutes();
+  const metTable = ACTIVITY_MET[selectedActivityType] || ACTIVITY_MET.other;
+  const met = metTable[selectedActivityIntensity || 'medium'];
+  const weight = Number(state.profileSettings && state.profileSettings.weightKg) || 0;
+  const kcal = Math.round(met * (weight || 70) * (mins / 60));
+  hint.textContent = 'Расход: ≈ ' + kcal + ' ккал за ' + mins + ' мин'
+    + (weight ? ' (при вашем весе ' + Number(weight).toLocaleString('ru-RU') + ' кг)' : ' — при условном весе 70 кг; укажите вес, станет точнее')
+    + '. Оценка по MET — ориентир, не точный замер.';
+}
+
 function renderActivityIntensity() {
   $$('#activity-intensity [data-intensity]').forEach((button) => button.classList.toggle('active', button.dataset.intensity === selectedActivityIntensity));
+  updateActivityKcalHint();
 }
 
 function renderTraining() {
@@ -6340,7 +6454,9 @@ function renderTraining() {
   }
   const weeklyMinutes = getStatsDays('week').reduce((sum, day) => sum + day.activityMinutes, 0);
   const weeklyGoal = state.activitySettings.weeklyGoalMinutes;
-  $('#weekly-activity-total').textContent = `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)}`;
+  // 0.4.15 (аудит А2): перевыполнение — успех, а не цифра «как ошибка».
+  const weeklyOver = weeklyMinutes - weeklyGoal;
+  $('#weekly-activity-total').textContent = `${formatActivityDuration(weeklyMinutes)} · цель ${formatActivityDuration(weeklyGoal)}${weeklyOver > 0 ? ` ✓ +${formatActivityDuration(weeklyOver)} сверх` : ''}`;
   $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
   renderActivityTypeSelection();
   renderActivityTemplates();
@@ -6603,6 +6719,43 @@ function getVendorNotificationHint() {
   return DEFAULT_VENDOR_NOTIFICATION_HINT;
 }
 
+/* 0.4.15 (аудит А3#52): честный бюджет — «сегодня может прийти до N». */
+function computeTodayNotificationBudget() {
+  const parts = [];
+  let total = 0;
+  if (state.morningMotivation && state.morningMotivation.enabled) { total += 1; parts.push('мотивация — 1'); }
+  const meals = (state.mealReminders && state.mealReminders.enabled && Array.isArray(state.mealReminders.meals))
+    ? state.mealReminders.meals.filter((m) => m && m.enabled !== false).length : 0;
+  if (meals) { total += meals; parts.push('питание — ' + meals); }
+  if (state.reminders && state.reminders.enabled) { total += 1; parts.push('вечерняя активность — 1'); }
+  if (state.waterReminders && state.waterReminders.enabled) {
+    const from = String(state.waterReminders.windowStart || '08:00').split(':').map(Number);
+    const till = String(state.waterReminders.windowEnd || '22:00').split(':').map(Number);
+    const spanMin = (till[0] * 60 + (till[1] || 0)) - (from[0] * 60 + (from[1] || 0));
+    const interval = Math.max(15, Number(state.waterReminders.interval) || 90);
+    const waterN = spanMin > 0 ? Math.floor(spanMin / interval) + 1 : 0;
+    if (waterN) { total += waterN; parts.push('вода — ' + waterN); }
+  }
+  let courseDoses = 0;
+  try {
+    (Array.isArray(state.myCourses) ? state.myCourses : []).forEach((c) => {
+      if (c && Array.isArray(c.times)) courseDoses += c.times.length;
+    });
+  } catch (e) { }
+  if (courseDoses) { total += courseDoses; parts.push('курс — ' + courseDoses); }
+  return { total, parts };
+}
+function renderNotificationBudget() {
+  if (typeof document === 'undefined') return;
+  const el = $('#notif-daily-summary');
+  if (!el) return;
+  const budget = computeTodayNotificationBudget();
+  el.textContent = budget.total === 0
+    ? 'Сейчас все уведомления выключены — тишина гарантирована.'
+    : 'Сегодня FitFlow может прислать до ' + budget.total + ' уведомлений (' + budget.parts.join(' · ') + ')' + (budget.total >= 10 ? ' — многовато? Лишнее можно выключить ниже.' : '.');
+  el.classList.toggle('warn', budget.total >= 10);
+}
+
 function renderReminderSettings() {
   if (typeof document === 'undefined') return;
   const toggle = $('#workout-reminder-toggle');
@@ -6764,8 +6917,8 @@ async function refreshTrainingReminderOnLaunch() {
 function openMorningThemeDialog() {
   const dialog = $('#morning-theme-dialog');
   if (dialog) dialog.hidden = false;
-  renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+  renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
 }
 
 function closeMorningThemeDialog() {
@@ -7061,27 +7214,27 @@ function renderWaterReminderSettings() {
 async function updateWaterRemindersEnabled(enabled) {
   state.waterReminders.enabled = enabled;
   saveState();
-  renderWaterReminderSettings();
+  renderWaterReminderSettings(); renderNotificationBudget();
   if (!enabled) { await cancelWaterReminders(); toast('Напоминания о воде выключены'); return; }
   const result = await scheduleWaterReminders();
-  if (!result.ok) { state.waterReminders.enabled = false; saveState(); renderWaterReminderSettings(); toast(result.message); return; }
+  if (!result.ok) { state.waterReminders.enabled = false; saveState(); renderWaterReminderSettings(); renderNotificationBudget(); toast(result.message); return; }
   toast(`Напоминания о воде включены: каждые ${state.waterReminders.interval} мин`);
 }
 
 async function updateWaterReminderInterval(interval) {
   state.waterReminders.interval = interval;
   saveState();
-  renderWaterReminderSettings();
+  renderWaterReminderSettings(); renderNotificationBudget();
   if (!state.waterReminders.enabled) return;
   await scheduleWaterReminders();
   toast(`Интервал: каждые ${interval} мин`);
 }
 
 /* ===== Совместимость и алиасы для функций рендеринга ===== */
-function renderWaterReminderSetting() { return renderWaterReminderSettings(); }
-function renderReminderSetting() { return renderReminderSettings(); }
-function renderMealRemindersSetting() { return renderMealRemindersSettings(); }
-function renderMorningMotivationSetting() { return renderMorningMotivationSettings(); }
+function renderWaterReminderSetting() { return renderWaterReminderSettings(); renderNotificationBudget(); }
+function renderReminderSetting() { return renderReminderSettings(); renderNotificationBudget(); }
+function renderMealRemindersSetting() { return renderMealRemindersSettings(); renderNotificationBudget(); }
+function renderMorningMotivationSetting() { return renderMorningMotivationSettings(); renderNotificationBudget(); }
 function renderDayChecklistSetting() { return renderDayChecklistSettings(); }
 function renderHomeLayoutSetting() { return renderHomeLayoutSettings(); }
 function renderWeightSetting() { return renderWeightSettings(); }
@@ -7100,11 +7253,11 @@ async function refreshMealRemindersOnLaunch() {
 async function updateMealRemindersEnabled(enabled) {
   state.mealReminders.enabled = enabled;
   saveState();
-  renderMealRemindersSettings();
+  renderMealRemindersSettings(); renderNotificationBudget();
   if (!enabled) { await cancelMealReminders();
   await cancelWaterReminders(); toast('Напоминания о питании выключены'); return; }
   const result = await scheduleMealReminders();
-  if (!result.ok) { state.mealReminders.enabled = false; saveState(); renderMealRemindersSettings(); toast(result.message); return; }
+  if (!result.ok) { state.mealReminders.enabled = false; saveState(); renderMealRemindersSettings(); renderNotificationBudget(); toast(result.message); return; }
   toast('Напоминания о питании включены');
 }
 
@@ -7112,9 +7265,9 @@ async function updateMealReminder(id, changes) {
   const meal = state.mealReminders.meals.find((item) => item.id === id);
   if (!meal) return;
   Object.assign(meal, changes);
-  if (!isValidReminderTime(meal.time)) { renderMealRemindersSettings(); toast('Укажите время в формате ЧЧ:ММ'); return; }
+  if (!isValidReminderTime(meal.time)) { renderMealRemindersSettings(); renderNotificationBudget(); toast('Укажите время в формате ЧЧ:ММ'); return; }
   saveState();
-  renderMealRemindersSettings();
+  renderMealRemindersSettings(); renderNotificationBudget();
   if (!state.mealReminders.enabled) return;
   const result = await scheduleMealReminders();
   if (!result.ok) toast(result.message);
@@ -7123,7 +7276,7 @@ async function updateMealReminder(id, changes) {
 async function setAllMealReminders(enabled) {
   state.mealReminders.meals.forEach((meal) => { meal.enabled = enabled; });
   saveState();
-  renderMealRemindersSettings();
+  renderMealRemindersSettings(); renderNotificationBudget();
   if (state.mealReminders.enabled) await scheduleMealReminders();
 }
 
@@ -7229,13 +7382,12 @@ async function refreshMorningMotivationScheduleOnLaunch() {
 async function updateMorningMotivationEnabled(enabled) {
   state.morningMotivation.enabled = enabled;
   saveState();
-  renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+  renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
 
   if (!enabled) {
     await cancelMorningMotivation();
-  await cancelWaterReminders();
-  await cancelWaterReminders();
+    await cancelWaterReminders(); // 0.4.15: случайный дубль убран
     toast('Утренние фразы выключены');
     return;
   }
@@ -7244,8 +7396,8 @@ async function updateMorningMotivationEnabled(enabled) {
   if (!result.ok) {
     state.morningMotivation.enabled = false;
     saveState();
-    renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+    renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
     toast(result.message);
     return;
   }
@@ -7254,15 +7406,15 @@ async function updateMorningMotivationEnabled(enabled) {
 
 async function updateMorningMotivationTime(time) {
   if (!isValidReminderTime(time)) {
-    renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+    renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
     toast('Укажите время в формате ЧЧ:ММ');
     return;
   }
   state.morningMotivation.time = time;
   saveState();
-  renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+  renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
   if (!state.morningMotivation.enabled) {
     toast(`Время утренней фразы: ${time}`);
     return;
@@ -7275,8 +7427,8 @@ async function updateMorningMotivationTheme(theme) {
   if (!MORNING_MOTIVATION_THEMES[theme]) return;
   state.morningMotivation.theme = theme;
   saveState();
-  renderMorningMotivationSettings();
-  renderWaterReminderSettings();
+  renderMorningMotivationSettings(); renderNotificationBudget();
+  renderWaterReminderSettings(); renderNotificationBudget();
   if (!state.morningMotivation.enabled) {
     toast(`Тема утренних фраз: ${MORNING_MOTIVATION_THEMES[theme]}`);
     return;
@@ -7330,36 +7482,10 @@ async function sendTestActivityNotification() {
   }
 }
 
-async function sendSpecificReminderTest(kind) {
-  const localNotifications = getLocalNotifications();
-  if (!localNotifications) { toast('Тест доступен только в Android-приложении'); return; }
-  const allowed = await ensureNotificationPermission(localNotifications);
-  if (!allowed) { toast('Разрешите уведомления Android, затем повторите тест'); return; }
-  const isMeal = kind === 'meal';
-  const id = isMeal ? MEAL_REMINDER_TEST_ID : ACTIVITY_REMINDER_TEST_ID;
-  const channel = isMeal ? MEAL_REMINDER_CHANNEL : TRAINING_REMINDER_CHANNEL;
-  try {
-    if (isMeal) await ensureMealReminderChannel(localNotifications); else await ensureTrainingReminderChannel(localNotifications);
-    await localNotifications.cancel({ notifications: [{ id }] });
-    await localNotifications.schedule({ notifications: [{
-      id,
-      title: isMeal ? 'Тест: приём пищи' : 'Тест: вечерняя активность',
-      body: isMeal ? 'Канал питания работает правильно ✓' : 'Канал вечерней активности работает правильно ✓',
-      schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
-      channelId: channel, smallIcon: 'ic_stat_icon', iconColor: isMeal ? '#FF9E3D' : '#00696B', autoCancel: true,
-      extra: { source: isMeal ? 'fitflow-meal-test' : 'fitflow-activity-test' }
-    }] });
-    toast('Тестовое уведомление придёт примерно через 5 секунд');
-  } catch (e) {
-    console.warn('Не удалось отправить тест уведомления:', e);
-    toast('Не удалось отправить тест. Проверьте разрешения Android.');
-  }
-}
-
 async function updateTrainingReminderEnabled(enabled) {
   state.reminders.enabled = enabled;
   saveState();
-  renderReminderSettings();
+  renderReminderSettings(); renderNotificationBudget();
 
   if (!enabled) {
     await cancelTrainingReminder();
@@ -7371,7 +7497,7 @@ async function updateTrainingReminderEnabled(enabled) {
   if (!result.ok) {
     state.reminders.enabled = false;
     saveState();
-    renderReminderSettings();
+    renderReminderSettings(); renderNotificationBudget();
     toast(result.message);
     return;
   }
@@ -7381,14 +7507,14 @@ async function updateTrainingReminderEnabled(enabled) {
 
 async function updateTrainingReminderTime(time) {
   if (!isValidReminderTime(time)) {
-    renderReminderSettings();
+    renderReminderSettings(); renderNotificationBudget();
     toast('Укажите время в формате ЧЧ:ММ');
     return;
   }
 
   state.reminders.time = time;
   saveState();
-  renderReminderSettings();
+  renderReminderSettings(); renderNotificationBudget();
 
   if (!state.reminders.enabled) {
     toast(`Время напоминания: ${time}`);
@@ -7698,11 +7824,11 @@ const HELP_TOPICS = {
   },
   'settings-ai': {
     title: 'ИИ-помощник',
-    text: 'Разбор фраз («съел 2 бутерброда с сыром»), ответы на вопросы о питании и рецепты из ваших продуктов. Три режима: «Локальный эксперт» — полностью офлайн, на правилах и базе из 960+ продуктов; «Облачная нейросеть» — ваш ключ (Gemini, DeepSeek и др.); «Gemma на устройстве» — большая модель, скачивается один раз.'
+    text: 'Разбор фраз («съел 2 бутерброда с сыром»), ответы на вопросы о питании и рецепты из ваших продуктов. Три режима: «Встроенный анализ» — полностью офлайн, на правилах и базе из 960+ продуктов; «Облачная нейросеть» — ваш ключ (Gemini, DeepSeek и др.); «Gemma на устройстве» — большая модель, скачивается один раз.'
   },
   'settings-data': {
     title: 'Данные и резервные копии',
-    text: 'Экспорт сохраняет все ваши данные (все профили) в JSON-файл — пригодится при смене телефона. Импорт восстанавливает из такого файла. Сброс удаляет всё безвозвратно. Всё хранится только на устройстве.'
+    text: 'Экспорт сохраняет данные всех профилей в один JSON-файл — пригодится при смене телефона. Импорт файла all-profiles ЗАМЕНЯЕТ текущие профили (сначала скачайте свежую копию), файл одного профиля ОБЪЕДИНЯЕТ записи с текущими. Сброс удаляет всё безвозвратно. Данные — только на устройстве.'
   },
   'settings-about': {
     title: 'О приложении',
@@ -7710,7 +7836,7 @@ const HELP_TOPICS = {
   },
   'day-checklist': {
     title: 'Чек-лист дня',
-    text: 'Три простые отметки на Главной: «Вода до нормы», «Основной рацион учтён», «Активность отмечена». Галочки ставятся сами по вашим записям — вечером видно одним взглядом, «закрыт» ли день. Карточку «Самочувствие» (оценка дня от 1 до 5) удобно заполнять вечером: оценки складываются в статистику.'
+    text: 'Три простые отметки на Главной: «Норма воды», «Основной рацион учтён», «Активность отмечена». Галочки ставятся сами по вашим записям — вечером видно одним взглядом, «закрыт» ли день. Карточку «Самочувствие» (оценка дня от 1 до 5) удобно заполнять вечером: оценки складываются в статистику.'
   },
   'home-layout': {
     title: 'Карточки на Главной',
@@ -7760,7 +7886,7 @@ const ONBOARDING_SLIDES = [
   {
     emoji: '📋',
     title: 'План дня, сон и ИИ-центр',
-    text: 'На Главной — карточка «План дня»: чек-лист и задания отмечаются сами по вашим записям. В «Общее» можно включить утренний чек-ин сна. ИИ-центр работает и офлайн: режим «Локальный эксперт».'
+    text: 'На Главной — карточка «План дня»: чек-лист и задания отмечаются сами по вашим записям. В «Общее» можно включить утренний чек-ин сна. ИИ-центр работает и офлайн: режим «Встроенный анализ».'
   }
 ];
 const ONBOARDING_DONE_KEY = 'fitflow:onboarding-done';
@@ -7948,7 +8074,34 @@ function normalizeAllProfilesBackup(data) {
   return { profiles, activeProfileId };
 }
 
+/* 0.4.15 (аудит А2/А3): «последняя копия — N дн. назад» + мягкое напоминание,
+   если копии больше месяца (не чаще раза в неделю). Для local-only приложения
+   файл копии — единственная страховка, доверие к ней критично. */
+const BACKUP_LAST_KEY = 'fitflow:backup:last';
+const BACKUP_REMIND_KEY = 'fitflow:backup:reminded';
+function markBackupSaved() { try { localStorage.setItem(BACKUP_LAST_KEY, String(Date.now())); } catch (e) { } renderBackupInfo(); }
+function renderBackupInfo() {
+  if (typeof document === 'undefined') return;
+  const el = $('#backup-last-info');
+  const ts = Number(localStorage.getItem(BACKUP_LAST_KEY) || 0);
+  const days = ts ? Math.floor((Date.now() - ts) / 86400000) : null;
+  if (el) {
+    el.textContent = ts
+      ? 'Последняя резервная копия: ' + (days <= 0 ? 'сегодня' : days === 1 ? 'вчера' : days + ' ' + ruForms(days, ['день', 'дня', 'дней']) + ' назад')
+        + (days >= 30 ? ' Давно не обновляли — при смене телефона данные спасёт только файл.' : '')
+      : 'Резервная копия ещё не создавалась — сделайте первую: это единственная страховка данных.';
+  }
+  if (days != null && days >= 30) {
+    const reminded = Number(localStorage.getItem(BACKUP_REMIND_KEY) || 0);
+    if (Date.now() - reminded > 7 * 86400000) {
+      try { localStorage.setItem(BACKUP_REMIND_KEY, String(Date.now())); } catch (e) { }
+      toast('💾 Резервной копии больше месяца — сохраните новую в Настройки → Данные');
+    }
+  }
+}
+
 function exportData() {
+  markBackupSaved();
   const backup = createAllProfilesBackup();
   const json = JSON.stringify(backup, null, 2);
   const fileName = `fitflow-all-profiles-${todayKey()}.json`;
@@ -8013,10 +8166,9 @@ async function confirmAllProfilesImport() {
   closeAllProfilesImportDialog();
   await cancelTrainingReminder();
   await cancelMealReminders();
-  await cancelWaterReminders();
+  await cancelWaterReminders(); // 0.4.15: случайные дубли убраны
   await cancelMorningMotivation();
-  await cancelWaterReminders();
-  await cancelWaterReminders();
+  try { await cancelCourseReminders(); } catch (e) { }
 
   removeAllStoredProfileStates();
   profilesState = {
@@ -8253,10 +8405,9 @@ async function resetAll() {
   await cancelTrainingReminder();
   await cancelTestActivityNotification();
   await cancelMorningMotivation();
-  await cancelWaterReminders();
-  await cancelWaterReminders();
   await cancelMealReminders();
-  await cancelWaterReminders();
+  await cancelWaterReminders(); // 0.4.15: случайные дубли убраны
+  try { await cancelCourseReminders(); } catch (e) { }
   localStorage.removeItem('fitflow:state');
   localStorage.removeItem('fitflow:theme');
   localStorage.removeItem(ACTIVITY_REMINDER_PROMPT_KEY);
@@ -8386,6 +8537,11 @@ function renderGreeting() {
   else if (h >= 18 && h < 23) greeting = 'Добрый вечер!';
 
   $('#greeting-title').textContent = greeting;
+  const greetSub = document.getElementById('greeting-sub');
+  if (greetSub && GREETING_SUBTITLES.length) {
+    const dayNum = Math.max(0, Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000));
+    greetSub.textContent = GREETING_SUBTITLES[dayNum % GREETING_SUBTITLES.length];
+  }
   const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' }).format(now);
   const dayAndMonth = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(now);
   const fullDateLabel = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
@@ -8529,6 +8685,16 @@ function init() {
   $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
   $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
   $('#manual-food-add').addEventListener('click', addManualFood);
+  // 0.4.15 (п.6 владельца): «☆ В комбо» у поля Питания — текст не записывается,
+  // а сохраняется фразой-шаблоном (гард «парсер не понимает → не сохраняем» в addCombo).
+  bindEvent('#food-combo-star', 'click', () => {
+    const input = $('#food-input');
+    const text = input ? input.value : '';
+    if (addCombo('', text)) {
+      renderComboChips();
+      toast('⭐ Комбо сохранено — смотрите «Быстрые записи». Поле можно очистить или нажать «Добавить», чтобы записать сразу.');
+    }
+  });
   $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
   // ⭐ Мои комбо (0.4.14)
   bindEvent('#combo-manage-btn', 'click', openComboDialog);
@@ -8675,6 +8841,17 @@ function init() {
     }));
   $$('#activity-intensity [data-intensity]').forEach((button) =>
     button.addEventListener('click', () => { selectedActivityIntensity = button.dataset.intensity; renderActivityIntensity(); }));
+  // 0.4.15: память интенсивности по типу + пересчёт ≈ккал при любом изменении формы.
+  bindEvent('#training-form', 'click', (e) => {
+    const typeBtn = e.target.closest('[data-activity-type]');
+    if (typeBtn) {
+      const mem = intensityMemoryLoad(typeBtn.dataset.activityType);
+      if (mem && mem !== selectedActivityIntensity) { selectedActivityIntensity = mem; renderActivityIntensity(); return; }
+    }
+    const intBtn = e.target.closest('[data-intensity]');
+    if (intBtn) intensityMemorySave(selectedActivityType, intBtn.dataset.intensity);
+  });
+  bindEvent('#workout-duration', 'input', updateActivityKcalHint);
   $('#workout-duration-unit').addEventListener('click', openDurationUnitDialog);
   $('#duration-unit-cancel').addEventListener('click', closeDurationUnitDialog);
   $$('#duration-unit-choices button').forEach((button) =>
@@ -8774,8 +8951,9 @@ function init() {
   // Оценка дня: кнопка создаётся динамически — делегирование на оба контейнера
   ['#day-plan-card', '#day-mood-card'].forEach((sel) => {
     $(sel)?.addEventListener('click', (e) => {
-      const moodBtn = e.target.closest('#mood-pick-open');
-      if (moodBtn) { $('#mood-dialog').hidden = false; }
+      const moodBtn = e.target.closest('[data-mood-inline]');
+      if (moodBtn) { saveDayMood(Number(moodBtn.dataset.moodInline)); } // 0.4.15: смайл — 1 тап
+      if (e.target.closest('[data-dayplan-toggle]')) toggleDayPlanCollapsed();
       if (e.target.closest('[data-sleep-open]')) openSleepCheckinDialog();
       // 💊 Мой курс (0.3.30): чип приёма — ручная отметка/снятие.
       // После отметки перепланируем напоминания: сегодняшний принятый
@@ -8803,11 +8981,15 @@ function init() {
   syncQuickNavTop();
   window.addEventListener('resize', syncQuickNavTop);
   window.addEventListener('scroll', onHomeQuickNavScroll, { passive: true });
-  bindEvent('#mood-picker', 'click', (e) => {
-    const btn = e.target.closest('[data-mood]');
-    if (btn) { saveDayMood(Number(btn.dataset.mood)); $('#mood-dialog').hidden = true; }
-  });
-  bindEvent('#mood-dialog-cancel', 'click', () => { $('#mood-dialog').hidden = true; });
+  // 0.4.15 (аудит А1/А2/А3): цели −/+ прячутся за кнопку «Цель» на карточках
+  // (защита от случайного сбивания; смена цели всё равно мгновенно применяется).
+  $$('[data-goal-toggle]').forEach((btn) => btn.addEventListener('click', () => {
+    const target = $(btn.dataset.goalToggle);
+    if (!target) return;
+    target.hidden = !target.hidden;
+    btn.setAttribute('aria-expanded', String(!target.hidden));
+  }));
+
   $('#terms-accept').addEventListener('click', acceptTerms);
   $('#terms-decline').addEventListener('click', declineTerms);
   $('#terms-blocked-ok').addEventListener('click', closeApplicationAfterTermsDecline);
@@ -8904,6 +9086,10 @@ function init() {
   $$('#ai-tabs button').forEach((btn) => btn.addEventListener('click', () => switchAiTab(btn.dataset.aiTab)));
   bindEvent('#ai-generate-recipe', 'click', generateAiRecipe);
   bindEvent('#ai-run-analysis', 'click', generateAiAnalysis);
+  bindEvent('#ai-quick-example', 'click', () => {
+    const f = $('#ai-quick-input');
+    if (f) { f.value = '500 мл воды, овсянка 150 г с бананом, гулял 40 мин'; f.focus(); }
+  });
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
@@ -9058,8 +9244,6 @@ function init() {
     btn.addEventListener('click', () => updateWaterReminderInterval(Number(btn.dataset.waterInterval))));
   bindEvent('#notification-setup-btn', 'click', () => switchView('notifications'));
   bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
-  bindEvent('#activity-reminder-test', 'click', () => sendSpecificReminderTest('activity'));
-  bindEvent('#meal-reminder-test', 'click', () => sendSpecificReminderTest('meal'));
   $('#notifications-back-btn').addEventListener('click', () => switchView('settings-notifications'));
   $$('[data-open-settings]').forEach((btn) =>
     btn.addEventListener('click', () => openNativeNotificationSetting(btn.dataset.openSettings)));
@@ -9481,9 +9665,13 @@ function openAiCenter() {
   // ввод GBoard работают с первого раза. Поле при этом сразу в доке внизу —
   // пользователь подтвердил, что такой сценарий устраивает.
   const field = $('#ai-quick-input');
-  if (field) {
+  // 0.4.15 (п.7 владельца): вернулись с незакрытым разбором — док НЕ открываем,
+  // чтобы панель ввода не перекрывала нижнюю навигацию («кнопка Главная перекрыта»).
+  if (field && !String(field.value || '').trim()) {
     field.focus({ preventScroll: true });
     openImeDock(field); // 0.3.22: док — не следствие focusin, а явное состояние экрана
+  } else if (field) {
+    closeImeDock();
   }
 }
 
@@ -9510,7 +9698,8 @@ function switchAiTab(tabName) {
   // «сжёг» автофокус при входе в ИИ-центр).
   const sel = AI_TAB_FIELD[tabName];
   const field = sel ? $(sel) : null;
-  if (field) openImeDock(field);
+  // 0.4.15: док — только если поле пустое; с набранным текстом не перекрываем навигацию.
+  if (field && !String(field.value || '').trim()) openImeDock(field);
   else closeImeDock();
 }
 
@@ -9832,7 +10021,7 @@ function buildAiCloseButton() {
 }
 
 /* ============================================================
-   Локальный эксперт 2.0 (0.3.24): связи между сном, питанием,
+   Встроенный анализ 2.0 (0.3.24): связи между сном, питанием,
    водой, активностью и самочувствием. Считается честно:
    группы дней сравниваются по средним, в каждой группе
    минимум EXPERT_MIN_GROUP дней, разница значима только выше
@@ -9986,7 +10175,7 @@ function gatherExpertInsights() {
 function buildExpertInsightsHtml() {
   const insights = gatherExpertInsights();
   if (insights.length) {
-    return '<li><b>🔗 Локальный эксперт — связи в ваших днях</b> (наблюдения: совпадение ≠ причина):<ul class="expert-insights">'
+    return '<li><b>🔗 Встроенный анализ — связи в ваших днях</b> (наблюдения: совпадение ≠ причина):<ul class="expert-insights">'
       + insights.map((i) => '<li>' + i.icon + ' <b>' + i.title + '</b>: ' + i.text + '</li>').join('')
       + '</ul></li>';
   }
@@ -9995,14 +10184,15 @@ function buildExpertInsightsHtml() {
     ? state.sleepCheckin.log.filter((e) => e && Number.isFinite(Number(e.durationMin))).length : 0;
   const moodCount = (Array.isArray(state.dailyHistory) ? state.dailyHistory : []).filter((d) => Number(d.mood) >= 1).length + (getTodayMood() ? 1 : 0);
   if (!sleepCount && !moodCount) return '';
-  return '<li><b>🔗 Локальный эксперт — связи</b>: закономерностей пока не найдено — обычно нужно от 6–8 дней с оценкой самочувствия и/или чек-ином сна. Продолжайте отмечать день, выводы появятся здесь автоматически.</li>';
+  return '<li><b>🔗 Встроенный анализ — связи</b>: закономерностей пока не найдено — обычно нужно от 6–8 дней с оценкой самочувствия и/или чек-ином сна. Продолжайте отмечать день, выводы появятся здесь автоматически.</li>';
 }
 
 function generateAiStatsReport() {
   const resultBox = $('#ai-stats-report-box');
-  const periodBtn = $('#ai-stats-period button.active');
   if (!resultBox) return;
-  const days = periodBtn ? Number(periodBtn.dataset.aiStatsPeriod) : 7;
+  // 0.4.15 (аудит А2 #10.5): один переключатель периода на экране —
+  // анализ берёт период, выбранный в самой статистике.
+  const days = activeStatsPeriod === 'month' ? 30 : 7;
   const history = normalizeWeightHistory(state.profileSettings.weightHistory);
   const diaryDays = getDiaryDaysCount();
   const fewDataNote = diaryDays < 3
@@ -10018,17 +10208,17 @@ function generateAiStatsReport() {
   const waterPct = Math.min(100, Math.round((state.water.total / (state.water.goal || 2500)) * 100));
   const workoutsCount = (Array.isArray(state.workouts) ? state.workouts : []).length;
   const workoutsToday = (Array.isArray(state.workouts) ? state.workouts : []).filter((w) => w.date === todayKey()).length;
-  resultBox.innerHTML = '<h4>✨ ИИ-анализ FitFlow (за ' + days + ' дн.)</h4>' +
+  resultBox.innerHTML = '<h4>✨ Анализ Помощника FitFlow (за ' + days + ' дн.)</h4>' +
     '<ul>' + fewDataNote +
     '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
     '<li><b>Гидратация</b>: сегодня выполнено ' + waterPct + '% водной цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
     '<li><b>Активность</b>: сегодня тренировок: ' + workoutsToday + ', всего в дневнике: ' + workoutsCount + '.</li>' +
     buildExpertInsightsHtml() +
-    '<li><b>Совет нутрициолога FitFlow</b>: распределяйте белок равномерно по основным приёмам пищи — так проще сохранять мышцы при похудении.</li>' +
+    '<li><b>Совет Помощника FitFlow</b>: распределяйте белок равномерно по основным приёмам пищи — так проще сохранять мышцы при похудении.</li>' +
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
   bindAiReportClose(resultBox);
-  toast('✨ ИИ-анализ показателей завершён!');
+  toast('✨ Анализ готов — смотрите ниже');
 }
 
 /* Живой недельный отчёт нейросетью НА УСТРОЙСТВЕ (0.4.14, запрос
@@ -10039,11 +10229,11 @@ function generateAiStatsReport() {
 async function enhanceAnalysisWithLocalLlm(resultBox, days, factsText) {
   const plugin = getLocalAiPlugin();
   if (!plugin || !resultBox) return;
-  const hostId = 'ai-analysis-local-note';
-  resultBox.insertAdjacentHTML('beforeend', '<div id="' + hostId + '"><p class="settings-hint">🧠 Пишу живой отчёт за ' + days + ' дн. нейросетью на устройстве — офлайн, без интернета…</p></div>');
+  const hostId = 'ai-analysis-llm-note';
   const host = resultBox.querySelector('#' + hostId);
   if (!host) return;
-  const prompt = 'Ты заботливый нутрициолог приложения FitFlow. Ниже — факты дневника пользователя за ' + days + ' дн., посчитанные приложением (доверяй им, ничего не пересчитывай и не сравнивай числа сам):\n'
+  host.innerHTML = '<p class="settings-hint">🧠 Пишу живой отчёт за ' + days + ' дн. нейросетью на устройстве — офлайн, без интернета. До минуты — текст появится прямо здесь, над цифрами…</p>';
+  const prompt = 'Ты — заботливый Помощник FitFlow по питанию и активности. Ниже — факты дневника пользователя за ' + days + ' дн., посчитанные приложением (доверяй им, ничего не пересчитывай и не сравнивай числа сам):\n'
     + factsText
     + '\nНапиши живой отчёт по-русски: 1) 2–3 конкретных наблюдения по этим фактам (что хорошо, что проседает); 2) один реалистичный совет на ближайшие дни; 3) короткое ободрение. До 120 слов, без вступлений, без перечисления всех цифр подряд, без эмодзи.';
   let progressHandle = null;
@@ -10120,12 +10310,15 @@ function generateAiAnalysis() {
     else weightText = 'Вес стабилен по ' + history.length + ' записям';
   }
   const waterPct = Math.min(100, Math.round((state.water.total / (state.water.goal || 2500)) * 100));
-  resultBox.innerHTML = '<h4>📊 Итоги и персональный совет ИИ FitFlow (за ' + days + ' дн.)</h4>' +
+  // 0.4.15 (п.8 владельца): блок нейросети — СРАЗУ после заголовка, над цифрами:
+  // сразу видно, что ИИ работает, — нельзя пролистать мимо и закрыть.
+  resultBox.innerHTML = '<h4>📊 Итоги и совет Помощника FitFlow (за ' + days + ' дн.)</h4>' +
+    '<div id="ai-analysis-llm-note"></div>' +
     '<ul>' + fewDataNote +
     '<li><b>Динамика веса</b>: ' + weightText + '.</li>' +
     '<li><b>Водный баланс</b>: сегодня выполнено ' + waterPct + '% цели (' + fmt(state.water.total) + ' из ' + fmt(state.water.goal || 2500) + ' мл).</li>' +
     buildExpertInsightsHtml() +
-    '<li><b>Рекомендация нутрициолога FitFlow</b>: поддерживайте текущую активность (прогулки, кардио) и равномерно распределяйте белок по приёмам пищи.</li>' +
+    '<li><b>Совет Помощника FitFlow</b>: поддерживайте текущую активность (прогулки, кардио) и равномерно распределяйте белок по приёмам пищи.</li>' +
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
   bindAiReportClose(resultBox);
@@ -10134,8 +10327,9 @@ function generateAiAnalysis() {
   if (getLocalAiPlugin() && hasRealLocalModel() && state.aiSettings.mode !== 'cloud') {
     enhanceAnalysisWithLocalLlm(resultBox, days, buildAnalysisFactsText(days, weightText, waterPct));
   } else if (isCloudAiReady()) {
-    const hostId = 'ai-analysis-cloud-note';
-    resultBox.insertAdjacentHTML('beforeend', '<div id="' + hostId + '"><p class="settings-hint">☁ Спрашиваю короткий вывод у нейросети…</p></div>');
+    const hostId = 'ai-analysis-llm-note';
+    const preHost = resultBox.querySelector('#' + hostId);
+    if (preHost) preHost.innerHTML = '<p class="settings-hint">☁ Спрашиваю короткий вывод у нейросети — он появится здесь, над цифрами…</p>';
     const summary = 'Период анализа: ' + days + ' дн. Дневник ведётся ' + diaryDays + ' дн. ' + weightText + '. '
       + 'Вода сегодня: ' + waterPct + '% цели. ' + buildCloudDayContext();
     callCloudAi(
@@ -10187,6 +10381,16 @@ const CLOUD_PROVIDERS = {
     autoModel: false,
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'deepseek/deepseek-chat-v3-0324:free'
+  },
+  gigachat: {
+    id: 'gigachat',
+    label: 'GigaChat (Сбер)',
+    hint: 'Ключ: личный кабинет GigaChat (developers.sber.ru) → «Authorization Key» (Base64, scope GIGACHAT_API_PERS). Для физлиц бесплатно (~1 млн токенов в год), из РФ без VPN; тексты запросов уходят Сберу. Фото не распознаёт. Если ошибка сертификата — обновите сертификаты Android.',
+    vision: false,
+    autoModel: false,
+    baseUrl: 'https://gigachat.devices.sberbank.ru/api/v1',
+    defaultModel: 'GigaChat',
+    oauth: { url: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth', scope: 'GIGACHAT_API_PERS' }
   },
   pollinations: {
     id: 'pollinations',
@@ -10357,6 +10561,35 @@ async function pollinationsAnonymousCall(systemText, userText) {
   throw lastErr;
 }
 
+/* GigaChat (0.4.15, решение команды «давай пробовать естественно»): ключ —
+   Authorization Key; Bearer-токен получаем OAuth-обменом и кешируем (~30 мин). */
+let gigachatTokenCache = { key: '', token: '', exp: 0 };
+async function getGigaChatAccessToken(key) {
+  if (!key) throw new Error('Вставьте Authorization Key из личного кабинета GigaChat');
+  const now = Date.now();
+  if (gigachatTokenCache.token && gigachatTokenCache.key === key && now < gigachatTokenCache.exp - 60000) return gigachatTokenCache.token;
+  const oauth = CLOUD_PROVIDERS.gigachat.oauth;
+  const res = await fetch(oauth.url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+      'RqUID': uid(),
+      'Authorization': 'Basic ' + key
+    },
+    body: 'scope=' + encodeURIComponent(oauth.scope)
+  });
+  if (!res.ok) {
+    const err = new Error('HTTP ' + res.status + ' при получении токена GigaChat');
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  if (!data || !data.access_token) throw new Error('GigaChat не вернул токен — проверьте ключ');
+  gigachatTokenCache = { key, token: data.access_token, exp: Number(data.expires_at) || (now + 25 * 60000) };
+  return data.access_token;
+}
+
 async function cloudCallOpenAiCompat(systemText, userText, options) {
   const def = getCloudProviderDef();
   const model = (state.aiSettings.cloudModel || def.defaultModel).trim();
@@ -10371,8 +10604,9 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
     messages.push({ role: turn.role === 'model' ? 'assistant' : 'user', content: turn.parts.map((p) => p.text || '').join('') });
   });
   messages.push({ role: 'user', content: userText });
-  const headers = { 'Content-Type': 'application/json' };
-  if (key) headers['Authorization'] = 'Bearer ' + key;
+  const headers = { 'Content-Type': 'application/json', 'RqUID': uid() };
+  if (def.oauth) headers['Authorization'] = 'Bearer ' + await getGigaChatAccessToken(key); // GigaChat: OAuth-обмен
+  else if (key) headers['Authorization'] = 'Bearer ' + key;
   const res = await fetch(baseUrl + '/chat/completions', {
     method: 'POST',
     headers,
@@ -10403,6 +10637,7 @@ async function callCloudAi(systemText, userText, options) {
 function cloudErrorText(err) {
   const msg = String((err && err.message) || err || 'неизвестная ошибка');
   if (/Failed to fetch|NetworkError|Load failed|fetch/i.test(msg) && !/HTTP/.test(msg)) return 'Нет соединения: проверьте интернет и попробуйте снова.';
+  if (/certificate|certpath|trust anchor|sslhandshake|ssl|hostname/i.test(msg)) return 'Система не доверила сертификат сервера провайдера: обновите сертификаты Android (для GigaChat — сертификаты Минцифры) или выберите другого провайдера.';
   // Pollinations: у них ДВА вида ключей — Publishable (pk_) для встроек и витрин
   // и Secret (sk_) для прямых вызовов. pk_ наш серверный-стиль вызова отклоняет.
   if (/401|403|Unauthenticated/i.test(msg) && state.aiSettings && state.aiSettings.cloudProvider === 'pollinations') {
@@ -10825,15 +11060,15 @@ function sendAiTestQuery() {
     return;
   }
   if (!state.aiSettings.connected && state.aiSettings.mode !== 'expert') {
-    resultBox.innerHTML = '<p style="color:var(--error);margin:0"><b>⚠ Локальный файл нейросети не выбран.</b><br>Нажмите кнопку «📁 Выбрать локальный файл (.gguf / .tflite / .bin)» выше, либо переключитесь в режим «Локальный эксперт FitFlow».</p>';
+    resultBox.innerHTML = '<p style="color:var(--error);margin:0"><b>⚠ Локальный файл нейросети не выбран.</b><br>Нажмите кнопку «📁 Выбрать локальный файл (.gguf / .tflite / .bin)» выше, либо переключитесь в режим «Встроенный анализ FitFlow».</p>';
     resultBox.hidden = false;
     toast('⚠ Файл нейросети не выбран');
     return;
   }
   if (state.aiSettings.mode === 'expert') {
-    resultBox.innerHTML = '<h4>⚡ Статус запроса («Локальный эксперт FitFlow JS»)</h4>' +
+    resultBox.innerHTML = '<h4>⚡ Статус запроса («Встроенный анализ FitFlow JS»)</h4>' +
       '<p><b>Ваш вопрос</b>: «' + escapeHtml(q) + '»</p>' +
-      '<p><b>⚠ Обратите внимание</b>: режим «Локальный эксперт FitFlow» — это встроенная база на 960+ продуктов и алгоритмы нутрициолога, а не нейросеть. Экспертная система не отвечает на общие вопросы (вроде «Столица России»), но умеет мгновенно рассчитывать рецепты, БЖУ и анализировать недельную/месячную статистику по правилам.</p>' +
+      '<p><b>⚠ Обратите внимание</b>: режим «Встроенный анализ FitFlow» — это встроенная база на 960+ продуктов и алгоритмы нутрициолога, а не нейросеть. Экспертная система не отвечает на общие вопросы (вроде «Столица России»), но умеет мгновенно рассчитывать рецепты, БЖУ и анализировать недельную/месячную статистику по правилам.</p>' +
       '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Статус</b>: 100% офлайн и бесплатно · без вымыслов и заглушек</p>';
     resultBox.hidden = false;
     toast('⚡ Ответ экспертной системы');

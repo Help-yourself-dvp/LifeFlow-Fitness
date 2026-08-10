@@ -125,7 +125,7 @@ let failed = 0;
     && /isImeDockField\(field\)\)\s*openImeDock\(field\)/.test(app)
     && /IME_DOCK_FIELD_IDS = \['#ai-quick-input', '#ai-recipe-input', '#ai-chat-input'\]/.test(app)
     && /AI_TAB_FIELD = \{ quick: '#ai-quick-input'/.test(app)
-    && /if \(field\) openImeDock\(field\);\s*else closeImeDock\(\);/.test(app)
+    && /openImeDock\(field\);\s*else closeImeDock\(\)/.test(app)
     && !/imeDockViewportHandler/.test(app)
     && !/scheduleDeferredImeDock|cancelDeferredImeDock|isImeDockDeferredField/.test(app)
     && !/scheduleImeRetry|warmupHiddenViewsLayout/.test(app)
@@ -844,7 +844,7 @@ for (const id of ids) {
 
   const okReport = appR.includes('function enhanceAnalysisWithLocalLlm')
     && appR.includes('function buildAnalysisFactsText')
-    && appR.includes('ai-analysis-local-note')
+    && appR.includes('ai-analysis-llm-note')
     && appR.includes("state.aiSettings.mode !== 'cloud'");
   if (!okReport) failed++;
   console.log(`${okReport ? '✓' : '✗'} 0.4.14 недельный отчёт: нейросеть на устройстве дополняет факты (цифры — локально)`);
@@ -860,10 +860,98 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.4.14'") && html.includes('v0.4.14');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.4.15'") && html.includes('v0.4.15');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.4.14 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.4.15 в коде и «О приложении»`);
+
+  // ===================== 0.4.15 =====================
+  const okTruthStats = appR.includes('в дни с записями') && appR.includes(' · записи: ')
+    && appR.includes('✓ +') && appR.includes('сверх')
+    && appR.includes('renderWater();\n  renderDayPlan();') && appR.includes('renderFood();\n  renderDayPlan();');
+  if (!okTruthStats) failed++;
+  console.log(`${okTruthStats ? '✓' : '✗'} 0.4.15 правдивость: «нет данных ≠ 0» в статистике, >100% цели = успех, план дня при смене цели`);
+
+  const okWeightTruth = appR.includes('появится линия динамики') && appR.includes('· 30 дн: ')
+    && appR.includes('checklist-icon noted') && cssR.includes('.checklist-icon.noted');
+  if (!okWeightTruth) failed++;
+  console.log(`${okWeightTruth ? '✓' : '✗'} 0.4.15 правдивость-2: одна точка веса → текст, дельта 30 дн, сон «отмечен» нейтрально`);
+
+  const okDock = appR.includes("!String(field.value || '').trim()")
+    && appR.includes('cancelCourseReminders();')
+    && !appR.includes('await cancelWaterReminders();\n  await cancelWaterReminders();');
+  if (!okDock) failed++;
+  console.log(`${okDock ? '✓' : '✗'} 0.4.15 стабильность ввода: док не перекрывает навигацию при тексте в поле; switchProfile без дублей, курсы гасятся`);
+
+  const okAnalysisHost = appR.includes('ai-analysis-llm-note')
+    && !appR.includes("insertAdjacentHTML('beforeend'")
+    && appR.includes("activeStatsPeriod === 'month' ? 30 : 7")
+    && !html.includes('ai-stats-period')
+    && html.includes('Анализ периода · Помощник FitFlow');
+  if (!okAnalysisHost) failed++;
+  console.log(`${okAnalysisHost ? '✓' : '✗'} 0.4.15 п.8: блок нейросети сразу после заголовка анализа; один переключатель периода`);
+
+  const okFonts = cssR.includes('html[data-font="standard"] h1')
+    && appR.includes("document.documentElement.setAttribute('data-font', 'standard')")
+    && appR.includes("localStorage.setItem('fitflow:font', f);");
+  if (!okFonts) failed++;
+  console.log(`${okFonts ? '✓' : '✗'} 0.4.15 п.4: явный «Стандарт» — единый шрифт поверх всех тем`);
+
+  const okNav = html.includes('M4 7h8M18 7h2') // новые «ползунки» Настроек
+    && !/data-nav="settings"[\s\S]{0,700}M12 2\.5v2\.5M12 19v2\.5/.test(html); // солнце = тема в шапке, не настройки
+  if (!okNav) failed++;
+  console.log(`${okNav ? '✓' : '✗'} 0.4.15 навигация: Настройки — не «солнце» (семантика значков)`);
+
+  const okDate = cssR.includes('#date-label::first-letter')
+    && !cssR.includes('#date-label { display: grid; gap: 1px; line-height: 1.1; text-transform: capitalize; }');
+  if (!okDate) failed++;
+  console.log(`${okDate ? '✓' : '✗'} 0.4.15 дата: «10 авг. 2026 г.» — заглавной нет у месяца/«г.»`);
+
+  const okGoals = html.includes('data-goal-toggle="#water-goal-stepper"')
+    && html.includes('data-goal-toggle="#food-goal-stepper"')
+    && html.includes('data-goal-toggle="#weekly-goal-stepper"')
+    && appR.includes('[data-goal-toggle]');
+  if (!okGoals) failed++;
+  console.log(`${okGoals ? '✓' : '✗'} 0.4.15 цели −/+ за кнопкой «Цель» на всех трёх карточках`);
+
+  const okMood = appR.includes('data-mood-inline') && !appR.includes('mood-pick-open')
+    && !html.includes('id="mood-dialog"') && html.includes('id="greeting-sub"')
+    && appR.includes('GREETING_SUBTITLES');
+  if (!okMood) failed++;
+  console.log(`${okMood ? '✓' : '✗'} 0.4.15 самочувствие инлайн + день/вечер; приветствие из пула фраз`);
+
+  const okFood = html.includes('id="food-combo-star"') && appR.includes('#food-combo-star')
+    && html.includes('Быстрые записи') && html.includes('⭐ Комбо — умные фразы')
+    && html.includes('🍽 Мои блюда — готовые шаблоны');
+  if (!okFood) failed++;
+  console.log(`${okFood ? '✓' : '✗'} 0.4.15 п.5/п.6: «Быстрые записи» с ясной разницей, «☆ В комбо» у поля`);
+
+  const okCopy = html.includes('>Спросить</button>') && !html.includes('нутрициолог')
+    && appR.includes('Встроенный анализ') && !html.includes('За неделю (7 дней)')
+    && html.includes('Рассчитать ориентировочные цели') && html.includes('Использовать как цель')
+    && (html.match(/Не указан/g) || []).length >= 2
+    && html.includes('по умолчанию хранятся только на вашем устройстве')
+    && html.includes('↓ К форме') && !html.includes('＋ Запись');
+  if (!okCopy) failed++;
+  console.log(`${okCopy ? '✓' : '✗'} 0.4.15 копирайтинг: «Помощник FitFlow» единый бренд, «Не указан», privacy-точность, FAB «↓ К форме»`);
+
+  const okTrust = html.includes('id="backup-last-info"') && appR.includes('fitflow:backup:last')
+    && html.includes('id="notif-daily-summary"') && appR.includes('computeTodayNotificationBudget')
+    && !html.includes('reminder-test-btn') && !appR.includes('sendSpecificReminderTest');
+  if (!okTrust) failed++;
+  console.log(`${okTrust ? '✓' : '✗'} 0.4.15 доверие: «последняя копия N дн. назад», бюджет уведомлений, тест-кнопки убраны`);
+
+  const okGiga = appR.includes('GIGACHAT_API_PERS') && appR.includes('getGigaChatAccessToken')
+    && html.includes('data-cloud-provider="gigachat"') && appR.includes('ngw.devices.sberbank.ru');
+  if (!okGiga) failed++;
+  console.log(`${okGiga ? '✓' : '✗'} 0.4.15 п.2: GigaChat — провайдер с OAuth-обменом`);
+
+  const okDayPlan = appR.includes('fitflow:dayplan-collapsed') && appR.includes('data-dayplan-toggle')
+    && appR.includes('updateActivityKcalHint') && html.includes('id="activity-kcal-hint"')
+    && appR.includes('intensityMemorySave') && html.includes('activity-extra-content')
+    && appR.includes('stats-bar-value') && cssR.includes('.stats-bar-value');
+  if (!okDayPlan) failed++;
+  console.log(`${okDayPlan ? '✓' : '✗'} 0.4.15 UX: компактный план дня, ≈ккал и память интенсивности, «Дополнительно», числа на графиках`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
