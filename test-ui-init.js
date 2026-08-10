@@ -748,8 +748,11 @@ for (const id of ids) {
     && cssN.includes('font-family: "Russo One"') && cssN.includes('assets/fonts/russoone.ttf')
     && cssN.includes('font-family: "PT Serif Custom"') && cssN.includes('ptserif-regular.ttf') && cssN.includes('ptserif-bold.ttf')
     && cssN.includes('font-family: "Comfortaa"') && cssN.includes('assets/fonts/comfortaa.ttf');
+  // 0.4.14 (фидбэк «Спорт-Стандарт жутковато — толсто и крупно»): у sport
+  // Russo One убран из body — остался только в заголовках (характер темы).
   const okThemeFonts = cssN.includes('html[data-palette="neon"] body,')
-    && cssN.includes('html[data-palette="sport"] body')
+    && cssN.includes('html[data-palette="sport"] h1')
+    && !cssN.includes('html[data-palette="sport"] body {')
     && cssN.includes('html[data-palette="forest"] body')
     && cssN.includes('html[data-palette="berry"] body,');
   // Ручной выбор (data-font) стоит ПОЗЖЕ тематических правил — перекрывает их.
@@ -810,6 +813,57 @@ for (const id of ids) {
   const okPrompt13 = appQ.includes('Кашу называй кашей') && appQ.includes('не «черника»');
   if (!okPrompt13) failed++;
   console.log(`${okPrompt13 ? '✓' : '✗'} промпт 0.4.13: каша ≠ ягода, добавка малым весом отдельной строкой (полевой промах «гречка→черника»)`);
+}
+
+// 0.4.14: «Мои комбо» (завтрак одним тапом), маячок журнала под разбором,
+// недельный отчёт нейросетью на устройстве, значки тем (слоты), весы SVG,
+// sport-шрифт только в заголовках, компактные сегменты настроек.
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+
+  const okComboCode = appR.includes('function normalizeCombos') && appR.includes('const COMBOS_LIMIT = 12')
+    && appR.includes('function useCombo') && appR.includes('function renderComboChips')
+    && appR.includes('function commitParsedEntry') && appR.includes('function saveComboFromSmartEntry')
+    && appR.includes('normalizeCombosState();')
+    && appR.includes("bindEvent('#combo-manage-btn'") && appR.includes("bindEvent('#smart-entry-combo-btn'")
+    && appR.includes("data-combo-use=") && appR.includes("data-combo-remove=") && appR.includes("data-combo-rename=");
+  const okComboHtml = html.includes('id="combo-chips"') && html.includes('id="combo-manage-btn"')
+    && html.includes('id="combo-dialog"') && html.includes('id="combo-list"')
+    && html.includes('id="combo-new-text"') && html.includes('id="smart-entry-combo-btn"');
+  const okComboCss = cssR.includes('.combo-section') && cssR.includes('.combo-row');
+  const okCombo = okComboCode && okComboHtml && okComboCss;
+  if (!okCombo) failed++;
+  console.log(`${okCombo ? '✓' : '✗'} 0.4.14 комбо: код+HTML+CSS+биндинги, кнопка «☆ В комбо» в умном вводе`);
+
+  const captionCalls = (appR.match(/parseLogCaptionHtml\(\)/g) || []).length;
+  const okCaption = appR.includes('function parseLogCaptionHtml') && appR.includes('parse-log-caption')
+    && captionCalls >= 2 && html.includes('id="parse-log-status"');
+  if (!okCaption) failed++;
+  console.log(`${okCaption ? '✓' : '✗'} 0.4.14 маячок журнала: подпись под разбором в умном вводе и ИИ-центре`);
+
+  const okReport = appR.includes('function enhanceAnalysisWithLocalLlm')
+    && appR.includes('function buildAnalysisFactsText')
+    && appR.includes('ai-analysis-local-note')
+    && appR.includes("state.aiSettings.mode !== 'cloud'");
+  if (!okReport) failed++;
+  console.log(`${okReport ? '✓' : '✗'} 0.4.14 недельный отчёт: нейросеть на устройстве дополняет факты (цифры — локально)`);
+
+  const okIcons = appR.includes('const THEME_ICON_SETS') && appR.includes('function applyThemeIconSet')
+    && appR.includes('function homeCardIcon') && (html.match(/data-icon-slot=/g) || []).length >= 12;
+  const okWeight = appR.includes('WEIGHT_SCALE_SVG_SM')
+    && appR.indexOf('WEIGHT_SCALE_SVG_SM =') < appR.indexOf('const HOME_CARDS') // не TDZ
+    && !html.includes('⚖');
+  const okIconsAll = okIcons && okWeight;
+  if (!okIconsAll) failed++;
+  console.log(`${okIconsAll ? '✓' : '✗'} 0.4.14 значки тем: наборы слотов + применение; весы — SVG вместо ⚖️, без TDZ`);
+
+  const okBench = !appR.includes('runAiBenchmark');
+  const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.4.14'") && html.includes('v0.4.14');
+  const okMisc = okBench && okCompact && okVer;
+  if (!okMisc) failed++;
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.4.14 в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

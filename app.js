@@ -1277,6 +1277,7 @@ function openSmartEntry() {
   $('#smart-entry-preview').hidden = true;
   $('#smart-entry-preview').innerHTML = '';
   $('#smart-entry-save').hidden = true;
+  if ($('#smart-entry-combo-btn')) $('#smart-entry-combo-btn').hidden = true;
   $('#smart-entry-dialog').hidden = false;
   setTimeout(() => $('#smart-entry-input').focus(), 100);
 }
@@ -1287,7 +1288,34 @@ function closeSmartEntry() {
   $('#smart-entry-preview').hidden = true;
   $('#smart-entry-preview').innerHTML = '';
   $('#smart-entry-save').hidden = true;
+  if ($('#smart-entry-combo-btn')) $('#smart-entry-combo-btn').hidden = true;
   pendingSmartEntry = null;
+}
+
+/* Общая запись спарсенного умного ввода (0.4.14 — выделено из saveSmartEntry,
+   чтобы «Мои комбо» писалось тем же проверенным кодом и с той же
+   правдивостью: вода в воду, еда в дневник, активность в тренировки). */
+function commitParsedEntry(parsed, activityNote) {
+  if (parsed.waterMl > 0) {
+    state.water.total += parsed.waterMl;
+    state.water.log.push({ ts: Date.now(), ml: parsed.waterMl });
+  }
+  if (parsed.food.length) state.food.items.push(...applySelectedMealType(parsed.food));
+  (Array.isArray(parsed.activities) ? parsed.activities : []).forEach((activity) => state.workouts.unshift({
+    id: uid(), date: todayKey(), type: activity.type, title: null,
+    note: activityNote || 'Добавлено быстрым вводом', intensity: 'medium',
+    durationMinutes: activity.durationMinutes, createdAt: Date.now()
+  }));
+}
+
+/* Подпись-призыв к журналу распознаваний под результатом разбора (0.4.14,
+   фидбэк пользователя: «не понял, куда сохраняется история разборов»).
+   Маячок стоит прямо в месте события — разбор увидел → журнал нашёлся. */
+function parseLogCaptionHtml() {
+  let n = 0;
+  try { n = readParseLog().length; } catch (e) { n = 0; }
+  return '🔬 Этот разбор — в журнале распознаваний (записей: ' + n + '). '
+    + 'Выгрузка файла для анализа: Настройки → ✨ ИИ-помощник.';
 }
 
 /* Прозрачная расшифровка позиции питания: сколько граммов/штук принято
@@ -1340,9 +1368,14 @@ function previewSmartEntry() {
   if (!hasContent) { toast('Не удалось выделить воду, еду или активность. Попробуйте указать число и единицу.'); return; }
   pendingSmartEntry = parsed;
   const preview = $('#smart-entry-preview');
-  preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${line}</p>`).join('')}`;
+  preview.innerHTML = `<b>Я понял так:</b>${lines.map((line) => `<p>${line}</p>`).join('')}`
+    + '<p class="settings-hint parse-log-caption">' + parseLogCaptionHtml() + '</p>';
   preview.hidden = false;
   $('#smart-entry-save').hidden = false;
+  // 0.4.14: «☆ В комбо» — сохранить ЭТУ фразу шаблоном одного тапа
+  // (есть еда в разборе — обычный сценарий завтрака/перекуса).
+  const comboBtn = $('#smart-entry-combo-btn');
+  if (comboBtn) comboBtn.hidden = !(parsed.food.length > 0);
 }
 
 async function saveSmartEntry() {
@@ -1350,14 +1383,7 @@ async function saveSmartEntry() {
   const parsed = pendingSmartEntry;
   markParseLogSaved(pendingSmartEntryLogId);
   pendingSmartEntryLogId = null;
-  if (parsed.waterMl > 0) {
-    state.water.total += parsed.waterMl;
-    state.water.log.push({ ts: Date.now(), ml: parsed.waterMl });
-  }
-  if (parsed.food.length) state.food.items.push(...applySelectedMealType(parsed.food));
-  parsed.activities.forEach((activity) => state.workouts.unshift({
-    id: uid(), date: todayKey(), type: activity.type, title: null, note: 'Добавлено быстрым вводом', intensity: 'medium', durationMinutes: activity.durationMinutes, createdAt: Date.now()
-  }));
+  commitParsedEntry(parsed, 'Добавлено быстрым вводом');
   saveState();
   resetMealTypeAfterSave();
   renderAll();
@@ -2556,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.13';
+const FITFLOW_VERSION = '0.4.14';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2589,12 +2615,14 @@ function getMealTypeIdByTime(date = new Date()) {
 /* Карточки Главной: порядок в этом списке = порядок «из коробки».
    Точечные карточки (план дня, самочувствие) показываются,
    только когда включена их функция И карточка видима в настройках порядка. */
+const WEIGHT_SCALE_SVG_SM = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:1em;height:1em;vertical-align:-0.12em;display:inline-block"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="2"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
 const HOME_CARDS = [
   { id: 'day-plan', label: 'План дня', icon: '📋' },
   { id: 'day-mood', label: 'Самочувствие', icon: '🌗' },
   { id: 'water', label: 'Вода', icon: '💧' },
   { id: 'food', label: 'Питание', icon: '🍽️' },
-  { id: 'weight', label: 'Вес', icon: '⚖️' }
+  { id: 'weight', label: 'Вес', icon: WEIGHT_SCALE_SVG_SM }
 ];
 
 /* Включена ли функция, которой принадлежит карточка (независимо от layout). */
@@ -3989,6 +4017,7 @@ function loadState() {
   normalizeHomeLayout();
   normalizeFavoriteMeals();
   normalizeCustomFoods();
+  normalizeCombosState();
   normalizeCourses();
   normalizeWorkouts();
   normalizeActivityTemplates();
@@ -4071,6 +4100,10 @@ function toggleTheme() {
 /* 🎨 Темы оформления (0.3.14, дорожная карта): стиль поверх светлого/тёмного
    режима. «Стандарт» — привычная палитра; переопределяются ТОЛЬКО цветовые
    токены (раскладка и шрифты не трогаются — безопасная первая итерация). */
+/* 0.4.14: значок веса — напольные весы (а не ⚖️ «равновесие», просьба
+   пользователя: тематика спорта и отслеживания веса). */
+
+
 const PALETTES = [
   { id: 'standard', label: 'Стандарт' },
   { id: 'neon', label: 'Neon' },
@@ -4079,6 +4112,58 @@ const PALETTES = [
   { id: 'berry', label: 'Виноград' } // id технический — НЕ переименовывать (совместимость сохранённых настроек)
 ];
 const PALETTE_IDS = new Set(PALETTES.map((p) => p.id));
+
+/* Значки разделов под тему (0.4.14): слот = data-icon-slot элемента; меняются
+   при смене стиля, стандартный набор — бейзлайн. Основные карточки Главной
+   (вода/еда/активность) — нейтральные SVG, окрашиваются акцентом темы. */
+const THEME_ICON_STANDARD = {
+  settings: '⚙️', profile: '👤', bell: '🔔', course: '💊', ai: '✨',
+  backup: '💾', about: 'ℹ️', medals: '🏅', water: '💧', food: '🍽️',
+  dayplan: '📋', mood: '🌗'
+};
+const THEME_ICON_SETS = {
+  standard: THEME_ICON_STANDARD,
+  neon: {
+    ...THEME_ICON_STANDARD,
+    settings: '🎛️', profile: '🧑‍🚀', bell: '📡', ai: '🔮', backup: '🗃️',
+    about: '💡', medals: '🎖️', water: '🧊', food: '🍱', dayplan: '🗒️', mood: '🌃'
+  },
+  sport: {
+    ...THEME_ICON_STANDARD,
+    settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
+    backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗', dayplan: '🗓️', mood: '🔥'
+  },
+  forest: {
+    ...THEME_ICON_STANDARD,
+    settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
+    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕', dayplan: '🌲', mood: '🌤️'
+  },
+  berry: {
+    ...THEME_ICON_STANDARD,
+    settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
+    backup: '🍯', about: '🍷', medals: '🏵️', water: '🧃', food: '🫕', dayplan: '🎀', mood: '🌸'
+  }
+};
+function themeIcon(slot) {
+  const set = THEME_ICON_SETS[getPalette()] || THEME_ICON_STANDARD;
+  return set[slot] || THEME_ICON_STANDARD[slot] || '';
+}
+function applyThemeIconSet() {
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  document.querySelectorAll('[data-icon-slot]').forEach((el) => {
+    const v = themeIcon(el.dataset.iconSlot);
+    if (v && el.textContent !== v) el.textContent = v;
+  });
+}
+/* Иконка карточки Главной в текстовых местах (быстрые чипы, список порядка):
+   тематический эмодзи; Вес — SVG напольных весов (0.4.14). */
+function homeCardIcon(id) {
+  const slotMap = { 'day-plan': 'dayplan', 'day-mood': 'mood', water: 'water', food: 'food' };
+  const slot = slotMap[id];
+  if (slot) return themeIcon(slot);
+  const found = HOME_CARDS.find((c) => c.id === id);
+  return found ? found.icon : '';
+}
 
 function getPalette() {
   const saved = localStorage.getItem('fitflow:palette');
@@ -4091,6 +4176,7 @@ function applyPalette(palette) {
   else document.documentElement.setAttribute('data-palette', p);
   $$('#palette-segmented button').forEach((btn) =>
     btn.classList.toggle('active', btn.dataset.palette === p));
+  applyThemeIconSet(); // 0.4.14: значки разделов под тему
 }
 
 function setPalette(palette) {
@@ -4915,7 +5001,7 @@ function computeGameMedals() {
     { id: 'habits', title: 'Привычки', hint: 'За регулярные записи и полные дни', medals: habits },
     { id: 'run', title: '🏃 Бег (по оценке)', hint: 'Километры считаются из минут бега: расстояние не измеряется напрямую', medals: runMedals },
     { id: 'steps', title: '👟 Шаги (по оценке)', hint: 'Шаги считаются из минут ходьбы: ≈100 шагов за минуту', medals: stepMedals },
-    { id: 'weight', title: '⚖️ Снижение веса', hint: 'Разница между максимальным и текущим весом в истории профиля', medals: weightMedals }
+    { id: 'weight', title: WEIGHT_SCALE_SVG_SM + ' Снижение веса', hint: 'Разница между максимальным и текущим весом в истории профиля', medals: weightMedals }
   ];
 }
 
@@ -5217,7 +5303,7 @@ function renderHomeQuickNav() {
       return el && !el.hidden;
     });
     if (!targetId) return;
-    html += `<button type="button" class="quicknav-chip" data-jump="${targetId}" aria-label="Перейти к разделу «${item.label}»">${item.icon}${item.label}</button>`;
+    html += `<button type="button" class="quicknav-chip" data-jump="${targetId}" aria-label="Перейти к разделу «${item.label}»">${homeCardIcon(item.id)}${item.label}</button>`;
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
@@ -5287,7 +5373,7 @@ function renderHomeLayoutDialog() {
     const card = HOME_CARDS.find((item) => item.id === id);
     if (!card) return '';
     return `<div class="home-layout-row">
-      <div class="home-layout-card-name"><span aria-hidden="true">${card.icon}</span><strong>${card.label}</strong></div>
+      <div class="home-layout-card-name"><span aria-hidden="true">${homeCardIcon(card.id)}</span><strong>${card.label}</strong></div>
       <div class="home-layout-controls">
         <label class="switch" title="Показывать ${card.label} на Главной">
           <input type="checkbox" data-home-card-visible="${card.id}" ${layout.visible[card.id] ? 'checked' : ''}>
@@ -5405,6 +5491,7 @@ function renderFood() {
 
   renderFoodList();
   renderFavoriteMeals();
+  renderComboChips();
   renderDayChecklist();
 }
 
@@ -5860,6 +5947,243 @@ function renderFavoriteMeals() {
       <button class="favorite-meal-use" type="button" data-favorite-meal="${meal.id}">${escapeHtml(meal.name)} · ${fmt(meal.kcal)} ккал</button>
       <button class="favorite-meal-remove" type="button" data-remove-favorite="${meal.id}" aria-label="Удалить «${escapeHtml(meal.name)}» из моих блюд">×</button>
     </span>`).join('');
+}
+
+/* ============================================================
+   ⭐ Мои комбо (0.4.14, запрос пользователя: «завтрак одним тапом»).
+   Комбо — сохранённая фраза умного ввода («овсянка 150 г, кофе с молоком»):
+   тап по чипу — и всё записано по СВОЕМУ же разбору (пользователь видел его
+   при сохранении комбо). Цифры на чипе и при записи всегда пересчитываются
+   актуальным парсером (правдивость: обновилась база — обновились и ккал);
+   каждое срабатывание пишется в журнал распознаваний как обычный разбор.
+   ============================================================ */
+const COMBOS_LIMIT = 12;
+const COMBOS_CHIPS_VISIBLE = 5;
+let editingComboId = null;
+
+/* Чистая нормализация списка комбо (тестируется в node): валидация полей,
+   авто-имя из первой позиции, дедуп по id, лимит. */
+function normalizeCombos(rawList) {
+  if (!Array.isArray(rawList)) return [];
+  const ids = new Set();
+  return rawList.map((raw) => {
+    if (!raw || typeof raw !== 'object') return null;
+    const text = String(raw.text || '').trim().slice(0, 300);
+    if (!text) return null;
+    const first = text.split(/[,;]/u)[0].trim().slice(0, 28);
+    const name = String(raw.name || '').trim().slice(0, 40)
+      || (first + (/[,;]/u.test(text) ? ' +' : ''));
+    return {
+      id: typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 24) : uid(),
+      name,
+      text,
+      uses: Math.max(0, Math.round(Number(raw.uses) || 0)),
+      createdAt: Number(raw.createdAt) > 0 ? Number(raw.createdAt) : 0
+    };
+  }).filter((c) => c && c.name && !ids.has(c.id) && ids.add(c.id))
+    .slice(0, COMBOS_LIMIT);
+}
+
+function normalizeCombosState() {
+  state.combos = normalizeCombos(state.combos);
+}
+
+function getCombos() {
+  if (!Array.isArray(state.combos)) state.combos = [];
+  return state.combos;
+}
+
+/* Честная сводка для чипа: прогоняем текст комбо актуальным парсером. */
+function comboSummary(combo) {
+  let parsed = { food: [], waterMl: 0, activities: [] };
+  try { parsed = parseSmartEntry(combo.text); } catch (e) { /* не роняем рендер */ }
+  return {
+    kcal: Math.round((parsed.food || []).reduce((sum, i) => sum + (Number(i.kcal) || 0), 0)),
+    waterMl: Number(parsed.waterMl) || 0,
+    acts: (parsed.activities || []).length
+  };
+}
+
+function addCombo(name, text) {
+  const list = getCombos();
+  const cleaned = String(text || '').trim().slice(0, 300);
+  if (!cleaned) { toast('Заполните текст комбо — именно он будет разбираться при записи'); return false; }
+  if (list.length >= COMBOS_LIMIT) { toast('Максимум ' + COMBOS_LIMIT + ' комбо — удалите лишние кнопкой «Ещё…»'); return false; }
+  // Честный гард: комбо-пустышку (парсер не поймёт) не сохраняем —
+  // ложного чипа «ничего не запишется» в интерфейсе не будет.
+  const probe = parseSmartEntry(cleaned);
+  if (!probe.food.length && !probe.waterMl && !probe.activities.length) {
+    toast('⚠️ Такой текст парсер не разбирает — комбо не сохранено. Проверьте фразу кнопкой «Разобрать».');
+    return false;
+  }
+  const first = cleaned.split(/[,;]/u)[0].trim().slice(0, 28);
+  list.push({
+    id: uid(),
+    name: String(name || '').trim().slice(0, 40) || (first + (/[,;]/u.test(cleaned) ? ' +' : '')),
+    text: cleaned,
+    uses: 0,
+    createdAt: Date.now()
+  });
+  saveState();
+  return true;
+}
+
+function removeComboById(id) {
+  const combo = getCombos().find((c) => c.id === id);
+  state.combos = getCombos().filter((c) => c.id !== id);
+  saveState();
+  renderComboChips();
+  renderComboDialog();
+  toast('⭐ Комбо «' + (combo ? combo.name : '') + '» удалено');
+}
+
+function startRenameCombo(id) {
+  editingComboId = id;
+  renderComboDialog();
+  setTimeout(() => {
+    const el = $('#combo-rename-input');
+    if (el) { el.focus(); el.select(); }
+  }, 80);
+}
+
+function saveComboRename(id, value) {
+  const combo = getCombos().find((c) => c.id === id);
+  const name = String(value || '').trim().slice(0, 40);
+  editingComboId = null;
+  if (combo && name) {
+    combo.name = name;
+    saveState();
+    toast('⭐ Комбо переименовано');
+  }
+  renderComboChips();
+  renderComboDialog();
+}
+
+/* Запись комбо одним тапом: актуальный парсер + журнал + честный тост.
+   «Не молчать»: если в комбо что-то перестало распознаваться (устаревший
+   текст), говорим об этом прямо. */
+async function useCombo(id) {
+  const combo = getCombos().find((c) => c.id === id);
+  if (!combo) return;
+  const parsed = parseSmartEntry(combo.text);
+  if (!parsed.waterMl && !parsed.food.length && !(parsed.activities || []).length) {
+    toast('⚠️ Комбо «' + combo.name + '» не разобралось — поправьте его текст (кнопка «Ещё…»)');
+    return;
+  }
+  const logId = logParseEvent('text', combo.text, parsed, null);
+  markParseLogSaved(logId);
+  commitParsedEntry(parsed, 'Комбо: ' + combo.name);
+  combo.uses += 1;
+  saveState();
+  renderAll();
+  await syncMealRemindersForToday();
+  await syncTrainingReminderForToday();
+  const bits = [];
+  const kcal = Math.round(parsed.food.reduce((sum, i) => sum + i.kcal, 0));
+  if (kcal > 0) bits.push('+' + fmt(kcal) + ' ккал');
+  if (parsed.waterMl > 0) bits.push('+' + fmt(parsed.waterMl) + ' мл воды');
+  const actMin = (parsed.activities || []).reduce((sum, a) => sum + a.durationMinutes, 0);
+  if (actMin > 0) bits.push('активность ' + actMin + ' мин');
+  let msg = '⭐ «' + combo.name + '» записано: ' + bits.join(', ') + '. Детали — в дневнике.';
+  const missed = Array.from(new Set(parsed.unparsed || []));
+  if (missed.length) msg += ' ⚠️ Не разобрал: «' + missed.join('», «') + '».';
+  toast(msg, 4500);
+  renderComboChips();
+  // Если диалог управления открыт (тап по ▶ внутри него) — обновить счётчики,
+  // но не в процессе переименования: не рвём ввод пользователя.
+  const dialog = typeof document !== 'undefined' ? $('#combo-dialog') : null;
+  if (dialog && !dialog.hidden && !editingComboId) renderComboDialog();
+}
+
+function renderComboChips() {
+  if (typeof document === 'undefined') return;
+  const host = $('#combo-chips');
+  if (!host) return;
+  const combos = getCombos();
+  const hint = $('#combo-hint');
+  const manageBtn = $('#combo-manage-btn');
+  if (!combos.length) {
+    host.innerHTML = '';
+    if (manageBtn) manageBtn.hidden = true;
+    if (hint) hint.textContent = 'Сохраните разобранную фразу кнопкой «☆ В комбо» в умном вводе — и завтрак запишется одним тапом отсюда.';
+    return;
+  }
+  if (manageBtn) manageBtn.hidden = false;
+  if (hint) hint.textContent = '';
+  host.innerHTML = combos.slice(0, COMBOS_CHIPS_VISIBLE).map((combo) => {
+    const summary = comboSummary(combo);
+    const bits = [];
+    if (summary.kcal > 0) bits.push(fmt(summary.kcal) + ' ккал');
+    if (summary.waterMl > 0) bits.push(fmt(summary.waterMl) + ' мл');
+    if (summary.acts > 0) bits.push('активность');
+    return '<button class="chip chip-sm combo-chip" type="button" data-combo-id="' + combo.id
+      + '" title="' + escapeHtml(combo.text).replace(/"/g, '&quot;') + '">⭐ '
+      + escapeHtml(combo.name) + (bits.length ? ' · ' + bits.join(' · ') : '') + '</button>';
+  }).join('');
+}
+
+function renderComboDialog() {
+  if (typeof document === 'undefined') return;
+  const list = $('#combo-list');
+  if (!list) return;
+  const combos = getCombos();
+  if (!combos.length) {
+    list.innerHTML = '<p class="settings-hint">Пока пусто. Добавьте первое комбо ниже — или сохраните разобранную фразу из умного ввода кнопкой «☆ В комбо».</p>';
+    return;
+  }
+  list.innerHTML = combos.map((combo) => {
+    const summary = comboSummary(combo);
+    const kcalText = summary.kcal > 0 ? '≈' + fmt(summary.kcal) + ' ккал' : '';
+    const usesText = combo.uses > 0 ? 'использовано ' + combo.uses + '×' : '';
+    const meta = [kcalText, usesText].filter(Boolean).join(' · ');
+    if (editingComboId === combo.id) {
+      return '<div class="combo-row">'
+        + '<div class="combo-row-main">'
+        + '<input id="combo-rename-input" type="text" maxlength="40" value="' + escapeHtml(combo.name).replace(/"/g, '&quot;') + '" aria-label="Новое имя комбо">'
+        + '<p class="settings-hint combo-row-text">«' + escapeHtml(combo.text) + '»' + (meta ? ' · ' + meta : '') + '</p>'
+        + '</div><div class="combo-row-actions">'
+        + '<button class="icon-btn" type="button" data-combo-save-rename="' + combo.id + '" aria-label="Сохранить имя" title="Сохранить имя">✓</button>'
+        + '<button class="icon-btn" type="button" data-combo-cancel-rename="1" aria-label="Отмена" title="Отмена">✕</button>'
+        + '</div></div>';
+    }
+    return '<div class="combo-row">'
+      + '<div class="combo-row-main"><b>' + escapeHtml(combo.name) + '</b>' + (meta ? ' <span class="settings-hint">' + meta + '</span>' : '')
+      + '<p class="settings-hint combo-row-text">«' + escapeHtml(combo.text) + '»</p></div>'
+      + '<div class="combo-row-actions">'
+      + '<button class="icon-btn" type="button" data-combo-use="' + combo.id + '" aria-label="Записать «' + escapeHtml(combo.name).replace(/"/g, '&quot;') + '» в дневник" title="Записать в дневник">▶</button>'
+      + '<button class="icon-btn" type="button" data-combo-rename="' + combo.id + '" aria-label="Переименовать" title="Переименовать">✏️</button>'
+      + '<button class="icon-btn" type="button" data-combo-remove="' + combo.id + '" aria-label="Удалить" title="Удалить">🗑</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+function openComboDialog() {
+  const dialog = $('#combo-dialog');
+  if (!dialog) return;
+  editingComboId = null;
+  if ($('#combo-new-name')) $('#combo-new-name').value = '';
+  if ($('#combo-new-text')) $('#combo-new-text').value = '';
+  renderComboDialog();
+  dialog.hidden = false;
+}
+
+function closeComboDialog() {
+  const dialog = $('#combo-dialog');
+  if (dialog) dialog.hidden = true;
+  editingComboId = null;
+}
+
+/* «☆ В комбо» из умного ввода: сохраняем ИСХОДНУЮ фразу — она и есть макрос. */
+function saveComboFromSmartEntry() {
+  const input = $('#smart-entry-input');
+  const text = input ? (input.value || '').trim() : '';
+  if (addCombo('', text)) {
+    renderComboChips();
+    const combos = getCombos();
+    toast('⭐ Комбо «' + combos[combos.length - 1].name + '» сохранено — теперь записывается одним тапом из «Питания»');
+    const comboBtn = $('#smart-entry-combo-btn');
+    if (comboBtn) comboBtn.hidden = true;
+  }
 }
 
 function removeFood(id) {
@@ -7374,7 +7698,7 @@ const HELP_TOPICS = {
   },
   'settings-ai': {
     title: 'ИИ-помощник',
-    text: 'Разбор фраз («съел 2 бутерброда с сыром»), ответы на вопросы о питании и рецепты из ваших продуктов. Три режима: «Локальный эксперт» — полностью офлайн, на правилах и базе из 925+ продуктов; «Облачная нейросеть» — ваш ключ (Gemini, DeepSeek и др.); «Gemma на устройстве» — большая модель, скачивается один раз.'
+    text: 'Разбор фраз («съел 2 бутерброда с сыром»), ответы на вопросы о питании и рецепты из ваших продуктов. Три режима: «Локальный эксперт» — полностью офлайн, на правилах и базе из 960+ продуктов; «Облачная нейросеть» — ваш ключ (Gemini, DeepSeek и др.); «Gemma на устройстве» — большая модель, скачивается один раз.'
   },
   'settings-data': {
     title: 'Данные и резервные копии',
@@ -7431,7 +7755,7 @@ const ONBOARDING_SLIDES = [
   {
     emoji: '🗣️',
     title: 'Пишите или диктуйте «как есть»',
-    text: '«Два бутерброда с сыром и стакан сока» — парсер на базе 925+ продуктов найдёт КБЖУ сам. Перед сохранением всегда показываем расчёт: видно, что и как посчитано, — можно поправить.'
+    text: '«Два бутерброда с сыром и стакан сока» — парсер на базе 960+ продуктов найдёт КБЖУ сам. Перед сохранением всегда показываем расчёт: видно, что и как посчитано, — можно поправить.'
   },
   {
     emoji: '📋',
@@ -8206,6 +8530,52 @@ function init() {
   $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
   $('#manual-food-add').addEventListener('click', addManualFood);
   $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
+  // ⭐ Мои комбо (0.4.14)
+  bindEvent('#combo-manage-btn', 'click', openComboDialog);
+  bindEvent('#combo-dialog-close', 'click', closeComboDialog);
+  bindEvent('#smart-entry-combo-btn', 'click', saveComboFromSmartEntry);
+  bindEvent('#combo-add-btn', 'click', () => {
+    if (addCombo($('#combo-new-name') ? $('#combo-new-name').value : '', $('#combo-new-text') ? $('#combo-new-text').value : '')) {
+      if ($('#combo-new-name')) $('#combo-new-name').value = '';
+      if ($('#combo-new-text')) $('#combo-new-text').value = '';
+      renderComboChips();
+      renderComboDialog();
+      toast('⭐ Комбо добавлено — одним тапом из «Питания»');
+    }
+  });
+  {
+    const chips = $('#combo-chips');
+    if (chips) chips.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-combo-id]');
+      if (btn) useCombo(btn.dataset.comboId);
+    });
+    const comboList = $('#combo-list');
+    if (comboList) comboList.addEventListener('click', (e) => {
+      const use = e.target.closest('[data-combo-use]');
+      if (use) { useCombo(use.dataset.comboUse); return; }
+      const rename = e.target.closest('[data-combo-rename]');
+      if (rename) { startRenameCombo(rename.dataset.comboRename); return; }
+      const remove = e.target.closest('[data-combo-remove]');
+      if (remove) { removeComboById(remove.dataset.comboRemove); return; }
+      const saveRename = e.target.closest('[data-combo-save-rename]');
+      if (saveRename) {
+        const input = $('#combo-rename-input');
+        saveComboRename(saveRename.dataset.comboSaveRename, input ? input.value : '');
+        return;
+      }
+      if (e.target.closest('[data-combo-cancel-rename]')) {
+        editingComboId = null;
+        renderComboDialog();
+      }
+    });
+    // Enter в поле переименования = сохранить (не молчим про потерю ввода)
+    if (comboList) comboList.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target && e.target.id === 'combo-rename-input') {
+        const row = editingComboId;
+        saveComboRename(row, e.target.value);
+      }
+    });
+  }
   $('#favorite-meals').addEventListener('click', (e) => {
     const useButton = e.target.closest('[data-favorite-meal]');
     if (useButton) return addFavoriteMeal(useButton.dataset.favoriteMeal);
@@ -8617,7 +8987,6 @@ function init() {
   $$('#ai-mode-choices button').forEach((btn) => btn.addEventListener('click', () => setAiMode(btn.dataset.aiMode)));
   bindEvent('#ai-select-btn', 'click', selectLocalModelFile);
   bindEvent('#ai-download-btn', 'click', downloadAiModelAutomatically);
-  bindEvent('#ai-benchmark-btn', 'click', runAiBenchmark);
   // Облачный ИИ (BYOK)
   $$('#ai-cloud-provider button').forEach((btn) => btn.addEventListener('click', () => setCloudProvider(btn.dataset.cloudProvider)));
   $('#ai-cloud-key')?.addEventListener('change', (e) => {
@@ -8948,48 +9317,8 @@ function downloadAiModelAutomatically() {
   toast('Инструкция выведена в строку статуса — файл добавляется вручную, это честно');
 }
 
-function runAiBenchmark() {
-  const status = $('#ai-benchmark-status');
-  if (!status) return;
-  if (state.aiSettings.mode === 'cloud') {
-    if (!isCloudAiReady()) {
-      status.textContent = '⚠ Облачный ИИ не настроен: вставьте ключ выше и нажмите «Проверить подключение».';
-      return;
-    }
-    status.textContent = '⚡ Измеряю время отклика облачной нейросети…';
-    const t0 = Date.now();
-    callCloudAi('', 'Ответь одним словом: ок.', {}).then((out) => {
-      const ms = Date.now() - t0;
-      status.textContent = '⚡ Облако (' + out.modelLabel + '): первый ответ за ' + (ms / 1000).toFixed(2) + ' с · Текущая модель будет обновляться автоматически при смене линейки.';
-    }).catch((err) => {
-      status.textContent = '⚡ Облако недоступно: ' + cloudErrorText(err);
-    });
-    return;
-  }
-  if (!state.aiSettings.connected && state.aiSettings.mode !== 'expert') {
-    status.textContent = '⚠ Файл нейросети не подключён. Сначала выберите файл модели (.gguf / .tflite) или включите режим «Локальный эксперт FitFlow».';
-    toast('⚠ Сначала выберите файл модели');
-    return;
-  }
-  status.textContent = '⚡ Измеряется скорость локального вывода FitFlow...';
-  setTimeout(() => {
-    if (state.aiSettings.mode === 'expert') {
-      const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      const count = Object.keys(FOOD_DB).length;
-      let check = 0;
-      for (const k in FOOD_DB) { check += FOOD_DB[k].kcal; }
-      const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      const ms = Math.max(1, Math.round((t1 - t0) * 100) / 100);
-      status.textContent = '⚡ Результат бенчмарка (Локальный эксперт FitFlow JS): время анализа ' + count + ' продуктов — ' + ms + ' мс · Точность БЖУ: 100% ✓ · Файл нейросети: не требуется';
-    } else {
-      const modelName = state.aiSettings.modelName || 'Локальная модель';
-      const isGguf = modelName.toLowerCase().endsWith('.gguf');
-      const speed = isGguf ? '18.5 токенов/сек' : '15.2 токена/сек';
-      status.textContent = '⚡ Результат бенчмарка (' + escapeHtml(modelName) + '): Время отклика (TTFT) 0.38 с · Скорость: ~' + speed + ' · Соблюдение формата JSON: 100% ✓';
-    }
-    toast('⚡ Бенчмарк завершён!');
-  }, 500);
-}
+/* Пользовательский «тест эффективности» убран как дев-инструмент (P9, 0.4.14). */
+
 
 function parseAiQuickEntry() {
   const input = $('#ai-quick-input');
@@ -9027,6 +9356,7 @@ function parseAiQuickEntry() {
     (acts.length > 0 ? '<li>🏃 <b>Активность</b>: ' + acts.map(a => escapeHtml(a.label) + ' (' + a.durationMinutes + ' мин)').join(', ') + '</li>' : '') +
     (unparsed.length ? '<li>⚠️ <b>Не разобрал</b>: «' + escapeHtml(unparsed.join('», «')) + '» — не запишется. Переформулируйте или добавьте вручную.</li>' : '') +
     '</ul>' +
+    '<p class="settings-hint parse-log-caption">' + parseLogCaptionHtml() + '</p>' +
     '<button class="btn btn-primary" id="ai-quick-save-btn" type="button">✓ Записать всё в дневник</button>';
   resultBox.hidden = false;
   // 0.3.20 (пробы build 137): результат длинный, а клавиатура+док держали
@@ -9185,7 +9515,7 @@ function switchAiTab(tabName) {
 }
 
 /* Рецепт собирается из РЕАЛЬНО перечисленных продуктов: названия и питательность
-   берутся из локальной базы 925+ продуктов, советы — из категорий набора. */
+   берутся из локальной базы 960+ продуктов, советы — из категорий набора. */
 const RECIPE_CATEGORY_RULES = [
   { id: 'protein', label: 'белковая основа', pattern: /куриц|грудк|филе|индейк|говядин|свинин|телятин|мяс|фарш|рыб|треск|минтай|лосос|сёмг|семг|форел|тунец|горбуш|креветк|кальмар|яиц|яйц|творог|фасол|чечевиц|нут|боб|соя/iu },
   { id: 'grain', label: 'гарнир', pattern: /гречк|рис|овсянк|булгур|перловк|макарон|паст|картоф|картош|пшен|кускус|киноа|хлеб|лаваш|батат|пюре|геркулес|пшено/iu },
@@ -9284,7 +9614,7 @@ function generateAiRecipe() {
   const items = parseMealText(text);
   if (!items.length) {
     resultBox.innerHTML = '<h4>🥑 Рецепт из ваших продуктов</h4>' +
-      '<p>Пока не узнал продукты в списке «' + escapeHtml(text) + '». Попробуйте простые названия через запятую: «курица, рис, помидор» или «яйца, творог, огурец» — база знает 925+ продуктов.</p>';
+      '<p>Пока не узнал продукты в списке «' + escapeHtml(text) + '». Попробуйте простые названия через запятую: «курица, рис, помидор» или «яйца, творог, огурец» — база знает 960+ продуктов.</p>';
     resultBox.hidden = false;
     return;
   }
@@ -9701,6 +10031,77 @@ function generateAiStatsReport() {
   toast('✨ ИИ-анализ показателей завершён!');
 }
 
+/* Живой недельный отчёт нейросетью НА УСТРОЙСТВЕ (0.4.14, запрос
+   пользователя: «недельный ИИ-отчёт по журналу»). Принцип рецептов: шаблонные
+   факты выше — всегда полные и посчитаны локальным кодом (правдивость цифр —
+   у кода), модель только ПЕРЕСКАЗЫВАЕТ их живым текстом. Стриминг токенов —
+   как у чата/рецептов, любой сбой → честная пометка, факты остаются. */
+async function enhanceAnalysisWithLocalLlm(resultBox, days, factsText) {
+  const plugin = getLocalAiPlugin();
+  if (!plugin || !resultBox) return;
+  const hostId = 'ai-analysis-local-note';
+  resultBox.insertAdjacentHTML('beforeend', '<div id="' + hostId + '"><p class="settings-hint">🧠 Пишу живой отчёт за ' + days + ' дн. нейросетью на устройстве — офлайн, без интернета…</p></div>');
+  const host = resultBox.querySelector('#' + hostId);
+  if (!host) return;
+  const prompt = 'Ты заботливый нутрициолог приложения FitFlow. Ниже — факты дневника пользователя за ' + days + ' дн., посчитанные приложением (доверяй им, ничего не пересчитывай и не сравнивай числа сам):\n'
+    + factsText
+    + '\nНапиши живой отчёт по-русски: 1) 2–3 конкретных наблюдения по этим фактам (что хорошо, что проседает); 2) один реалистичный совет на ближайшие дни; 3) короткое ободрение. До 120 слов, без вступлений, без перечисления всех цифр подряд, без эмодзи.';
+  let progressHandle = null;
+  try {
+    progressHandle = await plugin.addListener('generateProgress', (ev) => {
+      const partial = ev && typeof ev.text === 'string' ? ev.text : '';
+      if (partial.trim()) {
+        host.innerHTML = mdLiteToHtml(partial)
+          + '<p class="settings-hint" style="margin:6px 0 0">🧠 …печатаю отчёт на устройстве — можно читать по ходу.</p>';
+      }
+    });
+  } catch (e) { progressHandle = null; }
+  const stopProgress = () => { try { if (progressHandle && progressHandle.remove) progressHandle.remove(); } catch (e) { } progressHandle = null; };
+  try {
+    const st = await plugin.status().catch(() => null);
+    let ready = !!(st && st.engineLoaded);
+    if (!ready) {
+      host.innerHTML = '<p class="settings-hint">🧠 Поднимаю модель в память — одна загрузка до минуты, следующие отчёты быстрее…</p>';
+      ready = await loadLocalLlmModel();
+    }
+    if (!ready) throw new Error('not_loaded');
+    const out = await plugin.generate({ prompt });
+    stopProgress();
+    const draft = String((out && out.text) || '').trim();
+    if (!draft) throw new Error('empty_answer');
+    host.innerHTML = mdLiteToHtml(draft)
+      + '<p class="settings-hint" style="margin:6px 0 0">🧠 Текст отчёта: нейросеть на устройстве, офлайн · цифры выше посчитаны локально.</p>';
+  } catch (err) {
+    stopProgress();
+    host.innerHTML = '<p class="settings-hint">🧠 Нейросеть не ответила (' + escapeHtml(localLlmErrorText(err)) + ') — выше проверенный отчёт, собранный по фактам локально.</p>';
+  }
+}
+
+/* Текст фактов для отчёта: только посчитанное кодом (модель не считает сама). */
+function buildAnalysisFactsText(days, weightText, waterPct) {
+  const parts = [];
+  try {
+    const facts = gatherProgressFacts();
+    const t = facts.today || {};
+    parts.push('Сегодня: вода ' + Math.round(Number(t.waterTotal) || 0) + ' из ' + (t.waterGoal || 2500) + ' мл'
+      + ', питание ' + Math.round(Number(t.foodTotal) || 0) + ' из ' + (t.foodGoal || 2000) + ' ккал'
+      + ', активность ' + Math.round(Number(t.activityMinutes) || 0) + ' мин'
+      + ', самочувствие ' + (Number(t.mood) >= 1 ? t.mood + '/5' : 'не оценено') + '.');
+    const w = facts.week || {};
+    if (Number(w.days) >= 2) {
+      parts.push('В среднем за ' + w.days + ' дн.: ' + Math.round(Number(w.kcalAvg) || 0) + ' ккал/день'
+        + ', вода ' + Math.round(Number(w.waterPctAvg) || 0) + '% цели'
+        + (Number(w.moodAvg) > 0 ? ', самочувствие ' + (Math.round(w.moodAvg * 10) / 10) + '/5' : '')
+        + (Number(w.sleepAvgMin) > 0 ? ', сон в среднем ' + Math.floor(w.sleepAvgMin / 60) + ' ч ' + String(Math.round(w.sleepAvgMin) % 60).padStart(2, '0') + ' мин' : '') + '.');
+    }
+    const insights = Array.isArray(facts.insights) ? facts.insights : [];
+    if (insights.length) parts.push('Найденные закономерности: ' + insights.join(' '));
+  } catch (e) { /* факты не собрались — модель отвечает по тексту ниже */ }
+  if (weightText) parts.push('Вес: ' + weightText + '.');
+  if (Number.isFinite(waterPct)) parts.push('Вода сегодня: ' + waterPct + '% цели.');
+  return parts.join('\n') || ('Записей за ' + days + ' дн. пока мало.');
+}
+
 function generateAiAnalysis() {
   const resultBox = $('#ai-analysis-result');
   const periodBtn = $('#ai-analysis-period button.active');
@@ -9728,8 +10129,11 @@ function generateAiAnalysis() {
     '</ul>' + buildAiCloseButton();
   resultBox.hidden = false;
   bindAiReportClose(resultBox);
-  // Облачное дополнение: короткий живой комментарий нейросети под фактами.
-  if (isCloudAiReady()) {
+  // 0.4.14: первый путь — живой отчёт нейросетью на устройстве (офлайн);
+  // облако — только если пользователь включил его явно в настройках.
+  if (getLocalAiPlugin() && hasRealLocalModel() && state.aiSettings.mode !== 'cloud') {
+    enhanceAnalysisWithLocalLlm(resultBox, days, buildAnalysisFactsText(days, weightText, waterPct));
+  } else if (isCloudAiReady()) {
     const hostId = 'ai-analysis-cloud-note';
     resultBox.insertAdjacentHTML('beforeend', '<div id="' + hostId + '"><p class="settings-hint">☁ Спрашиваю короткий вывод у нейросети…</p></div>');
     const summary = 'Период анализа: ' + days + ' дн. Дневник ведётся ' + diaryDays + ' дн. ' + weightText + '. '
@@ -10321,7 +10725,7 @@ function buildAiChatAnswer(text) {
       return '<li><b>' + escapeHtml(key) + '</b> (за 100 г): ' + Math.round(item.kcal) + ' ккал · Б ' + item.p + ' · Ж ' + item.f + ' · У ' + item.c + '</li>';
     }).join('');
     return '<ul>' + rows + '</ul>' +
-      '<p>Данные — из локальной базы FitFlow (925+ продуктов). Чтобы записать блюдо в дневник, откройте вкладку «Ввод» и напишите, например: «' + escapeHtml(foundKeys[0]) + ' 150 г».</p>';
+      '<p>Данные — из локальной базы FitFlow (960+ продуктов). Чтобы записать блюдо в дневник, откройте вкладку «Ввод» и напишите, например: «' + escapeHtml(foundKeys[0]) + ' 150 г».</p>';
   };
   // 0) «Как мой день / мой прогресс» — отвечаем вашими же фактами
   // (эксперт 2.1): цифры дня и недели + найденные закономерности.
@@ -10429,7 +10833,7 @@ function sendAiTestQuery() {
   if (state.aiSettings.mode === 'expert') {
     resultBox.innerHTML = '<h4>⚡ Статус запроса («Локальный эксперт FitFlow JS»)</h4>' +
       '<p><b>Ваш вопрос</b>: «' + escapeHtml(q) + '»</p>' +
-      '<p><b>⚠ Обратите внимание</b>: режим «Локальный эксперт FitFlow» — это встроенная база на 925+ продуктов и алгоритмы нутрициолога, а не нейросеть. Экспертная система не отвечает на общие вопросы (вроде «Столица России»), но умеет мгновенно рассчитывать рецепты, БЖУ и анализировать недельную/месячную статистику по правилам.</p>' +
+      '<p><b>⚠ Обратите внимание</b>: режим «Локальный эксперт FitFlow» — это встроенная база на 960+ продуктов и алгоритмы нутрициолога, а не нейросеть. Экспертная система не отвечает на общие вопросы (вроде «Столица России»), но умеет мгновенно рассчитывать рецепты, БЖУ и анализировать недельную/месячную статистику по правилам.</p>' +
       '<p style="margin-bottom:0;font-size:0.8rem;color:var(--primary)"><b>Статус</b>: 100% офлайн и бесплатно · без вымыслов и заглушек</p>';
     resultBox.hidden = false;
     toast('⚡ Ответ экспертной системы');
@@ -10494,6 +10898,7 @@ if (typeof module !== 'undefined' && module.exports) {
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
-    normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT
+    normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
+    normalizeCombos, COMBOS_LIMIT
   };
 }

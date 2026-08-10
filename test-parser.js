@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1272,6 +1272,37 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok13 = bad === 0;
   if (!ok13) failed++;
   console.log(`${ok13 ? '✓' : '✗'} 0.4.13: печенье 15 г/шт, курица-части+«без кожи», кляр ключи+фолбэк, виды колбас, «омлет с молоком», негация «без», журнал-ячейки`);
+}
+
+// ===== 0.4.14: «Мои комбо» — чистая нормализация шаблонов умного ввода =====
+{
+  let bad = 0;
+  // Мусор отфильтровывается, текст режется до 300, uses нормализуется
+  const norm = normalizeCombos([
+    null, 'строка', {}, { text: '   ' },
+    { id: 'a', name: 'Завтрак', text: 'овсянка 150 г, кофе с молоком', uses: 3.7 },
+    { id: 'a', name: 'Дубль', text: 'чай' }, // дубль id — вылетает
+    { text: 'банан 1 шт' }, // без id и имени — авто-имя из первой позиции
+    { id: 'c', name: 'x'.repeat(60), text: 'кефир 200 мл' } // имя режется до 40
+  ]);
+  if (!(norm.length === 3)) bad++;
+  if (!(norm[0].name === 'Завтрак' && norm[0].uses === 4)) bad++; // uses округляется: 3.7 → 4
+  if (!(norm[1].name === 'банан 1 шт' && norm[1].id && norm[1].uses === 0)) bad++;
+  if (!(norm[2].name.length === 40)) bad++;
+  // Авто-имя с « +» при нескольких позициях
+  const multi = normalizeCombos([{ text: 'овсянка 150 г, кофе, банан' }]);
+  if (!(multi.length === 1 && /\+$/u.test(multi[0].name))) bad++;
+  // Лимит 12
+  const over = normalizeCombos(Array.from({ length: 20 }, (_, i) => ({ id: 'k' + i, text: 'чай ' + i })));
+  if (!(over.length === COMBOS_LIMIT)) bad++;
+  // Не-массив → пустой список (бэкап/порча не роняет)
+  if (!(normalizeCombos(undefined).length === 0 && normalizeCombos('x').length === 0)) bad++;
+  // Текст комбо честно перепарсивается актуальным парсером (главная механика)
+  const comboParsed = parseSmartEntry(norm[0].text);
+  if (!(comboParsed.food.length === 2)) bad++;
+  const ok14 = bad === 0;
+  if (!ok14) failed++;
+  console.log(`${ok14 ? '✓' : '✗'} 0.4.14 комбо: нормализация (фильтр/дедуп/лимит/авто-имя), перепарсинг текста актуальным парсером`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

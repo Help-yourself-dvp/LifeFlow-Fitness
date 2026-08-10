@@ -1972,6 +1972,15 @@ textarea.form-input.ai-textarea {
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
 }
 
+/* 0.4.14: палитра и шрифт — компактные ряды (5 стилей не влезали, «Виноград»
+   уезжал): разрешён перенос 3+2, значок и название строго в одну строку. */
+#palette-segmented button, #font-segmented button {
+  padding: 7px 6px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+#palette-segmented button { flex: 1 1 27%; }
+
 html[data-theme="dark"] .segmented button.active {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
@@ -2114,6 +2123,81 @@ html[data-theme="dark"] .segmented button.active {
 .favorite-meals-empty {
   color: var(--md-sys-color-on-surface-variant);
   font-size: 0.78rem;
+}
+
+/* ⭐ Мои комбо (0.4.14): чипы записи набора одним тапом + диалог управления */
+.combo-section {
+  margin-top: 12px;
+}
+
+.combo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.combo-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.combo-section .quick-chips {
+  margin-top: 0;
+}
+
+.combo-chip {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.combo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.combo-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--md-sys-color-outline-variant, rgba(0, 0, 0, 0.12));
+  border-radius: 14px;
+  background: var(--md-sys-color-surface-container-lowest, rgba(0, 0, 0, 0.03));
+}
+
+.combo-row-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.combo-row-main b {
+  font-size: 0.9rem;
+}
+
+.combo-row-text {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.combo-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.combo-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* Профиль и цели: необязательные поля антропометрии */
@@ -3504,7 +3588,9 @@ html[data-palette="neon"] .btn,
 html[data-palette="neon"] .form-input {
   font-family: "Manrope", Roboto, sans-serif;
 }
-html[data-palette="sport"] body {
+/* 0.4.14 (фидбэк: «Спорт толсто и крупно — жутковато»): Russo One — характер
+   заголовков и крупных цифр; основной текст — системный и читабельный. */
+html[data-palette="sport"] h1 {
   font-family: "Russo One", "sans-serif-condensed", Roboto, sans-serif;
 }
 html[data-palette="sport"] h1,

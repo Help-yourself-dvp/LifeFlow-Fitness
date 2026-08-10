@@ -210,6 +210,16 @@
 
       <p class="parse-error" id="food-error" hidden></p>
 
+      <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
+      <div class="combo-section" id="combo-section" aria-label="Мои комбо — записать набор одним нажатием">
+        <div class="combo-head">
+          <span class="combo-title">⭐ Мои комбо</span>
+          <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Ещё…</button>
+        </div>
+        <div class="quick-chips" id="combo-chips"></div>
+        <p class="settings-hint" id="combo-hint"></p>
+      </div>
+
       <div class="meal-type-section">
         <div class="meal-type-summary">
           <span class="meal-type-current" id="meal-type-current">Приём пищи: —</span>
@@ -283,7 +293,7 @@
 
     <section class="card weight-home-card" id="weight-card" aria-labelledby="weight-home-title">
       <div class="card-header">
-        <div class="card-icon weight-icon" aria-hidden="true">⚖️</div>
+        <div class="card-icon weight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
         <div class="card-title-wrap">
           <h2 id="weight-home-title">Вес</h2>
           <p>Текущий вес и динамика профиля</p>
@@ -310,7 +320,7 @@
   <div id="stats-view" hidden>
     <section class="card ai-stats-card" aria-labelledby="ai-stats-title">
       <div class="card-header">
-        <div class="card-icon ai-stats-icon" aria-hidden="true">✨</div>
+        <div class="card-icon ai-stats-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
         <div>
           <h2 id="ai-stats-title">ИИ-аналитик FitFlow</h2>
           <p class="card-subtitle">Умное подведение итогов, анализ привычек и самочувствия</p>
@@ -384,7 +394,7 @@
 
       <section class="stats-section stats-weight" aria-labelledby="stats-weight-title">
         <div class="stats-section-head">
-          <h3 id="stats-weight-title">⚖️ Вес</h3>
+          <h3 id="stats-weight-title"><span aria-hidden="true" style="display:inline-flex;width:1.1em;vertical-align:-0.2em"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Вес</h3>
           <strong id="stats-weight-total">—</strong>
         </div>
         <p id="stats-weight-hint">—</p>
@@ -403,7 +413,7 @@
     <section class="card detail-card stats-water" aria-labelledby="water-details-title">
       <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
       <div class="card-header">
-        <div class="card-icon water-icon" aria-hidden="true">💧</div>
+        <div class="card-icon water-icon" aria-hidden="true" data-icon-slot="water">💧</div>
         <div class="card-title-wrap">
           <h2 id="water-details-title">Вода подробно</h2>
           <p id="water-details-caption">Итоги за 7 дней</p>
@@ -425,7 +435,7 @@
     <section class="card detail-card stats-food" aria-labelledby="food-details-title">
       <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
       <div class="card-header">
-        <div class="card-icon food-icon" aria-hidden="true">🍽️</div>
+        <div class="card-icon food-icon" aria-hidden="true" data-icon-slot="food">🍽️</div>
         <div class="card-title-wrap">
           <h2 id="food-details-title">Питание подробно</h2>
           <p id="food-details-caption">Итоги за 7 дней</p>
@@ -447,7 +457,7 @@
     <section class="card detail-card stats-weight" aria-labelledby="weight-details-title">
       <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
       <div class="card-header">
-        <div class="card-icon weight-icon" aria-hidden="true">⚖️</div>
+        <div class="card-icon weight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
         <div class="card-title-wrap">
           <h2 id="weight-details-title">Вес и динамика</h2>
           <p id="weight-current">Вес пока не записан</p>
@@ -643,7 +653,7 @@
   <div id="settings-general-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">⚙️</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="settings">⚙️</span></div>
         <div class="card-title-wrap">
           <h2>Общее</h2>
           <p>Внешний вид, Главная и игровой режим</p>
@@ -661,7 +671,7 @@
       <div class="settings-group">
         <p class="settings-label">Стиль интерфейса</p>
         <div class="segmented" id="palette-segmented" role="radiogroup" aria-label="Стиль интерфейса">
-          <button type="button" data-palette="standard">Стандарт</button>
+          <button type="button" data-palette="standard">🌊 Стандарт</button>
           <button type="button" data-palette="neon">🌃 Neon</button>
           <button type="button" data-palette="sport">⚡ Sport</button>
           <button type="button" data-palette="forest">🌿 Лес</button>
@@ -673,10 +683,10 @@
         <p class="settings-label">Шрифт</p>
         <div class="segmented" id="font-segmented" role="radiogroup" aria-label="Шрифт интерфейса">
           <button type="button" data-font="standard">Стандарт</button>
-          <button type="button" data-font="condensed">✂ Узкий</button>
-          <button type="button" data-font="serif">📖 Книжный</button>
+          <button type="button" data-font="condensed">Узкий</button>
+          <button type="button" data-font="serif">Книжный</button>
         </div>
-        <p class="settings-hint" id="font-status">Шрифты — системные (уже есть в телефоне): работают офлайн и не увеличивают размер приложения. Узкий подходит спортивным темам, книжный — спокойным.</p>
+        <p class="settings-hint" id="font-status">Узкий — компактнее строки, книжный — спокойнее для чтения. Тематические шрифты (Neon, Sport, Лес, Виноград) меняются сами вместе со стилем; ручной выбор здесь сильнее тематического.</p>
       </div>
       <div class="settings-group">
         <div class="settings-label-row">
@@ -741,7 +751,7 @@
   <div id="settings-profile-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">👤</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="profile">👤</span></div>
         <div class="card-title-wrap">
           <h2>Профиль и цели</h2>
           <p>Необязательные данные моего профиля для точных норм воды и калорий</p>
@@ -784,7 +794,7 @@
   <div id="settings-notifications-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">🔔</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="bell">🔔</span></div>
         <div class="card-title-wrap">
           <h2>Уведомления</h2>
           <p>Утренняя мотивация, приёмы пищи, вода и вечерняя активность</p>
@@ -892,14 +902,14 @@
   <div id="settings-courses-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">💊</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="course">💊</span></div>
         <div class="card-title-wrap">
           <h2>Мой курс</h2>
           <p>Витамины, спортивные добавки и назначения по времени</p>
         </div>
       </div>
       <div class="settings-group">
-        <p class="settings-hint">Добавьте приём по расписанию: название, сколько раз в день и время каждого приёма, на сколько дней курс. На Главной в карточке «План дня» появятся строки с кнопками-отметками, а в заданное время — системное напоминание (тот же механизм, что для воды и приёмов пищи). FitFlow не назначает схемы приёма: их даёт специалист или инструкция, здесь — только учёт и напоминания.</p>
+        <p class="settings-hint">Добавьте приём по расписанию: название, сколько раз в день и время каждого приёма, на сколько дней курс. На Главной в карточке «План дня» появятся строки с кнопками-отметками, а в заданное время придёт напоминание. FitFlow не назначает схемы приёма: их даёт специалист или инструкция, здесь — только учёт и напоминания.</p>
       </div>
       <div class="settings-group">
         <div class="custom-food-list" id="course-list"></div>
@@ -915,7 +925,7 @@
   <div id="settings-ai-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">✨</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="ai">✨</span></div>
         <div class="card-title-wrap">
           <h2>ИИ-помощник</h2>
           <p>Локальные факты из базы или настоящая нейросеть через ваш ключ</p>
@@ -938,14 +948,13 @@
         <div id="ai-settings-options" hidden>
           <p class="settings-label" style="margin-top:10px">Режим работы ИИ-ядра</p>
           <div class="segmented" id="ai-mode-choices" role="radiogroup" aria-label="Режим работы ИИ">
-            <button class="active" type="button" data-ai-mode="expert" title="Факты из базы продуктов, рецепты и аналитика — мгновенно и офлайн">Локальный (офлайн)</button>
-            <button type="button" data-ai-mode="cloud" title="🧪 ВРЕМЕННЫЙ режим для тестов: требует интернет и ваш личный ключ. Стратегия приложения — полный офлайн без ключей (нейросеть на устройстве)">☁️ Облако 🧪 тест</button>
-            <button type="button" data-ai-mode="litert" title="Аппаратное ускорение Gemma LiteRT на устройстве (в разработке)">Gemma на устройстве</button>
+            <button class="active" type="button" data-ai-mode="expert" title="Факты из базы продуктов, рецепты и аналитика — мгновенно и офлайн">⚡ Быстрый (офлайн)</button>
+            <button type="button" data-ai-mode="cloud" title="Нейросеть провайдера на ваш выбор — нужен интернет и ваш ключ">☁️ Облако</button>
+            <button type="button" data-ai-mode="litert" title="Нейросеть работает прямо на телефоне: без интернета, без ключей; умеет смотреть фото еды">Gemma на устройстве</button>
           </div>
           <div id="ai-cloud-box" class="ai-model-box" hidden>
-            <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — 🧪 эксперимент, только для тестов</p>
-            <p class="settings-hint"><b>Временный режим.</b> Основной путь FitFlow — полный офлайн: без интернета, ключей и регистрации (Локальный эксперт уже сейчас, далее нейросеть прямо на устройстве). Облако оставлено <b>только чтобы заранее проверить сценарии</b>, которые потом перейдут к нейросети на устройстве: свободные вопросы нутрициологу, живой текст рецепта и анализа, распознавание продуктов по фото.</p>
-            <p class="settings-hint">Что важно знать: нужен интернет и ваш личный ключ; текст вопроса и контекст дня уходят выбранному провайдеру; для работы приложения облако <b>не требуется нигде</b>. Ключ хранится только на устройстве.</p>
+            <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — по вашему ключу</p>
+            <p class="settings-hint">Более свободные ответы нутрициолога, живой текст рецептов и анализа, распознавание фото моделью Gemini. Нужен интернет и ваш личный ключ; текст запроса уходит выбранному провайдеру. Бесплатные варианты: OpenRouter (модели с пометкой «free», ~50 запросов в день) и Gemini (дневной лимит; доступность зависит от страны). Для ежедневной работы приложения облако не требуется. Ключ хранится только на устройстве.</p>
             <div class="segmented" id="ai-cloud-provider" role="radiogroup" aria-label="Провайдер облачного ИИ">
               <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
               <button type="button" data-cloud-provider="deepseek">DeepSeek</button>
@@ -973,7 +982,7 @@
             <p class="settings-hint" id="ai-cloud-status" style="margin-top:8px"></p>
           </div>
           <div id="ai-litert-box" class="ai-model-box" hidden>
-            <p class="settings-hint" id="ai-model-status">○ Локальный файл модели LiteRT не подключён.</p>
+            <p class="settings-hint" id="ai-model-status">○ Модель не выбрана: укажите файл Gemma (.litertlm) с телефона или скачайте автоматически.</p>
             <div class="settings-row" style="margin-top:8px">
               <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать файл модели (.litertlm)</button>
               <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
@@ -984,10 +993,6 @@
               <p class="settings-hint" id="ai-progress-text">Загрузка модели: 0%</p>
             </div>
           </div>
-          <div class="settings-row" style="margin-top:10px">
-            <button class="btn btn-secondary" id="ai-benchmark-btn" type="button">⚡ Тест эффективности (Бенчмарк)</button>
-          </div>
-          <p class="settings-hint" id="ai-benchmark-status">Тест эффективности измеряет скорость и время отклика выбранной модели в офлайне.</p>
           <div class="ai-model-box" style="margin-top:12px">
             <p class="settings-label" style="margin-top:0">🔬 Журнал распознаваний</p>
             <p class="settings-hint" id="parse-log-status">Пока пусто. Каждый разбор умного ввода и фото будет писаться сюда автоматически.</p>
@@ -1017,7 +1022,7 @@
   <div id="settings-data-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">💾</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="backup">💾</span></div>
         <div class="card-title-wrap">
           <h2>Данные и резервные копии</h2>
           <p>Одна копия сохраняет все локальные профили разом</p>
@@ -1055,7 +1060,7 @@
   <div id="settings-about-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">ℹ️</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
           <p>Версия, источники данных, методика расчётов и условия</p>
@@ -1064,7 +1069,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.13</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.14</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1083,7 +1088,7 @@
   <div id="game-medals-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
-        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">🏅</span></div>
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="medals">🏅</span></div>
         <div class="card-title-wrap">
           <h2>Медали</h2>
           <p id="game-medals-count">—</p>
@@ -1234,7 +1239,7 @@
   <div id="ai-view" hidden>
     <section class="card ai-center" aria-labelledby="ai-center-title">
       <div class="ai-center-head">
-        <div class="card-icon ai-center-icon" aria-hidden="true">✨</div>
+        <div class="card-icon ai-center-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
         <div class="card-title-wrap">
           <h2 id="ai-center-title">ИИ-помощник FitFlow</h2>
           <p>Быстрый ввод записей, рецепт, анализ периода и нутрициолог</p>
@@ -1248,7 +1253,7 @@
       </div>
       <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
       <div id="ai-tab-quick" class="ai-tab-panel">
-        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня (офлайн, база 925+ продуктов). С облачным ИИ (Настройки → ИИ-помощник) можно и сфотографировать блюдо — нейросеть составит список продуктов.</p>
+        <p class="settings-hint" style="margin-top:0">Напишите или надиктуйте одной фразой, что вы ели, пили и как двигались. Например: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит всё по разделам дня (офлайн, база 960+ продуктов). С облачным ИИ (Настройки → ИИ-помощник) можно и сфотографировать блюдо — нейросеть составит список продуктов.</p>
         <div class="ai-input-stack">
           <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
           <div class="ai-actions-row">
@@ -1503,13 +1508,13 @@
       <div class="app-dialog-icon" aria-hidden="true">🧮</div>
       <h2 id="methodology-dialog-title">Методика расчётов</h2>
       <div class="terms-list">
-        <p><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 925+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
+        <p><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 960+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
         <p><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
         <p><b>Средняя калорийность и объёмы по умолчанию.</b> Калорийность блюд в базе — усреднённая: у одного и того же блюда рецепты отличаются (суп может быть овощным, а может — с мясом и макаронами), поэтому расчёт показывает честную среднюю оценку, а не точный лабораторный состав именно вашей порции. Это не упрощение FitFlow, а реальность открытых научных баз: USDA и Open Food Facts публикуют именно усреднённые значения, а точный состав конкретной порции не знает ни одно приложение. Если у вас есть точные данные с упаковки — внесите продукт в «Мои продукты» (кнопка 🏷 в разделе Питание): ваши значения перекроют усреднённые. То же с объёмами без точного указания: «тарелка» считается как ≈250 г, «стакан» — 250 мл, «чашка» — 200 мл, «порция» — 200 г, «кусок» хлеба — 40 г, а еда совсем без количества — осторожные «≈ 100 г». Хотите максимальную точность — укажите вес или рецепт вручную (граммы честнее любых средних).</p>
         <p><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
         <p><b>Личные нормы воды и калорий.</b> Вода — ориентир ~30 мл на кг веса с надбавкой при высокой активности. Калории — формула Миффлина — Сан Жеора (пол, возраст, рост, вес) с поправкой на среднюю активность; если данные не заполнены, используется упрощённая оценка по весу. Расчёт выполняется на устройстве в Настройках → «Профиль и цели».</p>
         <p><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
-        <p><b>Локальный эксперт и анализ.</b> Разделы «Анализ», «Рецепт» и «Вопрос нутрициологу» работают по правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо: рецепт собирается из реально перечисленных продуктов, ответы чата строятся по тематическим правилам и базе продуктов. Если в дневнике мало записей, выводы честно помечаются как общие. Настоящая нейросетевая модель (с ответами на любые вопросы и распознаванием еды по фото) добавится в следующих версиях.</p>
+        <p><b>Локальный эксперт и анализ.</b> Разделы «Анализ», «Рецепт» и «Вопрос нутрициологу» работают по правилам и словарям на ваших данных — без нейросети и без отправки данных куда-либо: рецепт собирается из реально перечисленных продуктов, ответы чата строятся по тематическим правилам и базе продуктов. Если в дневнике мало записей, выводы честно помечаются как общие. Полноценная нейросеть уже может работать прямо на телефоне или по вашему ключу (Настройки → «ИИ-помощник»): она пишет рецепты и анализ живым текстом и распознаёт еду по фото.</p>
         <p><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
       </div>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="methodology-dialog-ok" type="button">Понятно</button></div>
@@ -1565,7 +1570,7 @@
 
   <div class="app-dialog-backdrop" id="weight-quick-dialog" role="dialog" aria-modal="true" aria-labelledby="weight-quick-title" hidden>
     <section class="app-dialog">
-      <div class="app-dialog-icon" aria-hidden="true">⚖️</div>
+      <div class="app-dialog-icon" aria-hidden="true" style="width:auto"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
       <h2 id="weight-quick-title">Записать вес</h2>
       <p>Запись относится только к активному профилю.</p>
       <form class="weight-quick-form" id="weight-quick-form" autocomplete="off">
@@ -1610,9 +1615,25 @@
         <button class="btn btn-secondary" id="smart-entry-photo-gallery" type="button">🖼 Галерея</button>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
+      <button class="btn btn-secondary" id="smart-entry-combo-btn" type="button" hidden>☆ В комбо</button>
       <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
       <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>
       <input type="file" id="smart-entry-photo-file-input" accept="image/*" hidden>
+    </section>
+  </div>
+
+  <!-- ⭐ Диалог «Мои комбо» (0.4.14): список, переименование, удаление, создание вручную -->
+  <div class="app-dialog-backdrop" id="combo-dialog" role="dialog" aria-modal="true" aria-labelledby="combo-dialog-title" hidden>
+    <section class="app-dialog">
+      <h3 id="combo-dialog-title">⭐ Мои комбо</h3>
+      <p class="settings-hint">Сохранённые фразы умного ввода. Тап по ▶ записывает весь набор одним нажатием — калории каждый раз считаются заново по актуальной базе.</p>
+      <div class="combo-list" id="combo-list"></div>
+      <div class="combo-new">
+        <input id="combo-new-name" type="text" maxlength="40" placeholder="Название (например: Завтрак)" aria-label="Название комбо">
+        <input id="combo-new-text" type="text" maxlength="300" placeholder="Фраза: овсянка 150 г, кофе с молоком" aria-label="Текст комбо">
+        <button class="btn btn-primary" id="combo-add-btn" type="button">＋ Добавить комбо</button>
+      </div>
+      <button class="btn btn-secondary" id="combo-dialog-close" type="button" style="width:100%;margin-top:10px">Закрыть</button>
     </section>
   </div>
 
@@ -1626,7 +1647,7 @@
         <p><b>Продвинутый режим.</b> Скачиваемая нейросеть (Настройки → ИИ-помощник, режим «Gemma на устройстве») будет понимать длинные свободные фразы целиком на телефоне — подключается отдельным обновлением.</p>
         <p><b>Приватность.</b> Распознавание и разбор выполняются на устройстве; в облако ничего не отправляется.</p>
       </div>
-      <p class="app-dialog-hint">Если распознавание обрывает фразу на паузе — это системный таймер речи Android; его терпимость увеличивается отдельным обновлением нативной сборки (инструкция уже подготовлена).</p>
+      <p class="app-dialog-hint">Если распознавание обрывает фразу на паузе — это ограничение распознавателя телефона: надиктуйте короче или продолжите второй фразой, разбор поймёт обе части (например: «каша 200 г, … второй бутерброд»).</p>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="smart-voice-help-ok" type="button">Понятно</button></div>
     </section>
   </div>
