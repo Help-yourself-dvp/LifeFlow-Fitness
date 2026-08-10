@@ -2582,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.0';
+const FITFLOW_VERSION = '0.5.1';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -4453,8 +4453,17 @@ function renderDayPlan() {
       if (entry && entry.durationMin != null) bits.push(formatWorkoutDuration(entry.durationMin));
       if (entry && entry.rating != null) bits.push(`оценка ${entry.rating}/5`);
       const sleepText = entry ? (bits.join(' · ') || 'отмечен') : 'не отмечен — оценить';
-      // 0.4.15 (аудит А3): сон — факт отметки, а не достигнутая цель: нейтральная метка.
-      const sleepMark = entry ? '<span class="checklist-icon noted">✓</span>' : '<span class="checklist-icon pending">○</span>';
+      // 0.5.1 (вопрос владельца «что значит серая галочка у сна при зелёной
+      // активности»): вместо загадочной серой ✓ — сама оценка сна эмодзи в кружке;
+      // цвет честно повторяет ВАШУ оценку (4–5 зелёный, 3 нейтральный, 1–2 янтарный).
+      let sleepMark = '<span class="checklist-icon pending">○</span>';
+      const SLEEP_MARK_EMOJIS = { 1: '😫', 2: '🙁', 3: '😐', 4: '🙂', 5: '🚀' };
+      if (entry && entry.rating != null && SLEEP_MARK_EMOJIS[entry.rating]) {
+        const markCls = entry.rating >= 4 ? 'mark-good' : (entry.rating === 3 ? 'mark-mid' : 'mark-low');
+        sleepMark = `<span class="checklist-icon ${markCls}">${SLEEP_MARK_EMOJIS[entry.rating]}</span>`;
+      } else if (entry) {
+        sleepMark = '<span class="checklist-icon noted">✓</span>'; // отмечен без оценки
+      }
       sleepRow = `<button type="button" class="${entry ? 'checklist-item noted' : 'checklist-item'} checklist-sleep-btn" data-sleep-open>${sleepMark} Сон — ${sleepText}</button>`;
     }
 
@@ -5870,9 +5879,13 @@ function renderStatsBars(container, days, valueKey, maxValue, period) {
   container.innerHTML = days.map((day) => {
     const value = Number(day[valueKey]) || 0;
     const height = Math.max(2, Math.min(100, (value / safeMax) * 100));
+    // 0.5.1 (кейс владельца «подпись 06 уехала под высоким столбцом за край»):
+    // цифра и столбец — в гибкой колонке, дата — всегда в своей строке снизу.
     return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${Math.round(value)}">
-      ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${Math.round(value)}</span>` : ''}
-      <div class="stats-bar" style="height:${height}%"></div>
+      <div class="stats-bar-col">
+        ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${Math.round(value)}</span>` : ''}
+        <div class="stats-bar" style="height:${height}%"></div>
+      </div>
       <span class="stats-bar-label">${statsDateLabel(day.date, period)}</span>
     </div>`;
   }).join('');
@@ -5901,33 +5914,40 @@ function renderStats() {
   const wGoalData = waterDataDays.reduce((sum, day) => sum + day.waterGoal, 0);
   const wPct = Math.round(wGoalData ? (waterTotal / wGoalData) * 100 : 0);
   const wAvg = waterDataDays.length ? waterTotal / waterDataDays.length : 0;
+  // 0.5.1 (п.5/6 владельца): средние у всех трёх разделов с «≈» (раньше — только
+  // у активности, вода/еда выглядели «точными»); за сегодня честно подписано
+  // «от сегодняшней цели». \u00A0 склеивает «цифру+единицу», чтобы пары не
+  // разрывались переносом строки («всего за период» / «2 400 ккал»).
+  const nbNum = (numText, unit) => `${numText} ${unit}`;
+  const daysChunk = (n) => `записи ${n} из ${days.length} дн.`;
   $('#stats-water-total').textContent = isDay
-    ? `${fmt(waterTotal)} мл`
-    : (waterDataDays.length ? `${fmt(wAvg)} мл в день` : '—');
+    ? nbNum(fmt(waterTotal), 'мл')
+    : (waterDataDays.length ? `≈ ${nbNum(fmt(wAvg), 'мл')} в день` : '—');
   $('#stats-water-hint').textContent = waterDataDays.length
     ? (isDay
-      ? `${wPct}% от цели (${fmt(state.water.goal)} мл)`
-      : `${wPct}% от цели в дни с записями · всего за период ${fmt(waterTotal)} мл` + (waterDataDays.length < days.length ? ` · записи: ${waterDataDays.length} из ${days.length} дн.` : ''))
+      ? `${wPct}% от сегодняшней цели (${nbNum(fmt(state.water.goal), 'мл')})`
+      : `${wPct}% от цели в дни с записями · всего ${nbNum(fmt(waterTotal), 'мл')}` + (waterDataDays.length < days.length ? ` · ${daysChunk(waterDataDays.length)}` : ''))
     : (isDay ? 'Записей о воде сегодня нет' : 'Записей о воде за период нет');
   const foodDataDays = days.filter((day) => day.foodTotal > 0);
   const fGoalData = foodDataDays.reduce((sum, day) => sum + day.foodGoal, 0);
   const fPct = Math.round(fGoalData ? (foodTotal / fGoalData) * 100 : 0);
   const fAvg = foodDataDays.length ? foodTotal / foodDataDays.length : 0;
   $('#stats-food-total').textContent = isDay
-    ? `${fmt(foodTotal)} ккал`
-    : (foodDataDays.length ? `${fmt(fAvg)} ккал в день` : '—');
+    ? nbNum(fmt(foodTotal), 'ккал')
+    : (foodDataDays.length ? `≈ ${nbNum(fmt(fAvg), 'ккал')} в день` : '—');
   $('#stats-food-hint').textContent = foodDataDays.length
     ? (isDay
-      ? `${fPct}% от цели (${fmt(state.food.goal)} ккал)`
-      : `${fPct}% от цели в дни с записями · всего за период ${fmt(foodTotal)} ккал` + (foodDataDays.length < days.length ? ` · записи: ${foodDataDays.length} из ${days.length} дн.` : ''))
+      ? `${fPct}% от сегодняшней цели (${nbNum(fmt(state.food.goal), 'ккал')})`
+      : `${fPct}% от цели в дни с записями · всего ${nbNum(fmt(foodTotal), 'ккал')}` + (foodDataDays.length < days.length ? ` · ${daysChunk(foodDataDays.length)}` : ''))
     : (isDay ? 'Записей о питании сегодня нет' : 'Записей о питании за период нет');
   // Активность усредняем по ВСЕМ дням периода: дни отдыха — честные нули,
   // день отдыха не должен завышать средний ритм.
+  const activityDataDays = days.filter((day) => day.activityMinutes > 0).length;
   $('#stats-activity-total').textContent = isDay
     ? formatActivityDuration(activityMinutes)
     : (activityMinutes ? `≈ ${formatActivityDuration(Math.round(activityMinutes / count))} в день` : '—');
   $('#stats-activity-hint').textContent = activityMinutes
-    ? (isDay ? 'Активность за сегодня в журнале ниже' : `Всего за период: ${formatActivityDuration(activityMinutes)}`)
+    ? (isDay ? 'Активность за сегодня — в журнале ниже' : `Всего за период: ${formatActivityDuration(activityMinutes).replace(/ /g, ' ')} · ${daysChunk(activityDataDays)}`)
     : 'Пока нет отмеченной активности';
 
   renderStatsBars($('#stats-water-bars'), days, 'waterTotal', Math.max(...days.map((day) => day.waterGoal)), period);
@@ -6455,7 +6475,7 @@ function renderComboChips() {
   if (!combos.length) {
     host.innerHTML = '';
     if (manageBtn) manageBtn.hidden = true;
-    if (hint) hint.textContent = 'Сохраните разобранную фразу кнопкой «☆ В комбо» в умном вводе — и завтрак запишется одним тапом отсюда.';
+    if (hint) hint.textContent = 'Сохраните фразу кнопкой «☆ В комбо» — она появится здесь и запишется одним тапом.';
     return;
   }
   if (manageBtn) manageBtn.hidden = false;
@@ -8132,6 +8152,10 @@ const HELP_TOPICS = {
     title: 'О приложении',
     text: 'Версия приложения, источники данных о продуктах, методика расчёта норм и условия использования. Здесь же пометка, что приложение не заменяет врача.'
   },
+  'quick-records': {
+    title: 'Быстрые записи',
+    text: '⭐ Комбо — сохранённая фраза умного ввода: один тап записывает весь набор сразу (вода, еда, активность), калории каждый раз считаются заново по актуальной базе. 🍽 Мои блюда — точные ккал с упаковки: тап по блюду пишет его без повторного ввода. Ниже — выбор приёма пищи и готовые чипы вроде «Гречка 100г».'
+  },
   'day-checklist': {
     title: 'Чек-лист дня',
     text: 'Три простые отметки на Главной: «Норма воды», «Основной рацион учтён», «Активность отмечена». Галочки ставятся сами по вашим записям — вечером видно одним взглядом, «закрыт» ли день. Карточку «Самочувствие» (оценка дня от 1 до 5) удобно заполнять вечером: оценки складываются в статистику.'
@@ -8342,9 +8366,10 @@ function createAllProfilesBackup() {
     app: 'fitflow',
     version: 2,
     stateSchema: STATE_SCHEMA_VERSION, // 0.5.0: номер схемы состояния в копии
+    pro: readProState(), // 0.5.1: PRO-статус едет в копии (код привязан к e-mail, не к устройству)
     scope: 'all-profiles',
     exportedAt: new Date().toISOString(),
-    settings: { theme: getThemeMode(), palette: getPalette() },
+    settings: { theme: getThemeMode(), palette: getPalette(), font: localStorage.getItem('fitflow:font') }, // 0.5.1: шрифт раньше молча не попадал в копию
     activeProfileId: profilesState.activeId,
     profiles: profilesState.profiles.map((profile) => ({
       id: profile.id,
@@ -8486,9 +8511,18 @@ async function confirmAllProfilesImport() {
   const theme = pending.backup.settings && pending.backup.settings.theme;
   if (theme === 'light' || theme === 'dark') localStorage.setItem('fitflow:theme', theme);
   else localStorage.removeItem('fitflow:theme');
+  // 0.5.1 (правдивость копии): палитра восстанавливалась только для neon/sport —
+  // «Лес» и «Виноград» молча терялись; шрифт не восстанавливался вовсе.
   const palette = pending.backup.settings && pending.backup.settings.palette;
-  if (palette === 'neon' || palette === 'sport') localStorage.setItem('fitflow:palette', palette);
+  if (PALETTE_IDS.has(palette)) localStorage.setItem('fitflow:palette', palette);
   else localStorage.removeItem('fitflow:palette');
+  const fontBackup = pending.backup.settings && pending.backup.settings.font;
+  if (FONT_OPTIONS.includes(fontBackup)) localStorage.setItem('fitflow:font', fontBackup);
+  else localStorage.removeItem('fitflow:font');
+  const proBackup = pending.backup.pro;
+  if (proBackup && proBackup.unlocked && typeof proBackup.email === 'string') {
+    localStorage.setItem(PRO_KEY, JSON.stringify({ unlocked: true, email: proBackup.email, activatedAt: proBackup.activatedAt || null }));
+  } else localStorage.removeItem(PRO_KEY);
   location.reload();
 }
 
@@ -8855,6 +8889,123 @@ function renderGreeting() {
   if (weekdayElement) weekdayElement.textContent = weekday;
   if (monthElement) monthElement.textContent = dayAndMonth;
   if (dateLabel) dateLabel.setAttribute('aria-label', fullDateLabel);
+}
+
+/* ============================================================
+   PRO (0.5.1, решение владельца «закладывай, чтобы потом не добавлять»)
+   ------------------------------------------------------------
+   Офлайн-активация кодом без покупок внутри APK: владелец выдаёт код лично
+   (`node tools/make-pro-code.js e-mail`). Привязка — к СТРОКЕ e-mail, не к
+   устройству: пара «e-mail + код» работает на любом телефоне, а статус едет
+   в резервной копии all-profiles (поле pro). Код = первые 12 hex знаков
+   HMAC-SHA256(секрет, e-mail), выводится как FF-XXXX-XXXX-XXXX.
+   Честно: это НЕ DRM — секрет лежит в открытом APK, защита «от добросовестного».
+   Никакие функции код не открывает и не закрывает (каркас на будущее).
+   СЕКРЕТ держать в синхроне с tools/make-pro-code.js!
+   ============================================================ */
+const PRO_SECRET = 'FitFlow-PRO/help-yourself-dvp/2026/v1';
+const PRO_KEY = 'fitflow:pro';
+
+function readProState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PRO_KEY) || 'null');
+    if (parsed && parsed.unlocked && typeof parsed.email === 'string') {
+      return { unlocked: true, email: parsed.email, activatedAt: parsed.activatedAt || null };
+    }
+  } catch (e) { }
+  return { unlocked: false, email: '', activatedAt: null };
+}
+
+function writeProState(pro) {
+  try {
+    if (pro && pro.unlocked) {
+      localStorage.setItem(PRO_KEY, JSON.stringify({
+        unlocked: true, email: String(pro.email || '').trim().toLowerCase(),
+        activatedAt: pro.activatedAt || new Date().toISOString()
+      }));
+    } else localStorage.removeItem(PRO_KEY);
+  } catch (e) { }
+  renderProStatus();
+}
+
+/* Принимает «FF-AB12-CD34-EF56», «ff-ab12…» и «голые» 12 hex-знаков. */
+function normalizeProCode(raw) {
+  let s = String(raw || '').toUpperCase().replace(/[^0-9A-F]/g, '');
+  if (s.length === 14 && s.indexOf('FF') === 0) s = s.slice(2); // введён полный код с префиксом FF
+  return s;
+}
+
+/* Ожидаемые 12 знаков кода для e-mail; '' — если WebCrypto недоступно. */
+function expectedProCode(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized || typeof crypto === 'undefined' || !crypto.subtle) return Promise.resolve('');
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(PRO_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    .then((key) => crypto.subtle.sign('HMAC', key, enc.encode(normalized)))
+    .then((buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase())
+    .catch(() => '');
+}
+
+async function activateProFromDialog() {
+  const email = (($('#pro-email') || {}).value || '').trim();
+  const code = normalizeProCode((($('#pro-code') || {}).value || ''));
+  const statusEl = $('#pro-status');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (statusEl) statusEl.textContent = 'Укажите e-mail, на который выдан код.';
+    return;
+  }
+  if (code.length !== 12) {
+    if (statusEl) statusEl.textContent = 'Код должен выглядеть как FF-XXXX-XXXX-XXXX (12 знаков после FF).';
+    return;
+  }
+  const expected = await expectedProCode(email);
+  if (!expected) {
+    if (statusEl) statusEl.textContent = 'Проверка кода недоступна в этом окружении. Попробуйте обновить приложение.';
+    return;
+  }
+  if (expected.slice(0, 12) !== code) {
+    if (statusEl) statusEl.textContent = 'Код не подошёл. Сверьте e-mail и код из письма — они чувствительны к опечаткам.';
+    return;
+  }
+  writeProState({ unlocked: true, email });
+  toast('✓ PRO активирован — спасибо за поддержку проекта!');
+  closeProDialog();
+}
+
+function deactivatePro() {
+  writeProState(null);
+  toast('PRO отключён на этом устройстве. Код из письма активирует снова в любой момент.');
+  closeProDialog();
+}
+
+function renderProStatus() {
+  if (typeof document === 'undefined') return;
+  const pro = readProState();
+  const menuStatus = $('#pro-menu-status');
+  if (menuStatus) menuStatus.textContent = pro.unlocked ? `Активировано · ${pro.email}` : 'Поддержка проекта — не активировано';
+  const activeLine = $('#pro-active-line');
+  if (activeLine) {
+    activeLine.hidden = !pro.unlocked;
+    if (pro.unlocked) activeLine.textContent = `✓ PRO активирован: ${pro.email}` + (pro.activatedAt ? ` (с ${String(pro.activatedAt).slice(0, 10)})` : '');
+  }
+  const deact = $('#pro-deactivate');
+  if (deact) deact.hidden = !pro.unlocked;
+  const emailField = $('#pro-email');
+  if (emailField && pro.unlocked && !emailField.value) emailField.value = pro.email;
+}
+
+function openProDialog() {
+  const dialog = $('#pro-dialog');
+  if (!dialog) return;
+  renderProStatus();
+  const statusEl = $('#pro-status');
+  if (statusEl) statusEl.textContent = '';
+  dialog.hidden = false;
+}
+
+function closeProDialog() {
+  const dialog = $('#pro-dialog');
+  if (dialog) dialog.hidden = true;
 }
 
 /* ============================================================
@@ -9242,6 +9393,12 @@ function init() {
   $('#profile-delete-confirm').addEventListener('click', confirmDeleteProfile);
   $('#all-profiles-import-cancel').addEventListener('click', closeAllProfilesImportDialog);
   $('#all-profiles-import-confirm').addEventListener('click', confirmAllProfilesImport);
+  // 0.5.1: PRO-каркас
+  bindEvent('#pro-open', 'click', openProDialog);
+  bindEvent('#pro-cancel', 'click', closeProDialog);
+  bindEvent('#pro-activate', 'click', () => { activateProFromDialog(); });
+  bindEvent('#pro-deactivate', 'click', deactivatePro);
+  renderProStatus();
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);

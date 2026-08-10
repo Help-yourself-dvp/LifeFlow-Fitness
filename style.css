@@ -211,10 +211,12 @@ h1, h2 {
   line-height: 1.15;
 }
 
+/* 0.5.1 (п.15 владельца): У правила ниже был text-transform: «каждое слово
+   с большой», что давало «10 Авг. 2026 Г.» — убран; первая буква дня недели —
+   через #date-label::first-letter (ниже в файле), остальное — как пишут по-русски. */
 .brand-text p {
   font-size: 0.8rem;
   color: var(--md-sys-color-on-surface-variant);
-  text-transform: capitalize;
 }
 
 .topbar-actions {
@@ -288,31 +290,34 @@ html[data-theme="dark"] .icon-sun { display: none; }
   top: var(--quicknav-top, 64px);
   z-index: 15;
   display: flex;
-  gap: 5px;
+  gap: 6px;
   margin: -6px 0 12px;
-  padding: 5px 6px;
+  padding: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  background: var(--topbar-bg);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 999px;
+  /* 0.5.1 (п.1 владельца): чипы — отдельные пилюли во всю ширину экрана;
+     общая рамка-пилюля контейнера убрана, контейнер прозрачный. */
+  background: transparent;
+  border: none;
 }
 .home-quicknav::-webkit-scrollbar { display: none; }
 .home-quicknav[hidden] { display: none; }
 .home-quicknav .quicknav-chip {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 6px 11px;
-  border: 0;
+  padding: 8px 5px;
+  border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: 999px;
-  background: transparent;
+  background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface-variant);
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
@@ -322,6 +327,7 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .home-quicknav .quicknav-chip.active {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
+  border-color: transparent;
 }
 /* Цели перехода не должны прятаться под шапкой и панелью */
 #home-cards > * { scroll-margin-top: calc(var(--quicknav-top, 64px) + 52px); }
@@ -746,10 +752,27 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .checklist-icon.pending { border: 2px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-outline-variant); }
 
 /* ---------- Форма ввода ---------- */
+/* 0.5.1 (п.3 владельца): поле ввода — на всю строку, «Добавить» и «☆ В комбо» —
+   отдельной строкой ниже (поле перестало ужиматься из-за кнопок). */
 .food-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.food-form .input-wrap { flex: 1 1 100%; }
+
+.food-form-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.food-form-actions > * {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
 }
 
 .input-wrap {
@@ -758,7 +781,7 @@ html[data-theme="dark"] .icon-sun { display: none; }
   min-width: 0;
 }
 
-.food-form #food-add { flex-shrink: 0; }
+.food-form #food-add { flex: 1 1 0; }
 
 .input-icon {
   position: absolute;
@@ -2282,7 +2305,7 @@ html[data-theme="dark"] .segmented button.active {
   display: flex;
   align-items: end;
   gap: 3px;
-  height: 72px;
+  height: 86px; /* 0.5.1: запас под цифру над столбцом + строку даты */
   margin-top: 10px;
 }
 
@@ -2290,9 +2313,19 @@ html[data-theme="dark"] .segmented button.active {
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: end;
   min-width: 0;
   height: 100%;
+}
+
+/* 0.5.1 (п.8 владельца: у самого высокого столбца «06» уехала вниз и обрезалась
+   за край): двухъярусная колонка — цифра и столбец в гибкой зоне, дата всегда
+   в фиксированной строке снизу. */
+.stats-bar-col {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .stats-bar {
@@ -2306,6 +2339,8 @@ html[data-theme="dark"] .segmented button.active {
 .stats-activity .stats-bar { background: var(--md-sys-color-primary); }
 
 .stats-bar-label {
+  flex: 0 0 auto;
+  line-height: 1.25;
   overflow: hidden;
   margin-top: 4px;
   color: var(--md-sys-color-on-surface-variant);
@@ -3617,13 +3652,32 @@ html[data-palette="berry"] h2 {
 /* Шрифты тем (0.4.10): системные семейства Android — офлайн, APK не растёт.
    Специфичность html[data-font] body выше базового body — правило побеждает
    в любом положении файла; поля ввода унаследованы (font-family: inherit). */
-html[data-font="condensed"] body {
+/* 0.5.1 (п.9 владельца): ручной выбор шрифта раньше НЕ перекрывал тематические
+   заголовки Спорта (Russo One) — отсюда ощущение «Спорт живёт отдельно».
+   Теперь списки селекторов у condensed/serif такие же полные, как у standard:
+   выбрал шрифт — он действует во всех темах и на заголовки, и на цифры. */
+html[data-font="condensed"] body,
+html[data-font="condensed"] .checklist-header,
+html[data-font="condensed"] .greeting-title,
+html[data-font="condensed"] .home-weight-current,
+html[data-font="condensed"] .game-task-numbers,
+html[data-font="condensed"] .weight-current,
+html[data-font="condensed"] .settings-label,
+html[data-font="condensed"] h1,
+html[data-font="condensed"] h2,
+html[data-font="condensed"] h3 {
   font-family: "sans-serif-condensed", "Roboto Condensed", Roboto, "Segoe UI", sans-serif;
 }
-html[data-font="serif"] body {
-  font-family: "Noto Serif", "Droid Serif", Georgia, serif;
-}
-html[data-font="serif"] h1, html[data-font="serif"] h2, html[data-font="serif"] h3 {
+html[data-font="serif"] body,
+html[data-font="serif"] .checklist-header,
+html[data-font="serif"] .greeting-title,
+html[data-font="serif"] .home-weight-current,
+html[data-font="serif"] .game-task-numbers,
+html[data-font="serif"] .weight-current,
+html[data-font="serif"] .settings-label,
+html[data-font="serif"] h1,
+html[data-font="serif"] h2,
+html[data-font="serif"] h3 {
   font-family: "Noto Serif", "Droid Serif", Georgia, serif;
 }
 
@@ -3633,15 +3687,21 @@ html[data-font="serif"] h1, html[data-font="serif"] h2, html[data-font="serif"] 
 
 /* Сон/прочие «отмечено» — нейтральная метка, не зелёный «успех» (аудит А3 #10.3) */
 .checklist-icon.noted { background: var(--md-sys-color-outline-variant); color: #fff; }
+/* 0.5.1 (п.2 владельца «что значит серая галочка у сна»): кружок = ваша оценка сна —
+   эмодзи вместо галочки, цвет честно повторяет выбранную оценку. */
+.checklist-icon.mark-good { background: var(--success); color: #fff; }
+.checklist-icon.mark-mid { background: var(--md-sys-color-outline-variant); color: #fff; }
+.checklist-icon.mark-low { background: #b07d00; color: #fff; }
 .checklist-item.noted { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
 
-/* Значения над столбцами недельных графиков (аудит А1/А2) */
-.stats-bar-wrap { justify-content: flex-end; }
-.stats-bar-value { font-size: 0.6rem; font-weight: 700; line-height: 1; margin-bottom: 2px; color: var(--md-sys-color-on-surface-variant); }
+/* Значения над столбцами недельных графиков (аудит А1/А2);
+   0.5.1: лежат внутри .stats-bar-col и больше не вытесняют подпись даты. */
+.stats-bar-value { display: block; text-align: center; font-size: 0.6rem; font-weight: 700; line-height: 1; margin-bottom: 2px; color: var(--md-sys-color-on-surface-variant); }
 
 /* Инлайн-смайлы самочувствия — 1 тап = записано (0.4.15) */
 .mood-inline-row { display: inline-flex; gap: 4px; }
-.mood-inline-btn { border: 1px solid transparent; background: var(--md-sys-color-surface-container-high); border-radius: 10px; font-size: 1.05rem; padding: 5px 7px; }
+/* 0.5.1 (п.10 владельца): плашка самочувствия снова компактная */
+.mood-inline-btn { border: 1px solid transparent; background: var(--md-sys-color-surface-container-high); border-radius: 9px; font-size: 0.96rem; padding: 3px 6px; }
 .mood-inline-btn.active { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); }
 .mood-compact-row { justify-content: space-between; }
 .mood-compact-label { font-size: 0.8rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
@@ -3682,8 +3742,10 @@ html[data-font="standard"] .settings-label {
 }
 
 /* ===================== 0.5.0 «Доверие данным» ===================== */
-/* Кнопка «Поправить день…» у заголовка статистики */
-.stats-day-edit-btn { margin-top: 6px; }
+/* 0.5.1 (п.4 владельца): кнопка «Поправить день» — НАПРОТИВ заголовка
+   «Статистика» (в одну строку с ним), выше обычного чипа. */
+.stats-card .card-header { align-items: center; flex-wrap: wrap; }
+.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 9px 13px; font-size: 0.78rem; white-space: nowrap; }
 
 /* Дата в форме активности (задним числом) */
 .workout-date-field { margin-top: 8px; }
@@ -3692,6 +3754,12 @@ html[data-font="standard"] .settings-label {
 
 /* Три поля БЖУ / дня — компактной сеткой */
 .food-edit-macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* 0.5.1 (п.4 владельца): поля «Поправить день» — стопкой во всю ширину:
+   в сетке 3 колонки плейсхолдер обрезался до «без измен…», элементы наслаивались. */
+.day-edit-fields { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; text-align: left; }
+.day-edit-fields .weight-field input { padding: 11px 12px; font-size: 0.95rem; }
+.day-edit-note { text-align: left; margin: 10px 0 0; }
 
 /* Кнопки-карандаши рядом с «×» в списках */
 .food-item-edit, .workout-item-edit, .weight-edit-btn {

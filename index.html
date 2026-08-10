@@ -32,12 +32,6 @@
       <button class="profile-switcher" id="profile-switcher" type="button" aria-haspopup="dialog" aria-label="Выбрать профиль" title="Текущий профиль: Мой профиль">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 20c.8-3.5 3-5.3 6.5-5.3s5.7 1.8 6.5 5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
-      <button class="privacy-help" id="privacy-help" type="button" aria-label="О приватности и работе без интернета" title="О приватности">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-          <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
-        </svg>
-      </button>
       <button class="icon-btn ai-center-header" id="ai-center-open" type="button" aria-label="ИИ и быстрый ввод: рецепты, аналитика и голосовой ввод" title="ИИ и быстрый ввод FitFlow">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m12 3 2.1 5.3L19.5 10l-5.4 1.7L12 17l-2.1-5.3L4.5 10l5.4-1.7L12 3Z" fill="currentColor"/>
@@ -205,18 +199,22 @@
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
-        <button class="chip chip-sm" id="food-combo-star" type="button" title="Сохранить текст поля как комбо (фраза-шаблон на будущее — без записи в дневник)">☆ В комбо</button>
+        <!-- 0.5.1 (п.3 владельца): кнопки отдельной строкой — поле ввода во всю ширину -->
+        <div class="food-form-actions">
+          <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+          <button class="chip chip-sm" id="food-combo-star" type="button" title="Сохранить текст поля как комбо (фраза-шаблон на будущее — без записи в дневник)">☆ В комбо</button>
+        </div>
       </form>
 
       <p class="parse-error" id="food-error" hidden></p>
 
       <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
       <!-- 0.4.15 (п.5 владельца): «Быстрые записи» — единый блок; разница ясна из подписи -->
-      <p class="quick-records-title">⚡ Быстрые записи <span class="quick-records-sub">⭐ комбо — фраза на всё сразу (вода, еда, активность) · 🍽 блюдо — точные ккал с упаковки</span></p>
+      <!-- 0.5.1 (п.3 владельца): длинный подзаголовок уехал во всплывающую «?» -->
+      <p class="quick-records-title">⚡ Быстрые записи <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span></p>
       <div class="combo-section" id="combo-section" aria-label="Мои комбо — записать набор одним нажатием">
         <div class="combo-head">
-          <span class="combo-title">⭐ Комбо — умные фразы</span>
+          <span class="combo-title">⭐ Комбо</span>
           <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Ещё…</button>
         </div>
         <div class="quick-chips" id="combo-chips"></div>
@@ -352,8 +350,9 @@
         <div class="card-title-wrap">
           <h2 id="stats-title">Статистика</h2>
           <p id="stats-period-caption">Итоги за 7 дней</p>
-          <button class="chip chip-sm stats-day-edit-btn" id="stats-day-edit-open" type="button" title="Записать или поправить итог прошлого дня" aria-label="Поправить итог прошлого дня">✏️ Поправить день…</button>
         </div>
+        <!-- 0.5.1 (п.4 владельца): напротив заголовка, а не под ним -->
+        <button class="btn btn-secondary stats-day-edit-btn" id="stats-day-edit-open" type="button" title="Записать или поправить итог прошлого дня" aria-label="Поправить итог прошлого дня">✏️ Поправить день</button>
       </div>
 
       <section class="stats-section stats-water" aria-labelledby="stats-water-title">
@@ -655,6 +654,13 @@
             <span class="settings-menu-emoji" aria-hidden="true">ℹ️</span>
             <span class="settings-menu-text"><b>О приложении</b><small>Версия, источники данных, методика, условия</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-about" aria-label="Справка: О приложении" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <!-- 0.5.1 (решение владельца, п.13): PRO-каркас — экран активации кода.
+               НИЧЕГО не закрыто: все функции доступны бесплатно, PRO — поддержка проекта. -->
+          <button class="settings-menu-btn" id="pro-open" type="button">
+            <span class="settings-menu-emoji" aria-hidden="true">🏅</span>
+            <span class="settings-menu-text"><b>FitFlow PRO</b><small id="pro-menu-status">Поддержка проекта — не активировано</small></span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </nav>
@@ -1085,12 +1091,15 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.0</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.1</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
             <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
             <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
+            <!-- 0.5.1 (п.16 владельца): четвёртый значок шапки переехал сюда — в шапке остались
+                 Профиль, ИИ, Тема (ежедневные действия), справка о приватности — в «О приложении». -->
+            <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
           </div>
           <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
         </div>
@@ -1653,11 +1662,13 @@
       <p>Для прошлого дня, за который забыли записать. Пустое поле — без изменений. Цели дня не меняются.</p>
       <form id="day-edit-form" autocomplete="off">
         <label class="weight-field" for="day-edit-date"><span>Дата (не сегодня)</span><input id="day-edit-date" type="date" aria-label="Дата прошлого дня"></label>
-        <div class="food-edit-macros">
+        <!-- 0.5.1 (п.4): стопка во всю ширину вместо сетки 3 колонки -->
+        <div class="day-edit-fields">
           <label class="weight-field" for="day-edit-water"><span>Вода, мл</span><input id="day-edit-water" type="number" min="0" max="10000" step="10" inputmode="numeric" placeholder="без изменений" aria-label="Вода, миллилитры"></label>
           <label class="weight-field" for="day-edit-kcal"><span>Еда, ккал</span><input id="day-edit-kcal" type="number" min="0" max="10000" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Калории"></label>
           <label class="weight-field" for="day-edit-minutes"><span>Активность, мин</span><input id="day-edit-minutes" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Минуты активности"></label>
         </div>
+        <p class="settings-hint day-edit-note">Активность прошлого дня хранится просто как сумма минут, без вида — это упрощённая честная запись «для забывчивых»: на статистику влияет только количество минут.</p>
         <div class="app-dialog-actions"><button class="btn btn-secondary" id="day-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
       </form>
     </section>
@@ -1758,6 +1769,22 @@
       <h2 id="terms-blocked-title">Использование недоступно</h2>
       <p>Для использования FitFlow необходимо принять условия. При следующем запуске они будут показаны снова.</p>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="terms-blocked-ok" type="button">ОК</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.1 PRO-каркас: офлайн-активация кодом от владельца. Не DRM и не paywall:
+       функции не закрываются; код = HMAC от e-mail, выдаётся владельцем лично. -->
+  <div class="app-dialog-backdrop" id="pro-dialog" role="dialog" aria-modal="true" aria-labelledby="pro-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏅</div>
+      <h2 id="pro-dialog-title">FitFlow PRO</h2>
+      <p>PRO — добровольная поддержка разработки. Все функции FitFlow остаются бесплатными и ничто не перестанет работать без кода. Код привязан к e-mail, а не к телефону: на новом устройстве введите ту же пару «e-mail + код» — или восстановите данные из копии, статус приедет вместе с ней.</p>
+      <p class="settings-hint" id="pro-active-line" role="status" hidden></p>
+      <label class="weight-field" for="pro-email"><span>E-mail, на который выдан код</span><input id="pro-email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="E-mail покупателя PRO"></label>
+      <label class="weight-field" for="pro-code"><span>Код PRO</span><input id="pro-code" type="text" autocomplete="off" placeholder="FF-XXXX-XXXX-XXXX" aria-label="Код PRO"></label>
+      <p class="settings-hint" id="pro-status" role="alert"></p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="pro-cancel" type="button">Закрыть</button><button class="btn btn-primary" id="pro-activate" type="button">Активировать</button></div>
+      <button class="btn btn-ghost" id="pro-deactivate" type="button" hidden>Отключить PRO на этом устройстве</button>
     </section>
   </div>
 

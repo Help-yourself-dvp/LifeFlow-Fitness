@@ -56,6 +56,8 @@ const ids = [
   'date-weekday', 'date-month',
   'stats-day-edit-open', 'workout-date', 'undo-snackbar', 'undo-snackbar-action',
   'food-edit-dialog', 'food-edit-form', 'workout-edit-dialog', 'workout-edit-form', 'day-edit-dialog', 'day-edit-form',
+  'pro-open', 'pro-menu-status', 'pro-dialog', 'pro-email', 'pro-code', 'pro-activate', 'pro-cancel',
+  'pro-active-line', 'pro-status', 'pro-deactivate', 'privacy-help',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
   'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
@@ -862,13 +864,14 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.0'") && html.includes('v0.5.0');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.0 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.1 в коде и «О приложении»`);
 
   // ===================== 0.4.15 =====================
-  const okTruthStats = appR.includes('в дни с записями') && appR.includes(' · записи: ')
+  // 0.5.1: формулировка «записей N из M дн.» собирается через daysChunk
+  const okTruthStats = appR.includes('в дни с записями') && appR.includes('daysChunk')
     && appR.includes('✓ +') && appR.includes('сверх')
     && appR.includes('renderWater();\n  renderDayPlan();') && appR.includes('renderFood();\n  renderDayPlan();');
   if (!okTruthStats) failed++;
@@ -923,7 +926,7 @@ for (const id of ids) {
   console.log(`${okMood ? '✓' : '✗'} 0.4.15 самочувствие инлайн + день/вечер; приветствие из пула фраз`);
 
   const okFood = html.includes('id="food-combo-star"') && appR.includes('#food-combo-star')
-    && html.includes('Быстрые записи') && html.includes('⭐ Комбо — умные фразы')
+    && html.includes('Быстрые записи') && html.includes('⭐ Комбо</span>')
     && html.includes('🍽 Мои блюда — готовые шаблоны');
   if (!okFood) failed++;
   console.log(`${okFood ? '✓' : '✗'} 0.4.15 п.5/п.6: «Быстрые записи» с ясной разницей, «☆ В комбо» у поля`);
@@ -965,8 +968,9 @@ for (const id of ids) {
   if (!okSchema) failed++;
   console.log(`${okSchema ? '✓' : '✗'} 0.5.0 основа: schemaVersion состояния + миграции, номер в резервной копии`);
 
-  const okAvg = appR.includes('мл в день') && appR.includes('ккал в день')
-    && (appR.match(/[Вв]сего за период/g) || []).length >= 3;
+  // 0.5.1: средние теперь с «≈», день подписан «от сегодняшней цели»
+  const okAvg = appR.includes("≈ ${nbNum(fmt(wAvg), 'мл')}") && appR.includes("≈ ${nbNum(fmt(fAvg), 'ккал')}")
+    && appR.includes('от сегодняшней цели');
   if (!okAvg) failed++;
   console.log(`${okAvg ? '✓' : '✗'} 0.5.0 статистика: крупное число периода — среднее в день, сумма — подсказкой`);
 
@@ -993,10 +997,65 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.0'") && html.includes('v0.5.0')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
+}
+
+{
+  // ===================== 0.5.1 (полевой чек-лист владельца) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  const okPills = /flex:\s*1 1 0/.test(cssR) && cssR.includes('контейнер прозрачный')
+    && cssR.includes('.home-quicknav .quicknav-chip.active');
+  if (!okPills) failed++;
+  console.log(`${okPills ? '✓' : '✗'} 0.5.1 п.1: быстрый переход — отдельные пилюли во всю ширину`);
+
+  const brandTextRule = (cssR.match(/\.brand-text p\s*\{[^}]*\}/) || [''])[0];
+  const okDateCase = brandTextRule !== '' && !brandTextRule.includes('capitalize')
+    && cssR.includes('#date-label::first-letter');
+  if (!okDateCase) failed++;
+  console.log(`${okDateCase ? '✓' : '✗'} 0.5.1 п.15: дата шапки без «Авг. … Г.» (capitalize убран)`);
+
+  const okSleepMark = appR.includes('SLEEP_MARK_EMOJIS') && appR.includes('mark-good')
+    && cssR.includes('.checklist-icon.mark-low');
+  if (!okSleepMark) failed++;
+  console.log(`${okSleepMark ? '✓' : '✗'} 0.5.1 п.2: сон — эмодзи оценки вместо загадочной серой галочки`);
+
+  const okFoodLayout = html.includes('class="food-form-actions"') && cssR.includes('.food-form-actions')
+    && html.includes('data-help="quick-records"') && appR.includes("'quick-records'");
+  if (!okFoodLayout) failed++;
+  console.log(`${okFoodLayout ? '✓' : '✗'} 0.5.1 п.3: поле питания во всю строку, описания — в «?»`);
+
+  const okDayEdit051 = html.includes('class="btn btn-secondary stats-day-edit-btn"')
+    && html.includes('class="day-edit-fields"') && cssR.includes('.day-edit-fields')
+    && html.includes('сумма минут, без вида');
+  if (!okDayEdit051) failed++;
+  console.log(`${okDayEdit051 ? '✓' : '✗'} 0.5.1 п.4/7: «Поправить день» напротив заголовка, поля стопкой, честная подпись` );
+
+  const okStatsNew = appR.includes('daysChunk') && appR.includes('stats-bar-col')
+    && cssR.includes('.stats-bar-col') && appR.includes("≈ ${nbNum(fmt(fAvg),");
+  if (!okStatsNew) failed++;
+  console.log(`${okStatsNew ? '✓' : '✗'} 0.5.1 п.5/6/8: ≈-средние, склейка цифра+единица, даты графиков не уплывают`);
+
+  const okFontFull = cssR.includes('html[data-font="serif"] .settings-label')
+    && cssR.includes('html[data-font="condensed"] .greeting-title');
+  if (!okFontFull) failed++;
+  console.log(`${okFontFull ? '✓' : '✗'} 0.5.1 п.9: выбранный шрифт действует на все темы полностью (включая Спорт)`);
+
+  const headerPart = html.slice(0, html.indexOf('</header>'));
+  const okPro = html.includes('id="pro-dialog"') && appR.includes('function activateProFromDialog')
+    && appR.includes('pro: readProState()') && fs.existsSync('tools/make-pro-code.js')
+    && !headerPart.includes('privacy-help') && html.includes('id="privacy-help"');
+  if (!okPro) failed++;
+  console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
+
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1') && fs.existsSync('tools/make-pro-code.js');
+  if (!okVer051) failed++;
+  console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
