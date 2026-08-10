@@ -58,6 +58,8 @@ const ids = [
   'food-edit-dialog', 'food-edit-form', 'workout-edit-dialog', 'workout-edit-form', 'day-edit-dialog', 'day-edit-form',
   'pro-open', 'pro-menu-status', 'pro-dialog', 'pro-email', 'pro-code', 'pro-activate', 'pro-cancel',
   'pro-active-line', 'pro-status', 'pro-deactivate', 'privacy-help',
+  'quick-records-open', 'quick-records-dialog', 'quick-records-close', 'quick-records-tabs',
+  'quick-records-tab-hint', 'quick-panel-combo', 'quick-panel-meals', 'quick-panel-manual',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
   'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
@@ -864,10 +866,10 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.1 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.2 в коде и «О приложении»`);
 
   // ===================== 0.4.15 =====================
   // 0.5.1: формулировка «записей N из M дн.» собирается через daysChunk
@@ -926,8 +928,8 @@ for (const id of ids) {
   console.log(`${okMood ? '✓' : '✗'} 0.4.15 самочувствие инлайн + день/вечер; приветствие из пула фраз`);
 
   const okFood = html.includes('id="food-combo-star"') && appR.includes('#food-combo-star')
-    && html.includes('Быстрые записи') && html.includes('⭐ Комбо</span>')
-    && html.includes('🍽 Мои блюда — готовые шаблоны');
+    && html.includes('Быстрые записи') && html.includes('⭐ Комбо')
+    && html.includes('id="favorite-meals"');
   if (!okFood) failed++;
   console.log(`${okFood ? '✓' : '✗'} 0.4.15 п.5/п.6: «Быстрые записи» с ясной разницей, «☆ В комбо» у поля`);
 
@@ -997,7 +999,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1053,9 +1055,49 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.1'") && html.includes('v0.5.1') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.5.2 (полевой чек-лист владельца №2) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Самочувствие — всегда компактная строка (развёрнутый вечерний вариант убран)
+  const okMood052 = appR.includes('как прошёл день?') && !appR.includes('mood-card-value')
+    && !cssR.includes('.mood-card-value') && cssR.includes('.mood-card {');
+  if (!okMood052) failed++;
+  console.log(`${okMood052 ? '✓' : '✗'} 0.5.2 самочувствие: одна строка всегда, большой блок убран`);
+
+  // Быстрые записи — один диалог с тремя вкладками
+  const okQuick052 = html.includes('id="quick-records-dialog"')
+    && (html.match(/data-quick-tab=/g) || []).length === 3
+    && html.includes('id="combo-chips"') && html.includes('id="favorite-meals"') && html.includes('id="manual-food-add"')
+    && !html.includes('data-collapse-target="manual-food-content"')
+    && appR.includes('function switchQuickTab') && appR.includes('function openQuickRecordsDialog')
+    && appR.includes('closeQuickRecordsDialog(); openComboDialog();')
+    && cssR.includes('.quick-records-open');
+  if (!okQuick052) failed++;
+  console.log(`${okQuick052 ? '✓' : '✗'} 0.5.2 быстрые записи: один диалог, вкладки комбо/блюда/своё`);
+
+  // Шапка статистики: без наслоений и двухстрочной подписи
+  const okStatsHead052 = cssR.includes('.stats-card .card-header { align-items: center; flex-wrap: nowrap;')
+    && cssR.includes('.stats-card .card-title-wrap p { overflow: hidden;');
+  if (!okStatsHead052) failed++;
+  console.log(`${okStatsHead052 ? '✓' : '✗'} 0.5.2 статистика: «Итоги за…» в одну строку, кнопка справа без наслоений`);
+
+  // Недельная активность: «выполнено из цели — осталось/сверх»
+  const okWeekly052 = appR.includes('— осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}')
+    && appR.includes('цель выполнена ✓ +${formatActivityDuration(weeklyOver)} сверх');
+  if (!okWeekly052) failed++;
+  console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2 активность: «выполнено ИЗ цели», сверх/осталось явно`);
+
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2');
+  if (!okVer052) failed++;
+  console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

@@ -1277,18 +1277,9 @@ textarea.form-input.ai-textarea {
   gap: 10px;
   margin-top: 6px;
 }
-.mood-card .mood-card-value {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: var(--md-sys-color-on-surface);
-}
-.mood-card .mood-card-value .mood-emoji { font-size: 1.35rem; line-height: 1; }
-.mood-card .mood-card-row .btn { margin-left: auto; flex: 0 0 auto; }
-.mood-card .checklist-hint { margin-top: 10px; }
+/* 0.5.2: развёрнутый вечерний вариант убран — плашка всегда компактная строка;
+   стили mood-card-value/mood-emoji больше не нужны и удалены (гард нагромождения). */
+.mood-card { padding: 8px 12px; }
 
 /* Компактная строка типа приёма пищи */
 .meal-type-summary {
@@ -3743,9 +3734,14 @@ html[data-font="standard"] .settings-label {
 
 /* ===================== 0.5.0 «Доверие данным» ===================== */
 /* 0.5.1 (п.4 владельца): кнопка «Поправить день» — НАПРОТИВ заголовка
-   «Статистика» (в одну строку с ним), выше обычного чипа. */
-.stats-card .card-header { align-items: center; flex-wrap: wrap; }
-.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 9px 13px; font-size: 0.78rem; white-space: nowrap; }
+   «Статистика». 0.5.2 (владелец: «наслаиваются друг на друга, “Итоги за…” в две
+   строки»): запрет переносов — заголовок и подпись обрезаются с многоточием,
+   кнопка компактная и всегда на своём месте справа. */
+.stats-card .card-header { align-items: center; flex-wrap: nowrap; gap: 10px; }
+.stats-card .card-title-wrap { flex: 1 1 auto; min-width: 0; }
+.stats-card .card-title-wrap h2,
+.stats-card .card-title-wrap p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 8px 11px; font-size: 0.74rem; white-space: nowrap; }
 
 /* Дата в форме активности (задним числом) */
 .workout-date-field { margin-top: 8px; }
@@ -3795,3 +3791,37 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   outline: 2.5px solid var(--md-sys-color-primary);
   outline-offset: 2px;
 }
+
+
+/* ===================== 0.5.2 ===================== */
+/* Кнопка-вход в диалог «Быстрые записи» (одна вместо россыпи блоков) */
+.quick-records-open {
+  margin: 12px 0 6px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1.5px dashed var(--md-sys-color-outline-variant);
+  border-radius: 14px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.quick-records-open:active { background: var(--md-sys-color-surface-container-high); }
+.quick-records-open-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.quick-records-open-text b { font-size: 0.9rem; }
+.quick-records-open-text small { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+.quick-records-open .help-dot { flex: 0 0 auto; }
+
+.quick-records-dialog { text-align: left; width: min(100%, 430px); }
+.quick-records-dialog h2 { text-align: center; }
+.quick-records-tabs { margin: 8px 0 10px; }
+.quick-records-tab-hint { margin: 0 0 8px; }
+#quick-panel-combo .quick-chips { margin-bottom: 6px; }
+#quick-panel-combo #combo-manage-btn { margin-top: 4px; }
+.quick-panel .manual-food-actions { margin-top: 8px; }
+.quick-panel .manual-food-actions .btn { flex: 1 1 0; white-space: nowrap; }

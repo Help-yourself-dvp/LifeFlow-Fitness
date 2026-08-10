@@ -210,16 +210,12 @@
 
       <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
       <!-- 0.4.15 (п.5 владельца): «Быстрые записи» — единый блок; разница ясна из подписи -->
-      <!-- 0.5.1 (п.3 владельца): длинный подзаголовок уехал во всплывающую «?» -->
-      <p class="quick-records-title">⚡ Быстрые записи <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span></p>
-      <div class="combo-section" id="combo-section" aria-label="Мои комбо — записать набор одним нажатием">
-        <div class="combo-head">
-          <span class="combo-title">⭐ Комбо</span>
-          <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Ещё…</button>
-        </div>
-        <div class="quick-chips" id="combo-chips"></div>
-        <p class="settings-hint" id="combo-hint"></p>
-      </div>
+      <!-- 0.5.2 (решение владельца): россыпь блоков «Быстрые записи» (комбо / блюда /
+           своё блюдо) собрана в один диалог с вкладками — на карточке одна кнопка. -->
+      <button class="quick-records-open" id="quick-records-open" type="button" aria-haspopup="dialog">
+        <span class="quick-records-open-text"><b>⚡ Быстрые записи</b><small>⭐ комбо · 🍽 блюда · ✍️ своё блюдо</small></span>
+        <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span>
+      </button>
 
       <div class="meal-type-section">
         <div class="meal-type-summary">
@@ -235,48 +231,6 @@
               <button class="btn btn-secondary" id="custom-meal-type-save" type="button">Сохранить</button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <section class="collapsible-block">
-        <button class="collapsible-toggle" type="button" data-collapse-target="manual-food-content" aria-expanded="false">
-          <span>Своё блюдо</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <div class="collapsible-content" id="manual-food-content"><div class="manual-food-section">
-          <p class="quick-label">Введите название и калории готового блюда.</p>
-          <div class="manual-food-row">
-            <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
-            <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
-          </div>
-          <div class="manual-food-macros">
-            <input id="manual-food-p" type="text" inputmode="decimal" placeholder="Белки г" aria-label="Белки в граммах">
-            <input id="manual-food-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры в граммах">
-            <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
-          </div>
-          <div class="settings-row manual-food-actions">
-            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить запись</button>
-            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Добавить в Мои блюда</button>
-          </div>
-          <p class="settings-hint" style="margin:0">«Добавить запись» — блюдо попадёт в дневник сегодняшнего дня. «Добавить в Мои блюда» — сохранит блюдо как шаблон для быстрого выбора позже, без записи в дневник.</p>
-        </div></div>
-      </section>
-
-      <section class="collapsible-block">
-        <button class="collapsible-toggle" type="button" data-collapse-target="favorite-meals-content" aria-expanded="false">
-          <span>🍽 Мои блюда — готовые шаблоны</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <div class="collapsible-content" id="favorite-meals-content"><div class="quick-meals favorite-meals-section">
-          <div class="quick-chips" id="favorite-meals"></div>
-        </div></div>
-      </section>
-
-      <div class="quick-meals">
-        <span class="quick-label">Быстрое добавление:</span>
-        <div class="quick-chips">
-          <button class="chip chip-sm" data-quick="гречка 100г" type="button">Гречка 100г</button>
-          <button class="chip chip-sm" data-quick="яйцо 2шт" type="button">Яйцо 2шт</button>
-          <button class="chip chip-sm" data-quick="куриная грудка 150г" type="button">Грудка 150г</button>
-          <button class="chip chip-sm" data-quick="банан 1шт" type="button">Банан</button>
         </div>
       </div>
 
@@ -1091,7 +1045,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.1</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.2</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1769,6 +1723,61 @@
       <h2 id="terms-blocked-title">Использование недоступно</h2>
       <p>Для использования FitFlow необходимо принять условия. При следующем запуске они будут показаны снова.</p>
       <div class="app-dialog-actions"><button class="btn btn-primary" id="terms-blocked-ok" type="button">ОК</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.2: «Быстрые записи» — один диалог с тремя вкладками вместо россыпи блоков
+       на карточке питания (решение владельца: текущая структура путала, в каком случае
+       какой раздел использовать). Все id у узлов прежние — привязки не переписывались. -->
+  <div class="app-dialog-backdrop" id="quick-records-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-records-title" hidden>
+    <section class="app-dialog quick-records-dialog">
+      <h2 id="quick-records-title">⚡ Быстрые записи</h2>
+      <div class="segmented quick-records-tabs" id="quick-records-tabs" role="tablist" aria-label="Виды быстрых записей">
+        <button type="button" role="tab" data-quick-tab="combo" class="active" aria-selected="true">⭐ Комбо</button>
+        <button type="button" role="tab" data-quick-tab="meals" aria-selected="false">🍽 Блюда</button>
+        <button type="button" role="tab" data-quick-tab="manual" aria-selected="false">✍️ Своё блюдо</button>
+      </div>
+      <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.</p>
+
+      <div class="quick-panel" id="quick-panel-combo" role="tabpanel">
+        <div class="quick-chips" id="combo-chips"></div>
+        <p class="settings-hint" id="combo-hint"></p>
+        <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Управление комбо…</button>
+      </div>
+
+      <div class="quick-panel" id="quick-panel-meals" role="tabpanel" hidden>
+        <p class="quick-label">Ваши блюда — точные ккал с упаковки, тап = запись:</p>
+        <div class="quick-chips" id="favorite-meals"></div>
+        <p class="quick-label" style="margin-top:12px">Готовые чипы:</p>
+        <div class="quick-chips">
+          <button class="chip chip-sm" data-quick="гречка 100г" type="button">Гречка 100г</button>
+          <button class="chip chip-sm" data-quick="яйцо 2шт" type="button">Яйцо 2шт</button>
+          <button class="chip chip-sm" data-quick="куриная грудка 150г" type="button">Грудка 150г</button>
+          <button class="chip chip-sm" data-quick="банан 1шт" type="button">Банан</button>
+        </div>
+      </div>
+
+      <div class="quick-panel" id="quick-panel-manual" role="tabpanel" hidden>
+        <div class="manual-food-section">
+          <p class="quick-label">Название и калории готового блюда:</p>
+          <div class="manual-food-row">
+            <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
+            <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
+          </div>
+          <div class="manual-food-macros">
+            <input id="manual-food-p" type="text" inputmode="decimal" placeholder="Белки г" aria-label="Белки в граммах">
+            <input id="manual-food-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры в граммах">
+            <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
+          </div>
+          <div class="settings-row manual-food-actions">
+            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить запись</button>
+            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Добавить в Мои блюда</button>
+          </div>
+          <p class="settings-hint" style="margin:0">«Добавить запись» пишет блюдо в дневник сегодня. «Добавить в Мои блюда» сохраняет его шаблоном на вкладку «Блюда», без записи в дневник.</p>
+        </div>
+      </div>
+
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="quick-records-close" type="button">Закрыть</button></div>
     </section>
   </div>
 

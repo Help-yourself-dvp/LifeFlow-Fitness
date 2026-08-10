@@ -2582,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.1';
+const FITFLOW_VERSION = '0.5.2';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -4545,24 +4545,16 @@ function renderDayMoodCard() {
   // (наш паттерн чек-ина сна). Днём карточка компактная строка; полная — вечером.
   const buttons = [1, 2, 3, 4, 5].map((n) =>
     `<button type="button" class="mood-inline-btn${mood === n ? ' active' : ''}" data-mood-inline="${n}" title="${n} из 5 — ${labels[n]}" aria-label="Оценить день на ${n} из 5">${emojis[n]}</button>`).join('');
+  // 0.5.2 (владелец: «плашка осталась большим блоком»): одна компактная строка
+  // ВСЕГДА — и днём, и вечером, и после оценки. Вечерний разворот ничего не
+  // добавлял кроме объёма: смайлы и так один тап, оценка видна подсветкой.
   const evening = new Date().getHours() >= 17;
+  const note = mood
+    ? `${emojis[mood]} ${mood}/5 · ${labels[mood]}`
+    : (evening ? 'как прошёл день?' : 'итоги — ближе к вечеру');
   card.hidden = false;
-  if (!mood && !evening) {
-    card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
-    <div class="mood-card-row mood-compact-row"><span class="mood-compact-label">🌗 Самочувствие <span class="mood-compact-note">итоги — ближе к вечеру</span></span><span class="mood-inline-row">${buttons}</span></div>
-  </div>`;
-    return;
-  }
-  const valueHtml = mood
-    ? `<span class="mood-card-value"><span class="mood-emoji">${emojis[mood]}</span> ${labels[mood]} · ${mood}/5</span>`
-    : `<span class="mood-card-value" style="color:var(--md-sys-color-on-surface-variant);font-weight:600">Сегодня ещё не оценён</span>`;
   card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
-    <div class="checklist-header"><span>🌗 Самочувствие за день</span></div>
-    <div class="mood-card-row">
-      ${valueHtml}
-      <span class="mood-inline-row">${buttons}</span>
-    </div>
-    <div class="checklist-hint">Один тап по смайлу — оценка записана. Удобнее вечером, подводя итоги дня; оценки складываются в статистику.</div>
+    <div class="mood-card-row mood-compact-row"><span class="mood-compact-label">🌗 Самочувствие <span class="mood-compact-note">${note}</span></span><span class="mood-inline-row">${buttons}</span></div>
   </div>`;
 }
 
@@ -6753,7 +6745,15 @@ function renderTraining() {
   const weeklyGoal = state.activitySettings.weeklyGoalMinutes;
   // 0.4.15 (аудит А2): перевыполнение — успех, а не цифра «как ошибка».
   const weeklyOver = weeklyMinutes - weeklyGoal;
-  $('#weekly-activity-total').textContent = `${formatActivityDuration(weeklyMinutes)} · цель ${formatActivityDuration(weeklyGoal)}${weeklyOver > 0 ? ` ✓ +${formatActivityDuration(weeklyOver)} сверх` : ''}`;
+  // 0.5.2 (владелец: «цель 2:40, выполнено 2:30, +10 сверх — непонятно и
+  // некорректно»): проверили математику — она верна (выполнено 2 ч 40 при цели
+  // 2 ч 30 → +10 сверх цели), но порядок «число · цель число» провоцировал
+  // прочитать наоборот. Теперь явно: «выполнено ИЗ цели — осталось/сверх».
+  $('#weekly-activity-total').textContent = weeklyOver > 0
+    ? `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — цель выполнена ✓ +${formatActivityDuration(weeklyOver)} сверх`
+    : (weeklyOver === 0
+      ? `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — цель выполнена ✓ минута в минуту`
+      : `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}`);
   $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
   renderActivityTypeSelection();
   renderActivityTemplates();
@@ -8154,7 +8154,7 @@ const HELP_TOPICS = {
   },
   'quick-records': {
     title: 'Быстрые записи',
-    text: '⭐ Комбо — сохранённая фраза умного ввода: один тап записывает весь набор сразу (вода, еда, активность), калории каждый раз считаются заново по актуальной базе. 🍽 Мои блюда — точные ккал с упаковки: тап по блюду пишет его без повторного ввода. Ниже — выбор приёма пищи и готовые чипы вроде «Гречка 100г».'
+    text: 'Одно окно — три вкладки. ⭐ Комбо — сохранённая фраза умного ввода: один тап записывает весь набор сразу (вода, еда, активность), калории каждый раз считаются заново по актуальной базе. 🍽 Блюда — ваши шаблоны с точными ккал с упаковки и готовые чипы. ✍️ Своё блюдо — ручная запись названия и ккал; кнопка «Добавить в Мои блюда» сохранит её шаблоном на вкладку «Блюда».'
   },
   'day-checklist': {
     title: 'Чек-лист дня',
@@ -8892,6 +8892,46 @@ function renderGreeting() {
 }
 
 /* ============================================================
+   «Быстрые записи» — диалог с вкладками (0.5.2, решение владельца)
+   ----------------------------------------------------------
+   Раньше карточка питания несла россыпь блоков (комбо, своя форма, блюда,
+   чипы) и путала, «в каком случае какой раздел». Теперь: одна кнопка на
+   карточке → один диалог → три вкладки. Все id у узлов прежние, поэтому
+   существующие обработчики и рендеры не переписывались.
+   ============================================================ */
+const QUICK_TAB_HINTS = {
+  combo: 'Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.',
+  meals: 'Ваши блюда — точные ккал с упаковки: тап пишет блюдо без ввода. Ниже — пара готовых чипов для примера.',
+  manual: 'Ручная запись: название, ккал, при желании БЖУ. Кнопка «Добавить в Мои блюда» сохранит блюдо шаблоном на вкладку «Блюда».'
+};
+
+function switchQuickTab(name) {
+  if (!QUICK_TAB_HINTS[name]) name = 'combo';
+  $$('#quick-records-tabs [data-quick-tab]').forEach((btn) => {
+    const active = btn.dataset.quickTab === name;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  ['combo', 'meals', 'manual'].forEach((t) => {
+    const panel = $(`#quick-panel-${t}`);
+    if (panel) panel.hidden = t !== name;
+  });
+  const hint = $('#quick-records-tab-hint');
+  if (hint) hint.textContent = QUICK_TAB_HINTS[name];
+}
+
+function openQuickRecordsDialog(tab) {
+  switchQuickTab(tab || 'combo');
+  const dialog = $('#quick-records-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeQuickRecordsDialog() {
+  const dialog = $('#quick-records-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+/* ============================================================
    PRO (0.5.1, решение владельца «закладывай, чтобы потом не добавлять»)
    ------------------------------------------------------------
    Офлайн-активация кодом без покупок внутри APK: владелец выдаёт код лично
@@ -9152,7 +9192,7 @@ function init() {
   });
   $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
   // ⭐ Мои комбо (0.4.14)
-  bindEvent('#combo-manage-btn', 'click', openComboDialog);
+  bindEvent('#combo-manage-btn', 'click', () => { closeQuickRecordsDialog(); openComboDialog(); });
   bindEvent('#combo-dialog-close', 'click', closeComboDialog);
   bindEvent('#smart-entry-combo-btn', 'click', saveComboFromSmartEntry);
   bindEvent('#combo-add-btn', 'click', () => {
@@ -9394,6 +9434,11 @@ function init() {
   $('#all-profiles-import-cancel').addEventListener('click', closeAllProfilesImportDialog);
   $('#all-profiles-import-confirm').addEventListener('click', confirmAllProfilesImport);
   // 0.5.1: PRO-каркас
+  // 0.5.2: диалог «Быстрые записи»
+  bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
+  bindEvent('#quick-records-close', 'click', closeQuickRecordsDialog);
+  $$('#quick-records-tabs [data-quick-tab]').forEach((btn) =>
+    btn.addEventListener('click', () => switchQuickTab(btn.dataset.quickTab)));
   bindEvent('#pro-open', 'click', openProDialog);
   bindEvent('#pro-cancel', 'click', closeProDialog);
   bindEvent('#pro-activate', 'click', () => { activateProFromDialog(); });
