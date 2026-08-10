@@ -3850,3 +3850,30 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 
 /* PRO: «как поддержать» — выравнивание влево, отступ от строки статуса */
 #pro-howto { text-align: left; margin-top: 8px; }
+
+/* ============================================================
+   0.5.4 — «⚙️ Настроить» из уведомления, кольцо воды, поддержка
+   ============================================================ */
+/* Подсветка раздела настроек при переходе из уведомления — две мягкие вспышки */
+@keyframes settingsFlash {
+  0% { box-shadow: 0 0 0 0 rgb(0 105 107 / 0); }
+  25% { box-shadow: 0 0 0 4px rgb(0 105 107 / 0.35); }
+  100% { box-shadow: 0 0 0 0 rgb(0 105 107 / 0); }
+}
+.settings-flash { animation: settingsFlash 1.7s ease 2; border-radius: 14px; }
+
+/* «Цель достигнута! 🎉» больше не залезает на дугу кольца: текст держим
+   внутри безопасной зоны, длинная подпись переносится на две строки */
+.water-ring-center {
+  padding-left: 26px;
+  padding-right: 26px;
+  box-sizing: border-box;
+}
+.water-ring-center .water-sub {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+}
+
+/* Постоянный блок поддержки в «О приложении» — кнопка под текстом */
+#about-support-open { margin-top: 8px; }

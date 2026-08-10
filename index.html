@@ -1053,7 +1053,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.3</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.4</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1062,6 +1062,12 @@
             <!-- 0.5.1 (п.16 владельца): четвёртый значок шапки переехал сюда — в шапке остались
                  Профиль, ИИ, Тема (ежедневные действия), справка о приватности — в «О приложении». -->
             <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
+          </div>
+          <!-- 0.5.4 (решение владельца): поддержка доступна всегда, а не только из редкой плашки -->
+          <div class="charity-block" id="about-support-block">
+            <p class="settings-hint charity-title">💝 Поддержка проекта</p>
+            <p class="settings-hint">FitFlow бесплатен навсегда — весь функционал открыт. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой суммы: откройте страницу проекта на GitHub и создайте обращение с темой «Поддержка FitFlow» — ответим удобным способом (СБП или карта российского банка). Код PRO — знак благодарности, он ничего не разблокирует. Часть сборов — на благотворительность: отчёты ниже.</p>
+            <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO — как поддержать</button>
           </div>
           <!-- 0.5.3 (идея владельца): открытая отчётность о благотворительной части поддержки -->
           <div class="charity-block" id="charity-block">
@@ -1760,16 +1766,17 @@
     </section>
   </div>
 
-  <!-- 0.5.3: разовая плашка поддержки (идея владельца): один раз после примерно
-       десятого запуска, никогда повторно; дальше — только Настройки → FitFlow PRO. -->
+  <!-- 0.5.3, переработано 0.5.4 (уточнение владельца): первый показ после примерно
+       десятого запуска, дальше — не чаще раза в 14 дней («В другой раз»);
+       активным PRO не показывается; то же — всегда в Настройки → О приложении. -->
   <div class="app-dialog-backdrop" id="support-dialog" role="dialog" aria-modal="true" aria-labelledby="support-dialog-title" hidden>
     <section class="app-dialog">
       <div class="app-dialog-icon" aria-hidden="true">💝</div>
       <h2 id="support-dialog-title">FitFlow — бесплатно навсегда</h2>
-      <p>Весь функционал уже открыт, и так будет всегда. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой удобной суммы — это благодарность, а не покупка: код PRO просто отметит вас как сторонника проекта, ничего не разблокируя. Часть собранных средств направляется на благотворительность — суммы и фонды открыто публикуются в Настройки → О приложении.</p>
+      <p>Весь функционал уже открыт, и так будет всегда. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой удобной суммы — это благодарность, а не покупка: код PRO просто отметит вас как сторонника проекта, ничего не разблокируя. Часть собранных средств направляется на благотворительность — суммы и фонды открыто публикуются в Настройки → О приложении, там эта информация есть всегда. Напоминаем редко: не чаще раза в две недели, а после активации PRO плашка больше не появляется.</p>
       <div class="app-dialog-actions">
-        <button class="btn btn-secondary" id="support-later" type="button">Не сейчас</button>
-        <button class="btn btn-primary" id="support-open-pro" type="button">Как поддержать</button>
+        <button class="btn btn-secondary" id="support-later" type="button">В другой раз</button>
+        <button class="btn btn-primary" id="support-open-pro" type="button">💝 Поддержать проект</button>
       </div>
     </section>
   </div>

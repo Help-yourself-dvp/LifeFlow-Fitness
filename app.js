@@ -2582,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.3';
+const FITFLOW_VERSION = '0.5.4';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -3593,7 +3593,8 @@ async function scheduleCourseReminders({ requestPermission = true } = {}) {
             schedule: { at, allowWhileIdle: true },
             channelId: COURSE_REMINDER_CHANNEL,
             smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
-            extra: { source: 'fitflow-course-reminder', courseId: course.id }
+            actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+            extra: { source: 'fitflow-course-reminder', courseId: course.id, notifSettings: 'course' }
           });
         }
       });
@@ -7215,7 +7216,8 @@ async function scheduleTrainingReminder({ skipToday = false, clearDelivered = fa
         schedule: { at, allowWhileIdle: true },
         channelId: TRAINING_REMINDER_CHANNEL,
         smallIcon: 'ic_stat_icon', iconColor: '#00696B', autoCancel: true,
-        extra: { source: 'fitflow-training-reminder' }
+        actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+        extra: { source: 'fitflow-training-reminder', notifSettings: 'evening' }
       });
     }
     if (notifications.length) await localNotifications.schedule({ notifications });
@@ -7257,6 +7259,59 @@ function closeMorningMessageDialog() {
   if (dialog) dialog.hidden = true;
 }
 
+/* ============================================================
+   0.5.4 — кнопка «⚙️ Настроить» прямо в уведомлении (идея владельца)
+   ------------------------------------------------------------
+   Мастер 0.5.3 спрашивает только ТИПЫ напоминаний, а точное время
+   пользователь меняет «по факту»: у неудобного уведомления есть
+   кнопка действия, ведущая сразу в его раздел настроек (с подсветкой).
+   Действия добавляются уведомлениям планировщика LocalNotifications
+   (чистый JS, без правок workflow); нативное уведомление воды
+   (с кнопкой «+250 мл») получит «⚙️» в нативном пакете 0.8.0.
+   ============================================================ */
+const NOTIF_SETTINGS_ACTION_TYPE = 'fitflow-notif-settings';
+const NOTIF_SETTINGS_ACTION_ID = 'open-notif-settings';
+const NOTIF_SETTINGS_TARGETS = {
+  water: { view: 'settings-notifications', anchor: 'water-reminders-toggle' },
+  meals: { view: 'settings-notifications', anchor: 'meal-reminders-toggle' },
+  morning: { view: 'settings-notifications', anchor: 'morning-motivation-toggle' },
+  evening: { view: 'settings-notifications', anchor: 'workout-reminder-toggle' },
+  course: { view: 'settings-courses', anchor: 'course-list' }
+};
+
+/* Тип действий регистрируется один раз при запуске, ДО планирования. */
+async function registerNotificationSettingsActions() {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications || typeof localNotifications.registerActionTypes !== 'function') return;
+  try {
+    await localNotifications.registerActionTypes({
+      types: [{
+        id: NOTIF_SETTINGS_ACTION_TYPE,
+        actions: [{ id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить', foreground: true }]
+      }]
+    });
+  } catch (e) { console.warn('Действие «⚙️ Настроить» для уведомлений недоступно:', e); }
+}
+
+/* Переход к разделу настроек уведомления + мягкая подсветка-вспышка. */
+function openNotificationSettings(section) {
+  if (typeof document === 'undefined') return;
+  const target = NOTIF_SETTINGS_TARGETS[section];
+  if (!target) return;
+  switchView(target.view);
+  setTimeout(() => {
+    const anchor = document.getElementById(target.anchor);
+    const group = anchor ? (anchor.closest('.settings-group') || anchor) : null;
+    if (!group) return;
+    try { group.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    catch (e) { try { group.scrollIntoView(true); } catch (e2) { } }
+    group.classList.remove('settings-flash');
+    void group.offsetWidth; // перезапуск анимации при повторном переходе
+    group.classList.add('settings-flash');
+    setTimeout(() => group.classList.remove('settings-flash'), 3600);
+  }, 150);
+}
+
 function installActivityNotificationListener() {
   const localNotifications = getLocalNotifications();
   if (activityNotificationListenerInstalled || !localNotifications
@@ -7267,6 +7322,11 @@ function installActivityNotificationListener() {
       const notification = event && event.notification;
       if (!notification) return;
       const extra = notification.extra || {};
+      // 0.5.4: кнопка «⚙️ Настроить» — в свой раздел настроек, tap-ветки не трогаем
+      if (event.actionId === NOTIF_SETTINGS_ACTION_ID) {
+        if (extra.notifSettings) openNotificationSettings(extra.notifSettings);
+        return;
+      }
       if (extra.source === 'fitflow-water-reminder') {
         addWater(250);
         toast('💧 +250 мл воды по напоминанию');
@@ -7369,7 +7429,8 @@ async function scheduleMealReminders({ requestPermission = true } = {}) {
           schedule: { at, allowWhileIdle: true },
           channelId: MEAL_REMINDER_CHANNEL,
           smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
-          extra: { source: 'fitflow-meal-reminder', mealId: meal.id, mealLabel: meal.label }
+          actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+          extra: { source: 'fitflow-meal-reminder', mealId: meal.id, mealLabel: meal.label, notifSettings: 'meals' }
         });
       }
     });
@@ -7494,7 +7555,8 @@ async function scheduleWaterReminders({ requestPermission = true } = {}) {
             schedule: { at: new Date(at), allowWhileIdle: true },
             channelId: WATER_REMINDER_CHANNEL,
             smallIcon: 'ic_stat_icon', iconColor: '#00696B', autoCancel: true,
-            extra: { source: 'fitflow-water-reminder' }
+            actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+            extra: { source: 'fitflow-water-reminder', notifSettings: 'water' }
           });
         }
         at = new Date(at.getTime() + wr.interval * 60000);
@@ -7677,7 +7739,8 @@ async function scheduleMorningMotivation({ requestPermission = true } = {}) {
         smallIcon: 'ic_stat_icon',
         iconColor: '#00696B',
         autoCancel: true,
-        extra: { source: 'fitflow-morning-motivation', message }
+        actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+        extra: { source: 'fitflow-morning-motivation', message, notifSettings: 'morning' }
       };
     });
     motivation.message = notifications[0].body;
@@ -9019,14 +9082,19 @@ function maybeShowSetupWizard() {
 }
 
 /* ============================================================
-   Разовая плашка поддержки (0.5.3, идея владельца)
-   ----------------------------------------------------------
-   Один раз после ~10 запусков, никогда повторно и никогда первыми экранами —
-   после условий, онбординга и мастера. Запуски считаются локально; сброс
-   данных счётчик обнуляет — повтор возможен только у «свежего» пользователя.
+   Плашка поддержки (0.5.3, переработана 0.5.4 по решению владельца)
+   ------------------------------------------------------------
+   НЕ разовая: первый показ — не раньше ~10 запуска (новичка не трогаем),
+   дальше — не чаще одного раза в 14 дней («В другой раз»); переход
+   «Поддержать проект» даёт паузу 60 дней, а активным PRO плашка
+   не показывается вовсе. Следующий показ отмечается при показе плашки —
+   убитое из шторки приложение не покажет её повторно в тот же день.
+   Та же информация всегда доступна: Настройки → О приложении.
    ============================================================ */
 const LAUNCH_COUNT_KEY = 'fitflow:launch-count';
-const SUPPORT_SHOWN_KEY = 'fitflow:support-shown';
+const SUPPORT_NEXT_KEY = 'fitflow:support-next';
+const SUPPORT_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;    // «В другой раз»
+const SUPPORT_AFTER_PRO_MS = 60 * 24 * 60 * 60 * 1000; // после «Поддержать проект»
 
 function bumpLaunchCount() {
   try { localStorage.setItem(LAUNCH_COUNT_KEY, String(Number(localStorage.getItem(LAUNCH_COUNT_KEY) || '0') + 1)); } catch (e) { }
@@ -9035,15 +9103,23 @@ function getLaunchCount() {
   try { return Number(localStorage.getItem(LAUNCH_COUNT_KEY) || '0'); } catch (e) { return 0; }
 }
 
+function snoozeSupport(delayMs) {
+  try { localStorage.setItem(SUPPORT_NEXT_KEY, String(Date.now() + delayMs)); } catch (e) { }
+}
+
 function maybeShowSupportDialog() {
   if (typeof document === 'undefined') return;
-  try { if (localStorage.getItem(SUPPORT_SHOWN_KEY) === '1') return; } catch (e) { return; }
   if (getLaunchCount() < 10) return;
   if (!hasAcceptedTerms() || !hasCompletedOnboarding() || !hasCompletedSetupWizard()) return;
   if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
+  if (readProState().unlocked) return; // поддержавшим проект не напоминаем
+  try {
+    const next = Number(localStorage.getItem(SUPPORT_NEXT_KEY) || '0');
+    if (next && Date.now() < next) return;
+  } catch (e) { return; }
   const dialog = $('#support-dialog');
   if (!dialog) return;
-  try { localStorage.setItem(SUPPORT_SHOWN_KEY, '1'); } catch (e) { }
+  snoozeSupport(SUPPORT_SNOOZE_MS);
   dialog.hidden = false;
 }
 
@@ -9274,6 +9350,7 @@ function init() {
     if (!document.hidden) setTimeout(clearPhotoPickerPending, 400);
   });
   installActivityNotificationListener();
+  registerNotificationSettingsActions();
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
   refreshTrainingReminderOnLaunch();
@@ -9628,8 +9705,9 @@ function init() {
   bindEvent('#setup-wizard-skip', 'click', () => { closeSetupWizard(); toast('Быстрая настройка пропущена — всё оставлено стандартным, меняется в Настройках'); });
   bindEvent('#setup-wizard-done', 'click', () => { closeSetupWizard(); toast('✓ Настройка завершена'); });
   bindEvent('#setup-wizard-prof', 'click', () => { closeSetupWizard(); switchView('settings-profile'); });
-  bindEvent('#support-later', 'click', closeSupportDialog);
-  bindEvent('#support-open-pro', 'click', () => { closeSupportDialog(); openProDialog(); });
+  bindEvent('#support-later', 'click', closeSupportDialog); // пауза уже поставлена при показе
+  bindEvent('#support-open-pro', 'click', () => { closeSupportDialog(); snoozeSupport(SUPPORT_AFTER_PRO_MS); openProDialog(); });
+  bindEvent('#about-support-open', 'click', openProDialog);
 
   // 0.5.2: диалог «Быстрые записи»
   bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
