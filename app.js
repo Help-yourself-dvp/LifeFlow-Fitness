@@ -76,7 +76,17 @@ const FOOD_DB = {
   // формы крыла + жареный вариант по USDA (жареное/запечённое крыло с кожей ≈254/100).
   'крылья': { kcal: 203, p: 17, f: 14, c: 0 }, 'куриные крылья': { kcal: 203, p: 17, f: 14, c: 0 }, 'куриное крыло': { kcal: 203, p: 17, f: 14, c: 0 },
   'куриные крылья жареные': { kcal: 254, p: 17.5, f: 19, c: 0 }, 'жареные куриные крылья': { kcal: 254, p: 17.5, f: 19, c: 0 }, 'крылышки жареные': { kcal: 254, p: 17.5, f: 19, c: 0 },
-  'куриное бедро': { kcal: 209, p: 17, f: 15, c: 0.2 }, 'куриный окорочок': { kcal: 184, p: 18, f: 11, c: 0.3 },
+  'куриное бедро': { kcal: 209, p: 17, f: 15, c: 0.2 }, 'куриный окорочок': { kcal: 184, p: 18, f: 11, c: 0.3, pieceG: 300 },
+  /* 0.4.13 (аудит пользователя): «окорочок»/«ноги»/«шеи» соло, и честные
+     «без кожи» — «бедро без кожи» раньше проваливалось в fuzzy: «без» мэтчил
+     «безе» (меренга 305 ккал вместо бёдрышка!). Лечится стоп-гардом в
+     lookupProductIn + этими ключами. */
+  'окорочок': { kcal: 184, p: 18, f: 11, c: 0.3, pieceG: 300 }, 'окорочка': { kcal: 184, p: 18, f: 11, c: 0.3, pieceG: 300 },
+  'куриные ноги': { kcal: 184, p: 18, f: 11, c: 0.3, pieceG: 250 },
+  'шеи куриные': { kcal: 250, p: 18, f: 19.5, c: 0 }, 'бедро': { kcal: 209, p: 17, f: 15, c: 0.2 },
+  'голень': { kcal: 190, p: 17, f: 13, c: 0 }, 'филе бедра': { kcal: 150, p: 20, f: 7, c: 0 },
+  'бедро без кожи': { kcal: 165, p: 20.5, f: 8.5, c: 0 }, 'бедро куриное без кожи': { kcal: 165, p: 20.5, f: 8.5, c: 0 },
+  'голень без кожи': { kcal: 158, p: 19.5, f: 8, c: 0 }, 'голень куриная без кожи': { kcal: 158, p: 19.5, f: 8, c: 0 },
   'индейка': { kcal: 135, p: 22, f: 5, c: 0 }, 'филе индейки': { kcal: 113, p: 24, f: 1.5, c: 0 },
   'говядина': { kcal: 187, p: 18.9, f: 12.4, c: 0 }, 'телятина': { kcal: 90, p: 19.7, f: 1.2, c: 0 }, 'свинина': { kcal: 259, p: 16, f: 21, c: 0 },
   'баранина': { kcal: 209, p: 16, f: 16, c: 0 }, 'конина': { kcal: 175, p: 20, f: 10, c: 0 }, 'оленина': { kcal: 130, p: 21, f: 5, c: 0 },
@@ -94,6 +104,16 @@ const FOOD_DB = {
   // ===== Колбасные изделия =====
   'колбаса': { kcal: 301, p: 12, f: 27, c: 2 }, 'вареная колбаса': { kcal: 260, p: 12, f: 23, c: 1 }, 'варёная колбаса': { kcal: 260, p: 12, f: 23, c: 1 },
   'докторская': { kcal: 257, p: 13, f: 22, c: 2 }, 'молочная колбаса': { kcal: 260, p: 11, f: 23, c: 2 },
+  /* 0.4.13 (аудит пользователя): виды колбас честно различаем — раньше
+     «полукопчёная»/«краковская» молча скатывались в generic «колбаса» (301),
+     а печёночная/ливерная вдвое отличаются по жирам. Значения — средние по
+     семейству (Скурихин/этикетки), БЖУ согласованы с ккал по Этуотеру. */
+  'полукопченая колбаса': { kcal: 360, p: 17, f: 32, c: 0.5 }, 'полукопчёная колбаса': { kcal: 360, p: 17, f: 32, c: 0.5 },
+  'копченая колбаса': { kcal: 410, p: 17.5, f: 37, c: 1 }, 'копчёная колбаса': { kcal: 410, p: 17.5, f: 37, c: 1 },
+  'краковская колбаса': { kcal: 360, p: 17, f: 32, c: 0.5 },
+  'печеночная колбаса': { kcal: 315, p: 12.5, f: 28, c: 3 }, 'печёночная колбаса': { kcal: 315, p: 12.5, f: 28, c: 3 },
+  'ливерная колбаса': { kcal: 210, p: 12.5, f: 15.5, c: 4.5 }, 'чайная колбаса': { kcal: 216, p: 11.6, f: 18.4, c: 1.5 },
+  'кровяная колбаса': { kcal: 274, p: 9, f: 19.5, c: 14 },
   'сырокопченая колбаса': { kcal: 470, p: 24, f: 42, c: 0.5 }, 'сырокопчёная колбаса': { kcal: 470, p: 24, f: 42, c: 0.5 },
   'салями': { kcal: 407, p: 22, f: 35, c: 1 }, 'сервелат': { kcal: 461, p: 24, f: 40, c: 1 }, 'ветчина': { kcal: 145, p: 17, f: 8, c: 1 },
   'сосиска': { kcal: 105, p: 5, f: 9, c: 1, per: 'шт' }, 'сарделька': { kcal: 190, p: 9, f: 17, c: 1, per: 'шт' },
@@ -183,7 +203,8 @@ const FOOD_DB = {
   // ===== Яйца =====
   'яйцо': { kcal: 74, p: 6.3, f: 5, c: 0.5, per: 'шт' }, 'яйца': { kcal: 157, p: 12.7, f: 11.5, c: 0.7 }, 'перепелиные яйца': { kcal: 168, p: 13, f: 13, c: 0.6 },
   'яичный белок': { kcal: 44, p: 10, f: 0.1, c: 0.7 }, 'желток': { kcal: 322, p: 16, f: 28, c: 1 },
-  'омлет': { kcal: 155, p: 10, f: 12, c: 1.5 }, 'глазунья': { kcal: 180, p: 12, f: 14, c: 1 }, 'яичница': { kcal: 180, p: 12, f: 14, c: 1 },
+  'омлет': { kcal: 155, p: 10, f: 12, c: 1.5 }, 'омлет с молоком': { kcal: 155, p: 10, f: 12, c: 1.5 }, // 0.4.13
+ 'глазунья': { kcal: 180, p: 12, f: 14, c: 1 }, 'яичница': { kcal: 180, p: 12, f: 14, c: 1 },
 
   // ===== Овощи, зелень, грибы =====
   'картофель': { kcal: 77, p: 2, f: 0.4, c: 16 }, 'картошка': { kcal: 77, p: 2, f: 0.4, c: 16 }, 'батат': { kcal: 86, p: 1.6, f: 0.1, c: 20 },
@@ -275,7 +296,13 @@ const FOOD_DB = {
   'кекс': { kcal: 350, p: 5, f: 16, c: 46 }, 'шоколадный кекс': { kcal: 360, p: 5, f: 18, c: 44 },
   'пицца': { kcal: 266, p: 11, f: 11, c: 30 }, 'пицца маргарита': { kcal: 230, p: 8, f: 9, c: 28 }, 'пицца пепперони': { kcal: 290, p: 12, f: 14, c: 28 },
   'бургер': { kcal: 250, p: 13, f: 10, c: 27 }, 'чизбургер': { kcal: 300, p: 15, f: 15, c: 26 }, 'хот-дог': { kcal: 250, p: 9, f: 14, c: 22 },
-  'шаурма': { kcal: 200, p: 13, f: 8, c: 19 }, 'донер': { kcal: 230, p: 13, f: 10, c: 22 }, 'наггетсы': { kcal: 296, p: 15, f: 18, c: 17 },
+  'шаурма': { kcal: 200, p: 13, f: 8, c: 19 }, 'донер': { kcal: 230, p: 13, f: 10, c: 22 }, 'наггетсы': { kcal: 296, p: 15, f: 18, c: 17 }, 'куриные наггетсы': { kcal: 296, p: 15, f: 18, c: 17 },
+  /* 0.4.13: «в панировке»/«в кляре» — уже ДРУГОЕ блюдо (панировка/кляр + жарка
+     добавляют +30–100% ккал); молчаливо считать голым продуктом = врать вниз. */
+  'курица в панировке': { kcal: 250, p: 21, f: 13, c: 12 }, 'курица в кляре': { kcal: 250, p: 17, f: 15, c: 11 },
+  'рыба в кляре': { kcal: 205, p: 12.5, f: 11.5, c: 11 }, 'креветки в кляре': { kcal: 245, p: 13, f: 13.5, c: 18 },
+  'кальмар в кляре': { kcal: 175, p: 14, f: 8.5, c: 8 }, 'свинина в кляре': { kcal: 330, p: 20, f: 24, c: 8 },
+  'кабачки в кляре': { kcal: 130, p: 3, f: 8, c: 11 }, 'цветная капуста в кляре': { kcal: 120, p: 4, f: 7, c: 10 },
   'стрипсы': { kcal: 270, p: 18, f: 14, c: 16 }, 'картошка фри': { kcal: 312, p: 3.5, f: 16, c: 37 },
   'лапша вок': { kcal: 140, p: 7, f: 5, c: 17 }, 'пад тай': { kcal: 150, p: 8, f: 6, c: 17 }, 'том-ям': { kcal: 80, p: 5, f: 3, c: 6 },
   'гедза': { kcal: 200, p: 8, f: 8, c: 24 }, 'салат цезарь': { kcal: 190, p: 12, f: 12, c: 7 }, 'оливье': { kcal: 198, p: 6, f: 14, c: 10 },
@@ -292,13 +319,13 @@ const FOOD_DB = {
 
   // ===== Фастфуд и снеки =====
   'чипсы': { kcal: 530, p: 6, f: 32, c: 53 }, 'сухарики': { kcal: 400, p: 10, f: 8, c: 72 }, 'козинаки': { kcal: 510, p: 8, f: 28, c: 58 },
-  'халва': { kcal: 523, p: 12, f: 30, c: 54 }, 'печенье': { kcal: 450, p: 7, f: 18, c: 64 },
-  'пряник': { kcal: 350, p: 5, f: 7, c: 67 }, 'пряники': { kcal: 350, p: 5, f: 7, c: 67 }, 'вафли': { kcal: 460, p: 6, f: 22, c: 60 },
+  'халва': { kcal: 523, p: 12, f: 30, c: 54 }, 'печенье': { kcal: 450, p: 7, f: 18, c: 64, pieceG: 15 },
+  'пряник': { kcal: 350, p: 5, f: 7, c: 67, pieceG: 40 }, 'пряники': { kcal: 350, p: 5, f: 7, c: 67, pieceG: 40 }, 'вафли': { kcal: 460, p: 6, f: 22, c: 60, pieceG: 25 },
   'торт': { kcal: 350, p: 4, f: 18, c: 44 }, 'пирожное': { kcal: 380, p: 5, f: 20, c: 45 }, 'пирог': { kcal: 320, p: 6, f: 14, c: 42 },
   'пончик': { kcal: 300, p: 5, f: 12, c: 42, per: 'шт' }, 'пончики': { kcal: 300, p: 5, f: 12, c: 42 },
   'шоколад': { kcal: 540, p: 5, f: 32, c: 58 }, 'шоколадные конфеты': { kcal: 530, p: 4, f: 30, c: 60 },
   'конфеты': { kcal: 450, p: 3, f: 20, c: 65 }, 'карамель': { kcal: 380, p: 0, f: 5, c: 85 }, 'ирис': { kcal: 400, p: 3, f: 8, c: 80 },
-  'мармелад': { kcal: 320, p: 0, f: 0, c: 78 }, 'зефир': { kcal: 304, p: 0.8, f: 0.1, c: 74 }, 'пастила': { kcal: 310, p: 0.5, f: 0.1, c: 76 },
+  'мармелад': { kcal: 320, p: 0, f: 0, c: 78 }, 'зефир': { kcal: 304, p: 0.8, f: 0.1, c: 74, pieceG: 33 }, 'пастила': { kcal: 310, p: 0.5, f: 0.1, c: 76 },
   'нуга': { kcal: 400, p: 5, f: 10, c: 73 }, 'грильяж': { kcal: 510, p: 8, f: 28, c: 58 }, 'леденец': { kcal: 380, p: 0, f: 0, c: 95 },
   'батончик': { kcal: 450, p: 8, f: 20, c: 58 }, 'сникерс': { kcal: 488, p: 9, f: 24, c: 58, per: 'шт' },
   'марс': { kcal: 440, p: 4, f: 17, c: 67, per: 'шт' }, 'твикс': { kcal: 497, p: 5, f: 25, c: 62, per: 'шт' },
@@ -389,7 +416,7 @@ const FOOD_DB = {
   'растительный йогурт': { kcal: 65, p: 3, f: 2.5, c: 8, source: 'Open Food Facts (ODbL)' },
   'мюсли без сахара': { kcal: 340, p: 11, f: 6, c: 55, source: 'Open Food Facts (ODbL)' },
   'гранола с шоколадом': { kcal: 460, p: 9, f: 18, c: 62, source: 'Open Food Facts (ODbL)' },
-  'овсяное печенье': { kcal: 450, p: 6, f: 18, c: 65, source: 'Open Food Facts (ODbL)' },
+  'овсяное печенье': { kcal: 450, p: 6, f: 18, c: 65, pieceG: 15, source: 'Open Food Facts (ODbL)' }, /* 0.4.13: было 2 шт×70 г = 630 ккал; честная штука 15 г */
   'цельнозерновой крекер': { kcal: 430, p: 10, f: 14, c: 64, source: 'Open Food Facts (ODbL)' },
   'рисовые хлебцы': { kcal: 387, p: 8, f: 3, c: 80, source: 'Open Food Facts (ODbL)' },
   'готовый смузи': { kcal: 55, p: 1, f: 0.5, c: 11, source: 'Open Food Facts (ODbL)' },
@@ -673,7 +700,10 @@ const BREAD_KEYS = new Set(['хлеб', 'белый хлеб', 'ржаной х�
    «три куска варёной колбасы» вылетело в 300 г / 780 ккал). Бытовой кусок
    варёнки к завтраку — толстый ломтик ~1 см ≈ 40–50 г, а не «граммовка 100». */
 const SAUSAGE_SLICE_GRAMS = { 'кусок': 45, 'ломоть': 25, 'долька': 15 };
-const SAUSAGE_KEYS = new Set(['колбаса', 'вареная колбаса', 'варёная колбаса', 'докторская', 'молочная колбаса', 'сервелат', 'салями', 'сырокопченая колбаса', 'сырокопчёная колбаса', 'ветчина']);
+const SAUSAGE_KEYS = new Set(['колбаса', 'вареная колбаса', 'варёная колбаса', 'докторская', 'молочная колбаса', 'сервелат', 'салями', 'сырокопченая колбаса', 'сырокопчёная колбаса', 'ветчина',
+  // 0.4.13: новые виды тоже режутся ломтиками, не «кусок=70 г»
+  'полукопченая колбаса', 'полукопчёная колбаса', 'копченая колбаса', 'копчёная колбаса', 'краковская колбаса',
+  'печеночная колбаса', 'печёночная колбаса', 'ливерная колбаса', 'чайная колбаса', 'кровяная колбаса']);
 function pieceGramsFor(product, normUnit) {
   if (product && Number(product.pieceG) > 0) return Number(product.pieceG); // 0.3.25: вес штуки из личной базы
   if (product && product.key && BREAD_KEYS.has(product.key)) {
@@ -1128,6 +1158,7 @@ function mergeDuplicateFoodItems(items) {
 }
 
 let pendingSmartEntry = null;
+let pendingSmartEntryLogId = null; // 0.4.13: id записи журнала распознаваний текущего разбора
 
 function parseSmartEntry(text) {
   const source = String(text || '').trim();
@@ -1286,6 +1317,9 @@ function describeFoodItemLine(item) {
 
 function previewSmartEntry() {
   const parsed = parseSmartEntry($('#smart-entry-input').value);
+  // 0.4.13: журнал распознаваний — каждый разбор фиксируется, даже брошенный
+  const smartPhotoVis = consumePendingPhotoVision();
+  pendingSmartEntryLogId = logParseEvent(smartPhotoVis ? 'photo' : 'text', $('#smart-entry-input').value, parsed, smartPhotoVis);
   // Строки формируются уже экранированными: describeFoodItemLine экранирует
   // части сам (позволяет показать расшифровку состава мелким текстом).
   const lines = [];
@@ -1314,6 +1348,8 @@ function previewSmartEntry() {
 async function saveSmartEntry() {
   if (!pendingSmartEntry) return;
   const parsed = pendingSmartEntry;
+  markParseLogSaved(pendingSmartEntryLogId);
+  pendingSmartEntryLogId = null;
   if (parsed.waterMl > 0) {
     state.water.total += parsed.waterMl;
     state.water.log.push({ ts: Date.now(), ml: parsed.waterMl });
@@ -1359,6 +1395,7 @@ const AI_PHOTO_PROMPT = 'Посмотри на фото и перечисли е
     // тарелка 1,2 кг) и дублировала овощи. Якоря реалистичной тарелки:
     // гарнир 150–200 г, белок 100–150 г, овощ в смеси 30–50 г.
   + 'Слово «порция» не используй: каждой позиции вес в граммах по якорям тарелки — гарнир (макароны, рис, гречка, картофель) 150–200 граммов, курица или мясо на ней 100–150 граммов, каждый овощ в овощной смеси 30–50 граммов. '
+  + 'Кашу называй кашей: тарелка коричневых зёрен гречки — «гречневая каша», а не «черника» и не «изюм»; молочную кашу — «… на молоке»; добавку в каше (изюм, ягоды) перечисляй отдельной строкой малым весом (20–40 граммов), но не вместо самой каши. '
   + 'Никаких пояснений и вступлений — только строки списка. '
   + 'Если еды и продуктов на фото нет — ответь РОВНО одним словом: нет.';
 
@@ -1370,6 +1407,206 @@ const AI_PHOTO_TEMPERATURE = 0.2;
 /* Честный отказ «еды нет» проверяем умнее одного слова: E2B пишет и «нет»,
    и «на фото нет еды». Правило юникодо-устойчиво (\b — ASCII-only) и доверяет
    цифрам: где граммы/штуки — там позиции, даже если есть «нетто» (нетто 200 г). */
+/* ===== Журнал распознаваний (0.4.13, запрос пользователя) =====
+   Диагностический контур честности: КАЖДЫЙ разбор умного ввода (текст и фото)
+   пишется сюда в момент разбора — независимо от того, записал ли пользователь
+   результат в дневник. Цель — полевой сбор правды («что ввели → что
+   поняли → что потеряли») для калибровки базы и промптов: файл выгружается
+   добровольно (кнопки в Настройках), наружу само ничего не уходит.
+   Хранение: отдельный ключ localStorage, кольцо из PARSE_LOG_LIMIT записей,
+   в бэкап профилей не включается (это диагностика, не данные дневника). */
+const PARSE_LOG_KEY = 'fitflow:parseLog';
+const PARSE_LOG_LIMIT = 300;
+let parseLogSeq = 0;
+let pendingPhotoVision = null; // { ts, raw } — сырой ответ зрения к ближайшему разбору
+
+function parseLogStorageGet() {
+  try { return localStorage.getItem(PARSE_LOG_KEY); } catch (e) { return null; }
+}
+function parseLogStorageSet(json) {
+  try { localStorage.setItem(PARSE_LOG_KEY, json); } catch (e) { /* переполнение — молча */ }
+}
+
+/* Чистая нормализация журнала: валидация + кольцевой лимит (тестируется в node). */
+function normalizeParseLogList(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== 'object') continue;
+    const items = Array.isArray(raw.items)
+      ? raw.items.filter((i) => i && typeof i.name === 'string' && i.name).slice(0, 30)
+          .map((i) => ({ name: String(i.name).slice(0, 120), grams: Math.round(Number(i.grams) || 0), kcal: Math.round(Number(i.kcal) || 0) }))
+      : [];
+    out.push({
+      id: typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 24) : ('pl' + out.length),
+      ts: Number(raw.ts) > 0 ? Number(raw.ts) : Date.now(),
+      src: raw.src === 'photo' ? 'photo' : 'text',
+      input: String(raw.input || '').slice(0, 300),
+      vision: typeof raw.vision === 'string' && raw.vision ? raw.vision.slice(0, 600) : undefined,
+      items,
+      unparsed: Array.isArray(raw.unparsed) ? raw.unparsed.slice(0, 20).map((s) => String(s).slice(0, 120)) : [],
+      waterMl: Math.round(Number(raw.waterMl) || 0),
+      acts: Math.round(Number(raw.acts) || 0),
+      saved: raw.saved === true,
+      v: typeof raw.v === 'string' ? raw.v.slice(0, 16) : ''
+    });
+    if (out.length >= PARSE_LOG_LIMIT) break;
+  }
+  return out;
+}
+
+function readParseLog() {
+  return normalizeParseLogList((() => { try { return JSON.parse(parseLogStorageGet() || '[]'); } catch (e) { return []; } })());
+}
+
+/* Чистый конструктор записи из результата parseSmartEntry (тестируется в node). */
+function buildParseLogEntry(src, input, parsed, visionRaw) {
+  const foods = (parsed && Array.isArray(parsed.food)) ? parsed.food : [];
+  return {
+    ts: Date.now(),
+    src: src === 'photo' ? 'photo' : 'text',
+    input: String(input || '').slice(0, 300),
+    vision: visionRaw ? String(visionRaw).slice(0, 600) : undefined,
+    items: foods.slice(0, 30).map((i) => ({
+      name: String(i && i.name || '').slice(0, 120),
+      grams: Math.round(Number(i && i.grams) || 0),
+      kcal: Math.round(Number(i && i.kcal) || 0)
+    })),
+    unparsed: (parsed && Array.isArray(parsed.unparsed))
+      ? Array.from(new Set(parsed.unparsed)).slice(0, 20).map((s) => String(s).slice(0, 120)) : [],
+    waterMl: Math.round(Number(parsed && parsed.waterMl) || 0),
+    acts: (parsed && Array.isArray(parsed.activities)) ? parsed.activities.length : 0,
+    saved: false,
+    v: typeof FITFLOW_VERSION === 'string' ? FITFLOW_VERSION : ''
+  };
+}
+
+/* Записать разбор. Возвращает id — кнопка «Записать в дневник» пометит saved. */
+function logParseEvent(src, input, parsed, visionRaw) {
+  const entry = buildParseLogEntry(src, input, parsed, visionRaw);
+  entry.id = 'pl' + entry.ts.toString(36) + (parseLogSeq++).toString(36);
+  const list = readParseLog();
+  list.unshift(entry);
+  parseLogStorageSet(JSON.stringify(normalizeParseLogList(list)));
+  renderParseLogStatus();
+  return entry.id;
+}
+
+function markParseLogSaved(id) {
+  if (!id) return;
+  const list = readParseLog();
+  const hit = list.find((e) => e.id === id);
+  if (!hit || hit.saved) return;
+  hit.saved = true;
+  parseLogStorageSet(JSON.stringify(list));
+  renderParseLogStatus();
+}
+
+/* Зрение отработало — держим сырой ответ 5 минут для ближайшего разбора,
+   чтобы было видно и «что модель сказала», и «что пользователь поправил». */
+function rememberPhotoVision(raw) {
+  pendingPhotoVision = { ts: Date.now(), raw: String(raw || '').slice(0, 600) };
+}
+function consumePendingPhotoVision() {
+  const p = pendingPhotoVision;
+  pendingPhotoVision = null;
+  return (p && Date.now() - p.ts < 5 * 60 * 1000) ? p.raw : null;
+}
+
+function renderParseLogStatus() {
+  if (typeof document === 'undefined' || !document.getElementById) return; // node-тесты без DOM
+  const el = document.getElementById('parse-log-status');
+  if (!el) return;
+  const list = readParseLog();
+  if (!list.length) {
+    el.textContent = 'Пока пусто. Каждый разбор умного ввода и фото будет писаться сюда автоматически.';
+    return;
+  }
+  const last = list[0];
+  el.textContent = 'Записей: ' + list.length + ' из ' + PARSE_LOG_LIMIT
+    + ' · последняя — ' + (last.src === 'photo' ? 'фото' : 'текст') + ' «'
+    + (last.input || '(фото)').slice(0, 40) + '» ' + new Date(last.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+/* Текстовая выгрузка в буфер: компактный читаемый список для письма/GitHub issue. */
+function formatParseLogForClipboard(list) {
+  const rows = normalizeParseLogList(list);
+  const dt = (ts) => {
+    const d = new Date(ts);
+    const dd = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+    return dd + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
+  const lines = ['FitFlow · журнал распознаваний · v' + (typeof FITFLOW_VERSION === 'string' ? FITFLOW_VERSION : '?')
+    + ' · записей: ' + rows.length + ' · выгружено ' + dt(Date.now()), ''];
+  rows.forEach((e, idx) => {
+    const body = e.items.map((i) => i.name + ' ' + i.grams + ' г (' + i.kcal + ' ккал)').join('; ') || '—';
+    lines.push((idx + 1) + '. ' + dt(e.ts) + ' · ' + (e.src === 'photo' ? 'фото' : 'текст')
+      + ' · «' + e.input + '» → ' + body
+      + (e.waterMl > 0 ? ' · вода +' + e.waterMl + ' мл' : '')
+      + (e.acts > 0 ? ' · активность ×' + e.acts : '')
+      + (e.unparsed.length ? ' · ⚠️ не разобрал: «' + e.unparsed.join('», «') + '»' : '')
+      + ' · ' + (e.saved ? 'записано ✓' : 'не записано'));
+    if (e.vision) lines.push('   зрение ответило: «' + e.vision.replace(/\s+/g, ' ').slice(0, 200) + '»');
+  });
+  return lines.join('\n');
+}
+
+function exportParseLogFile() {
+  const list = readParseLog();
+  if (!list.length) { toast('Журнал распознаваний пока пуст — сделайте пару разборов'); return; }
+  const payload = JSON.stringify({
+    app: 'FitFlow', kind: 'parse-log', version: typeof FITFLOW_VERSION === 'string' ? FITFLOW_VERSION : '',
+    exportedAt: new Date().toISOString(), entries: list.slice().reverse()
+  }, null, 1);
+  const fileName = 'fitflow-parse-log-' + new Date().toISOString().slice(0, 10) + '.json';
+  // Тот же нативный канал сохранения, что и бэкап профилей (SAF-диалог).
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.saveBackup === 'function') {
+      toast('Выберите папку для файла журнала');
+      window.FitFlowExport.saveBackup(payload, fileName);
+      return;
+    }
+  } catch (e) { }
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('📄 Файл журнала сохранён (' + list.length + ' записей)');
+}
+
+async function copyParseLogToClipboard() {
+  const list = readParseLog();
+  if (!list.length) { toast('Журнал распознаваний пока пуст'); return; }
+  const text = formatParseLogForClipboard(list);
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error('no clipboard api');
+    await navigator.clipboard.writeText(text);
+    toast('📋 Журнал скопирован (' + list.length + ' записей) — вставьте в письмо или issue на GitHub');
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); toast('📋 Журнал скопирован (' + list.length + ' записей)'); }
+    catch (e2) { toast('Не удалось скопировать — попробуйте «Скачать файл»'); }
+    ta.remove();
+  }
+}
+
+function clearParseLog() {
+  try { localStorage.removeItem(PARSE_LOG_KEY); } catch (e) { }
+  renderParseLogStatus();
+  toast('🧹 Журнал распознаваний очищен');
+}
+
 function isPhotoNoFoodAnswer(draft) {
   const d = String(draft || '').trim().toLowerCase();
   if (!d) return true;
@@ -1430,7 +1667,7 @@ function markPhotoProvenance(box) {
   box.insertBefore(note, box.firstChild);
 }
 
-async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) {
+async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled, visionTrack) {
   const plugin = getLocalAiPlugin();
   const header = '<b>📷 Разбор фото нейросетью на устройстве</b>';
   const setStage = (html) => {
@@ -1475,9 +1712,12 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled) 
     detach();
     const draft = cleanPhotoDraftText(out.text);
     if (isPhotoNoFoodAnswer(draft)) {
+      // 0.4.13: промах зрения тоже фиксируем — такие кадры и есть калибровочный материал
+      if (visionTrack) logParseEvent('photo', '(фото: ' + (file && file.name ? String(file.name).slice(0, 60) : 'снимок') + ')', { food: [], unparsed: ['нейросеть еду не нашла'] }, draft);
       setStage('<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>');
       return;
     }
+    if (visionTrack) rememberPhotoVision(draft); // 0.4.13: сырой ответ зрения привяжется к разбору
     if (targetInput) targetInput.value = draft;
     // Канонический путь подтверждения (те же ≈-оценки, база и «⚠️ Не разобрал»),
     // сверху — честная пометка, что список составлен нейросетью и его можно поправить.
@@ -1559,7 +1799,7 @@ async function runPhotoFoodRecognition(file) {
   const dlg = $('#smart-entry-dialog');
   if (dlg && dlg.hidden) openSmartEntry();
   await recognizeFoodPhotoLocal(file, $('#smart-entry-input'), $('#smart-entry-preview'),
-    () => { previewSmartEntry(); });
+    () => { previewSmartEntry(); }, true); // 0.4.13: зрение пишется в журнал распознаваний
 }
 
 
@@ -1864,15 +2104,30 @@ function parseItem(text) {
   const rawName = name; // до зачистки — композиции видят «с …» полностью
   name = name
     .toLowerCase()
-    .replace(/\s+(отварн\w+|варё\w+|варен\w+|жарен\w+|свеж\w+|сыр\w+|копчён\w+|копчен\w+|тушен\w+|печё\w+|печен\w+|запечён\w+|запечен\w+|солён\w+|солен\w+|маринован\w+|в сметане|с маслом|по-домашнему|домашн\w*|замороженн\w*|полуфабрикат|паровой|на пару|в кляре)\s*$/iu, '')
+    .replace(/\s+(отварн\w+|варё\w+|варен\w+|жарен\w+|свеж\w+|сыр\w+|копчён\w+|копчен\w+|тушен\w+|печё\w+|печен\w+|запечён\w+|запечен\w+|солён\w+|солен\w+|маринован\w+|в сметане|с маслом|по-домашнему|домашн\w*|замороженн\w*|полуфабрикат|паровой|на пару)\s*$/iu, '')
     .replace(/^пол-\s*/, '')
     .trim();
 
   if (!name) return null;
 
   // 3) Поиск в базе: самое длинное совпадение
-  const product = lookupProduct(name);
+  let product = lookupProduct(name);
   const rawLower = rawName.toLowerCase();
+
+  /* 0.4.13 — «X в кляре / в панировке» без составного ключа: не возвращать
+     МОЛЧА голый продукт (рыба в кляре как «рыба» — враньё на −50%). Честная
+     оценка: кляр ~11 г углеводов и жарка +8 г жиров на 100 г, ккал — по
+     Этуотеру из новых БЖУ; помечается approx+пометкой. Кураторские ключи
+     («рыба в кляре» и др.) сюда не доходят — они уже нашлись целиком. */
+  const batterMatch = rawLower.match(/в\s+(кляр|панировк)\w*/iu);
+  let batterNote = false;
+  if (product && batterMatch && !/кляр|панировк/iu.test(product.key)) {
+    const np = Math.round(product.p * 0.85 * 10) / 10;
+    const nf = Math.round((product.f + 8) * 10) / 10;
+    const nc = Math.round((product.c + 11) * 10) / 10;
+    product = { ...product, p: np, f: nf, c: nc, kcal: Math.round(np * 4 + nf * 9 + nc * 4) };
+    batterNote = true;
+  }
 
   // Честная композиция «бутерброд с Y»: побеждает «голую» начинку
   // («сырокопченая колбаса 1316 ккал» вместо 4 бутербродов), но уступает
@@ -1910,7 +2165,10 @@ function parseItem(text) {
     unit: (amount == null && perPiece) ? 'шт' : (unit || 'г'),
     grams: nutrition.grams,
     perPiece,
-    note: packNoCount ? 'упаковка без количества — принято 1 шт; поправьте, если больше' : undefined,
+    note: batterNote
+      ? '≈ оценка с кляром/панировкой: +' + 'тесто и жарка учтены по Этуотеру'
+      : (packNoCount ? 'упаковка без количества — принято 1 шт; поправьте, если больше' : undefined),
+    approx: batterNote || undefined,
     kcal: nutrition.kcal,
     p: nutrition.p,
     f: nutrition.f,
@@ -1963,6 +2221,26 @@ function lookupProduct(name) {
     || lookupProductIn(FOOD_DB, FOOD_KEYS_BY_LENGTH, name);
 }
 
+/* 0.4.13 (полевой баг: «бедро без кожи» съедалось как «безе» 305 ккал —
+   стем «без» прицепился к предлогу). Стем-совпадение на служебном слове —
+   не продукт: такие ключи пропускаем, поиск продолжается по более коротким.
+   Только слова ≥3 букв (короче в стем-матч не лезут из-за границ слова). */
+/* 0.4.13 (полевой баг: «каша без сахара» давала сахарные значения):
+   составной или одиночный ключ не может опираться на слово под «без». */
+function lookupWordNegated(textE, word) {
+  const w = String(word || '').toLowerCase();
+  if (w.length < 2) return false;
+  const prefix = w.slice(0, Math.min(4, w.length));
+  return new RegExp('(^|[^а-яёa-z0-9])без\\s+(?:[а-яёa-z0-9]+\\s+)?' + escapeRegExp(prefix) + '[а-яё]*', 'iu').test(textE);
+}
+
+const LOOKUP_STOP_WORDS = new Set([
+  'без', 'над', 'под', 'для', 'про', 'при', 'вне', 'меж', 'через', 'сквозь',
+  'около', 'вроде', 'мимо', 'среди', 'вместо', 'вслед', 'после', 'перед',
+  'почти', 'чуть', 'много', 'мало', 'сколько', 'просто', 'только', 'тоже',
+  'ещё', 'уже', 'очень', 'совсем'
+]);
+
 function lookupProductIn(db, keysByLength, name) {
   const text = String(name || '').toLowerCase().trim().replace(/\s+/g, ' ');
   if (!text) return null;
@@ -1982,7 +2260,13 @@ function lookupProductIn(db, keysByLength, name) {
     if (cut !== keyE && cut.length >= 3) stem = cut;
     else if (keyE.endsWith('ь') && keyE.length > 3) stem = keyE.slice(0, -1);
     const pattern = new RegExp('(^|[^а-яёa-z0-9])' + escapeRegExp(stem) + '[а-яё]{0,3}($|[^а-яёa-z0-9])', 'iu');
-    if (pattern.test(textE)) return { key, ...db[key] };
+    const stemHit = pattern.exec(textE);
+    if (stemHit) {
+      // 0.4.13: совпавшее слово — служебное («без», «со», «для») или стоит
+      // под негацией («без сахара») => не продукт, ищем дальше.
+      const hitWord = stemHit[0].replace(/^[^а-яёa-z0-9]+/iu, '').replace(/[^а-яёa-z0-9]+$/iu, '');
+      if (!LOOKUP_STOP_WORDS.has(hitWord) && !lookupWordNegated(textE, hitWord)) return { key, ...db[key] };
+    }
     // Составной ключ («бутерброд с сыром»): каждое содержательное слово ключа
     // должно найтись в тексте хотя бы по стему — тогда склонения внутри
     // («бутербродА с сыром») не роняют продукт до короткого «сыр».
@@ -2006,8 +2290,8 @@ function lookupProductIn(db, keysByLength, name) {
           const need = Math.max(3, Math.min(5, Math.min(a1.length, b1.length) - 1));
           return i >= need;
         };
-        const allMatch = important.every((kw) => textWords.some((tw) => wordMatch(kw, tw)));
-        if (allMatch) return { key, ...db[key] };
+        const anyNegated = important.some((kw) => lookupWordNegated(textE, kw));
+        if (!anyNegated && important.every((kw) => textWords.some((tw) => wordMatch(kw, tw)))) return { key, ...db[key] };
       }
     }
   }
@@ -2272,7 +2556,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.12';
+const FITFLOW_VERSION = '0.4.13';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -8274,6 +8558,10 @@ function init() {
   bindEvent('#ai-test-query-btn', 'click', sendAiTestQuery);
   bindEvent('#ai-quick-camera-btn', 'click', () => openPhotoPickerInput('#ai-quick-camera-input', { camera: true }));
   bindEvent('#ai-quick-gallery-btn', 'click', () => openPhotoPickerInput('#ai-quick-gallery-input'));
+  bindEvent('#parse-log-export-btn', 'click', exportParseLogFile);
+  bindEvent('#parse-log-copy-btn', 'click', copyParseLogToClipboard);
+  bindEvent('#parse-log-clear-btn', 'click', clearParseLog);
+  renderParseLogStatus();
   $('#ai-quick-gallery-input')?.addEventListener('change', (e) => {
     clearPhotoPickerPending();
     if (e.target.files && e.target.files[0]) handleAiQuickCamera(e.target.files[0]);
@@ -8713,6 +9001,9 @@ function parseAiQuickEntry() {
     return;
   }
   const parsed = parseSmartEntry(text);
+  // 0.4.13: журнал распознаваний (текст или фото — по свежему ответу зрения)
+  const quickPhotoVis = consumePendingPhotoVision();
+  const quickLogId = logParseEvent(quickPhotoVis ? 'photo' : 'text', text, parsed, quickPhotoVis);
   const waterMl = Number(parsed.waterMl) || 0;
   const foods = Array.isArray(parsed.food) ? parsed.food : [];
   const unparsed = Array.isArray(parsed.unparsed) ? Array.from(new Set(parsed.unparsed)) : [];
@@ -8746,6 +9037,7 @@ function parseAiQuickEntry() {
   const saveBtn = $('#ai-quick-save-btn');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
+      markParseLogSaved(quickLogId);
       if (waterMl > 0) addWater(waterMl);
       if (foods.length) state.food.items.push(...applySelectedMealType(foods));
       acts.forEach((a) => {
@@ -10164,7 +10456,7 @@ function handleAiQuickCamera(file) {
   // это и есть пункт №1 ТЗ «фото в ai-вводе офлайн». Тост-заглушка удалена:
   // этапы и ошибки — в панели, итог — экран подтверждения с правкой.
   if (getLocalAiPlugin() && hasRealLocalModel()) {
-    recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());
+    recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);
     return;
   }
   if (isCloudAiReady() && getCloudProviderDef().vision) {
@@ -10201,6 +10493,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
-    canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS
+    canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
+    normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT
   };
 }

@@ -1,6 +1,6 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1232,6 +1232,46 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok7 = okWings && okPlain && okBoiled && okCurated;
   if (!ok7) failed++;
   console.log(`${ok7 ? '✓' : '✗'} 0.4.12: крылья всех речевых форм (жареные 2 шт = 356), уточнение «вареная» сохранено в имени ключа и составе, голое «с колбасой» — кураторский 125`);
+}
+
+// ---- 0.4.13: правдивость еды I — штучные веса, части курицы/колбасы, кляр, негация, журнал ----
+{
+  let bad = 0;
+  const P = (s) => parseSmartEntry(s);
+  const one = (s) => P(s).food[0] || {};
+  const b1 = one('овсяное печенье 2 шт'); // полевое: было 2×70 г = 630 ккал
+  if (!(b1.kcal === 135 && b1.grams === 30)) bad++;
+  const b2 = one('бедро без кожи'); // полевое: было «безе» 305 ккал (стем «без»)
+  if (!(b2.name === 'бедро без кожи' && b2.kcal === 165)) bad++;
+  const b3 = one('рыба в кляре 200 г'); // составной ключ, не голая рыба 200
+  if (!(b3.name === 'рыба в кляре' && b3.kcal === 410)) bad++;
+  const b4 = one('минтай в кляре 200 г'); // фолбэк Этуотера с ≈-пометкой, не молчаливый голый минтай (144)
+  if (!(b4.name === 'минтай' && b4.kcal === 358 && b4.approx === true && /кляр/.test(b4.note || ''))) bad++;
+  const b5 = one('полукопченая колбаса 50 г'); // было: молча generic «колбаса» 301
+  if (!(b5.name === 'полукопченая колбаса' && b5.kcal === 180)) bad++;
+  const b6 = one('ломтик чайной колбасы'); // новые виды делят честную нарезку 25 г
+  if (!(b6.name === 'чайная колбаса' && b6.grams === 25 && b6.kcal === 54)) bad++;
+  const b7 = one('окорочка'); // род.п. с чередованием — стемом не ловился
+  if (!(b7.kcal === 184)) bad++;
+  const b8 = one('куриные ноги 2 шт'); // нога целиком 250 г/шт
+  if (!(b8.grams === 500 && b8.kcal === 920)) bad++;
+  const b9 = one('омлет с молоком'); // было: «молоко 60» — омлет пропадал
+  if (!(b9.name === 'омлет с молоком' && b9.kcal === 155)) bad++;
+  const b10 = P('каша без сахара'); // негация: сахар не добавляется
+  if (!(b10.food.length === 1 && b10.food[0].name === 'каша' && b10.food[0].kcal === 95)) bad++;
+  const b11 = P('чай без сахара'); // было: «чай с сахаром» 40 — враньё
+  if (!(b11.food.length === 1 && b11.food[0].name === 'чай' && b11.food[0].kcal === 2)) bad++;
+  const b12 = P('каша с сахаром'); // позитивный случай не сломан
+  if (!(b12.food.length === 2 && b12.food.some((f) => /сахар/.test(f.name)))) bad++;
+  // Журнал распознаваний: чистые примитивы
+  const e = buildParseLogEntry('text', 'овсяное печенье 2 шт', P('овсяное печенье 2 шт'));
+  if (!(e.items.length === 1 && e.items[0].kcal === 135 && e.saved === false && e.src === 'text')) bad++;
+  const ring = normalizeParseLogList(Array.from({ length: 320 }, (_, i) => ({ id: 'x' + i, ts: i + 1, src: 'text', input: 'v' + i })));
+  if (!(ring.length === PARSE_LOG_LIMIT && ring[0].id === 'x0')) bad++;
+  if (!/не записано/.test(formatParseLogForClipboard([e]))) bad++;
+  const ok13 = bad === 0;
+  if (!ok13) failed++;
+  console.log(`${ok13 ? '✓' : '✗'} 0.4.13: печенье 15 г/шт, курица-части+«без кожи», кляр ключи+фолбэк, виды колбас, «омлет с молоком», негация «без», журнал-ячейки`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

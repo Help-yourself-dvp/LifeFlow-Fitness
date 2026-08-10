@@ -734,11 +734,22 @@ jobs:
               private static final String KEY_TIMES = "waterTimes";
               private static final String CHANNEL_ID = "fitflow_water_reminders_native";
               private static final String ACTION_ALARM = "com.fitflow.app.WATER_REMINDER_ALARM";
+              // 0.4.13 (полевой баг: «смахиваю уведомление — приходит повторно»):
+              // смахивание = «увидел», даём 45 минут тишины вместо новых сигналов.
+              private static final String ACTION_DISMISS = "com.fitflow.app.WATER_REMINDER_DISMISSED";
+              private static final String KEY_MUTE_UNTIL = "muteUntilMs";
+              private static final long DISMISS_MUTE_MS = 45L * 60L * 1000L;
 
               @Override
               public void onReceive(Context context, Intent intent) {
                   String action = (intent == null) ? "" : intent.getAction();
                   if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
+                      rescheduleFromPrefs(context);
+                      return;
+                  }
+                  // 0.4.13: смахнутое напоминание не возвращается минимум 45 минут.
+                  if (ACTION_DISMISS.equals(action)) {
+                      prefs(context).edit().putLong(KEY_MUTE_UNTIL, System.currentTimeMillis() + DISMISS_MUTE_MS).apply();
                       rescheduleFromPrefs(context);
                       return;
                   }
@@ -811,6 +822,9 @@ jobs:
               static long computeNextTrigger(Context context, long nowMs) {
                   String csv = prefs(context).getString(KEY_TIMES, "");
                   if (csv == null || csv.trim().length() == 0) return -1;
+                  // 0.4.13: в период тишины после смахивания ближайшие слоты пропускаются.
+                  long mutedUntil = prefs(context).getLong(KEY_MUTE_UNTIL, 0);
+                  if (mutedUntil > nowMs) nowMs = mutedUntil;
                   ArrayList<Integer> times = new ArrayList<>();
                   for (String part : csv.split(",")) {
                       try {
@@ -878,12 +892,23 @@ jobs:
                       ? "✓ Записано! Сегодня: " + total + " из " + goal + " мл."
                       : "Текущий прогресс: " + total + " из " + goal + " мл. Нажмите +250 мл — записывать можно прямо здесь.";
 
+                  // 0.4.13: смахивание ловим и глушим повторы (ветка ACTION_DISMISS выше).
+                  Intent dismiss = new Intent(context, WaterReminderReceiver.class);
+                  dismiss.setAction(ACTION_DISMISS);
+                  PendingIntent dismissPi = PendingIntent.getBroadcast(context, 43, dismiss,
+                      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
                   NotificationCompat.Builder b = new NotificationCompat.Builder(context, CHANNEL_ID)
                       .setSmallIcon(R.drawable.ic_stat_icon)
                       .setContentTitle("💧 Время выпить воду")
                       .setContentText(text)
                       .setColor(0xFF00696B)
                       .setContentIntent(openPi)
+                      // 0.4.13 (полевой баг «после +250 мл ещё 1–2 сигнала без новых
+                      // уведомлений»): обновление текста того же уведомления звучало
+                      // как новое. Только первый показ будит, правки текста — молча.
+                      .setOnlyAlertOnce(true)
+                      .setDeleteIntent(dismissPi)
                       .setAutoCancel(true)
                       .setCategory(NotificationCompat.CATEGORY_REMINDER)
                       .setPriority(NotificationCompat.PRIORITY_DEFAULT)

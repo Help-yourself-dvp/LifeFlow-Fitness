@@ -988,6 +988,16 @@
             <button class="btn btn-secondary" id="ai-benchmark-btn" type="button">⚡ Тест эффективности (Бенчмарк)</button>
           </div>
           <p class="settings-hint" id="ai-benchmark-status">Тест эффективности измеряет скорость и время отклика выбранной модели в офлайне.</p>
+          <div class="ai-model-box" style="margin-top:12px">
+            <p class="settings-label" style="margin-top:0">🔬 Журнал распознаваний</p>
+            <p class="settings-hint" id="parse-log-status">Пока пусто. Каждый разбор умного ввода и фото будет писаться сюда автоматически.</p>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="parse-log-export-btn" type="button">📄 Скачать файл</button>
+              <button class="btn btn-secondary" id="parse-log-copy-btn" type="button">📋 Копировать</button>
+              <button class="btn btn-ghost" id="parse-log-clear-btn" type="button">🧹 Очистить</button>
+            </div>
+            <p class="settings-hint">Пишется всё: что ввели или сфотографировали → что распозналось → что не разобрано → записано ли в дневник. Сам никуда не отправляется: файл сохраните и пришлите разработчику (или загрузите на GitHub) — по нему чинится точность.</p>
+          </div>
           <div class="ai-model-box" style="margin-top:12px;border:1px solid var(--primary)">
             <p class="settings-label" style="margin-top:0">💬 Проверочный запрос в выбранную модель</p>
             <p class="settings-hint">Отправьте свой контрольный вопрос, чтобы убедиться, что модель реально работает:</p>
@@ -1054,7 +1064,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.12</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.4.13</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>

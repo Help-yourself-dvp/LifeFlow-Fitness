@@ -499,9 +499,9 @@ for (const id of ids) {
   console.log(`${okEngine ? '✓' : '✗'} единый локальный фото-движок: этапы в панели, стриминг зрения, пометка-провенанс`);
 
   const okQuickCam = appF.indexOf('function handleAiQuickCamera(file) {') >= 0
-    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());')
+    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);')
       > appF.indexOf('function handleAiQuickCamera(file) {')
-    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry());')
+    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);')
       < appF.indexOf('recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());')
     && !appF.includes('Распознавание по фото работает с облачным ИИ (Gemini): Настройки');
   if (!okQuickCam) failed++;
@@ -781,6 +781,35 @@ for (const id of ids) {
   const okAll = okWings && okSand;
   if (!okAll) failed++;
   console.log(`${okAll ? '✓' : '✗'} база крыльев + кураторский ключ только для голой начинки (условие одного слова), имя одной начинки — ключ базы`);
+}
+
+// 0.4.13: уведомления — обновление без повторного звука, смахивание = 45 мин
+// тишины; журнал распознаваний (полевой контур честности: ввод→разбор→записано).
+{
+  const wfQ = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const appQ = fs.readFileSync('app.js', 'utf8');
+  const okNotif = wfQ.includes('.setOnlyAlertOnce(true)') && wfQ.includes('WATER_REMINDER_DISMISSED')
+    && wfQ.includes('DISMISS_MUTE_MS') && wfQ.includes('KEY_MUTE_UNTIL');
+  if (!okNotif) failed++;
+  console.log(`${okNotif ? '✓' : '✗'} уведомления 0.4.13: onlyAlertOnce (правка текста молчит), смахивание глушит 45 минут`);
+
+  const okLog = appQ.includes('const PARSE_LOG_KEY') && appQ.includes('normalizeParseLogList')
+    && appQ.includes('logParseEvent(') && appQ.includes('markParseLogSaved')
+    && html.includes('id="parse-log-export-btn"') && html.includes('id="parse-log-status"')
+    && appQ.includes("bindEvent('#parse-log-export-btn'");
+  if (!okLog) failed++;
+  console.log(`${okLog ? '✓' : '✗'} журнал распознаваний 0.4.13: кольцо 300, all-разборы, экспорт/копия/очистка в настройках ИИ`);
+
+  const okDb13 = appQ.includes("'полукопченая колбаса'") && appQ.includes("'рыба в кляре'")
+    && appQ.includes("'овсяное печенье': { kcal: 450, p: 6, f: 18, c: 65, pieceG: 15")
+    && appQ.includes('LOOKUP_STOP_WORDS') && appQ.includes('lookupWordNegated')
+    && appQ.includes("'омлет с молоком'") && appQ.includes("'окорочка'");
+  if (!okDb13) failed++;
+  console.log(`${okDb13 ? '✓' : '✗'} база 0.4.13: виды колбас/курица-части/кляр-панировка, печенье 15 г, стоп+негация гарды lookup`);
+
+  const okPrompt13 = appQ.includes('Кашу называй кашей') && appQ.includes('не «черника»');
+  if (!okPrompt13) failed++;
+  console.log(`${okPrompt13 ? '✓' : '✗'} промпт 0.4.13: каша ≠ ягода, добавка малым весом отдельной строкой (полевой промах «гречка→черника»)`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
