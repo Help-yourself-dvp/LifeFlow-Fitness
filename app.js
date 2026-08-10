@@ -72,6 +72,10 @@ const FOOD_DB = {
   // ===== Мясо и птица =====
   'куриная грудка': { kcal: 113, p: 23.6, f: 1.9, c: 0.4 }, 'куриное филе': { kcal: 113, p: 23.6, f: 1.9, c: 0.4 },
   'курица': { kcal: 165, p: 20, f: 8.5, c: 0.5 }, 'куриная ножка': { kcal: 184, p: 18, f: 11, c: 0.3 }, 'крылышко': { kcal: 203, p: 17, f: 14, c: 0 },
+  // 0.4.12 (полевое ⚠️ «жареные куриные крылья 2 шт» не распознало): речевые
+  // формы крыла + жареный вариант по USDA (жареное/запечённое крыло с кожей ≈254/100).
+  'крылья': { kcal: 203, p: 17, f: 14, c: 0 }, 'куриные крылья': { kcal: 203, p: 17, f: 14, c: 0 }, 'куриное крыло': { kcal: 203, p: 17, f: 14, c: 0 },
+  'куриные крылья жареные': { kcal: 254, p: 17.5, f: 19, c: 0 }, 'жареные куриные крылья': { kcal: 254, p: 17.5, f: 19, c: 0 }, 'крылышки жареные': { kcal: 254, p: 17.5, f: 19, c: 0 },
   'куриное бедро': { kcal: 209, p: 17, f: 15, c: 0.2 }, 'куриный окорочок': { kcal: 184, p: 18, f: 11, c: 0.3 },
   'индейка': { kcal: 135, p: 22, f: 5, c: 0 }, 'филе индейки': { kcal: 113, p: 24, f: 1.5, c: 0 },
   'говядина': { kcal: 187, p: 18.9, f: 12.4, c: 0 }, 'телятина': { kcal: 90, p: 19.7, f: 1.2, c: 0 }, 'свинина': { kcal: 259, p: 16, f: 21, c: 0 },
@@ -1615,7 +1619,7 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
   const fillingText = m[2].trim();
   // Начинок может быть несколько: «с сыром и маслом», «с икрой, огурцом и зеленью».
   const fillingParts = fillingText.split(/\s*(?:,|;)\s*|\s+и\s+/iu)
-    .map((s) => s.trim().replace(/^с\s+/iu, ''))
+    .map((s) => s.trim().replace(/^с\s+/iu, '').replace(/\s+и$/iu, '').trim())
     .filter(Boolean)
     // 0.4.9: речь роняет союз «и» между начинками («с маслом сыром») — такой
     // кусок целиком не находится в базе и молча ронял ВСЮ композицию в
@@ -1638,7 +1642,12 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
   // Кураторский сэндвич-ключ из базы («бутерброд с сыром», «бутерброд с колбасой»)
   // точнее композиции — отдаём ему, НО только когда начинка одна: иначе
   // «бутерброд с сыром» тихо съедал «и маслом» (кейс 717 ккал чистого масла).
-  if (fillingParts.length === 1 && genericProduct && genericProduct.key.indexOf('бутерброд') === 0) return null;
+  // Кураторский ключ — только когда начинка названа РОВНО его словом («с
+  // колбасой» → «бутерброд с колбасой»; висячее «и» речи уже снято выше).
+  // С уточнением («с вареной колбасой») композиция честнее: вареная колбаса
+  // 260/100 ≠ базовой 301 (0.4.12, полевая жалоба), имя — ключевой формой базы.
+  if (fillingParts.length === 1 && fillingParts[0].trim().split(/\s+/).length === 1
+    && genericProduct && genericProduct.key.indexOf('бутерброд') === 0) return null;
   const parts = known.map((f) => {
     const fg = sandwichFillingGrams(f.product.key);
     return {
@@ -1653,7 +1662,8 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
   const count = amount != null ? amount : 1;
   const gramsPer = SANDWICH_BREAD.g + parts.reduce((s, f) => s + f.g, 0);
   const kcalPer = SANDWICH_BREAD.kcal + parts.reduce((s, f) => s + f.kcal, 0);
-  // Название: одна начинка — ключ базы (грамматика известна), несколько —
+  // Название: одна начинка — КЛЮЧ базы («вареной колбасой» → «вареная
+  // колбаса»: уточнение отражено ключом, форма единообразна), несколько —
   // как в исходной фразе («сыром и маслом» читается естественно).
   const nameFill = fillingParts.length === 1 ? known[0].product.key : fillingParts.join(' и ');
   let note = 'по составу: хлеб ' + SANDWICH_BREAD.g + ' г + '
@@ -2262,7 +2272,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.11';
+const FITFLOW_VERSION = '0.4.12';
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },

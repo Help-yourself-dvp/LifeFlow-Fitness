@@ -765,5 +765,23 @@ for (const id of ids) {
   console.log(`${okAll ? '✓' : '✗'} база «перец» (⚠️-находка) + зеркало workflow копирует assets/fonts в APK`);
 }
 
+// 0.4.12: виджет/уведомление — дата-стражи (вчерашние цифры утром), база
+// крыльев, бутерброд с уточнением начинки («с вареной колбасой» честнее базовой).
+{
+  const wfP = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const appP = fs.readFileSync('app.js', 'utf8');
+  const dateGuardCount = (wfP.match(/savedDate\.equals\(today\)|!savedDate\.equals\(today\)/g) || []).length;
+  const okDate = dateGuardCount >= 3 && wfP.includes('0.4.12') && wfP.includes('new java.text.SimpleDateFormat("yyyy-MM-dd")');
+  if (!okDate) failed++;
+  console.log(`${okDate ? '✓' : '✗'} виджет/уведомление 0.4.12: дата-стражи в трёх точках (экран, +250-приёмник, текст уведомления)`);
+
+  const okWings = appP.includes("'жареные куриные крылья': { kcal: 254") && appP.includes("'куриные крылья': { kcal: 203");
+  const okSand = appP.includes("fillingParts[0].trim().split(/\\s+/).length === 1")
+    && appP.includes("fillingParts.length === 1 ? known[0].product.key : fillingParts.join(' и ')");
+  const okAll = okWings && okSand;
+  if (!okAll) failed++;
+  console.log(`${okAll ? '✓' : '✗'} база крыльев + кураторский ключ только для голой начинки (условие одного слова), имя одной начинки — ключ базы`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

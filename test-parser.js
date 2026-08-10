@@ -1215,5 +1215,24 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok6 ? '✓' : '✗'} «перец» 0.4.11: 40 г = 11 ккал разобраны (⚠️-страж сработал верно и привёл к ключу базы); полевая тарелка — 6/6 без пропусков`);
 }
 
+// ---- 0.4.12: куриные крылья (полевое ⚠️) + бутерброд с уточнением начинки ----
+{
+  const wings = parseSmartEntry('жареные куриные крылья 2 шт');
+  const okWings = wings.food.length === 1 && wings.food[0].name === 'жареные куриные крылья'
+    && wings.food[0].amount === 2 && wings.food[0].grams === 140 && wings.food[0].kcal === 356;
+  const plain = parseSmartEntry('куриные крылья 2 шт');
+  const okPlain = plain.food.length === 1 && plain.food[0].kcal === 284 && plain.unparsed.length === 0;
+  const boiled = parseSmartEntry('бутерброд с вареной колбасой');
+  const bItem = boiled.food.length === 1 ? boiled.food[0] : null;
+  const okBoiled = !!bItem && bItem.name === 'бутерброд с вареная колбаса'
+    && /вареная колбаса 15 г/.test(bItem.note || '') && bItem.kcal === 119 && bItem.approx === true;
+  const curated = parseSmartEntry('бутерброд с колбасой');
+  const okCurated = curated.food.length === 1 && curated.food[0].kcal === 125
+    && !/варен/.test(curated.food[0].note || '');
+  const ok7 = okWings && okPlain && okBoiled && okCurated;
+  if (!ok7) failed++;
+  console.log(`${ok7 ? '✓' : '✗'} 0.4.12: крылья всех речевых форм (жареные 2 шт = 356), уточнение «вареная» сохранено в имени ключа и составе, голое «с колбасой» — кураторский 125`);
+}
+
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
