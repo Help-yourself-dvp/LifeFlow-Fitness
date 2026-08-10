@@ -3825,3 +3825,28 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 #quick-panel-combo #combo-manage-btn { margin-top: 4px; }
 .quick-panel .manual-food-actions { margin-top: 8px; }
 .quick-panel .manual-food-actions .btn { flex: 1 1 0; white-space: nowrap; }
+
+/* ============================================================
+   0.5.3 — мастер «Быстрая настройка», плашка поддержки, «Добрые дела»
+   ============================================================ */
+/* Прогресс мастера — тонкая строка-подпись под текстом */
+#setup-wizard-progress { margin: 10px 0 0; }
+
+/* Кнопки диалогов мастера и поддержки делят строку поровну */
+#setup-wizard-dialog .app-dialog-actions button,
+#support-dialog .app-dialog-actions button { flex: 1 1 0; }
+
+/* «Пропустить всё» — на всю ширину под основными действиями */
+#setup-wizard-skip { width: 100%; margin-top: 8px; }
+
+/* Блок «Добрые дела» в «О приложении» — отделяем пунктиром от ссылок выше */
+.charity-block {
+  margin-top: 12px;
+  border-top: 1px dashed var(--md-sys-color-outline-variant);
+  padding-top: 8px;
+}
+.charity-title { font-weight: 700; }
+#charity-list p { margin: 4px 0 0; }
+
+/* PRO: «как поддержать» — выравнивание влево, отступ от строки статуса */
+#pro-howto { text-align: left; margin-top: 8px; }

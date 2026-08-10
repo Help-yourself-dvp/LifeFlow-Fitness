@@ -716,6 +716,14 @@
         <p class="settings-hint" id="sleep-checkin-status">Чек-ин сна выключен.</p>
       </div>
 
+      <div class="settings-group">
+        <p class="settings-label">Первый запуск</p>
+        <div class="settings-row">
+          <button class="btn btn-secondary" id="setup-wizard-open" type="button">⚙️ Быстрая настройка (5 вопросов)</button>
+        </div>
+        <p class="settings-hint">Пять коротких вопросов включают нужное: напоминания о воде и приёмах пищи, утреннюю мотивацию, «План дня», игровой режим. Все ответы потом меняются прямо здесь, в Настройках.</p>
+      </div>
+
       <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
     </section>
   </div><!-- /settings-general-view -->
@@ -1045,7 +1053,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.2</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.3</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1054,6 +1062,11 @@
             <!-- 0.5.1 (п.16 владельца): четвёртый значок шапки переехал сюда — в шапке остались
                  Профиль, ИИ, Тема (ежедневные действия), справка о приватности — в «О приложении». -->
             <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
+          </div>
+          <!-- 0.5.3 (идея владельца): открытая отчётность о благотворительной части поддержки -->
+          <div class="charity-block" id="charity-block">
+            <p class="settings-hint charity-title">💝 Добрые дела</p>
+            <div id="charity-list"></div>
           </div>
           <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
         </div>
@@ -1726,6 +1739,41 @@
     </section>
   </div>
 
+  <!-- 0.5.3: второй уровень первого запуска — «Быстрая настройка» (идея владельца:
+       5 вопросов вместо ручного обхода всех настроек; пропуск = текущие значения
+       по умолчанию, повтор — из Настройки → Общее). -->
+  <div class="app-dialog-backdrop" id="setup-wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="setup-wizard-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" id="setup-wizard-emoji" aria-hidden="true">⚙️</div>
+      <h2 id="setup-wizard-title">Быстрая настройка</h2>
+      <p id="setup-wizard-text"></p>
+      <p class="settings-hint" id="setup-wizard-progress" role="status"></p>
+      <div class="app-dialog-actions" id="setup-wizard-actions">
+        <button class="btn btn-secondary" id="setup-wizard-no" type="button">Нет</button>
+        <button class="btn btn-primary" id="setup-wizard-yes" type="button">Да</button>
+      </div>
+      <div class="app-dialog-actions" id="setup-wizard-finish-actions" hidden>
+        <button class="btn btn-secondary" id="setup-wizard-prof" type="button">Заполнить профиль</button>
+        <button class="btn btn-primary" id="setup-wizard-done" type="button">Готово</button>
+      </div>
+      <button class="btn btn-ghost" id="setup-wizard-skip" type="button">Пропустить всё — настрою сам в Настройках</button>
+    </section>
+  </div>
+
+  <!-- 0.5.3: разовая плашка поддержки (идея владельца): один раз после примерно
+       десятого запуска, никогда повторно; дальше — только Настройки → FitFlow PRO. -->
+  <div class="app-dialog-backdrop" id="support-dialog" role="dialog" aria-modal="true" aria-labelledby="support-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💝</div>
+      <h2 id="support-dialog-title">FitFlow — бесплатно навсегда</h2>
+      <p>Весь функционал уже открыт, и так будет всегда. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой удобной суммы — это благодарность, а не покупка: код PRO просто отметит вас как сторонника проекта, ничего не разблокируя. Часть собранных средств направляется на благотворительность — суммы и фонды открыто публикуются в Настройки → О приложении.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="support-later" type="button">Не сейчас</button>
+        <button class="btn btn-primary" id="support-open-pro" type="button">Как поддержать</button>
+      </div>
+    </section>
+  </div>
+
   <!-- 0.5.2: «Быстрые записи» — один диалог с тремя вкладками вместо россыпи блоков
        на карточке питания (решение владельца: текущая структура путала, в каком случае
        какой раздел использовать). Все id у узлов прежние — привязки не переписывались. -->
@@ -1789,6 +1837,7 @@
       <h2 id="pro-dialog-title">FitFlow PRO</h2>
       <p>PRO — добровольная поддержка разработки. Все функции FitFlow остаются бесплатными и ничто не перестанет работать без кода. Код привязан к e-mail, а не к телефону: на новом устройстве введите ту же пару «e-mail + код» — или восстановите данные из копии, статус приедет вместе с ней.</p>
       <p class="settings-hint" id="pro-active-line" role="status" hidden></p>
+      <p class="settings-hint" id="pro-howto">Как поддержать: откройте страницу проекта на GitHub и создайте обращение с темой «Поддержка FitFlow» — ответим удобным способом перевода (СБП или карта российского банка). После перевода вышлем ваш личный код. Часть сборов — на благотворительность, отчёты в «О приложении».</p>
       <label class="weight-field" for="pro-email"><span>E-mail, на который выдан код</span><input id="pro-email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="E-mail покупателя PRO"></label>
       <label class="weight-field" for="pro-code"><span>Код PRO</span><input id="pro-code" type="text" autocomplete="off" placeholder="FF-XXXX-XXXX-XXXX" aria-label="Код PRO"></label>
       <p class="settings-hint" id="pro-status" role="alert"></p>

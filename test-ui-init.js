@@ -85,7 +85,12 @@ const ids = [
   'onboarding-dialog', 'onboarding-emoji', 'onboarding-title', 'onboarding-text',
   'onboarding-dots', 'onboarding-skip', 'onboarding-next', 'onboarding-open',
   'palette-segmented', 'palette-status', 'food-input-clear', 'water-custom-clear',
-  'ai-view', 'ai-view-back', 'ai-center-open', 'ai-tabs', 'ime-dock'
+  'ai-view', 'ai-view-back', 'ai-center-open', 'ai-tabs', 'ime-dock',
+  'setup-wizard-open', 'setup-wizard-dialog', 'setup-wizard-emoji', 'setup-wizard-title',
+  'setup-wizard-text', 'setup-wizard-progress', 'setup-wizard-actions', 'setup-wizard-yes',
+  'setup-wizard-no', 'setup-wizard-finish-actions', 'setup-wizard-done', 'setup-wizard-prof',
+  'setup-wizard-skip', 'support-dialog', 'support-later', 'support-open-pro',
+  'pro-howto', 'charity-block', 'charity-list'
 ];
 
 let failed = 0;
@@ -866,10 +871,10 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.3'") && html.includes('v0.5.3');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.2 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.3 в коде и «О приложении»`);
 
   // ===================== 0.4.15 =====================
   // 0.5.1: формулировка «записей N из M дн.» собирается через daysChunk
@@ -999,7 +1004,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.3'") && html.includes('v0.5.3')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1055,7 +1060,7 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.3'") && html.includes('v0.5.3') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
@@ -1095,9 +1100,44 @@ for (const id of ids) {
   if (!okWeekly052) failed++;
   console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2 активность: «выполнено ИЗ цели», сверх/осталось явно`);
 
-  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.2'") && html.includes('v0.5.2');
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.3'") && html.includes('v0.5.3');
   if (!okVer052) failed++;
   console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.5.3 (идеи владельца: второй уровень первого запуска) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Мастер «Быстрая настройка»: диалог, 5 вопросов → штатные сеттеры, повтор из Настроек
+  const okWizard = html.includes('id="setup-wizard-dialog"') && html.includes('id="setup-wizard-open"')
+    && appR.includes('SETUP_WIZARD_STEPS') && appR.includes('function maybeShowSetupWizard')
+    && appR.includes('updateWaterRemindersEnabled(yes)') && appR.includes('updateGameModeEnabled(yes)')
+    && appR.includes('#setup-wizard-yes')
+    && cssR.includes('#setup-wizard-progress');
+  if (!okWizard) failed++;
+  console.log(`${okWizard ? '✓' : '✗'} 0.5.3 мастер: диалог, 5 вопросов → штатные сеттеры, повтор из Настройки → Общее`);
+
+  // Разовая плашка поддержки: один раз после ~10 запуска + «как поддержать» в PRO
+  const okSupport = html.includes('id="support-dialog"') && html.includes('id="pro-howto"')
+    && appR.includes('function maybeShowSupportDialog') && appR.includes('fitflow:launch-count')
+    && appR.includes('getLaunchCount() < 10') && appR.includes('fitflow:support-shown')
+    && appR.includes('#support-open-pro');
+  if (!okSupport) failed++;
+  console.log(`${okSupport ? '✓' : '✗'} 0.5.3 поддержка: разовая плашка (не раньше ~10 запуска), инструкция в PRO`);
+
+  // Благотворительные отчёты: честный пустой раздел + каркас записей
+  const okCharity = html.includes('id="charity-block"') && html.includes('id="charity-list"')
+    && appR.includes('CHARITY_REPORTS') && appR.includes('function renderCharityReports')
+    && appR.includes('Перечислений пока не было') && cssR.includes('.charity-block');
+  if (!okCharity) failed++;
+  console.log(`${okCharity ? '✓' : '✗'} 0.5.3 добрые дела: открытые отчёты в «О приложении», пусто — честно`);
+
+  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.3'") && html.includes('v0.5.3');
+  if (!okVer053) failed++;
+  console.log(`${okVer053 ? '✓' : '✗'} 0.5.3 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

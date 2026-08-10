@@ -2582,7 +2582,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.2';
+const FITFLOW_VERSION = '0.5.3';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -8892,6 +8892,189 @@ function renderGreeting() {
 }
 
 /* ============================================================
+   Первый запуск, второй уровень: «Быстрая настройка» (0.5.3, идея владельца)
+   ----------------------------------------------------------
+   Пять вопросов переключают СУЩЕСТВУЮЩИЕ настройки их же штатными сеттерами
+   (те же, что у тумблеров в Настройках): никаких отдельных веток поведения.
+   Сеттеры сами планируют/отменяют уведомления и честно откатываются с тостом,
+   если Android не дал разрешение — «ложных аффордансов» нет. «Пропустить» =
+   текущие дефолты (всё выключено), повтор — Настройки → Общее.
+   ============================================================ */
+const SETUP_WIZARD_DONE_KEY = 'fitflow:setup-wizard-done';
+const SETUP_WIZARD_STEPS = [
+  { emoji: '💧', title: 'Напоминать о воде?',
+    text: 'Мягкие напоминания в течение дня по вашему окну: по умолчанию каждые 90 минут с 8:00 до 22:00. Интервал и окно меняются в Настройках.',
+    apply: (yes) => { updateWaterRemindersEnabled(yes); } },
+  { emoji: '🍽', title: 'Напоминать о приёмах пищи?',
+    text: 'Завтрак, обед и ужин в привычное время: по умолчанию 8:00, 13:00 и 19:00. Время и список меняются в Настройках.',
+    apply: (yes) => {
+      if (yes && (!Array.isArray(state.mealReminders.meals) || !state.mealReminders.meals.length)) {
+        state.mealReminders.meals = [
+          { label: 'Завтрак', time: '08:00' },
+          { label: 'Обед', time: '13:00' },
+          { label: 'Ужин', time: '19:00' }
+        ];
+        saveState();
+      }
+      updateMealRemindersEnabled(yes);
+    } },
+  { emoji: '🌅', title: 'Утренняя мотивация?',
+    text: 'Одна короткая фраза утром (по умолчанию в 8:00).',
+    apply: (yes) => { updateMorningMotivationEnabled(yes); } },
+  { emoji: '📋', title: '«План дня» с авто-отметками?',
+    text: 'Карточка на Главной сама собирает воду, еду и активность из ваших записей и показывает, что день закрыт. Ничего отмечать вручную не нужно.',
+    apply: (yes) => { updateDayChecklistEnabled(yes); } },
+  { emoji: '🏅', title: 'Игровой режим с медалями?',
+    text: 'Простые задания дня и медали за серии. Без давления: задания отмечаются сами по записям.',
+    apply: (yes) => { updateGameModeEnabled(yes); } }
+];
+let setupWizardStep = -1; // -1 — вступление; 0..N-1 — вопросы; N — финал
+
+function hasCompletedSetupWizard() {
+  try { return localStorage.getItem(SETUP_WIZARD_DONE_KEY) === '1'; } catch (e) { return true; }
+}
+function markSetupWizardDone() {
+  try { localStorage.setItem(SETUP_WIZARD_DONE_KEY, '1'); } catch (e) { }
+}
+
+function renderSetupWizardStep() {
+  const total = SETUP_WIZARD_STEPS.length;
+  const emoji = $('#setup-wizard-emoji');
+  const title = $('#setup-wizard-title');
+  const text = $('#setup-wizard-text');
+  const progress = $('#setup-wizard-progress');
+  const actions = $('#setup-wizard-actions');
+  const finish = $('#setup-wizard-finish-actions');
+  const yesBtn = $('#setup-wizard-yes');
+  const noBtn = $('#setup-wizard-no');
+  if (!title || !actions || !finish) return;
+  if (setupWizardStep === -1) {
+    if (emoji) emoji.textContent = '⚙️';
+    title.textContent = 'Быстрая настройка';
+    if (text) text.textContent = 'В FitFlow много функций и настроек. Чтобы сэкономить ваше время, ответьте на 5 коротких вопросов — и приложение сразу настроится под вас. Можно пропустить: останутся стандартные значения (напоминания выключены), и всё это меняется потом в Настройках.';
+    if (progress) progress.textContent = 'Займёт около минуты';
+    actions.hidden = false;
+    finish.hidden = true;
+    if (yesBtn) yesBtn.textContent = 'Начать';
+    if (noBtn) noBtn.textContent = 'Пропустить';
+    return;
+  }
+  if (setupWizardStep < total) {
+    const step = SETUP_WIZARD_STEPS[setupWizardStep];
+    if (emoji) emoji.textContent = step.emoji;
+    title.textContent = step.title;
+    if (text) text.textContent = step.text;
+    if (progress) progress.textContent = `Вопрос ${setupWizardStep + 1} из ${total}`;
+    actions.hidden = false;
+    finish.hidden = true;
+    if (yesBtn) yesBtn.textContent = 'Да';
+    if (noBtn) noBtn.textContent = 'Нет';
+    return;
+  }
+  // Финал
+  if (emoji) emoji.textContent = '✅';
+  title.textContent = 'Готово!';
+  if (text) text.textContent = 'Настройки применены — любую из них вы потом найдёте в Настройках. Совет: заполните профиль (пол, возраст, рост) — FitFlow посчитает личные нормы воды и калорий вместо стандартных. Если включали напоминания, разрешите уведомления, когда Android спросит.';
+  if (progress) progress.textContent = '';
+  actions.hidden = true;
+  finish.hidden = false;
+}
+
+function openSetupWizard() {
+  const dialog = $('#setup-wizard-dialog');
+  if (!dialog) return;
+  setupWizardStep = -1;
+  renderSetupWizardStep();
+  dialog.hidden = false;
+}
+
+function closeSetupWizard(markDone) {
+  const dialog = $('#setup-wizard-dialog');
+  if (dialog) dialog.hidden = true;
+  if (markDone !== false) markSetupWizardDone();
+}
+
+function answerSetupWizard(yes) {
+  if (setupWizardStep === -1) {
+    if (yes) {
+      setupWizardStep = 0;
+      renderSetupWizardStep();
+    } else {
+      closeSetupWizard();
+      toast('Оставлены стандартные настройки — измените их в любой момент в Настройках');
+    }
+    return;
+  }
+  const step = SETUP_WIZARD_STEPS[setupWizardStep];
+  if (step) step.apply(yes);
+  setupWizardStep += 1;
+  renderSetupWizardStep();
+}
+
+function maybeShowSetupWizard() {
+  if (typeof document === 'undefined') return;
+  if (!hasAcceptedTerms() || !hasCompletedOnboarding() || hasCompletedSetupWizard()) return;
+  if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
+  openSetupWizard();
+}
+
+/* ============================================================
+   Разовая плашка поддержки (0.5.3, идея владельца)
+   ----------------------------------------------------------
+   Один раз после ~10 запусков, никогда повторно и никогда первыми экранами —
+   после условий, онбординга и мастера. Запуски считаются локально; сброс
+   данных счётчик обнуляет — повтор возможен только у «свежего» пользователя.
+   ============================================================ */
+const LAUNCH_COUNT_KEY = 'fitflow:launch-count';
+const SUPPORT_SHOWN_KEY = 'fitflow:support-shown';
+
+function bumpLaunchCount() {
+  try { localStorage.setItem(LAUNCH_COUNT_KEY, String(Number(localStorage.getItem(LAUNCH_COUNT_KEY) || '0') + 1)); } catch (e) { }
+}
+function getLaunchCount() {
+  try { return Number(localStorage.getItem(LAUNCH_COUNT_KEY) || '0'); } catch (e) { return 0; }
+}
+
+function maybeShowSupportDialog() {
+  if (typeof document === 'undefined') return;
+  try { if (localStorage.getItem(SUPPORT_SHOWN_KEY) === '1') return; } catch (e) { return; }
+  if (getLaunchCount() < 10) return;
+  if (!hasAcceptedTerms() || !hasCompletedOnboarding() || !hasCompletedSetupWizard()) return;
+  if ($$('.app-dialog-backdrop').some((el) => !el.hidden)) return;
+  const dialog = $('#support-dialog');
+  if (!dialog) return;
+  try { localStorage.setItem(SUPPORT_SHOWN_KEY, '1'); } catch (e) { }
+  dialog.hidden = false;
+}
+
+function closeSupportDialog() {
+  const dialog = $('#support-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+/* ============================================================
+   Благотворительные отчёты (0.5.3, идея владельца)
+   ----------------------------------------------------------
+   Часть добровольных переводов направляется на благотворительность — суммы
+   публикуются открыто. Записи добавляются сюда релизом по факту перечисления
+   (примерно раз в месяц); пустой список показывается честно, а не скрывается.
+   Формат записи: { month: 'сентябрь 2026', fund: 'Фонд …', amount: 'N ₽' }.
+   ============================================================ */
+const CHARITY_REPORTS = [];
+
+function renderCharityReports() {
+  if (typeof document === 'undefined') return;
+  const host = $('#charity-list');
+  if (!host) return;
+  if (!CHARITY_REPORTS.length) {
+    host.innerHTML = '<p class="settings-hint">Часть добровольных переводов в поддержку FitFlow направляется на благотворительность. Перечислений пока не было — первый отчёт появится здесь сразу после первых сборов (раздел обновляется с новыми версиями, примерно раз в месяц).</p>';
+    return;
+  }
+  host.innerHTML = CHARITY_REPORTS.map((r) =>
+    `<p class="settings-hint">· ${escapeHtml(r.month)}: ${escapeHtml(r.amount)} — ${escapeHtml(r.fund)}</p>`).join('');
+}
+
+/* ============================================================
    «Быстрые записи» — диалог с вкладками (0.5.2, решение владельца)
    ----------------------------------------------------------
    Раньше карточка питания несла россыпь блоков (комбо, своя форма, блюда,
@@ -9316,6 +9499,10 @@ function init() {
   // Утренний чек-ин сна — спросить один раз за утро, если не отмечен.
   setTimeout(maybeShowOnboarding, 500);
   setTimeout(maybeShowSleepCheckin, 900);
+  bumpLaunchCount(); // 0.5.3: для разовой плашки поддержки (после ~10 запуска)
+  setTimeout(maybeShowSetupWizard, 1100);
+  setTimeout(maybeShowSupportDialog, 1700);
+  renderCharityReports();
   bindEvent('#onboarding-open', 'click', openOnboarding);
   bindEvent('#onboarding-next', 'click', nextOnboardingSlide);
   bindEvent('#onboarding-skip', 'click', skipOnboarding);
@@ -9434,6 +9621,16 @@ function init() {
   $('#all-profiles-import-cancel').addEventListener('click', closeAllProfilesImportDialog);
   $('#all-profiles-import-confirm').addEventListener('click', confirmAllProfilesImport);
   // 0.5.1: PRO-каркас
+  // 0.5.3: мастер первой настройки + разовая плашка поддержки
+  bindEvent('#setup-wizard-open', 'click', openSetupWizard);
+  bindEvent('#setup-wizard-yes', 'click', () => answerSetupWizard(true));
+  bindEvent('#setup-wizard-no', 'click', () => answerSetupWizard(false));
+  bindEvent('#setup-wizard-skip', 'click', () => { closeSetupWizard(); toast('Быстрая настройка пропущена — всё оставлено стандартным, меняется в Настройках'); });
+  bindEvent('#setup-wizard-done', 'click', () => { closeSetupWizard(); toast('✓ Настройка завершена'); });
+  bindEvent('#setup-wizard-prof', 'click', () => { closeSetupWizard(); switchView('settings-profile'); });
+  bindEvent('#support-later', 'click', closeSupportDialog);
+  bindEvent('#support-open-pro', 'click', () => { closeSupportDialog(); openProDialog(); });
+
   // 0.5.2: диалог «Быстрые записи»
   bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
   bindEvent('#quick-records-close', 'click', closeQuickRecordsDialog);
