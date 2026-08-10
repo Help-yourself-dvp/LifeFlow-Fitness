@@ -53,7 +53,9 @@ const ids = [
   'morning-message-dialog-ok', 'meal-reminders-toggle',
   'terms-accept', 'terms-decline',
   'profile-switcher', 'profile-list', 'profile-new-name',
-  'home-active-profile', 'date-weekday', 'date-month',
+  'date-weekday', 'date-month',
+  'stats-day-edit-open', 'workout-date', 'undo-snackbar', 'undo-snackbar-action',
+  'food-edit-dialog', 'food-edit-form', 'workout-edit-dialog', 'workout-edit-form', 'day-edit-dialog', 'day-edit-form',
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
   'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
@@ -860,10 +862,10 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.4.15'") && html.includes('v0.4.15');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.0'") && html.includes('v0.5.0');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.4.15 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.0 в коде и «О приложении»`);
 
   // ===================== 0.4.15 =====================
   const okTruthStats = appR.includes('в дни с записями') && appR.includes(' · записи: ')
@@ -952,6 +954,49 @@ for (const id of ids) {
     && appR.includes('stats-bar-value') && cssR.includes('.stats-bar-value');
   if (!okDayPlan) failed++;
   console.log(`${okDayPlan ? '✓' : '✗'} 0.4.15 UX: компактный план дня, ≈ккал и память интенсивности, «Дополнительно», числа на графиках`);
+}
+
+{
+  // ===================== 0.5.0 =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const okSchema = appR.includes('const STATE_SCHEMA_VERSION = 2;') && appR.includes('migrateStateSchema();')
+    && appR.includes('stateSchema: STATE_SCHEMA_VERSION') && appR.includes('schemaVersion: STATE_SCHEMA_VERSION');
+  if (!okSchema) failed++;
+  console.log(`${okSchema ? '✓' : '✗'} 0.5.0 основа: schemaVersion состояния + миграции, номер в резервной копии`);
+
+  const okAvg = appR.includes('мл в день') && appR.includes('ккал в день')
+    && (appR.match(/[Вв]сего за период/g) || []).length >= 3;
+  if (!okAvg) failed++;
+  console.log(`${okAvg ? '✓' : '✗'} 0.5.0 статистика: крупное число периода — среднее в день, сумма — подсказкой`);
+
+  const okEdit = html.includes('id="food-edit-dialog"') && html.includes('id="workout-edit-dialog"')
+    && appR.includes('data-edit-food=') && appR.includes('function saveFoodEdit')
+    && appR.includes('data-edit-workout=') && appR.includes('function saveWorkoutEdit') && appR.includes('workout-edit-type')
+    && appR.includes('data-edit-weight=') && appR.includes('openWeightEditForDate');
+  if (!okEdit) failed++;
+  console.log(`${okEdit ? '✓' : '✗'} 0.5.0 редактирование записей: еда, активность (с датой), вес`);
+
+  const okBackdate = html.includes('id="day-edit-dialog"') && html.includes('id="stats-day-edit-open"')
+    && appR.includes('function saveDayEdit') && appR.includes('syncPastDaySummary')
+    && html.includes('id="workout-date"') && appR.includes('validPastOrTodayDate');
+  if (!okBackdate) failed++;
+  console.log(`${okBackdate ? '✓' : '✗'} 0.5.0 задним числом: итог дня (вода/ккал/мин), дата активности`);
+
+  const okUndo = html.includes('id="undo-snackbar"') && appR.includes('function showUndoSnack')
+    && (appR.match(/showUndoSnack\(/g) || []).length >= 4 && cssR.includes('#undo-snackbar');
+  if (!okUndo) failed++;
+  console.log(`${okUndo ? '✓' : '✗'} 0.5.0 системная отмена: еда/активность/вес/итог дня`);
+
+  const okHeader = !html.includes('greeting-profile') && !appR.includes('home-active-profile')
+    && appR.includes('greetingName') && html.includes('id="greeting-sub"');
+  if (!okHeader) failed++;
+  console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
+
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.0'") && html.includes('v0.5.0')
+    && appR.includes('Помощник FitFlow и план дня');
+  if (!okVer050) failed++;
+  console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

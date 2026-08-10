@@ -2582,7 +2582,12 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.4.15';
+const FITFLOW_VERSION = '0.5.0';
+
+// 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
+// Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
+// сюда при каждом изменении формата (v < N → преобразование).
+const STATE_SCHEMA_VERSION = 2;
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2797,6 +2802,7 @@ const ACTIVITY_TYPES = {
 };
 
 const state = {
+  schemaVersion: STATE_SCHEMA_VERSION, // 0.5.0
   water: { date: todayKey(), total: 0, log: [], goal: DEFAULTS.water.goal },
   food: { date: todayKey(), items: [], goal: DEFAULTS.food.goal },
   favoriteMeals: [],
@@ -3865,8 +3871,6 @@ function renderProfiles() {
   }
   const settingsName = $('#profile-settings-name');
   if (settingsName) settingsName.textContent = name;
-  const homeProfileName = $('#home-active-profile');
-  if (homeProfileName) homeProfileName.textContent = name;
   const list = $('#profile-list');
   if (!list) return;
 
@@ -3989,11 +3993,20 @@ async function confirmDeleteProfile() {
   toast('Профиль удалён');
 }
 
+// 0.5.0: точка пошаговых миграций состояния. Старые состояния (без номера
+// схемы = v1) получают номер актуальной схемы; будущие изменения формата
+// добавляют сюда шаги «если версия < N — преобразовать данные».
+function migrateStateSchema() {
+  state.schemaVersion = STATE_SCHEMA_VERSION;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(profileStateKey());
     if (raw) Object.assign(state, JSON.parse(raw));
   } catch (e) { /* повреждённые данные — начинаем заново */ }
+
+  migrateStateSchema(); // 0.5.0
 
   const today = todayKey();
   const previousWaterDate = state.water.date;
@@ -5221,7 +5234,7 @@ function renderWeightSettings() {
   }
   $$('#weight-periods button').forEach((button) => button.classList.toggle('active', button.dataset.weightPeriod === activeWeightPeriod));
   list.innerHTML = history.slice().reverse().slice(0, 12).map((entry) => `
-    <li><span>${escapeHtml(formatWeightDate(entry.date))}</span><strong>${Number(entry.weightKg).toLocaleString('ru-RU')} кг</strong><button type="button" data-remove-weight="${entry.date}" aria-label="Удалить запись веса за ${escapeHtml(formatWeightDate(entry.date))}">×</button></li>`).join('') || '<li class="weight-history-empty">Записей веса пока нет.</li>';
+    <li><span>${escapeHtml(formatWeightDate(entry.date))}</span><strong>${Number(entry.weightKg).toLocaleString('ru-RU')} кг</strong><button type="button" class="weight-edit-btn" data-edit-weight="${entry.date}" aria-label="Изменить запись веса за ${escapeHtml(formatWeightDate(entry.date))}">✏️</button><button type="button" data-remove-weight="${entry.date}" aria-label="Удалить запись веса за ${escapeHtml(formatWeightDate(entry.date))}">×</button></li>`).join('') || '<li class="weight-history-empty">Записей веса пока нет.</li>';
 }
 
 function renderWeightOverview() {
@@ -5269,6 +5282,223 @@ function saveQuickWeight() {
   toast(date === todayKey() ? 'Вес за сегодня сохранён' : 'Историческая запись веса сохранена');
 }
 
+/* ============================================================
+   0.5.0 «Доверие данным»: редактирование записей, дни задним
+   числом и системная отмена. Принципы: даты — не позже сегодня;
+   пустое поле диалога дня = «без изменений»; отмена возвращает
+   ровно то состояние, что было до операции.
+   ============================================================ */
+
+let undoSnackTimer = null;
+let undoSnackRestore = null;
+
+function hideUndoSnack() {
+  if (typeof document === 'undefined') return;
+  const el = $('#undo-snackbar');
+  if (!el) return;
+  el.classList.remove('show');
+  el.hidden = true;
+  undoSnackRestore = null;
+  clearTimeout(undoSnackTimer);
+}
+
+function showUndoSnack(message, restore) {
+  if (typeof document === 'undefined') return;
+  const el = $('#undo-snackbar');
+  if (!el) return;
+  $('#undo-snackbar-text').textContent = message;
+  undoSnackRestore = typeof restore === 'function' ? restore : null;
+  el.hidden = false;
+  el.classList.add('show');
+  clearTimeout(undoSnackTimer);
+  undoSnackTimer = setTimeout(hideUndoSnack, 6500);
+}
+
+function validPastOrTodayDate(date) {
+  return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= todayKey();
+}
+
+/* recordDailySummary(pastDate) занизил бы воду/еду прошлого дня нулями (живые
+   журналы есть только у «сегодня») — поэтому прошлые сводки правим точечно.
+   Минуты активности читаются из журнала тренировок, они правдивы всегда. */
+function syncPastDaySummary(date) {
+  if (!validPastOrTodayDate(date) || date === todayKey()) return;
+  const minutes = activityMinutesForDate(date);
+  const history = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
+  const index = history.findIndex((day) => day.date === date);
+  if (index >= 0) {
+    history[index].activityMinutes = minutes;
+  } else if (minutes > 0) {
+    history.push({ date, waterTotal: 0, waterGoal: DEFAULTS.water.goal, foodTotal: 0, foodGoal: DEFAULTS.food.goal, foodP: 0, foodF: 0, foodC: 0, activityMinutes: minutes });
+  }
+  state.dailyHistory = history;
+  normalizeDailyHistory();
+}
+
+function openFoodEditDialog(id) {
+  const item = state.food.items.find((it) => it.id === id);
+  if (!item) return;
+  $('#food-edit-id').value = item.id;
+  $('#food-edit-name').value = item.name || '';
+  $('#food-edit-kcal').value = Math.round(Number(item.kcal) || 0);
+  $('#food-edit-p').value = item.p || '';
+  $('#food-edit-f').value = item.f || '';
+  $('#food-edit-c').value = item.c || '';
+  $('#food-edit-dialog').hidden = false;
+  setTimeout(() => $('#food-edit-name').focus(), 100);
+}
+function closeFoodEditDialog() { $('#food-edit-dialog').hidden = true; }
+
+function saveFoodEdit() {
+  const id = $('#food-edit-id').value;
+  const item = state.food.items.find((it) => it.id === id);
+  if (!item) { closeFoodEditDialog(); return; }
+  const name = String($('#food-edit-name').value || '').trim().slice(0, 80);
+  const kcal = Math.round(Number(String($('#food-edit-kcal').value).replace(',', '.')));
+  if (!name) { toast('Название не должно быть пустым'); return; }
+  if (!Number.isFinite(kcal) || kcal < 0 || kcal > 5000) { toast('Калории: от 0 до 5000'); return; }
+  const macro = (selector, max) => {
+    const raw = String($(selector).value || '').trim();
+    if (raw === '') return 0;
+    const num = Number(raw.replace(',', '.'));
+    return Number.isFinite(num) ? Math.min(max, Math.max(0, Math.round(num * 10) / 10)) : 0;
+  };
+  item.name = name;
+  item.kcal = kcal;
+  item.p = macro('#food-edit-p', 500);
+  item.f = macro('#food-edit-f', 500);
+  item.c = macro('#food-edit-c', 800);
+  item.editedAt = Date.now();
+  saveState();
+  renderFood();
+  closeFoodEditDialog();
+  toast('Запись питания изменена');
+}
+
+function openWorkoutEditDialog(id) {
+  const workout = (Array.isArray(state.workouts) ? state.workouts : []).find((w) => w.id === id);
+  if (!workout) return;
+  const select = $('#workout-edit-type');
+  select.innerHTML = Object.entries(ACTIVITY_TYPES).map(([key, t]) =>
+    `<option value="${key}"${key === workout.type ? ' selected' : ''}>${t.emoji} ${t.label}</option>`).join('');
+  $('#workout-edit-id').value = workout.id;
+  $('#workout-edit-minutes').value = workout.durationMinutes;
+  const dateInput = $('#workout-edit-date');
+  dateInput.max = todayKey();
+  dateInput.value = workout.date;
+  $('#workout-edit-note').value = workout.note || '';
+  $('#workout-edit-dialog').hidden = false;
+  setTimeout(() => $('#workout-edit-minutes').focus(), 100);
+}
+function closeWorkoutEditDialog() { $('#workout-edit-dialog').hidden = true; }
+
+async function saveWorkoutEdit() {
+  const id = $('#workout-edit-id').value;
+  const workout = (Array.isArray(state.workouts) ? state.workouts : []).find((w) => w.id === id);
+  if (!workout) { closeWorkoutEditDialog(); return; }
+  const minutes = Math.round(Number(String($('#workout-edit-minutes').value).replace(',', '.')));
+  if (!Number.isFinite(minutes) || minutes < 5 || minutes > 1440) { toast('Длительность: от 5 минут до 24 часов'); return; }
+  const date = $('#workout-edit-date').value;
+  if (!validPastOrTodayDate(date)) { toast('Дата — не позже сегодняшней'); return; }
+  const typeValue = $('#workout-edit-type').value;
+  const oldDate = workout.date;
+  workout.type = ACTIVITY_TYPES[typeValue] ? typeValue : workout.type;
+  workout.durationMinutes = minutes;
+  workout.note = normalizeOptionalNote($('#workout-edit-note').value);
+  workout.date = date;
+  workout.editedAt = Date.now();
+  if (oldDate !== todayKey()) syncPastDaySummary(oldDate);
+  if (date !== todayKey()) syncPastDaySummary(date);
+  saveState();
+  renderTraining();
+  if (oldDate === todayKey() || date === todayKey()) await syncTrainingReminderForToday();
+  closeWorkoutEditDialog();
+  toast('Активность обновлена');
+}
+
+function openWeightEditForDate(date) {
+  const entry = normalizeWeightHistory(state.profileSettings.weightHistory).find((e) => e.date === date);
+  if (!entry) return;
+  $('#weight-quick-date').value = entry.date;
+  $('#weight-quick-input').value = entry.weightKg;
+  $('#weight-quick-dialog').hidden = false;
+  setTimeout(() => $('#weight-quick-input').focus(), 100);
+}
+
+/* Поле даты в форме активности (0.5.0): по умолчанию сегодня, не позже. */
+function renderWorkoutDateField() {
+  if (typeof document === 'undefined') return;
+  const input = $('#workout-date');
+  if (!input) return;
+  input.max = todayKey();
+  if (!input.value) input.value = todayKey();
+}
+
+function openDayEditDialog() {
+  const dateInput = $('#day-edit-date');
+  dateInput.max = todayKey();
+  if (!dateInput.value) {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    dateInput.value = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+  }
+  $('#day-edit-water').value = '';
+  $('#day-edit-kcal').value = '';
+  $('#day-edit-minutes').value = '';
+  $('#day-edit-dialog').hidden = false;
+  setTimeout(() => dateInput.focus(), 100);
+}
+function closeDayEditDialog() { $('#day-edit-dialog').hidden = true; }
+
+function saveDayEdit() {
+  const date = $('#day-edit-date').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) { toast('Выберите дату'); return; }
+  if (date >= todayKey()) {
+    toast('Этот диалог — для прошлых дней. Сегодняшние записи правятся в разделах «Вода», «Питание», «Активность».');
+    return;
+  }
+  const readNum = (selector, max) => {
+    const raw = String($(selector).value || '').trim();
+    if (raw === '') return null;
+    const num = Math.round(Number(raw.replace(',', '.')));
+    if (!Number.isFinite(num) || num < 0 || num > max) return undefined;
+    return num;
+  };
+  const water = readNum('#day-edit-water', 10000);
+  const kcal = readNum('#day-edit-kcal', 10000);
+  const minutes = readNum('#day-edit-minutes', 1440);
+  if (water === undefined || kcal === undefined || minutes === undefined) { toast('Проверьте числа: вода/ккал до 10000, минуты до 1440'); return; }
+  if (water === null && kcal === null && minutes === null) { toast('Все поля пустые — без изменений'); return; }
+  const history = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
+  const index = history.findIndex((day) => day.date === date);
+  const prev = index >= 0 ? { ...history[index] } : null;
+  const summary = prev || { date, waterTotal: 0, waterGoal: state.water.goal || DEFAULTS.water.goal, foodTotal: 0, foodGoal: state.food.goal || DEFAULTS.food.goal, foodP: 0, foodF: 0, foodC: 0, activityMinutes: 0 };
+  if (water !== null) summary.waterTotal = water;
+  if (kcal !== null) summary.foodTotal = kcal;
+  if (minutes !== null) summary.activityMinutes = minutes;
+  if (index >= 0) history[index] = summary; else history.push(summary);
+  state.dailyHistory = history;
+  normalizeDailyHistory();
+  saveState();
+  renderStats();
+  renderWaterDetails();
+  renderFoodDetails();
+  closeDayEditDialog();
+  showUndoSnack(`Итог за ${date.split('-').reverse().join('.')} обновлён`, () => {
+    const list = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
+    const at = list.findIndex((day) => day.date === date);
+    if (prev) { if (at >= 0) list[at] = prev; else list.push(prev); }
+    else if (at >= 0) list.splice(at, 1);
+    state.dailyHistory = list;
+    normalizeDailyHistory();
+    saveState();
+    renderStats();
+    renderWaterDetails();
+    renderFoodDetails();
+    toast('Правка дня отменена');
+  });
+}
+
 function upsertWeightHistory(date, weightKg) {
   const history = normalizeWeightHistory(state.profileSettings.weightHistory).filter((entry) => entry.date !== date);
   history.push({ date, weightKg: Math.round(weightKg * 10) / 10, updatedAt: Date.now() });
@@ -5297,6 +5527,9 @@ function saveWeightFromSettings() {
 }
 
 function removeWeightRecord(date) {
+  const prevEntry = normalizeWeightHistory(state.profileSettings.weightHistory)
+    .find((entry) => entry.date === date) || null;
+  const prevCurrent = state.profileSettings.weightKg;
   const history = normalizeWeightHistory(state.profileSettings.weightHistory).filter((entry) => entry.date !== date);
   state.profileSettings.weightHistory = history;
   if (date === todayKey()) {
@@ -5310,7 +5543,23 @@ function removeWeightRecord(date) {
   renderStats();
   renderProfiles();
   renderTraining();
-  toast('Запись веса удалена');
+  // 0.5.0: удаление обратимо — снекбар с «Отменить»
+  showUndoSnack('Запись веса удалена', () => {
+    if (prevEntry) {
+      const restored = normalizeWeightHistory(state.profileSettings.weightHistory)
+        .filter((entry) => entry.date !== date);
+      restored.push(prevEntry);
+      state.profileSettings.weightHistory = normalizeWeightHistory(restored);
+      if (date === todayKey()) state.profileSettings.weightKg = prevCurrent;
+      saveState();
+      renderWeightSettings();
+      renderWeightOverview();
+      renderStats();
+      renderProfiles();
+      renderTraining();
+    }
+    toast('Запись веса восстановлена');
+  });
 }
 
 function applyHomeLayout() {
@@ -5642,27 +5891,43 @@ function renderStats() {
 
   const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
   $('#stats-period-caption').textContent = captions[period];
-  $('#stats-water-total').textContent = `${fmt(waterTotal)} мл`;
+  // 0.5.0 (вопрос владельца «в статистике суммы за весь период: 3+ л воды,
+  // 2+ ч активности»): крупное число недели/месяца — СРЕДНЕЕ за день, сумма
+  // периода честно остаётся строкой-подсказкой. Для «Сегодня» — сама сумма.
+  const isDay = period === 'day';
   // 0.4.15 (аудит А2/А3): «нет записи» — не «0». Средние и % цели считаем
   // по дням С ЗАПИСЯМИ; дни без записей честно показываем отдельно.
   const waterDataDays = days.filter((day) => day.waterTotal > 0);
   const wGoalData = waterDataDays.reduce((sum, day) => sum + day.waterGoal, 0);
   const wPct = Math.round(wGoalData ? (waterTotal / wGoalData) * 100 : 0);
   const wAvg = waterDataDays.length ? waterTotal / waterDataDays.length : 0;
+  $('#stats-water-total').textContent = isDay
+    ? `${fmt(waterTotal)} мл`
+    : (waterDataDays.length ? `${fmt(wAvg)} мл в день` : '—');
   $('#stats-water-hint').textContent = waterDataDays.length
-    ? `${wPct}% от цели в дни с записями · в среднем ${fmt(wAvg)} мл/день` + (waterDataDays.length < days.length ? ` · записи: ${waterDataDays.length} из ${days.length} дн.` : '')
-    : 'Записей о воде за период нет';
-  $('#stats-food-total').textContent = `${fmt(foodTotal)} ккал`;
+    ? (isDay
+      ? `${wPct}% от цели (${fmt(state.water.goal)} мл)`
+      : `${wPct}% от цели в дни с записями · всего за период ${fmt(waterTotal)} мл` + (waterDataDays.length < days.length ? ` · записи: ${waterDataDays.length} из ${days.length} дн.` : ''))
+    : (isDay ? 'Записей о воде сегодня нет' : 'Записей о воде за период нет');
   const foodDataDays = days.filter((day) => day.foodTotal > 0);
   const fGoalData = foodDataDays.reduce((sum, day) => sum + day.foodGoal, 0);
   const fPct = Math.round(fGoalData ? (foodTotal / fGoalData) * 100 : 0);
   const fAvg = foodDataDays.length ? foodTotal / foodDataDays.length : 0;
+  $('#stats-food-total').textContent = isDay
+    ? `${fmt(foodTotal)} ккал`
+    : (foodDataDays.length ? `${fmt(fAvg)} ккал в день` : '—');
   $('#stats-food-hint').textContent = foodDataDays.length
-    ? `${fPct}% от цели в дни с записями · в среднем ${fmt(fAvg)} ккал/день` + (foodDataDays.length < days.length ? ` · записи: ${foodDataDays.length} из ${days.length} дн.` : '')
-    : 'Записей о питании за период нет';
-  $('#stats-activity-total').textContent = formatActivityDuration(activityMinutes);
+    ? (isDay
+      ? `${fPct}% от цели (${fmt(state.food.goal)} ккал)`
+      : `${fPct}% от цели в дни с записями · всего за период ${fmt(foodTotal)} ккал` + (foodDataDays.length < days.length ? ` · записи: ${foodDataDays.length} из ${days.length} дн.` : ''))
+    : (isDay ? 'Записей о питании сегодня нет' : 'Записей о питании за период нет');
+  // Активность усредняем по ВСЕМ дням периода: дни отдыха — честные нули,
+  // день отдыха не должен завышать средний ритм.
+  $('#stats-activity-total').textContent = isDay
+    ? formatActivityDuration(activityMinutes)
+    : (activityMinutes ? `≈ ${formatActivityDuration(Math.round(activityMinutes / count))} в день` : '—');
   $('#stats-activity-hint').textContent = activityMinutes
-    ? `В среднем ${formatActivityDuration(activityMinutes / count)} в день`
+    ? (isDay ? 'Активность за сегодня в журнале ниже' : `Всего за период: ${formatActivityDuration(activityMinutes)}`)
     : 'Пока нет отмеченной активности';
 
   renderStatsBars($('#stats-water-bars'), days, 'waterTotal', Math.max(...days.map((day) => day.waterGoal)), period);
@@ -5825,6 +6090,7 @@ function renderFoodItem(item) {
         <p class="food-item-desc">${escapeHtml(item.raw)}${macrosText ? ' · ' + macrosText : ''}</p>
       </div>
       <span class="food-item-kcal">${fmt(item.kcal)}</span>
+      <button class="food-item-edit" data-edit-food="${item.id}" type="button" aria-label="Изменить запись ${escapeHtml(item.name)}" title="Изменить">✏️</button>
       <button class="food-item-remove" data-remove="${item.id}" type="button" aria-label="Удалить ${escapeHtml(item.name)}">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -6271,9 +6537,19 @@ function saveComboFromSmartEntry() {
 }
 
 function removeFood(id) {
-  state.food.items = state.food.items.filter((it) => it.id !== id);
+  const index = state.food.items.findIndex((it) => it.id === id);
+  if (index < 0) return;
+  const removed = state.food.items[index];
+  state.food.items.splice(index, 1);
   saveState();
   renderFood();
+  // 0.5.0: удаление обратимо — снекбар с «Отменить»
+  showUndoSnack(`Запись «${removed.name}» удалена`, () => {
+    state.food.items.splice(Math.min(index, state.food.items.length), 0, removed);
+    saveState();
+    renderFood();
+    toast('Запись восстановлена');
+  });
 }
 
 function changeFoodGoal(delta) {
@@ -6444,6 +6720,7 @@ function renderTraining() {
             <p>${escapeHtml(title)}</p>
             <span>${formatWorkoutDuration(workout.durationMinutes)}${estimateActivityKcal(workout) != null ? ` · <span class="energy-estimate">~${estimateActivityKcal(workout)} ккал</span>` : ''}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
           </div>
+          <button class="workout-item-edit" data-edit-workout="${workout.id}" type="button" aria-label="Изменить активность «${escapeHtml(title)}»" title="Изменить">✏️</button>
           <button class="workout-item-remove" data-remove-workout="${workout.id}" type="button" aria-label="Удалить активность «${escapeHtml(title)}»">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -6497,9 +6774,16 @@ async function addActivity(template = null) {
     $('#activity-template-name').focus();
     return;
   }
+  // 0.5.0: запись задним числом — дата берётся из формы (по умолчанию сегодня).
+  const dateInput = !template && $('#workout-date');
+  const chosenDate = (dateInput && dateInput.value) ? dateInput.value : todayKey();
+  if (chosenDate !== todayKey() && !validPastOrTodayDate(chosenDate)) {
+    toast('Дата активности — не позже сегодняшней');
+    return;
+  }
   state.workouts.unshift({
     id: uid(),
-    date: todayKey(),
+    date: chosenDate,
     type,
     title,
     note,
@@ -6507,6 +6791,7 @@ async function addActivity(template = null) {
     durationMinutes,
     createdAt: Date.now()
   });
+  if (chosenDate !== todayKey()) syncPastDaySummary(chosenDate);
   if (saveAsTemplate) {
     state.activityTemplates.unshift({
       id: uid(), name: templateName, type, durationMinutes, createdAt: Date.now()
@@ -6522,15 +6807,18 @@ async function addActivity(template = null) {
     $('#activity-save-template').checked = false;
     $('#activity-template-name').value = '';
     $('#activity-template-inline').classList.remove('is-open');
+    if (dateInput) { dateInput.max = todayKey(); dateInput.value = todayKey(); }
   }
   renderTraining();
 
-  const reminderUpdated = await syncTrainingReminderForToday();
-  const reminderText = state.reminders.enabled
+  // «Вечернее напоминание на сегодня» трогаем, только если запись за сегодня.
+  const reminderUpdated = chosenDate === todayKey() ? await syncTrainingReminderForToday() : true;
+  const reminderText = state.reminders.enabled && chosenDate === todayKey()
     ? (reminderUpdated ? ' Напоминание на сегодня отменено.' : ' Не удалось обновить напоминание.')
     : '';
   const label = title || ACTIVITY_TYPES[type].label;
-  toast(`${label}: ${formatWorkoutDuration(durationMinutes)} добавлено.${reminderText}`);
+  const dateNote = chosenDate === todayKey() ? '' : ` (${chosenDate.split('-').reverse().join('.')} — видно в статистике)`;
+  toast(`${label}: ${formatWorkoutDuration(durationMinutes)} добавлено${dateNote}.${reminderText}`);
 }
 
 function saveCurrentAsActivityTemplate() {
@@ -6572,9 +6860,11 @@ function changeWeeklyActivityGoal(delta) {
 }
 
 async function removeWorkout(id) {
-  const workout = state.workouts.find((item) => item.id === id);
-  if (!workout) return;
-  state.workouts = state.workouts.filter((item) => item.id !== id);
+  const index = state.workouts.findIndex((item) => item.id === id);
+  if (index < 0) return;
+  const workout = state.workouts[index];
+  state.workouts.splice(index, 1);
+  syncPastDaySummary(workout.date); // 0.5.0: сводка прошлого дня — точечно
   saveState();
   renderTraining();
 
@@ -6582,7 +6872,15 @@ async function removeWorkout(id) {
   const reminderText = state.reminders.enabled && !hasWorkoutToday()
     ? (reminderUpdated ? ' Напоминание снова активно.' : ' Не удалось обновить напоминание.')
     : '';
-  toast(`Активность удалена.${reminderText}`);
+  // 0.5.0: удаление обратимо — снекбар с «Отменить»
+  showUndoSnack(`Активность удалена.${reminderText}`, () => {
+    state.workouts.splice(Math.min(index, state.workouts.length), 0, workout);
+    syncPastDaySummary(workout.date);
+    saveState();
+    renderTraining();
+    syncTrainingReminderForToday();
+    toast('Активность восстановлена');
+  });
 }
 
 function removeActivityTemplate(id) {
@@ -7876,17 +8174,17 @@ const ONBOARDING_SLIDES = [
   {
     emoji: '💧',
     title: 'Всё на устройстве, без регистрации',
-    text: 'FitFlow считает воду, питание, вес и активность полностью офлайн: нет сервера и аккаунта, данные не покидают телефон. Резервная копия — один файл: Настройки → Данные.'
+    text: 'FitFlow считает воду, питание, вес и активность полностью офлайн: нет сервера и аккаунта, данные не покидают телефон. Резервная копия — один файл: Настройки → Данные (дата последней копии видна там же).'
   },
   {
     emoji: '🗣️',
     title: 'Пишите или диктуйте «как есть»',
-    text: '«Два бутерброда с сыром и стакан сока» — парсер на базе 960+ продуктов найдёт КБЖУ сам. Перед сохранением всегда показываем расчёт: видно, что и как посчитано, — можно поправить.'
+    text: '«Два бутерброда с сыром и стакан сока» — парсер на базе 960+ продуктов найдёт КБЖУ сам и покажет расчёт до сохранения. Ошиблись — любую запись можно изменить (✏️), удалить и тут же отменить удаление; забытое вчерашнее — внести задним числом.'
   },
   {
-    emoji: '📋',
-    title: 'План дня, сон и ИИ-центр',
-    text: 'На Главной — карточка «План дня»: чек-лист и задания отмечаются сами по вашим записям. В «Общее» можно включить утренний чек-ин сна. ИИ-центр работает и офлайн: режим «Встроенный анализ».'
+    emoji: '✨',
+    title: 'Помощник FitFlow и план дня',
+    text: 'На Главной — план дня с автозаметками по вашим записям. Помощник FitFlow (кнопка ✨ вверху) анализирует неделю и отвечает на вопросы о питании даже без интернета — «Встроенный анализ»; нейросеть на устройстве и облако подключаются по желанию в Настройках.'
   }
 ];
 const ONBOARDING_DONE_KEY = 'fitflow:onboarding-done';
@@ -8043,6 +8341,7 @@ function createAllProfilesBackup() {
   return {
     app: 'fitflow',
     version: 2,
+    stateSchema: STATE_SCHEMA_VERSION, // 0.5.0: номер схемы состояния в копии
     scope: 'all-profiles',
     exportedAt: new Date().toISOString(),
     settings: { theme: getThemeMode(), palette: getPalette() },
@@ -8536,7 +8835,12 @@ function renderGreeting() {
   else if (h >= 12 && h < 18) greeting = 'Добрый день!';
   else if (h >= 18 && h < 23) greeting = 'Добрый вечер!';
 
-  $('#greeting-title').textContent = greeting;
+  // 0.5.0 (вопрос владельца про визуальный объём шапки): имя профиля — в строке
+  // приветствия («Добрый день, Анна!»), отдельная строка «Профиль:» убрана.
+  const activeProfileForGreeting = (profilesState.profiles || []).find((p) => p.id === profilesState.activeId);
+  const greetingName = activeProfileForGreeting && activeProfileForGreeting.name && activeProfileForGreeting.name !== 'Мой профиль'
+    ? `, ${activeProfileForGreeting.name}` : '';
+  $('#greeting-title').textContent = greeting.replace('!', `${greetingName}!`);
   const greetSub = document.getElementById('greeting-sub');
   if (greetSub && GREETING_SUBTITLES.length) {
     const dayNum = Math.max(0, Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86400000));
@@ -8751,6 +9055,8 @@ function init() {
 
   // Удаление из списка (делегирование)
   $('#food-list').addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit-food]');
+    if (editBtn) return openFoodEditDialog(editBtn.dataset.editFood);
     const btn = e.target.closest('[data-remove]');
     if (btn) removeFood(btn.dataset.remove);
   });
@@ -8859,6 +9165,8 @@ function init() {
   $('#weekly-goal-minus').addEventListener('click', () => changeWeeklyActivityGoal(-30));
   $('#weekly-goal-plus').addEventListener('click', () => changeWeeklyActivityGoal(30));
   $('#training-list').addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit-workout]');
+    if (editBtn) return openWorkoutEditDialog(editBtn.dataset.editWorkout);
     const btn = e.target.closest('[data-remove-workout]');
     if (btn) removeWorkout(btn.dataset.removeWorkout);
   });
@@ -8884,8 +9192,24 @@ function init() {
   $('#weight-quick-open').addEventListener('click', openQuickWeightDialog);
   $('#weight-quick-cancel').addEventListener('click', closeQuickWeightDialog);
   $('#weight-quick-form').addEventListener('submit', (e) => { e.preventDefault(); saveQuickWeight(); });
+  // 0.5.0: редактирование записей, итог прошлого дня, системная отмена
+  bindEvent('#stats-day-edit-open', 'click', openDayEditDialog);
+  bindEvent('#food-edit-cancel', 'click', closeFoodEditDialog);
+  $('#food-edit-form').addEventListener('submit', (e) => { e.preventDefault(); saveFoodEdit(); });
+  bindEvent('#workout-edit-cancel', 'click', closeWorkoutEditDialog);
+  $('#workout-edit-form').addEventListener('submit', (e) => { e.preventDefault(); saveWorkoutEdit(); });
+  bindEvent('#day-edit-cancel', 'click', closeDayEditDialog);
+  $('#day-edit-form').addEventListener('submit', (e) => { e.preventDefault(); saveDayEdit(); });
+  bindEvent('#undo-snackbar-action', 'click', () => {
+    const restore = undoSnackRestore;
+    hideUndoSnack();
+    if (restore) restore();
+  });
+  renderWorkoutDateField();
   $$('#weight-periods button').forEach((button) => button.addEventListener('click', () => { activeWeightPeriod = button.dataset.weightPeriod; renderWeightSettings(); }));
   $('#weight-history-list').addEventListener('click', (e) => {
+    const editButton = e.target.closest('[data-edit-weight]');
+    if (editButton) return openWeightEditForDate(editButton.dataset.editWeight);
     const button = e.target.closest('[data-remove-weight]');
     if (button) removeWeightRecord(button.dataset.removeWeight);
   });

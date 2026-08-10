@@ -278,7 +278,7 @@ html[data-theme="dark"] .icon-sun { display: none; }
 }
 
 .greeting {
-  padding: 4px 6px 16px;
+  padding: 2px 6px 10px; /* 0.5.0: компактнее, строка «Профиль:» убрана */
 }
 
 /* Быстрый переход по разделам Главной: прилипает под шапкой,
@@ -2699,8 +2699,6 @@ button.food-group-header:active { filter: brightness(0.97); }
 .topbar-actions > button { display: grid; place-items: center; width: 36px; height: 36px; min-width: 36px; padding: 0; color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); border: 0; border-radius: 50%; }
 .topbar-actions > button:hover { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
 .topbar-actions > button svg { width: 20px; height: 20px; }
-.greeting-profile { display: flex; align-items: center; gap: 5px; margin-top: 8px; color: var(--md-sys-color-on-secondary-container); font-size: .78rem; line-height: 1.2; }
-.greeting-profile strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Параметры веса внутри профиля ---------- */
 
@@ -3681,4 +3679,51 @@ html[data-font="standard"] .game-task-numbers,
 html[data-font="standard"] .weight-current,
 html[data-font="standard"] .settings-label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ===================== 0.5.0 «Доверие данным» ===================== */
+/* Кнопка «Поправить день…» у заголовка статистики */
+.stats-day-edit-btn { margin-top: 6px; }
+
+/* Дата в форме активности (задним числом) */
+.workout-date-field { margin-top: 8px; }
+.workout-date-field input { max-width: 170px; }
+.weight-field select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font-size: 1rem; font-family: inherit; }
+
+/* Три поля БЖУ / дня — компактной сеткой */
+.food-edit-macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* Кнопки-карандаши рядом с «×» в списках */
+.food-item-edit, .workout-item-edit, .weight-edit-btn {
+  border: none; background: none; cursor: pointer; padding: 4px;
+  font-size: .95rem; line-height: 1; opacity: .72; border-radius: 8px;
+}
+.food-item-edit:active, .workout-item-edit:active, .weight-edit-btn:active { opacity: 1; transform: scale(.92); }
+
+/* Undo-снекбар: удаление/правка обратимы 6,5 секунды */
+#undo-snackbar {
+  position: fixed; left: 50%; bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(20px); z-index: 70;
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(92vw, 480px);
+  padding: 10px 8px 10px 18px; border-radius: 999px;
+  background: var(--md-sys-color-inverse-surface, #303230);
+  color: var(--md-sys-color-inverse-on-surface, #f2f2ee);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .25);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  font-size: .9rem;
+}
+#undo-snackbar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+#undo-snackbar-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#undo-snackbar-action {
+  flex: none; border: none; background: none; cursor: pointer;
+  color: var(--md-sys-color-inverse-primary, #a8c7fa);
+  font-weight: 600; font-size: .92rem; padding: 6px 12px; border-radius: 999px;
+}
+
+/* A11y-проход (базовый): видимый фокус для клавиатурной навигации */
+button:focus-visible, [role="button"]:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, .chip:focus-visible {
+  outline: 2.5px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
 }

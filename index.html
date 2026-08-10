@@ -66,7 +66,6 @@
     <section class="greeting">
       <p class="greeting-title" id="greeting-title">Доброе утро!</p>
       <p class="greeting-sub" id="greeting-sub">Маленькие шаги каждый день важнее идеального понедельника</p>
-      <p class="greeting-profile"><span aria-hidden="true">👤</span><span>Профиль:</span><strong id="home-active-profile">Мой профиль</strong></p>
     </section>
 
     <nav class="home-quicknav" id="home-quicknav" aria-label="Быстрый переход по разделам" hidden></nav>
@@ -353,6 +352,7 @@
         <div class="card-title-wrap">
           <h2 id="stats-title">Статистика</h2>
           <p id="stats-period-caption">Итоги за 7 дней</p>
+          <button class="chip chip-sm stats-day-edit-btn" id="stats-day-edit-open" type="button" title="Записать или поправить итог прошлого дня" aria-label="Поправить итог прошлого дня">✏️ Поправить день…</button>
         </div>
       </div>
 
@@ -560,6 +560,7 @@
           </span>
         </label>
         <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
+        <label class="weight-field workout-date-field" for="workout-date"><span>Дата</span><input id="workout-date" type="date" aria-label="Дата активности: по умолчанию сегодня, не позже сегодня"></label>
 
         <section class="collapsible-block">
           <button class="collapsible-toggle" type="button" data-collapse-target="activity-extra-content" aria-expanded="false">
@@ -1084,7 +1085,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.4.15</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.0</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1605,6 +1606,67 @@
       <p class="app-dialog-hint">Текущие профили, их история, цели, питание, вода, активность и настройки на этом устройстве будут заменены данными из копии. Это нельзя отменить.</p>
       <div class="app-dialog-actions"><button class="btn btn-secondary" id="all-profiles-import-cancel" type="button">Отмена</button><button class="btn btn-danger" id="all-profiles-import-confirm" type="button">Восстановить</button></div>
     </section>
+  </div>
+
+  <!-- 0.5.0: редактирование записи питания -->
+  <div class="app-dialog-backdrop" id="food-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="food-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✏️</div>
+      <h2 id="food-edit-title">Изменить запись питания</h2>
+      <p>Правится запись текущего дня; итоги пересчитаются сами.</p>
+      <form id="food-edit-form" autocomplete="off">
+        <input id="food-edit-id" type="hidden">
+        <label class="weight-field" for="food-edit-name"><span>Название</span><input id="food-edit-name" type="text" maxlength="80" aria-label="Название блюда"></label>
+        <label class="weight-field" for="food-edit-kcal"><span>Калории, ккал</span><input id="food-edit-kcal" type="number" min="0" max="5000" step="1" inputmode="numeric" aria-label="Калории"></label>
+        <div class="food-edit-macros">
+          <label class="weight-field" for="food-edit-p"><span>Белки, г</span><input id="food-edit-p" type="number" min="0" max="500" step="0.1" inputmode="decimal" aria-label="Белки, граммы"></label>
+          <label class="weight-field" for="food-edit-f"><span>Жиры, г</span><input id="food-edit-f" type="number" min="0" max="500" step="0.1" inputmode="decimal" aria-label="Жиры, граммы"></label>
+          <label class="weight-field" for="food-edit-c"><span>Углеводы, г</span><input id="food-edit-c" type="number" min="0" max="800" step="0.1" inputmode="decimal" aria-label="Углеводы, граммы"></label>
+        </div>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="food-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: редактирование активности (в т.ч. перенос на другую дату) -->
+  <div class="app-dialog-backdrop" id="workout-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="workout-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✏️</div>
+      <h2 id="workout-edit-title">Изменить активность</h2>
+      <p>Можно перенести запись на другую дату (не позже сегодня).</p>
+      <form id="workout-edit-form" autocomplete="off">
+        <input id="workout-edit-id" type="hidden">
+        <label class="weight-field" for="workout-edit-type"><span>Вид</span><select id="workout-edit-type" aria-label="Вид активности"></select></label>
+        <label class="weight-field" for="workout-edit-minutes"><span>Длительность, мин</span><input id="workout-edit-minutes" type="number" min="5" max="1440" step="1" inputmode="numeric" aria-label="Длительность в минутах"></label>
+        <label class="weight-field" for="workout-edit-date"><span>Дата</span><input id="workout-edit-date" type="date" aria-label="Дата активности"></label>
+        <label class="weight-field" for="workout-edit-note"><span>Заметка (необязательно)</span><input id="workout-edit-note" type="text" maxlength="80" aria-label="Заметка к активности"></label>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="workout-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: поправить итог ПРОШЛОГО дня («забыл записать вчера») -->
+  <div class="app-dialog-backdrop" id="day-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="day-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🗓️</div>
+      <h2 id="day-edit-title">Поправить итог дня</h2>
+      <p>Для прошлого дня, за который забыли записать. Пустое поле — без изменений. Цели дня не меняются.</p>
+      <form id="day-edit-form" autocomplete="off">
+        <label class="weight-field" for="day-edit-date"><span>Дата (не сегодня)</span><input id="day-edit-date" type="date" aria-label="Дата прошлого дня"></label>
+        <div class="food-edit-macros">
+          <label class="weight-field" for="day-edit-water"><span>Вода, мл</span><input id="day-edit-water" type="number" min="0" max="10000" step="10" inputmode="numeric" placeholder="без изменений" aria-label="Вода, миллилитры"></label>
+          <label class="weight-field" for="day-edit-kcal"><span>Еда, ккал</span><input id="day-edit-kcal" type="number" min="0" max="10000" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Калории"></label>
+          <label class="weight-field" for="day-edit-minutes"><span>Активность, мин</span><input id="day-edit-minutes" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Минуты активности"></label>
+        </div>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="day-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: системная отмена удалений и правок дня -->
+  <div id="undo-snackbar" role="status" aria-live="polite" hidden>
+    <span id="undo-snackbar-text">Удалено</span>
+    <button id="undo-snackbar-action" type="button">Отменить</button>
   </div>
 
   <div class="app-dialog-backdrop" id="profile-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-delete-title" hidden>
