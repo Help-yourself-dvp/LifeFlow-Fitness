@@ -622,6 +622,12 @@ jobs:
                   int food = prefs.getInt("foodTotal", 0);
                   int foodGoal = prefs.getInt("foodGoal", 2000);
                   int activity = prefs.getInt("activityMinutes", 0);
+                  // 0.4.12 (полевой баг: утром виджет показывал вчерашние цифры):
+                  // прогресс дня валиден только для своей даты; новый день —
+                  // честные нули, пока приложение не пришлёт свежие значения.
+                  String savedDate = prefs.getString("date", "");
+                  String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+                  if (savedDate == null || !savedDate.equals(today)) { water = 0; food = 0; activity = 0; }
                   String profileName = prefs.getString("profileName", "Мой профиль");
                   if (profileName == null || profileName.trim().length() == 0) profileName = "Мой профиль";
 
@@ -677,11 +683,17 @@ jobs:
                   super.onReceive(context, intent);
                   if (intent != null && "com.fitflow.app.ADD_WATER_250".equals(intent.getAction())) {
                       SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
-                      int waterTotal = prefs.getInt("waterTotal", 0) + 250;
-                      int pendingAdd = prefs.getInt("pendingWaterAdd", 0) + 250;
+                      // 0.4.12: вчерашний остаток не наследуем — за полночь база
+                      // начинается с нуля и дата в prefs поднимается до сегодня.
+                      String savedDate = prefs.getString("date", "");
+                      String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+                      boolean fresh = savedDate != null && savedDate.equals(today);
+                      int waterTotal = (fresh ? prefs.getInt("waterTotal", 0) : 0) + 250;
+                      int pendingAdd = (fresh ? prefs.getInt("pendingWaterAdd", 0) : 0) + 250;
                       prefs.edit()
                           .putInt("waterTotal", waterTotal)
                           .putInt("pendingWaterAdd", pendingAdd)
+                          .putString("date", today)
                           .apply();
                       updateAll(context);
                       // Если на экране висит напоминание о воде — обновить его текст вживую
@@ -844,6 +856,11 @@ jobs:
                   SharedPreferences w = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
                   int total = w.getInt("waterTotal", 0);
                   int goal = w.getInt("waterGoal", 2500);
+                  // 0.4.12 (полевой баг «утреннее уведомление со вчерашними
+                  // цифрами»): прогресс — только за свою дату, иначе честный 0.
+                  String savedDate = w.getString("date", "");
+                  String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+                  if (savedDate == null || !savedDate.equals(today)) total = 0;
 
                   Intent open = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
                   if (open == null) open = new Intent(context, MainActivity.class);
