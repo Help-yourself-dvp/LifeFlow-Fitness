@@ -4505,23 +4505,27 @@ const THEME_ICON_SETS = {
   standard: THEME_ICON_STANDARD,
   neon: {
     ...THEME_ICON_STANDARD,
-    settings: '🎛️', profile: '🧑‍🚀', bell: '📡', ai: '🔮', backup: '🗃️',
-    about: '💡', medals: '🎖️', water: '🧊', food: '🍱', dayplan: '🗒️', mood: '🌃', combo: '⚡'
+    settings: '⚙️', profile: '👤', bell: '🔔', course: '🧪', ai: '✨',
+    backup: '💾', about: 'ℹ️', medals: '🏆', water: '💧', food: '🥗',
+    dayplan: '📊', mood: '⚡', combo: '⚡'
   },
   sport: {
     ...THEME_ICON_STANDARD,
-    settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
-    backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗', dayplan: '🗓️', mood: '🔥', combo: '🎯'
+    settings: '⚙️', profile: '💪', bell: '⏰', course: '🥤', ai: '🔥',
+    backup: '💾', about: 'ℹ️', medals: '🥇', water: '💧', food: '🥗',
+    dayplan: '📋', mood: '🔋', combo: '🎯'
   },
   forest: {
     ...THEME_ICON_STANDARD,
-    settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
-    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕', dayplan: '🌲', mood: '🌤️', combo: '🌰'
+    settings: '⚙️', profile: '🌱', bell: '🔔', course: '🌿', ai: '✨',
+    backup: '💾', about: 'ℹ️', medals: '🎋', water: '💧', food: '🥑',
+    dayplan: '📋', mood: '☀️', combo: '🍀'
   },
   berry: {
     ...THEME_ICON_STANDARD,
-    settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
-    backup: '🍯', about: '🍷', medals: '🏵️', water: '🧃', food: '🫕', dayplan: '🎀', mood: '🌸', combo: '✨'
+    settings: '⚙️', profile: '👤', bell: '🔔', course: '💊', ai: '✨',
+    backup: '💾', about: 'ℹ️', medals: '🏅', water: '💧', food: '🍇',
+    dayplan: '📋', mood: '🌸', combo: '⭐'
   }
 };
 function themeIcon(slot) {
