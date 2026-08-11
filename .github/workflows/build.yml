@@ -105,6 +105,7 @@ jobs:
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"${APP_VERSION}\"/g" android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
+          sed -i "s|dependencies {|dependencies {\n    implementation 'androidx.health.connect:connect-client:1.1.0-alpha11'|g" android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
@@ -407,6 +408,71 @@ jobs:
                       } catch (Exception e) {
                           return 0;
                       }
+                  }
+
+                  /* Принудительный запрос к Health Connect (чтение шагов и калорий за сегодня) */
+                  @JavascriptInterface
+                  public void syncHealthConnectNow() {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  if (androidx.health.connect.client.HealthConnectClient.isProviderAvailable(MainActivity.this)) {
+                                      final androidx.health.connect.client.HealthConnectClient client = androidx.health.connect.client.HealthConnectClient.getOrCreate(MainActivity.this);
+                                      new Thread(new Runnable() {
+                                          @Override
+                                          public void run() {
+                                              try {
+                                                  java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.systemDefault());
+                                                  java.time.ZonedDateTime startOfDay = now.toLocalDate().atStartOfDay(java.time.ZoneId.systemDefault());
+                                                  androidx.health.connect.client.time.TimeRangeFilter filter = androidx.health.connect.client.time.TimeRangeFilter.between(startOfDay.toInstant(), now.toInstant());
+                                                  
+                                                  java.util.Set<androidx.health.connect.client.aggregate.AggregateMetric<?>> metrics = new java.util.HashSet<>();
+                                                  metrics.add(androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL);
+                                                  metrics.add(androidx.health.connect.client.records.TotalCaloriesBurnedRecord.ENERGY_TOTAL);
+                                                  
+                                                  androidx.health.connect.client.request.AggregateRequest req = new androidx.health.connect.client.request.AggregateRequest(metrics, filter, new java.util.HashSet<>());
+                                                  
+                                                  androidx.health.connect.client.aggregate.AggregationResult res = kotlinx.coroutines.BuildersKt.runBlocking(
+                                                      kotlinx.coroutines.Dispatchers.getIO(),
+                                                      (scope, continuation) -> client.aggregate(req, continuation)
+                                                  );
+                                                  
+                                                  Long stepsObj = res.get(androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL);
+                                                  androidx.health.connect.client.units.Energy energyObj = res.get(androidx.health.connect.client.records.TotalCaloriesBurnedRecord.ENERGY_TOTAL);
+                                                  
+                                                  int steps = stepsObj != null ? stepsObj.intValue() : 0;
+                                                  double kcal = energyObj != null ? energyObj.getKilocalories() : 0.0;
+                                                  
+                                                  final int finalSteps = steps;
+                                                  final double finalKcal = kcal;
+                                                  
+                                                  runOnUiThread(new Runnable() {
+                                                      @Override
+                                                      public void run() {
+                                                          try {
+                                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                                              if (wv != null) {
+                                                                  String js = String.format(java.util.Locale.US,
+                                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, 0, '', '');",
+                                                                      finalSteps, finalKcal
+                                                                  );
+                                                                  wv.evaluateJavascript(js, null);
+                                                              }
+                                                          } catch (Exception e) { }
+                                                      }
+                                                  });
+                                              } catch (Exception e) {
+                                                  android.util.Log.w("FitFlowHealth", "Health Connect query error: " + e.getMessage());
+                                              }
+                                          }
+                                      }).start();
+                                  }
+                              } catch (Exception e) {
+                                  android.util.Log.w("FitFlowHealth", "Health Connect client unavailable: " + e.getMessage());
+                              }
+                          }
+                      });
                   }
 
                   /* Открыть системные настройки разрешений Health Connect */
@@ -1198,6 +1264,7 @@ jobs:
               'android.permission.health.READ_STEPS',
               'android.permission.health.READ_TOTAL_CALORIES_BURNED',
               'android.permission.health.READ_EXERCISE',
+              'android.permission.health.READ_SLEEP',
           ]
           for p in perms:
               tag = f'    <uses-permission android:name="{p}" />\n'
