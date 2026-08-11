@@ -202,7 +202,6 @@
         <!-- 0.5.1 (п.3 владельца): кнопки отдельной строкой — поле ввода во всю ширину -->
         <div class="food-form-actions">
           <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
-          <button class="chip chip-sm" id="food-combo-star" type="button" title="Сохранить текст поля как комбо (фраза-шаблон на будущее — без записи в дневник)">☆ В комбо</button>
         </div>
       </form>
 
@@ -871,6 +870,13 @@
             <button class="active" type="button" data-water-interval="90">90 мин</button>
             <button type="button" data-water-interval="120">120 мин</button>
           </div>
+          <p class="settings-label" style="margin-top:10px">Период напоминаний</p>
+          <div class="reminder-time-row water-time-window-row">
+            <label for="water-reminder-window-start">С</label>
+            <input id="water-reminder-window-start" class="time-input" type="time" value="08:00" aria-label="Начало периода напоминаний о воде">
+            <label for="water-reminder-window-end" style="margin-left:6px">до</label>
+            <input id="water-reminder-window-end" class="time-input" type="time" value="22:00" aria-label="Конец периода напоминаний о воде">
+          </div>
           <!-- 0.5.6 (решение владельца): вместо переключателя «пауза» — автоматика:
                записали воду — ближайшее напоминание пропускается само, сетка не сдвигается;
                следующее приходит в свой обычный час. -->
@@ -1056,37 +1062,26 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>Версия, источники данных, методика расчётов и условия</p>
+          <p>FitFlow <span id="about-version">v0.5.8</span> · Offline-first</p>
         </div>
       </div>
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">Все данные хранятся только на вашем устройстве, регистрация не требуется.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
             <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
-            <!-- 0.5.6 (п.10 владельца): лицензия — как остальные пункты, отдельным
-                 окном с полным текстом (была блоком-плашкой на странице). -->
-            <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия</button>
+            <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия (RU / EN / Библиотеки)</button>
             <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
-            <!-- 0.5.1 (п.16 владельца): четвёртый значок шапки переехал сюда — в шапке остались
-                 Профиль, ИИ, Тема (ежедневные действия), справка о приватности — в «О приложении». -->
             <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
+            <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO · Как поддержать</button>
+            <button class="btn btn-secondary" id="about-charity-open" type="button">🤝 Добрые дела · Отчёты</button>
           </div>
-          <!-- 0.5.4 (решение владельца): поддержка доступна всегда, а не только из редкой плашки -->
-          <div class="charity-block" id="about-support-block">
-            <p class="settings-hint charity-title">💝 Поддержка проекта</p>
-            <p class="settings-hint">FitFlow бесплатен навсегда — весь функционал открыт. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой суммы: откройте страницу проекта на GitHub и создайте обращение с темой «Поддержка FitFlow» — ответим удобным способом (СБП или карта российского банка). Код PRO — знак благодарности, он ничего не разблокирует. Часть сборов — на благотворительность: отчёты ниже.</p>
-            <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO — как поддержать</button>
-          </div>
-          <!-- 0.5.3 (идея владельца): открытая отчётность о благотворительной части поддержки -->
-          <div class="charity-block" id="charity-block">
-            <p class="settings-hint charity-title">💝 Добрые дела</p>
-            <div id="charity-list"></div>
-          </div>
-          <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
+          <div class="charity-block" id="about-support-block" hidden></div>
+          <div class="charity-block" id="charity-block" hidden><div id="charity-list"></div></div>
+          <p class="settings-hint" id="terms-status" style="margin-top:10px">Условия использования приняты.</p>
         </div>
       </div>
 
@@ -1686,15 +1681,33 @@
            строку, «Разобрать» обрезался по нижней границе. Теперь как в экране
            «Помощник»: иконки-источники слева, «Разобрать» справа — всегда на виду. -->
       <div class="app-dialog-actions smart-entry-actions">
-        <button class="icon-btn ai-icon-btn" id="smart-entry-voice" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">🎙</button>
-        <button class="icon-btn ai-icon-btn" id="smart-entry-photo" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">📷</button>
-        <button class="icon-btn ai-icon-btn" id="smart-entry-photo-gallery" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">🖼</button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-voice" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+        </button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo-gallery" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <span class="ai-actions-spacer"></span>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
+      <div class="smart-save-actions" style="margin-top:12px;display:flex;gap:8px;align-items:stretch">
+        <button class="btn btn-primary" id="smart-entry-save" type="button" style="flex:1;min-height:44px" hidden>Сохранить записи</button>
+        <button class="btn btn-secondary" id="smart-entry-combo-btn" type="button" title="Сохранить эту фразу в комбо" style="flex:0 0 auto;min-height:44px;padding:0 14px;white-space:nowrap;font-size:0.85rem" hidden>☆ В комбо</button>
+      </div>
       <button class="btn btn-ghost smart-entry-cancel-btn" id="smart-entry-cancel" type="button">Отмена</button>
-      <button class="btn btn-secondary" id="smart-entry-combo-btn" type="button" hidden>☆ В комбо</button>
-      <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
       <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>
       <input type="file" id="smart-entry-photo-file-input" accept="image/*" hidden>
     </section>
@@ -1811,15 +1824,41 @@
       <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.</p>
 
       <div class="quick-panel" id="quick-panel-combo" role="tabpanel">
+        <p class="quick-label">Ваши комбо (тап — мгновенная запись):</p>
         <div class="quick-chips" id="combo-chips"></div>
         <p class="settings-hint" id="combo-hint"></p>
         <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Управление комбо…</button>
+        <div class="combo-quick-add" style="margin-top:12px">
+          <button class="btn btn-secondary quick-add-accordion-toggle" id="quick-combo-toggle" type="button" aria-expanded="false" style="width:100%">＋ Создать новое комбо ▾</button>
+          <div class="quick-add-accordion-body" id="quick-combo-body" hidden style="margin-top:8px">
+            <div class="manual-food-row">
+              <input class="dialog-text-input" id="quick-combo-name" type="text" maxlength="40" placeholder="Название (напр., Завтрак)" aria-label="Название комбо">
+              <input class="dialog-text-input" id="quick-combo-text" type="text" maxlength="300" placeholder="Фраза: овсянка 150г, кофе" aria-label="Фраза комбо">
+            </div>
+            <button class="btn btn-primary" id="quick-combo-save-btn" type="button" style="width:100%;margin-top:6px">Сохранить комбо</button>
+          </div>
+        </div>
       </div>
 
       <div class="quick-panel" id="quick-panel-meals" role="tabpanel" hidden>
-        <p class="quick-label">Ваши блюда — точные ккал с упаковки, тап = запись:</p>
+        <p class="quick-label">Ваши блюда — точные ккал с упаковки (тап — запись в дневник):</p>
         <div class="quick-chips" id="favorite-meals"></div>
-        <p class="quick-label" style="margin-top:12px">Готовые чипы:</p>
+        <div class="meal-quick-add" style="margin-top:12px">
+          <button class="btn btn-secondary quick-add-accordion-toggle" id="quick-meal-toggle" type="button" aria-expanded="false" style="width:100%">＋ Добавить своё блюдо в шаблоны ▾</button>
+          <div class="quick-add-accordion-body" id="quick-meal-body" hidden style="margin-top:8px">
+            <div class="manual-food-row">
+              <input class="dialog-text-input" id="quick-meal-name" type="text" maxlength="60" placeholder="Название (напр., Творог 5%)" aria-label="Название блюда">
+              <input class="dialog-text-input" id="quick-meal-kcal" type="text" inputmode="numeric" placeholder="ккал на 100г / шт" aria-label="Калории">
+            </div>
+            <div class="manual-food-macros" style="margin-top:6px">
+              <input class="dialog-text-input" id="quick-meal-p" type="text" inputmode="decimal" placeholder="Белки г" aria-label="Белки">
+              <input class="dialog-text-input" id="quick-meal-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры">
+              <input class="dialog-text-input" id="quick-meal-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы">
+            </div>
+            <button class="btn btn-primary" id="quick-meal-save-btn" type="button" style="width:100%;margin-top:6px">Сохранить в Мои блюда</button>
+          </div>
+        </div>
+        <p class="quick-label" style="margin-top:14px">Готовые чипы:</p>
         <div class="quick-chips">
           <button class="chip chip-sm" data-quick="гречка 100г" type="button">Гречка 100г</button>
           <button class="chip chip-sm" data-quick="яйцо 2шт" type="button">Яйцо 2шт</button>
@@ -1908,16 +1947,49 @@
     <section class="app-dialog terms-dialog">
       <div class="app-dialog-icon" aria-hidden="true">📜</div>
       <h2 id="license-dialog-title">Лицензия FitFlow</h2>
-      <div class="terms-list">
-        <p><b>Версия 1.0 · 10.08.2026.</b> Автор и правообладатель: владелец репозитория Help-yourself-dvp/LifeFlow-Fitness (GitHub). Программа: FitFlow — офлайн-дневник воды, питания и активности (исходный код репозитория и собранные установочные пакеты).</p>
-        <p><b>Разрешается без отдельного согласования:</b> личное некоммерческое использование — установка APK из раздела Releases этого репозитория, запуск, создание резервных копий своих данных; просмотр исходного кода и его изучение в личных целях; личные копии и локальные изменения кода для себя, без передачи результатов третьим лицам; ссылки на репозиторий и на опубликованные автором релизы — свободно.</p>
-        <p><b>Запрещается без предварительного письменного согласия автора:</b> распространение программы или её частей — публикация APK/сборок в любом магазине приложений, на сайтах, в каналах и репозиториях, передача третьим лицам иначе как ссылкой на этот репозиторий; монетизация — продажа, платные сборки, подписки, встроенная реклама, сбор пожертвований за копии программы, любое извлечение дохода из программы или её производных; изменение кода с распространением результата — форки, «моды», пересборки и иные производные версии, публикуемые или передаваемые третьим лицам; выдача программы за свою — удаление или изменение указаний авторства, использование названия «FitFlow» для сторонних сборок; использование программы для создания конкурирующих коммерческих продуктов на её основе.</p>
-        <p><b>Ограничение ответственности:</b> программа предоставляется «как есть», без каких-либо гарантий. Она не является медицинским изделием или медицинской услугой: рекомендации и расчёты носят информационный характер и не заменяют консультацию специалиста. Автор не несёт ответственности за любой ущерб от использования или невозможности использования программы.</p>
-        <p><b>Сторонние компоненты:</b> встроенные базы и библиотеки поставляются по их собственным лицензиям — см. файл THIRD_PARTY.md в репозитории; они лицензией программы не покрываются.</p>
-        <p><b>Контакт для разрешений:</b> запросы на распространение, модификацию или коммерческое использование — через Issues этого репозитория на GitHub.</p>
-        <p><b>Коротко:</b> скачивайте и пользуйтесь бесплатно для себя; делиться — ссылкой на репозиторий; продавать, выкладывать как своё и публиковать изменённые версии — нельзя без согласия автора. Краткое английское изложение (ненормативное) — в файле LICENSE репозитория; при расхождениях приоритет у русского текста.</p>
+      <div class="segmented license-lang-tabs" id="license-lang-tabs" role="tablist" aria-label="Язык лицензии">
+        <button type="button" role="tab" data-license-tab="ru" class="active" aria-selected="true">🇷🇺 Русский</button>
+        <button type="button" role="tab" data-license-tab="en" aria-selected="false">🇬🇧 English</button>
+        <button type="button" role="tab" data-license-tab="third-party" aria-selected="false">📦 Сторонние библиотеки</button>
       </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-ru">
+        <p><b>Версия 1.0 · 10.08.2026.</b> Автор и правообладатель: владелец репозитория Help-yourself-dvp/LifeFlow-Fitness (GitHub). Программа: FitFlow — офлайн-дневник воды, питания и активности (исходный код репозитория и собранные установочные пакеты).</p>
+        <p><b>1. Разрешается без отдельного согласования:</b> личное некоммерческое использование — установка APK из раздела Releases репозитория, запуск, создание резервных копий своих данных; просмотр исходного кода и его изучение в личных целях; личные копии и локальные изменения кода для себя, без передачи результатов третьим лицам; ссылки на репозиторий и на опубликованные автором релизы — свободно.</p>
+        <p><b>2. Запрещается без предварительного письменного согласия автора:</b> распространение программы или её частей — публикация APK/сборок в любом магазине приложений, на сайтах, в каналах и репозиториях, передача третьим лицам иначе как ссылкой на этот репозиторий; монетизация — продажа, платные сборки, подписки, встроенная реклама, сбор пожертвований за копии программы, любое извлечение дохода из программы или её производных; изменение кода с распространением результата — форки, «моды», пересборки и иные производные версии, публикуемые или передаваемые третьим лицам; выдача программы за свою — удаление или изменение указаний авторства, использование названия «FitFlow» для сторонних сборок; использование программы для создания конкурирующих коммерческих продуктов на её основе.</p>
+        <p><b>3. Ограничение ответственности:</b> программа предоставляется «как есть», без каких-либо гарантий. Она не является медицинским изделием или медицинской услугой: рекомендации и расчёты носят информационный характер и не заменяют консультацию специалиста. Автор не несёт ответственности за любой ущерб от использования или невозможности использования программы.</p>
+        <p><b>4. Сторонние компоненты:</b> встроенные базы, шрифты и библиотеки поставляются по их собственным открытым лицензиям (вкладка «Сторонние библиотеки» выше и раздел «О приложении»).</p>
+        <p><b>5. Контакт для разрешений:</b> запросы на распространение, модификацию или коммерческое использование — через раздел Issues репозитория проекта на GitHub.</p>
+        <p><b>Коротко:</b> скачивайте и пользуйтесь бесплатно для себя; делиться — ссылкой на репозиторий; продавать, выкладывать как своё и публиковать изменённые версии — нельзя без согласия автора. При расхождениях между языковыми версиями приоритет имеет русский текст.</p>
+      </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-en" hidden>
+        <p><b>FitFlow License v1.0 · August 10, 2026.</b> Author & Copyright Holder: Repository Owner Help-yourself-dvp/LifeFlow-Fitness (GitHub). Software: FitFlow — offline water, food, and fitness tracker (source code and binary packages).</p>
+        <p><b>1. Permitted without prior consent:</b> Personal non-commercial use — installing released APKs, running the application, and making local backups; viewing and studying the source code for private education; private local code modifications strictly for personal use without distributing results to third parties; sharing direct links to the official repository and releases.</p>
+        <p><b>2. Prohibited without prior written consent of the Author:</b> Redistribution of the application or any of its parts (publishing APKs/binaries in app stores, web portals, public channels, or third-party repositories); Commercial use and monetization (selling, paid distributions, subscriptions, in-app ads, collecting donations for application copies, or extracting revenue from derivatives); Public distribution of modified versions (forks, mods, custom builds, or repackaged binaries); Misrepresentation and plagiarism (removing or modifying copyright notices, or using the "FitFlow" brand for third-party builds); Creating competing commercial software based on the application code.</p>
+        <p><b>3. Disclaimer of Warranty:</b> The software is provided "AS IS", without warranties of any kind. It is not a medical device or healthcare service: calculations and recommendations are for informational purposes only and do not substitute professional medical advice. The Author shall not be liable for any claims or damages arising from the use of this software.</p>
+        <p><b>4. Third-Party Components:</b> Bundled open-source libraries, databases, and fonts are governed by their respective licenses (see the "Third-Party" tab).</p>
+        <p><b>5. Permission Requests:</b> Requests for commercial licensing, distribution, or partnerships should be submitted via GitHub Issues.</p>
+      </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-third-party" hidden>
+        <p><b>Открытые компоненты и библиотеки:</b></p>
+        <p>• <b>Capacitor (Core, Android)</b> — MIT License. Copyright (c) 2017-present Drifty Co.<br>• <b>LiteRT-LM Android Runtime</b> — Apache License 2.0. Copyright (c) The Google AI Edge Authors.<br>• <b>USDA FoodData Central / SR Legacy</b> — Public Domain (U.S. Government Work).<br>• <b>Open Food Facts</b> — Open Database License (ODbL) 1.0 (openfoodfacts.org).<br>• <b>Шрифты Roboto / PT Serif / Comfortaa / Manrope / Russo One</b> — SIL Open Font License 1.1 / Apache 2.0.<br>• <b>Kotlin Standard Library & AndroidX</b> — Apache License 2.0.</p>
+        <p class="settings-hint">Все компоненты используются в строгом соответствии с их открытыми лицензиями.</p>
+      </div>
+
       <div class="app-dialog-actions"><button class="btn btn-primary" id="license-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.8: отдельный диалог для открытых отчётов о благотворительности -->
+  <div class="app-dialog-backdrop" id="charity-dialog" role="dialog" aria-modal="true" aria-labelledby="charity-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🤝</div>
+      <h2 id="charity-dialog-title">Добрые дела · Отчёты</h2>
+      <p class="settings-hint">FitFlow бесплатен навсегда. Часть средств от добровольной поддержки направляется в благотворительные фонды. Все перечисления и отчёты открыто публикуются здесь.</p>
+      <div class="charity-modal-list" id="charity-modal-list"></div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="charity-dialog-ok" type="button">Понятно</button></div>
     </section>
   </div>
 

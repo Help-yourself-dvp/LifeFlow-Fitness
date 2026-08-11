@@ -2603,7 +2603,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.7';
+const FITFLOW_VERSION = '0.5.8';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -4567,24 +4567,25 @@ function renderDayMoodCard() {
   const mood = getTodayMood();
   const emojis = { 1: '😞', 2: '🙁', 3: '😐', 4: '🙂', 5: '😄' };
   const labels = { 1: 'тяжёлый', 2: 'слабый', 3: 'обычный', 4: 'хороший', 5: 'отличный' };
-  // 0.4.15 (решение владельца по А2/А3): инлайн-смайлы — один тап = записано
-  // (наш паттерн чек-ина сна). Днём карточка компактная строка; полная — вечером.
   const buttons = [1, 2, 3, 4, 5].map((n) =>
     `<button type="button" class="mood-inline-btn${mood === n ? ' active' : ''}" data-mood-inline="${n}" title="${n} из 5 — ${labels[n]}" aria-label="Оценить день на ${n} из 5">${emojis[n]}</button>`).join('');
-  // 0.5.2 (владелец: «плашка осталась большим блоком»): одна компактная строка
-  // ВСЕГДА — и днём, и вечером, и после оценки. Вечерний разворот ничего не
-  // добавлял кроме объёма: смайлы и так один тап, оценка видна подсветкой.
   const evening = new Date().getHours() >= 17;
   const note = mood
     ? `${emojis[mood]} ${mood}/5 · ${labels[mood]}`
-    : (evening ? 'как прошёл день?' : 'итоги — ближе к вечеру');
+    : (evening ? 'как прошёл день?' : 'оцените день');
   card.hidden = false;
-  // 0.5.6 (п.8 владельца): две аккуратные строки вместо 4-строчного левого
-  // столбца — заголовок со смайлами в первой, примечание во второй во всю ширину.
+  // 0.5.8: строка 1 — «🌗 Самочувствие» + знак «?» (справка);
+  //        строка 2 — кнопки 1–5 + статус оценки
   card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
     <div class="mood-card-row mood-compact-row">
-      <div class="mood-compact-top"><span class="mood-compact-label">🌗 Самочувствие</span><span class="mood-inline-row">${buttons}</span></div>
-      <p class="mood-compact-note">${note}</p>
+      <div class="mood-compact-top">
+        <span class="mood-compact-label">🌗 Самочувствие</span>
+        <span class="help-dot mood-help-dot" role="button" tabindex="0" data-help="day-mood" aria-label="Справка о самочувствии" title="Зачем отмечать самочувствие?">?</span>
+      </div>
+      <div class="mood-compact-bottom">
+        <span class="mood-inline-row">${buttons}</span>
+        <span class="mood-compact-note">${note}</span>
+      </div>
     </div>
   </div>`;
 }
@@ -7660,9 +7661,25 @@ function renderWaterReminderSettings() {
   if (opts) opts.hidden = !state.waterReminders.enabled;
   $$('#water-interval-choices button').forEach((btn) =>
     btn.classList.toggle('active', Number(btn.dataset.waterInterval) === state.waterReminders.interval));
+  const winStart = $('#water-reminder-window-start');
+  const winEnd = $('#water-reminder-window-end');
+  if (winStart && document.activeElement !== winStart) winStart.value = state.waterReminders.windowStart || '08:00';
+  if (winEnd && document.activeElement !== winEnd) winEnd.value = state.waterReminders.windowEnd || '22:00';
   status.textContent = state.waterReminders.enabled
     ? `Каждые ${state.waterReminders.interval} мин с ${state.waterReminders.windowStart} до ${state.waterReminders.windowEnd}.`
     : 'Напоминания о воде выключены.';
+}
+
+async function updateWaterReminderWindow(start, end) {
+  if (isValidReminderTime(start)) state.waterReminders.windowStart = start;
+  if (isValidReminderTime(end)) state.waterReminders.windowEnd = end;
+  saveState();
+  renderWaterReminderSettings();
+  renderNotificationBudget();
+  if (state.waterReminders.enabled) {
+    await scheduleWaterReminders();
+    toast(`Период напоминаний о воде: с ${state.waterReminders.windowStart} до ${state.waterReminders.windowEnd}`);
+  }
 }
 
 async function updateWaterRemindersEnabled(enabled) {
@@ -8095,15 +8112,40 @@ function closeSourcesDialog() {
   if (dialog) dialog.hidden = true;
 }
 
-/* 0.5.6 (п.10 владельца): лицензия — как остальные пункты «О приложении»,
-   отдельным окном с полным текстом; из блока на странице убрана. */
-function openLicenseDialog() {
+/* 0.5.8: лицензия с вкладками (RU / EN / Сторонние библиотеки) без внешних ссылок */
+function switchLicenseTab(tab) {
+  const tabs = ['ru', 'en', 'third-party'];
+  if (!tabs.includes(tab)) tab = 'ru';
+  $$('#license-lang-tabs [data-license-tab]').forEach((btn) => {
+    const active = btn.dataset.licenseTab === tab;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  tabs.forEach((t) => {
+    const panel = $(`#license-panel-${t}`);
+    if (panel) panel.hidden = t !== tab;
+  });
+}
+
+function openLicenseDialog(tab = 'ru') {
+  switchLicenseTab(typeof tab === 'string' && ['ru', 'en', 'third-party'].includes(tab) ? tab : 'ru');
   const dialog = $('#license-dialog');
   if (dialog) dialog.hidden = false;
 }
 
 function closeLicenseDialog() {
   const dialog = $('#license-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function openCharityDialog() {
+  renderCharityReports();
+  const dialog = $('#charity-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeCharityDialog() {
+  const dialog = $('#charity-dialog');
   if (dialog) dialog.hidden = true;
 }
 
@@ -8300,6 +8342,10 @@ const HELP_TOPICS = {
   'settings-about': {
     title: 'О приложении',
     text: 'Версия приложения, источники данных о продуктах, методика расчёта норм и условия использования. Здесь же пометка, что приложение не заменяет врача.'
+  },
+  'day-mood': {
+    title: '🌗 Самочувствие за день',
+    text: 'Оценка по шкале 1–5 (😞 тяжело · 🙁 слабо · 😐 обычно · 🙂 хорошо · 😄 отлично) помогает увидеть, как сон, вода, питание и активность влияют на ваше общее состояние.\n\nИтоги дня и общую оценку удобнее ставить ближе к вечеру (после 17:00), когда уже виден весь прожитый день — выпитый объём воды, питание и уровень вашей энергии.'
   },
   'quick-records': {
     title: 'Быстрые записи',
@@ -9236,14 +9282,12 @@ const CHARITY_REPORTS = [];
 
 function renderCharityReports() {
   if (typeof document === 'undefined') return;
-  const host = $('#charity-list');
-  if (!host) return;
-  if (!CHARITY_REPORTS.length) {
-    host.innerHTML = '<p class="settings-hint">Часть добровольных переводов в поддержку FitFlow направляется на благотворительность. Перечислений пока не было — первый отчёт появится здесь сразу после первых сборов (раздел обновляется с новыми версиями, примерно раз в месяц).</p>';
-    return;
-  }
-  host.innerHTML = CHARITY_REPORTS.map((r) =>
-    `<p class="settings-hint">· ${escapeHtml(r.month)}: ${escapeHtml(r.amount)} — ${escapeHtml(r.fund)}</p>`).join('');
+  const hosts = [$('#charity-list'), $('#charity-modal-list')].filter(Boolean);
+  if (!hosts.length) return;
+  const html = !CHARITY_REPORTS.length
+    ? '<p class="settings-hint">Часть добровольных переводов в поддержку FitFlow направляется на благотворительность. Перечислений пока не было — первый отчёт появится здесь сразу после первых сборов (раздел обновляется с новыми версиями, примерно раз в месяц).</p>'
+    : CHARITY_REPORTS.map((r) => `<p class="settings-hint">· ${escapeHtml(r.month)}: ${escapeHtml(r.amount)} — ${escapeHtml(r.fund)}</p>`).join('');
+  hosts.forEach((h) => { h.innerHTML = html; });
 }
 
 /* ============================================================
@@ -9808,15 +9852,103 @@ function init() {
   bindEvent('#support-open-pro', 'click', () => { closeSupportDialog(); snoozeSupport(SUPPORT_AFTER_PRO_MS); openProDialog(); });
   bindEvent('#about-support-open', 'click', openProDialog);
 
-  // 0.5.2: диалог «Быстрые записи»
+  // 0.5.2 + 0.5.8: диалог «Быстрые записи» с созданием комбо и блюд
   bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
-  // 0.5.6 (полевой баг владельца): значки 🍽 и ✍️ не реагировали — привязка
-  // была только у ⭐. Теперь каждый значок открывает СВОЮ вкладку того же диалога.
   bindEvent('#quick-open-meals', 'click', () => openQuickRecordsDialog('meals'));
   bindEvent('#quick-open-manual', 'click', () => openQuickRecordsDialog('manual'));
   bindEvent('#quick-records-close', 'click', closeQuickRecordsDialog);
   $$('#quick-records-tabs [data-quick-tab]').forEach((btn) =>
     btn.addEventListener('click', () => switchQuickTab(btn.dataset.quickTab)));
+  bindEvent('#quick-combo-toggle', 'click', () => {
+    const body = $('#quick-combo-body');
+    const btn = $('#quick-combo-toggle');
+    if (!body || !btn) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? '▲ Свернуть форму комбо' : '＋ Создать новое комбо ▾';
+  });
+  bindEvent('#quick-combo-save-btn', 'click', () => {
+    const nameInput = $('#quick-combo-name');
+    const textInput = $('#quick-combo-text');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const text = textInput ? textInput.value.trim() : '';
+    if (addCombo(name, text)) {
+      if (nameInput) nameInput.value = '';
+      if (textInput) textInput.value = '';
+      renderComboChips();
+      const body = $('#quick-combo-body');
+      const toggle = $('#quick-combo-toggle');
+      if (body) body.hidden = true;
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.textContent = '＋ Создать новое комбо ▾';
+      }
+      toast('⭐ Комбо сохранено — можно записывать одним тапом!');
+    }
+  });
+  bindEvent('#quick-meal-toggle', 'click', () => {
+    const body = $('#quick-meal-body');
+    const btn = $('#quick-meal-toggle');
+    if (!body || !btn) return;
+    const open = body.hidden;
+    body.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? '▲ Свернуть форму блюда' : '＋ Добавить своё блюдо в шаблоны ▾';
+  });
+  bindEvent('#quick-meal-save-btn', 'click', () => {
+    const nameInput = $('#quick-meal-name');
+    const kcalInput = $('#quick-meal-kcal');
+    const pInput = $('#quick-meal-p');
+    const fInput = $('#quick-meal-f');
+    const cInput = $('#quick-meal-c');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const kcal = kcalInput ? Number(kcalInput.value.replace(',', '.')) : 0;
+    if (!name || isNaN(kcal) || kcal <= 0) {
+      toast('Укажите название и калории блюда');
+      return;
+    }
+    const p = pInput && pInput.value ? Number(pInput.value.replace(',', '.')) : null;
+    const f = fInput && fInput.value ? Number(fInput.value.replace(',', '.')) : null;
+    const c = cInput && cInput.value ? Number(cInput.value.replace(',', '.')) : null;
+    state.favoriteMeals.unshift({
+      id: uid(),
+      name,
+      kcal,
+      p: Number.isFinite(p) ? p : null,
+      f: Number.isFinite(f) ? f : null,
+      c: Number.isFinite(c) ? c : null
+    });
+    normalizeFavoriteMeals();
+    saveState();
+    renderFavoriteMeals();
+    if (nameInput) nameInput.value = '';
+    if (kcalInput) kcalInput.value = '';
+    if (pInput) pInput.value = '';
+    if (fInput) fInput.value = '';
+    if (cInput) cInput.value = '';
+    const body = $('#quick-meal-body');
+    const toggle = $('#quick-meal-toggle');
+    if (body) body.hidden = true;
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = '＋ Добавить своё блюдо в шаблоны ▾';
+    }
+    toast(`«${name}» сохранено в Мои блюда`);
+  });
+  // 0.5.8: вкладки лицензии (RU / EN / Third-Party)
+  $$('#license-lang-tabs [data-license-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => switchLicenseTab(btn.dataset.licenseTab));
+  });
+  bindEvent('#about-charity-open', 'click', openCharityDialog);
+  bindEvent('#charity-dialog-ok', 'click', closeCharityDialog);
+  // 0.5.8: период напоминаний о воде
+  $('#water-reminder-window-start')?.addEventListener('change', (e) => {
+    updateWaterReminderWindow(e.target.value, state.waterReminders.windowEnd);
+  });
+  $('#water-reminder-window-end')?.addEventListener('change', (e) => {
+    updateWaterReminderWindow(state.waterReminders.windowStart, e.target.value);
+  });
   bindEvent('#pro-open', 'click', openProDialog);
   bindEvent('#pro-cancel', 'click', closeProDialog);
   bindEvent('#pro-activate', 'click', () => { activateProFromDialog(); });

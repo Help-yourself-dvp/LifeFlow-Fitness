@@ -36,12 +36,13 @@
    использования Программы.
 
 4. СТОРОННИЕ КОМПОНЕНТЫ:
-   Встроенные базы и библиотеки поставляются по их собственным лицензиям —
-   см. файл THIRD_PARTY.md. Они лицензией Программы не покрываются.
+   Встроенные открытые базы, шрифты и библиотеки поставляются по их собственным
+   открытым лицензиям (раздел «Сторонние библиотеки» в приложении). Они лицензией
+   Программы не покрываются.
 
 5. КОНТАКТ ДЛЯ РАЗРЕШЕНИЙ:
    Запросы на распространение, модификацию или коммерческое использование —
-   через Issues этого репозитория (GitHub).
+   через раздел Issues этого репозитория (GitHub).
 
 Коротко по-русски: скачивай и пользуйся бесплатно для себя; делиться — ссылкой
 на репозиторий; продавать, выкладывать как своё и публиковать изменённые версии —
@@ -54,4 +55,5 @@ permission). Free personal non-commercial use of the published APKs and private
 study of the source code is allowed. Redistribution, monetization, and
 publication of modified versions require the Author's prior written consent
 (issues in this repository). Provided "AS IS", without warranty; not a medical
-device. Third-party components are covered by their own licenses (THIRD_PARTY.md).
+device. Third-party components are covered by their own licenses (see the
+Third-Party section in the app).

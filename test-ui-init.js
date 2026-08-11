@@ -92,7 +92,11 @@ const ids = [
   'setup-wizard-skip', 'support-dialog', 'support-later', 'support-open-pro',
   'pro-howto', 'charity-block', 'charity-list', 'about-support-block', 'about-support-open',
   'quick-open-meals', 'quick-open-manual', 'weekly-status-chip',
-  'license-open', 'license-dialog', 'license-dialog-ok', 'terms-license-open'
+  'license-open', 'license-dialog', 'license-dialog-ok', 'terms-license-open',
+  'license-lang-tabs', 'license-panel-ru', 'license-panel-en', 'license-panel-third-party',
+  'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
+  'water-reminder-window-start', 'water-reminder-window-end',
+  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn'
 ];
 
 let failed = 0;
@@ -873,7 +877,7 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
   console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.5 в коде и «О приложении»`);
@@ -934,8 +938,7 @@ for (const id of ids) {
   if (!okMood) failed++;
   console.log(`${okMood ? '✓' : '✗'} 0.4.15 самочувствие инлайн + день/вечер; приветствие из пула фраз`);
 
-  const okFood = html.includes('id="food-combo-star"') && appR.includes('#food-combo-star')
-    && html.includes('Быстрые записи') && html.includes('⭐ Комбо')
+  const okFood = html.includes('Быстрые записи') && html.includes('⭐ Комбо')
     && html.includes('id="favorite-meals"');
   if (!okFood) failed++;
   console.log(`${okFood ? '✓' : '✗'} 0.4.15 п.5/п.6: «Быстрые записи» с ясной разницей, «☆ В комбо» у поля`);
@@ -1006,7 +1009,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1062,7 +1065,7 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
@@ -1105,7 +1108,7 @@ for (const id of ids) {
   if (!okWeekly052) failed++;
   console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2/0.5.5 активность: «выполнено ИЗ цели», чип-статус, «?» с объяснением`);
 
-  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer052) failed++;
   console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
 }
@@ -1140,7 +1143,7 @@ for (const id of ids) {
   if (!okCharity) failed++;
   console.log(`${okCharity ? '✓' : '✗'} 0.5.3 добрые дела: открытые отчёты в «О приложении», пусто — честно`);
 
-  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer053) failed++;
   console.log(`${okVer053 ? '✓' : '✗'} 0.5.3 версия в коде и «О приложении»`);
 }
@@ -1179,7 +1182,7 @@ for (const id of ids) {
   if (!okSupport054) failed++;
   console.log(`${okSupport054 ? '✓' : '✗'} 0.5.4 поддержка: повтор не чаще 14 дней, PRO не тревожим, блок в «О приложении»`);
 
-  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer054) failed++;
   console.log(`${okVer054 ? '✓' : '✗'} 0.5.4 версия в коде и «О приложении»`);
 }
@@ -1226,7 +1229,7 @@ for (const id of ids) {
   if (!okLicense055) failed++;
   console.log(`${okLicense055 ? '✓' : '✗'} 0.5.5 лицензия: LICENSE в репозитории`);
 
-  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer055) failed++;
   console.log(`${okVer055 ? '✓' : '✗'} 0.5.5 версия в коде и «О приложении»`);
 }
@@ -1279,11 +1282,11 @@ for (const id of ids) {
 
   // Единое описание приложения (п.1 владельца): файл есть и актуален версии
   const descR = fs.existsSync('APP_DESCRIPTION.md') ? fs.readFileSync('APP_DESCRIPTION.md', 'utf8') : '';
-  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.5.7');
+  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.5.8');
   if (!okDesc065) failed++;
   console.log(`${okDesc065 ? '✓' : '✗'} 0.5.6 APP_DESCRIPTION.md: единое описание приложения на месте и актуально`);
 
-  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer065) failed++;
   console.log(`${okVer065 ? '✓' : '✗'} 0.5.6 версия в коде и «О приложении»`);
 }
@@ -1310,9 +1313,64 @@ for (const id of ids) {
   if (!okWaterText057) failed++;
   console.log(`${okWaterText057 ? '✓' : '✗'} 0.5.7 уведомление воды: короткий текст (натив + JS)`);
 
-  const okVer057 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  const okVer057 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
   if (!okVer057) failed++;
   console.log(`${okVer057 ? '✓' : '✗'} 0.5.7 версия в коде и «О приложении»`);
+}
+
+
+{
+  // ===================== 0.5.8 (лицензия RU/EN/3rd-party, лаконичное «О приложении»,
+  // окно воды, комбо-добавление прямо в табах, самочувствие 2 строки с «?») =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Лицензия с тремя вкладками (RU, EN, Third-Party) без внешних ссылок
+  const okLicense058 = html.includes('id="license-lang-tabs"')
+    && html.includes('id="license-panel-ru"') && html.includes('id="license-panel-en"')
+    && html.includes('id="license-panel-third-party"')
+    && appR.includes('function switchLicenseTab')
+    && !html.includes('см. файл THIRD_PARTY.md в репозитории')
+    && !html.includes('в файле LICENSE репозитория');
+  if (!okLicense058) failed++;
+  console.log(`${okLicense058 ? '✓' : '✗'} 0.5.8 лицензия: вкладки RU/EN/Third-Party прямо в окне (без внешних ссылок)`);
+
+  // Окно времени воды: настраивается в Настройках
+  const okWaterWindow058 = html.includes('id="water-reminder-window-start"')
+    && html.includes('id="water-reminder-window-end"')
+    && appR.includes('updateWaterReminderWindow')
+    && cssR.includes('.water-time-window-row');
+  if (!okWaterWindow058) failed++;
+  console.log(`${okWaterWindow058 ? '✓' : '✗'} 0.5.8 напоминания воды: выбор периода «с... до...» в интерфейсе`);
+
+  // Быстрые записи: создание комбо и добавление блюд прямо из диалога со сворачиванием
+  const okQuick058 = html.includes('id="quick-combo-save-btn"')
+    && html.includes('id="quick-meal-save-btn"')
+    && html.includes('id="quick-combo-toggle"')
+    && html.includes('id="quick-meal-toggle"')
+    && appR.includes('#quick-combo-save-btn')
+    && appR.includes('#quick-meal-save-btn');
+  if (!okQuick058) failed++;
+  console.log(`${okQuick058 ? '✓' : '✗'} 0.5.8 быстрые записи: создание комбо и блюд прямо из вкладок диалога`);
+
+  // Самочувствие: две аккуратные строки со справкой «?»
+  const okMood058 = appR.includes('data-help="day-mood"')
+    && appR.includes("'day-mood': {")
+    && cssR.includes('.mood-compact-top') && cssR.includes('.mood-compact-bottom');
+  if (!okMood058) failed++;
+  console.log(`${okMood058 ? '✓' : '✗'} 0.5.8 самочувствие: 2 аккуратные строки + справка «?»`);
+
+  // О приложении: лаконичный вид + модальное окно добрых дел
+  const okAbout058 = html.includes('id="about-charity-open"')
+    && html.includes('id="charity-dialog"')
+    && appR.includes('function openCharityDialog');
+  if (!okAbout058) failed++;
+  console.log(`${okAbout058 ? '✓' : '✗'} 0.5.8 о приложении: лаконичный вид с кнопками + диалог добрых дел`);
+
+  const okVer058 = appR.includes("const FITFLOW_VERSION = '0.5.8'") && html.includes('v0.5.8');
+  if (!okVer058) failed++;
+  console.log(`${okVer058 ? '✓' : '✗'} 0.5.8 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
