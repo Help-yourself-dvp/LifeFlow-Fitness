@@ -1407,6 +1407,8 @@ async function saveSmartEntry() {
   commitParsedEntry(parsed, 'Добавлено быстрым вводом');
   saveState();
   resetMealTypeAfterSave();
+  applyThemeIconSet();
+  syncHealthDataNow();
   renderAll();
   await syncMealRemindersForToday();
   await syncTrainingReminderForToday();
@@ -6275,10 +6277,20 @@ function renderFood() {
   const totalP = items.reduce((s, it) => s + (it.p || 0), 0);
   const totalF = items.reduce((s, it) => s + (it.f || 0), 0);
   const totalC = items.reduce((s, it) => s + (it.c || 0), 0);
-  const pct = Math.min(1, goal > 0 ? total / goal : 0);
+
+  let effectiveGoal = goal;
+  if (state.healthSync && state.healthSync.enabled && state.healthSync.includeInDailyBudget) {
+    const workoutKcal = (Array.isArray(state.workouts) ? state.workouts : [])
+      .filter((w) => w.date === todayKey())
+      .reduce((sum, w) => sum + (Number(w.kcal) || 0), 0);
+    const stepsKcal = Math.round((state.healthSync.lastSteps || 0) * 0.04);
+    effectiveGoal = goal + workoutKcal + stepsKcal;
+  }
+
+  const pct = Math.min(1, effectiveGoal > 0 ? total / effectiveGoal : 0);
 
   $('#food-total').textContent = fmt(total);
-  $('#food-goal-label').textContent = fmt(goal);
+  $('#food-goal-label').textContent = fmt(effectiveGoal);
   $('#food-goal').textContent = `${fmt(goal)} ккал`;
   $('#food-progress-fill').style.width = `${pct * 100}%`;
   $('#food-progress').setAttribute('aria-valuenow', String(total));
@@ -8862,7 +8874,13 @@ function openHelpTopicDialog(topicId) {
   const dialog = $('#help-dialog');
   if (!topic || !dialog) return;
   $('#help-title').textContent = topic.title;
-  $('#help-text').textContent = topic.text;
+  let text = topic.text;
+  if (topicId === 'quick-records') {
+    const star = themeIcon('combo') || '⭐';
+    const dish = themeIcon('food') || '🍽️';
+    text = `Две вкладки для мгновенного ввода:\n\n${star} Комбо — сохранённые наборы-фразы: один тап записывает весь набор сразу (вода, еда, активность), калории считаются по актуальной базе.\n\n${dish} Мои блюда — ваши сохранённые шаблоны продуктов с точными КБЖУ с упаковки (тап сразу вносит порцию в дневник). Внизу можно создать новый шаблон.`;
+  }
+  $('#help-text').textContent = text;
   dialog.hidden = false;
 }
 
