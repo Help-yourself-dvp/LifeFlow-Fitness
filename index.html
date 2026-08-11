@@ -801,6 +801,7 @@
           <p class="settings-hint">Добавляет калории от тренировок к суточной норме калорий (динамический остаток).</p>
           <div class="about-links" style="margin-top:10px">
             <button class="btn btn-primary" id="health-sync-now-btn" type="button" style="width:100%">🔄 Загрузить данные из Health Connect</button>
+            <button class="btn btn-secondary" id="health-diag-btn" type="button">🩺 Проверить связь и датчики (диагностика)</button>
             <button class="btn btn-secondary" id="health-connect-open-btn" type="button">⚙️ Системные разрешения Health Connect</button>
             <button class="btn btn-secondary" id="health-phone-perm-btn" type="button">🚶 Разрешение шагомера телефона</button>
           </div>
@@ -1905,6 +1906,22 @@
 
 
       <div class="app-dialog-actions"><button class="btn btn-secondary" id="quick-records-close" type="button">Закрыть</button></div>
+    </section>
+  </div>
+
+  <!-- 0.7.0 Диагностика Health Connect и датчиков шагомера -->
+  <div class="app-dialog-backdrop" id="health-diag-dialog" role="dialog" aria-modal="true" aria-labelledby="health-diag-title" hidden>
+    <section class="app-dialog" style="max-width:440px">
+      <div class="app-dialog-icon" aria-hidden="true">🩺</div>
+      <h2 id="health-diag-title">Диагностика связи и датчиков</h2>
+      <div id="health-diag-content" class="diag-content-box" style="text-align:left; font-size:13px; margin:12px 0; max-height:280px; overflow-y:auto; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; border:1px solid rgba(0,0,0,0.08);">
+        <p>Загрузка диагностики...</p>
+      </div>
+      <div class="app-dialog-actions" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+        <button class="btn btn-primary" id="health-diag-sync-btn" type="button">🔄 Запросить синхронизацию</button>
+        <button class="btn btn-secondary" id="health-diag-copy-btn" type="button">📋 Скопировать отчёт</button>
+        <button class="btn btn-secondary" id="health-diag-close-btn" type="button">Закрыть</button>
+      </div>
     </section>
   </div>
 

@@ -96,7 +96,7 @@ const ids = [
   'license-lang-tabs', 'license-panel-ru', 'license-panel-en', 'license-panel-third-party',
   'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
   'water-reminder-window-start', 'water-reminder-window-end',
-  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'health-sync-toggle', 'health-sync-options', 'health-priority-choices', 'health-budget-toggle', 'health-connect-open-btn', 'health-phone-perm-btn', 'health-sync-now-btn', 'health-sync-status'
+  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'health-sync-toggle', 'health-sync-options', 'health-priority-choices', 'health-budget-toggle', 'health-connect-open-btn', 'health-phone-perm-btn', 'health-sync-now-btn', 'health-sync-status', 'health-diag-btn', 'health-diag-dialog', 'health-diag-sync-btn', 'health-diag-copy-btn', 'health-diag-close-btn'
 ];
 
 let failed = 0;

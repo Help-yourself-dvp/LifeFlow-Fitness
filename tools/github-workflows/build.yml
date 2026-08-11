@@ -415,6 +415,54 @@ jobs:
                       return "{}";
                   }
 
+                  /* Полная диагностика шагомера, датчиков и Health Connect */
+                  @JavascriptInterface
+                  public String getHealthDiagnosticsJson() {
+                      try {
+                          JSONObject diag = new JSONObject();
+                          diag.put("androidApi", Build.VERSION.SDK_INT);
+                          diag.put("manufacturer", Build.MANUFACTURER != null ? Build.MANUFACTURER : "");
+                          diag.put("model", Build.MODEL != null ? Build.MODEL : "");
+
+                          boolean actPerm = true;
+                          if (Build.VERSION.SDK_INT >= 29) {
+                              actPerm = checkSelfPermission(android.Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                          }
+                          diag.put("activityRecognitionGranted", actPerm);
+
+                          diag.put("hasStepCounterSensor", stepCounterSensor != null);
+                          diag.put("hasStepDetectorSensor", stepDetectorSensor != null);
+
+                          SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                          String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                          String savedDate = prefs.getString("steps_date", "");
+                          int stepsToday = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
+                          int baseSteps = prefs.getInt("steps_base", -1);
+                          int hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
+                          float hcKcal = today.equals(savedDate) ? prefs.getFloat("hc_kcal_today", 0.0f) : 0.0f;
+                          long lastSync = prefs.getLong("hc_last_sync_ts", 0);
+
+                          diag.put("todayDate", today);
+                          diag.put("savedDate", savedDate);
+                          diag.put("phoneStepsToday", stepsToday);
+                          diag.put("phoneBaseSteps", baseSteps);
+                          diag.put("hcStepsToday", hcSteps);
+                          diag.put("hcKcalToday", (double) hcKcal);
+                          diag.put("lastSyncTs", lastSync);
+
+                          boolean hasHcIntent = false;
+                          try {
+                              Intent hcIntent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+                              hasHcIntent = getPackageManager().resolveActivity(hcIntent, 0) != null;
+                          } catch (Exception e) { }
+                          diag.put("hasHealthConnectApp", hasHcIntent);
+
+                          return diag.toString();
+                      } catch (Exception e) {
+                          return "{\"error\":\"" + e.getMessage() + "\"}";
+                      }
+                  }
+
                   /* Шагомер: получить количество шагов телефона за сегодня */
                   @JavascriptInterface
                   public int getPhoneStepsToday() {

@@ -6258,6 +6258,102 @@ function updateHealthIncludeInBudget(include) {
   toast(include ? 'Сожжённые калории учитываются в балансе питания' : 'Баланс питания считает только базовую цель');
 }
 
+let lastHealthDiagnosticsText = '';
+
+function openHealthDiagnostics() {
+  const dialog = $('#health-diag-dialog');
+  const content = $('#health-diag-content');
+  if (!dialog || !content) return;
+  dialog.hidden = false;
+  
+  let rawDiag = null;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.getHealthDiagnosticsJson === 'function') {
+      const raw = window.FitFlowExport.getHealthDiagnosticsJson();
+      if (raw) rawDiag = JSON.parse(raw);
+    }
+  } catch (e) { }
+
+  const phoneSteps = getPhoneSteps();
+  const today = todayKey();
+  
+  const hasBridge = !!(window.FitFlowExport);
+  const androidApi = rawDiag && rawDiag.androidApi ? rawDiag.androidApi : (hasBridge ? 'Да' : 'Веб-режим');
+  const model = rawDiag ? `${rawDiag.manufacturer || ''} ${rawDiag.model || ''}`.trim() : 'Браузер / WebView';
+  const actPerm = rawDiag ? (rawDiag.activityRecognitionGranted ? '✓ Выдано' : '⚠️ Не выдано (нажмите «Разрешить»)') : 'Не требуется';
+  const stepSensor = rawDiag ? (rawDiag.hasStepCounterSensor ? '✓ Найден (аппаратный сопроцессор)' : '⚠️ Нет аппаратного датчика') : 'Не доступен';
+  const hcApp = rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK';
+  const phoneStepsToday = rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps;
+  const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : 0;
+  const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
+
+  const reportLines = [
+    `=== ОТЧЁТ ДИАГНОСТИКИ FITFLOW (${today}) ===`,
+    `Устройство: ${model} (Android API ${androidApi})`,
+    `Нативный мост FitFlow: ${hasBridge ? 'Подключен' : 'Отсутствует (веб)'}`,
+    `Разрешение на физическую активность: ${actPerm}`,
+    `Аппаратный шагомер телефона: ${stepSensor}`,
+    `Системный сервис Health Connect: ${hcApp}`,
+    `Шагов насчитано телефоном: ${phoneStepsToday}`,
+    `Шагов получено от Health Connect: ${hcStepsToday}`,
+    `Последний синк: ${lastSyncStr}`,
+    `Активный приоритет в FitFlow: ${state.healthSync.priority}`,
+    `Учитывать калории в бюджете: ${state.healthSync.includeInDailyBudget ? 'Да' : 'Нет'}`
+  ];
+  lastHealthDiagnosticsText = reportLines.join('\n');
+
+  content.innerHTML = `
+    <div style="margin-bottom:8px"><strong>📱 Устройство:</strong> ${escapeHtml(model || 'Android')} (API ${androidApi})</div>
+    <div style="margin-bottom:8px"><strong>🔑 Разрешение активности:</strong> ${actPerm}</div>
+    <div style="margin-bottom:8px"><strong>👟 Шагомер телефона:</strong> ${stepSensor}</div>
+    <div style="margin-bottom:8px"><strong>⌚ Health Connect:</strong> ${hcApp}</div>
+    <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
+    <div style="margin-bottom:6px"><strong>📊 Шагов телефоном за сегодня:</strong> ${fmt(phoneStepsToday)}</div>
+    <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect (Zepp):</strong> ${fmt(hcStepsToday)}</div>
+    <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
+    <div style="margin-top:10px; padding:8px; background:rgba(0,105,107,0.06); border-radius:8px; font-size:12px; line-height:1.4;">
+      💡 <em>Если шагов от Zepp 0: откройте приложение Zepp на телефоне, проведите пальцем вниз для синхронизации с часами, затем проверьте в Health Connect, что Zepp выгрузил данные.</em>
+    </div>
+  `;
+}
+
+function closeHealthDiagnostics() {
+  const dialog = $('#health-diag-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function copyHealthDiagnosticsReport() {
+  if (!lastHealthDiagnosticsText) {
+    toast('Отчёт пуст');
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(lastHealthDiagnosticsText).then(() => {
+      toast('✓ Отчёт скопирован в буфер обмена');
+    }).catch(() => {
+      fallbackCopyText(lastHealthDiagnosticsText);
+    });
+  } else {
+    fallbackCopyText(lastHealthDiagnosticsText);
+  }
+}
+
+function fallbackCopyText(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('✓ Отчёт скопирован в буфер обмена');
+  } catch (e) {
+    toast('Не удалось скопировать отчёт');
+  }
+}
+
 function requestHealthSyncNow() {
   normalizeHealthSync();
   if (!state.healthSync.enabled) {
@@ -6267,7 +6363,7 @@ function requestHealthSyncNow() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
       window.FitFlowExport.syncHealthConnectNow();
-      toast('Запрос в Health Connect отправлен...');
+      toast('Запрос к Health Connect и датчикам отправлен...');
       return;
     }
   } catch (e) { }
@@ -6291,9 +6387,11 @@ if (typeof window !== 'undefined') {
       saveState();
       renderHealthSyncSettings();
       renderFood();
-      toast(`✓ Health Connect: ${fmt(receivedSteps)} шагов (${fmt(Math.round(receivedKcal))} ккал)`);
+      toast(`✓ Данные получены: ${fmt(receivedSteps)} шагов (${fmt(Math.round(receivedKcal))} ккал)`);
     } else {
       syncHealthDataNow();
+      const curSteps = state.healthSync.lastSteps || getPhoneSteps() || 0;
+      toast(curSteps > 0 ? `✓ Шагов сегодня: ${fmt(curSteps)}` : 'Синхронизировано (шагов за сегодня пока нет)');
     }
   };
 }
@@ -10540,6 +10638,10 @@ function init() {
   bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));
   bindEvent('#health-budget-toggle', 'change', (e) => updateHealthIncludeInBudget(e.target.checked));
   bindEvent('#health-sync-now-btn', 'click', requestHealthSyncNow);
+  bindEvent('#health-diag-btn', 'click', openHealthDiagnostics);
+  bindEvent('#health-diag-close-btn', 'click', closeHealthDiagnostics);
+  bindEvent('#health-diag-copy-btn', 'click', copyHealthDiagnosticsReport);
+  bindEvent('#health-diag-sync-btn', 'click', () => { requestHealthSyncNow(); openHealthDiagnostics(); });
   bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
   bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
   $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
