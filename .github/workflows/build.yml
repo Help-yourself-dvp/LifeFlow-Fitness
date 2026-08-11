@@ -206,7 +206,9 @@ jobs:
                       SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
                       final int pending = prefs.getInt("pendingWaterAdd", 0);
                       if (pending > 0) {
-                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
+                          // 0.5.5 (полевой баг: первое «+250 мл» в новый день терялось):
+                          // обнуляем ТОЛЬКО после подтверждённой доставки в JS —
+                          // см. deliverWidgetAction ниже.
                           tryProcessWidgetAction("add_water_" + pending, 0);
                       }
                   } catch (Exception e) { }
@@ -226,18 +228,48 @@ jobs:
                           try {
                               WebView wv = getBridge().getWebView();
                               if (wv != null) {
-                                  wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
+                                  // 0.5.5: ждём реальную готовность app.js. Раньше evaluateJavascript
+                                  // на холодном старте тихо «съедал» действие (window.onWidgetAction
+                                  // ещё не существовала), а pendingAdd уже был обнулён.
+                                  wv.evaluateJavascript("(window.__fitflowReady === true)", new android.webkit.ValueCallback<String>() {
+                                      @Override public void onReceiveValue(String value) {
+                                          if ("true".equals(value)) deliverWidgetAction(action);
+                                          else retryWidgetAction(action, attempt);
+                                      }
+                                  });
                                   return;
                               }
                           } catch (Exception e) { }
-                          if (attempt < 15) {
-                              new android.os.Handler().postDelayed(new Runnable() {
-                                  @Override
-                                  public void run() { tryProcessWidgetAction(action, attempt + 1); }
-                              }, 200);
-                          }
+                          retryWidgetAction(action, attempt);
                       }
                   });
+              }
+
+              private void deliverWidgetAction(String action) {
+                  try {
+                      if (action != null && action.startsWith("add_water_")) {
+                          SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
+                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
+                      }
+                      WebView wv = getBridge().getWebView();
+                      if (wv != null) {
+                          wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
+                          return;
+                      }
+                  } catch (Exception e) { }
+                  retryWidgetAction(action, 0);
+              }
+
+              private void retryWidgetAction(final String action, final int attempt) {
+                  if (action == null) return;
+                  if (attempt < 40) {
+                      new android.os.Handler().postDelayed(new Runnable() {
+                          @Override
+                          public void run() { tryProcessWidgetAction(action, attempt + 1); }
+                      }, 300);
+                  }
+                  // Если и за ~12 секунд не дождались — действие остаётся в prefs
+                  // (add_water) или теряется безвредно (smart_entry/notif_settings_*).
               }
 
               /* ===== Сохранение резервной копии через системное окно Android ===== */
@@ -352,6 +384,9 @@ jobs:
                                       .putInt("activityMinutes", data.optInt("activityMinutes", 0))
                                       .putString("profileName", data.optString("profileName", "Мой профиль"))
                                       .putString("date", data.optString("date", ""))
+                                      // 0.5.5/0.5.6: момент последней записи воды — ресивер сам
+                                      // пропускает ближайшее напоминание (настройки «пауза» больше нет)
+                                      .putLong("lastWaterAt", data.optLong("lastWaterAt", prefs.getLong("lastWaterAt", 0)))
                                       .apply();
                                   FitFlowWidgetProvider.updateAll(MainActivity.this);
                               } catch (Exception e) {
@@ -598,11 +633,39 @@ jobs:
           import android.widget.RemoteViews;
 
           public class FitFlowWidgetProvider extends AppWidgetProvider {
+              private static final String ACTION_MIDNIGHT = "com.fitflow.app.WIDGET_MIDNIGHT_REFRESH";
+
               public static void updateAll(Context context) {
                   AppWidgetManager manager = AppWidgetManager.getInstance(context);
                   ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
                   int[] ids = manager.getAppWidgetIds(component);
                   for (int id : ids) updateWidget(context, manager, id);
+                  scheduleMidnightRefresh(context);
+              }
+
+              /* 0.5.5 (полевой баг: утром виджет показывал вчерашний день):
+                 самоподдерживающийся будильник на ближайшую полночь — updateWidget
+                 сам обнулит чужую дату (страж 0.4.12) и перевооружит следующий. */
+              private static void scheduleMidnightRefresh(Context context) {
+                  try {
+                      java.util.Calendar cal = java.util.Calendar.getInstance();
+                      cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
+                      cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+                      cal.set(java.util.Calendar.MINUTE, 0);
+                      cal.set(java.util.Calendar.SECOND, 5);
+                      cal.set(java.util.Calendar.MILLISECOND, 0);
+                      Intent i = new Intent(context, FitFlowWidgetProvider.class);
+                      i.setAction(ACTION_MIDNIGHT);
+                      android.app.PendingIntent pi = android.app.PendingIntent.getBroadcast(context, 9, i,
+                          android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
+                      android.app.AlarmManager am = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+                      if (am == null) return;
+                      if (android.os.Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
+                          am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), pi);
+                      } else {
+                          am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), pi);
+                      }
+                  } catch (Exception e) { }
               }
 
               @Override
@@ -681,6 +744,12 @@ jobs:
               @Override
               public void onReceive(Context context, Intent intent) {
                   super.onReceive(context, intent);
+                  // 0.5.5: полночь — перерисовать (дата-страж обнулит вчерашнее)
+                  // и перевооружить будильник на следующую полночь.
+                  if (intent != null && ACTION_MIDNIGHT.equals(intent.getAction())) {
+                      updateAll(context);
+                      return;
+                  }
                   if (intent != null && "com.fitflow.app.ADD_WATER_250".equals(intent.getAction())) {
                       SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
                       // 0.4.12: вчерашний остаток не наследуем — за полночь база
@@ -694,6 +763,7 @@ jobs:
                           .putInt("waterTotal", waterTotal)
                           .putInt("pendingWaterAdd", pendingAdd)
                           .putString("date", today)
+                          .putLong("lastWaterAt", System.currentTimeMillis()) // 0.5.5
                           .apply();
                       updateAll(context);
                       // Если на экране висит напоминание о воде — обновить его текст вживую
@@ -750,6 +820,17 @@ jobs:
                   // 0.4.13: смахнутое напоминание не возвращается минимум 45 минут.
                   if (ACTION_DISMISS.equals(action)) {
                       prefs(context).edit().putLong(KEY_MUTE_UNTIL, System.currentTimeMillis() + DISMISS_MUTE_MS).apply();
+                      rescheduleFromPrefs(context);
+                      return;
+                  }
+                  // 0.5.6 (решение владельца вместо настройки «пауза»): вода записана
+                  // недавно — ближайший сигнал пропускаем; сетка НЕ сдвигается, следующее
+                  // напоминание придёт в свой обычный час. Порог — сам интервал сетки:
+                  // пьёшь не реже, чем напоминает FitFlow, — значит, не донимаем.
+                  SharedPreferences wprefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
+                  long lastWaterAt = wprefs.getLong("lastWaterAt", 0);
+                  if (lastWaterAt > 0
+                          && System.currentTimeMillis() - lastWaterAt < scheduleIntervalMs(context)) {
                       rescheduleFromPrefs(context);
                       return;
                   }
@@ -817,6 +898,31 @@ jobs:
                   } catch (SecurityException se) {
                       try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi); } catch (Exception e2) { }
                   } catch (Exception e) { }
+              }
+
+              /* 0.5.6: интервал сетки в мс — минимальный положительный зазор между
+                 соседними слотами сохранённого расписания (оно в минутах от полуночи,
+                 через запятую: "480,570,660,..."). Если вычислить нельзя — 90 минут. */
+              private static long scheduleIntervalMs(Context context) {
+                  try {
+                      String csv = prefs(context).getString(KEY_TIMES, "");
+                      if (csv == null || csv.trim().length() == 0) return 90L * 60000L;
+                      ArrayList<Integer> mins = new ArrayList<>();
+                      for (String part : csv.split(",")) {
+                          try {
+                              int v = Integer.parseInt(part.trim());
+                              if (v >= 0 && v < 1440) mins.add(v);
+                          } catch (Exception e) { }
+                      }
+                      Collections.sort(mins);
+                      int best = 0;
+                      for (int i = 1; i < mins.size(); i++) {
+                          int diff = mins.get(i) - mins.get(i - 1);
+                          if (diff > 0 && (best == 0 || diff < best)) best = diff;
+                      }
+                      if (best > 0) return best * 60000L;
+                  } catch (Exception e) { }
+                  return 90L * 60000L;
               }
 
               static long computeNextTrigger(Context context, long nowMs) {
@@ -888,6 +994,14 @@ jobs:
                   PendingIntent addPi = PendingIntent.getBroadcast(context, 42, add,
                       PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+                  // 0.5.5 (владелец): «⚙️ Настроить» — сразу в раздел напоминаний
+                  // о воде с подсветкой (маршрут делает app.js: openNotificationSettings).
+                  Intent nset = new Intent(context, MainActivity.class);
+                  nset.putExtra("widget_action", "notif_settings_water");
+                  nset.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  PendingIntent nsetPi = PendingIntent.getActivity(context, 44, nset,
+                      PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
                   String text = justAdded
                       ? "✓ Записано! Сегодня: " + total + " из " + goal + " мл."
                       : "Текущий прогресс: " + total + " из " + goal + " мл. Нажмите +250 мл — записывать можно прямо здесь.";
@@ -912,7 +1026,8 @@ jobs:
                       .setAutoCancel(true)
                       .setCategory(NotificationCompat.CATEGORY_REMINDER)
                       .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                      .addAction(R.drawable.ic_stat_icon, "+ 250 мл воды", addPi);
+                      .addAction(R.drawable.ic_stat_icon, "+ 250 мл воды", addPi)
+                      .addAction(R.drawable.ic_stat_icon, "⚙️ Настроить", nsetPi);
                   try {
                       NotificationManagerCompat.from(context).notify(WATER_NOTIFICATION_ID, b.build());
                       // 0.4.15 (просьба владельца): подтверждение «+250 мл» показывает
