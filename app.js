@@ -2603,7 +2603,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.6';
+const FITFLOW_VERSION = '0.5.7';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -7623,7 +7623,9 @@ async function scheduleWaterReminders({ requestPermission = true } = {}) {
           notifications.push({
             id: 75000 + d * 100 + slotCounter,
             title: '💧 Время выпить воду',
-            body: `Не забудьте добавить воду в FitFlow. Сейчас: ${state.water.total || 0} из ${state.water.goal} мл.`,
+            // 0.5.7 (владелец): текст короче — полностью виден в свёрнутом
+            // уведомлении, разворачивать не нужно (кнопки и так сразу на месте).
+            body: `Сегодня: ${state.water.total || 0} из ${state.water.goal} мл.`,
             schedule: { at: new Date(at), allowWhileIdle: true },
             channelId: WATER_REMINDER_CHANNEL,
             smallIcon: 'ic_stat_icon', iconColor: '#00696B', autoCancel: true,

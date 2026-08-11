@@ -3902,3 +3902,14 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 .weekly-status-chip.todo { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
 .weekly-status-chip.todo { font-weight: 600; }
 .help-dot-inline { vertical-align: -2px; }
+
+/* ============================================================
+   0.5.7 — быстрый ввод: «Разобрать» всегда на виду (полевой баг
+   владельца: строка из 5 широких кнопок сжималась и обрезалась);
+   нижний отступ подложки диалогов — под системную панель.
+   ============================================================ */
+.smart-entry-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.smart-entry-actions .icon-btn { flex: 0 0 auto; width: 40px; height: 40px; font-size: 1.05rem; }
+.smart-entry-actions .btn-primary { flex: 0 0 auto; padding: 11px 18px; }
+.smart-entry-cancel-btn { width: 100%; margin-top: 4px; }
+.app-dialog-backdrop { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }

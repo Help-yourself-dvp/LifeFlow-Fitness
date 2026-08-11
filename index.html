@@ -1062,7 +1062,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.6</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.7</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1682,13 +1682,17 @@
       <textarea id="smart-entry-input" rows="4" placeholder="Например: позанимался 45 минут, выпил 500 мл воды и съел банан"></textarea>
       <button class="smart-help-btn" id="smart-voice-help-open" type="button">О голосовом офлайн-вводе <span class="help-dot smart-help-dot" aria-hidden="true">?</span></button>
       <div class="smart-preview" id="smart-entry-preview" hidden></div>
-      <div class="app-dialog-actions">
-        <button class="btn btn-secondary" id="smart-entry-cancel" type="button">Отмена</button>
-        <button class="btn btn-secondary" id="smart-entry-voice" type="button">🎙 Надиктовать</button>
-        <button class="btn btn-secondary" id="smart-entry-photo" type="button">📷 Камера</button>
-        <button class="btn btn-secondary" id="smart-entry-photo-gallery" type="button">🖼 Галерея</button>
+      <!-- 0.5.7 (полевой баг владельца): пять широких кнопок сжимались в одну
+           строку, «Разобрать» обрезался по нижней границе. Теперь как в экране
+           «Помощник»: иконки-источники слева, «Разобрать» справа — всегда на виду. -->
+      <div class="app-dialog-actions smart-entry-actions">
+        <button class="icon-btn ai-icon-btn" id="smart-entry-voice" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">🎙</button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">📷</button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo-gallery" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">🖼</button>
+        <span class="ai-actions-spacer"></span>
         <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
       </div>
+      <button class="btn btn-ghost smart-entry-cancel-btn" id="smart-entry-cancel" type="button">Отмена</button>
       <button class="btn btn-secondary" id="smart-entry-combo-btn" type="button" hidden>☆ В комбо</button>
       <button class="btn btn-primary" id="smart-entry-save" type="button" hidden>Сохранить записи</button>
       <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>

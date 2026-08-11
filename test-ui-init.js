@@ -873,7 +873,7 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
   console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.5 в коде и «О приложении»`);
@@ -1006,7 +1006,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1062,7 +1062,7 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
@@ -1105,7 +1105,7 @@ for (const id of ids) {
   if (!okWeekly052) failed++;
   console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2/0.5.5 активность: «выполнено ИЗ цели», чип-статус, «?» с объяснением`);
 
-  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   if (!okVer052) failed++;
   console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
 }
@@ -1140,7 +1140,7 @@ for (const id of ids) {
   if (!okCharity) failed++;
   console.log(`${okCharity ? '✓' : '✗'} 0.5.3 добрые дела: открытые отчёты в «О приложении», пусто — честно`);
 
-  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   if (!okVer053) failed++;
   console.log(`${okVer053 ? '✓' : '✗'} 0.5.3 версия в коде и «О приложении»`);
 }
@@ -1179,7 +1179,7 @@ for (const id of ids) {
   if (!okSupport054) failed++;
   console.log(`${okSupport054 ? '✓' : '✗'} 0.5.4 поддержка: повтор не чаще 14 дней, PRO не тревожим, блок в «О приложении»`);
 
-  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   if (!okVer054) failed++;
   console.log(`${okVer054 ? '✓' : '✗'} 0.5.4 версия в коде и «О приложении»`);
 }
@@ -1226,7 +1226,7 @@ for (const id of ids) {
   if (!okLicense055) failed++;
   console.log(`${okLicense055 ? '✓' : '✗'} 0.5.5 лицензия: LICENSE в репозитории`);
 
-  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   if (!okVer055) failed++;
   console.log(`${okVer055 ? '✓' : '✗'} 0.5.5 версия в коде и «О приложении»`);
 }
@@ -1279,13 +1279,40 @@ for (const id of ids) {
 
   // Единое описание приложения (п.1 владельца): файл есть и актуален версии
   const descR = fs.existsSync('APP_DESCRIPTION.md') ? fs.readFileSync('APP_DESCRIPTION.md', 'utf8') : '';
-  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.5.6');
+  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.5.7');
   if (!okDesc065) failed++;
   console.log(`${okDesc065 ? '✓' : '✗'} 0.5.6 APP_DESCRIPTION.md: единое описание приложения на месте и актуально`);
 
-  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.5.6'") && html.includes('v0.5.6');
+  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
   if (!okVer065) failed++;
   console.log(`${okVer065 ? '✓' : '✗'} 0.5.6 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.5.7 (полевой баг «Быстрого ввода» + короткий текст воды) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // «Быстрый ввод»: «Разобрать» на виду — иконки-источники + primary в одном ряду,
+  // «Отмена» отдельной строкой (раньше 5 широких кнопок сжимались и обрезались)
+  const okSmart057 = html.includes('smart-entry-actions') && html.includes('id="smart-entry-parse"')
+    && html.includes('id="smart-entry-cancel"')
+    && cssR.includes('.smart-entry-actions') && cssR.includes('.smart-entry-cancel-btn');
+  if (!okSmart057) failed++;
+  console.log(`${okSmart057 ? '✓' : '✗'} 0.5.7 быстрый ввод: «Разобрать» всегда на виду`);
+
+  // Уведомление воды: короткий текст целиком виден в свёрнутом виде (нативно + JS-фолбэк)
+  const mirror057 = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okWaterText057 = !mirror057.includes('записывать можно прямо здесь')
+    && mirror057.includes('"Сегодня: " + total + " из " + goal + " мл."')
+    && !appR.includes('Не забудьте добавить воду в FitFlow');
+  if (!okWaterText057) failed++;
+  console.log(`${okWaterText057 ? '✓' : '✗'} 0.5.7 уведомление воды: короткий текст (натив + JS)`);
+
+  const okVer057 = appR.includes("const FITFLOW_VERSION = '0.5.7'") && html.includes('v0.5.7');
+  if (!okVer057) failed++;
+  console.log(`${okVer057 ? '✓' : '✗'} 0.5.7 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
