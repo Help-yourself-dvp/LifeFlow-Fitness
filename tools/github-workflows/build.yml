@@ -176,7 +176,7 @@ jobs:
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
                   initStepSensors();
-                  try { HealthSyncReceiver.schedulePeriodicSync(this); } catch (Exception e) { }
+                  try { Class.forName("com.fitflow.app.HealthSyncReceiver").getMethod("schedulePeriodicSync", android.content.Context.class).invoke(null, this); } catch (Exception e) { }
                   checkPendingWidgetWaterAdd();
                   Intent startIntent = getIntent();
                   if (startIntent != null && startIntent.hasExtra("widget_action")) {
