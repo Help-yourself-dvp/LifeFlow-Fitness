@@ -318,6 +318,60 @@ jobs:
                       }
                   }
 
+                  /* Шагомер: получить количество шагов телефона за сегодня */
+                  @JavascriptInterface
+                  public int getPhoneStepsToday() {
+                      try {
+                          SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                          String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                          String savedDate = prefs.getString("steps_date", "");
+                          if (today.equals(savedDate)) {
+                              return prefs.getInt("steps_today", 0);
+                          }
+                          return 0;
+                      } catch (Exception e) {
+                          return 0;
+                      }
+                  }
+
+                  /* Открыть системные настройки разрешений Health Connect */
+                  @JavascriptInterface
+                  public void openHealthConnectSettings() {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  Intent intent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(intent);
+                              } catch (Exception e) {
+                                  try {
+                                      Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                      intent.setData(Uri.fromParts("package", getPackageName(), null));
+                                      startActivity(intent);
+                                  } catch (Exception e2) { }
+                              }
+                          }
+                      });
+                  }
+
+                  /* Запросить разрешение на физическую активность (шагомер) */
+                  @JavascriptInterface
+                  public void requestActivityRecognition() {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  if (Build.VERSION.SDK_INT >= 29) {
+                                      if (checkSelfPermission(android.Manifest.permission.ACTIVITY_RECOGNITION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                          requestPermissions(new String[]{android.Manifest.permission.ACTIVITY_RECOGNITION}, 1002);
+                                      }
+                                  }
+                              } catch (Exception e) { }
+                          }
+                      });
+                  }
+
                   /* Открыть нужный экран системных настроек */
                   @JavascriptInterface
                   public void openSettingsScreen(final String which) {
@@ -1065,6 +1119,10 @@ jobs:
               'android.permission.RECEIVE_BOOT_COMPLETED',
               'android.permission.WAKE_LOCK',
               'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+              'android.permission.ACTIVITY_RECOGNITION',
+              'android.permission.health.READ_STEPS',
+              'android.permission.health.READ_TOTAL_CALORIES_BURNED',
+              'android.permission.health.READ_EXERCISE',
           ]
           for p in perms:
               tag = f'    <uses-permission android:name="{p}" />\n'
