@@ -3694,9 +3694,13 @@ html[data-font="serif"] h3 {
 /* 0.5.1 (п.10 владельца): плашка самочувствия снова компактная */
 .mood-inline-btn { border: 1px solid transparent; background: var(--md-sys-color-surface-container-high); border-radius: 9px; font-size: 0.96rem; padding: 3px 6px; }
 .mood-inline-btn.active { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); }
-.mood-compact-row { justify-content: space-between; }
+/* 0.5.6 (п.8 владельца): плашка самочувствия — две аккуратные строки: заголовок
+   со смайлами в первой, примечание во второй во всю ширину. Раньше левая часть
+   ломалась на 4 строки («значок / самочувствие / итоги — ближе к / вечеру»). */
+.mood-compact-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+.mood-compact-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
 .mood-compact-label { font-size: 0.8rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
-.mood-compact-note { font-weight: 400; opacity: .75; }
+.mood-card .mood-compact-note { margin: 0; font-size: 0.72rem; font-weight: 400; opacity: .75; }
 
 /* Компактный «План дня» */
 .day-plan-toggle { border: none; background: none; font-size: 0.95rem; color: var(--md-sys-color-primary); padding: 2px 8px; cursor: pointer; }

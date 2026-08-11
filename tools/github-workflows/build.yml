@@ -384,9 +384,9 @@ jobs:
                                       .putInt("activityMinutes", data.optInt("activityMinutes", 0))
                                       .putString("profileName", data.optString("profileName", "Мой профиль"))
                                       .putString("date", data.optString("date", ""))
-                                      // 0.5.5: для пропуска напоминания после недавней записи воды
+                                      // 0.5.5/0.5.6: момент последней записи воды — ресивер сам
+                                      // пропускает ближайшее напоминание (настройки «пауза» больше нет)
                                       .putLong("lastWaterAt", data.optLong("lastWaterAt", prefs.getLong("lastWaterAt", 0)))
-                                      .putInt("waterSkipGapMin", data.optInt("waterSkipGapMin", prefs.getInt("waterSkipGapMin", 0)))
                                       .apply();
                                   FitFlowWidgetProvider.updateAll(MainActivity.this);
                               } catch (Exception e) {
@@ -823,13 +823,14 @@ jobs:
                       rescheduleFromPrefs(context);
                       return;
                   }
-                  // 0.5.5 (настройка владельца): если вода записана недавно —
-                  // этот сигнал пропускаем; сетка расписания не сдвигается.
+                  // 0.5.6 (решение владельца вместо настройки «пауза»): вода записана
+                  // недавно — ближайший сигнал пропускаем; сетка НЕ сдвигается, следующее
+                  // напоминание придёт в свой обычный час. Порог — сам интервал сетки:
+                  // пьёшь не реже, чем напоминает FitFlow, — значит, не донимаем.
                   SharedPreferences wprefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
-                  int skipGapMin = wprefs.getInt("waterSkipGapMin", 0);
                   long lastWaterAt = wprefs.getLong("lastWaterAt", 0);
-                  if (skipGapMin > 0 && lastWaterAt > 0
-                          && System.currentTimeMillis() - lastWaterAt < skipGapMin * 60000L) {
+                  if (lastWaterAt > 0
+                          && System.currentTimeMillis() - lastWaterAt < scheduleIntervalMs(context)) {
                       rescheduleFromPrefs(context);
                       return;
                   }
@@ -897,6 +898,31 @@ jobs:
                   } catch (SecurityException se) {
                       try { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi); } catch (Exception e2) { }
                   } catch (Exception e) { }
+              }
+
+              /* 0.5.6: интервал сетки в мс — минимальный положительный зазор между
+                 соседними слотами сохранённого расписания (оно в минутах от полуночи,
+                 через запятую: "480,570,660,..."). Если вычислить нельзя — 90 минут. */
+              private static long scheduleIntervalMs(Context context) {
+                  try {
+                      String csv = prefs(context).getString(KEY_TIMES, "");
+                      if (csv == null || csv.trim().length() == 0) return 90L * 60000L;
+                      ArrayList<Integer> mins = new ArrayList<>();
+                      for (String part : csv.split(",")) {
+                          try {
+                              int v = Integer.parseInt(part.trim());
+                              if (v >= 0 && v < 1440) mins.add(v);
+                          } catch (Exception e) { }
+                      }
+                      Collections.sort(mins);
+                      int best = 0;
+                      for (int i = 1; i < mins.size(); i++) {
+                          int diff = mins.get(i) - mins.get(i - 1);
+                          if (diff > 0 && (best == 0 || diff < best)) best = diff;
+                      }
+                      if (best > 0) return best * 60000L;
+                  } catch (Exception e) { }
+                  return 90L * 60000L;
               }
 
               static long computeNextTrigger(Context context, long nowMs) {

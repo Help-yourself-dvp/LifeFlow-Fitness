@@ -2587,7 +2587,7 @@ const DEFAULTS = {
   profileSettings: { weightKg: null, weightHistory: [], sex: null, ageYears: null, heightCm: null, activityLevel: null },
   mealReminders: { enabled: false, meals: [] },
   customMealTypes: [],
-  waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00', skipRecentGapMin: 0 },
+  waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
   customFoods: [], // Личная база продуктов (0.3.25): точные значения с упаковки, перекрывают общую
@@ -2603,7 +2603,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.5';
+const FITFLOW_VERSION = '0.5.6';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -3052,13 +3052,15 @@ function normalizeAiSettings() {
 }
 
 function normalizeWaterReminders() {
+  // 0.5.6 (решение владельца): настройки «пауза после записи» больше нет — «и так
+  // уже слишком много переключателей». Правило стало автоматическим и фиксированным
+  // (isWaterReminderSlotSkipped). Поле зазора паузы из старых сохранений осознанно не переносим.
   const source = state.waterReminders || {};
   state.waterReminders = {
     enabled: source.enabled === true,
     interval: [60, 90, 120].includes(Number(source.interval)) ? Number(source.interval) : DEFAULTS.waterReminders.interval,
     windowStart: isValidReminderTime(source.windowStart) ? source.windowStart : DEFAULTS.waterReminders.windowStart,
-    windowEnd: isValidReminderTime(source.windowEnd) ? source.windowEnd : DEFAULTS.waterReminders.windowEnd,
-    skipRecentGapMin: [0, 30, 45, 60].includes(Number(source.skipRecentGapMin)) ? Number(source.skipRecentGapMin) : 0
+    windowEnd: isValidReminderTime(source.windowEnd) ? source.windowEnd : DEFAULTS.waterReminders.windowEnd
   };
 }
 
@@ -4289,8 +4291,7 @@ function updateNativeWidget() {
     window.FitFlowExport.updateWidget(JSON.stringify({
       waterTotal: state.water.total,
       waterGoal: state.water.goal,
-      lastWaterAt: state.water.lastAddedAt || 0,
-      waterSkipGapMin: state.waterReminders.skipRecentGapMin || 0,
+      lastWaterAt: state.water.lastAddedAt || 0, // для автопропуска ближайшего напоминания (0.5.6)
       foodTotal,
       foodGoal: state.food.goal,
       activityMinutes,
@@ -4578,8 +4579,13 @@ function renderDayMoodCard() {
     ? `${emojis[mood]} ${mood}/5 · ${labels[mood]}`
     : (evening ? 'как прошёл день?' : 'итоги — ближе к вечеру');
   card.hidden = false;
+  // 0.5.6 (п.8 владельца): две аккуратные строки вместо 4-строчного левого
+  // столбца — заголовок со смайлами в первой, примечание во второй во всю ширину.
   card.innerHTML = `<div class="card checklist-card mood-card" aria-label="Самочувствие за день">
-    <div class="mood-card-row mood-compact-row"><span class="mood-compact-label">🌗 Самочувствие <span class="mood-compact-note">${note}</span></span><span class="mood-inline-row">${buttons}</span></div>
+    <div class="mood-card-row mood-compact-row">
+      <div class="mood-compact-top"><span class="mood-compact-label">🌗 Самочувствие</span><span class="mood-inline-row">${buttons}</span></div>
+      <p class="mood-compact-note">${note}</p>
+    </div>
   </div>`;
 }
 
@@ -6194,25 +6200,27 @@ function escapeHtml(s) {
 function addWater(ml) {
   state.water.total += ml;
   state.water.log.push({ ts: Date.now(), ml });
-  state.water.lastAddedAt = Date.now(); // 0.5.5: нативное напоминание умеет молчать сразу после записи
+  state.water.lastAddedAt = Date.now(); // момент записи — для правила «записал — ближайшее напоминание молчит»
   saveState();
   renderWater();
+  // 0.5.6: JS-фолбэк-планировщик перестраивает остаток сетки с пропуском ближайшего
+  // слота (нативный ресивер пропускает сам на момент срабатывания, его не трогаем).
+  try {
+    const bridge = getNativeBridge();
+    const nativeActive = bridge && typeof bridge.scheduleWaterRemindersNative === 'function';
+    if (state.waterReminders.enabled && !nativeActive && getLocalNotifications()) {
+      scheduleWaterReminders({ requestPermission: false }).catch(() => { });
+    }
+  } catch (e) { }
 }
 
-/* 0.5.5 (идея владельца): если вода записана недавно — ближайшее напоминание
-   пропускается. Сам пропуск делает нативный ресивер на момент срабатывания
-   (сетка времени не сдвигается); JS здесь лишь передаёт зазор в SharedPreferences
-   через мост виджета. Активируется вместе с нативным пакетом 0.5.5. */
-function updateWaterSkipGap(minutes) {
-  const value = [0, 30, 45, 60].includes(Number(minutes)) ? Number(minutes) : 0;
-  state.waterReminders.skipRecentGapMin = value;
-  saveState();
-  renderWaterReminderSettings();
-  updateNativeWidget();
-  toast(value === 0
-    ? 'Пауза после записи выключена — напоминания идут по расписанию'
-    : `После записи воды напоминание молчит ${value} мин`);
-}
+/* 0.5.5 → 0.5.6 (решение владельца): переключателя «пауза после записи воды»
+   больше нет — «и так уже слишком много переключателей и настроек». Правило
+   фиксированное и автоматическое: вода записана — БЛИЖАЙШЕЕ напоминание молчит,
+   следующее приходит по обычной сетке (сетка не сдвигается). Порог — сам
+   интервал сетки: пьёшь не реже, чем напоминает FitFlow, — не донимаем.
+   Реализация: isWaterReminderSlotSkipped (JS-фолбэк) и WaterReminderReceiver
+   (нативный путь, в зеркале tools/github-workflows/build.yml). */
 
 function undoWater() {
   const last = state.water.log.pop();
@@ -7377,8 +7385,10 @@ function installActivityNotificationListener() {
         return;
       }
       if (extra.source === 'fitflow-water-reminder') {
+        // 0.5.6 (решение владельца): вода из уведомления просто появляется в
+        // приложении — смотри кольцо на Главной. Тост убран: при позднем входе
+        // отложенный «+250 мл» читался как «приложение само что-то записало».
         addWater(250);
-        toast('💧 +250 мл воды по напоминанию');
         return;
       }
       if (extra.source === 'fitflow-training-reminder') {
@@ -7538,6 +7548,18 @@ function buildWaterReminderTimes(interval, windowStart, windowEnd) {
   return [...new Set(times)].sort((a, b) => a - b);
 }
 
+/* 0.5.6 (решение владельца): «записал воду — ближайшее напоминание молчит».
+   Слот пропускается, если запись была не раньше, чем за один интервал до него:
+   при сетке «каждые 90 мин» сигнал в 15:30 умолкнет, если вода отмечена после
+   14:00. Сетка не перестраивается — следующие напоминания идут в свои часы.
+   То же правило — в нативном WaterReminderReceiver. */
+function isWaterReminderSlotSkipped(atMs) {
+  const last = Number(state.water && state.water.lastAddedAt) || 0;
+  if (!last || atMs <= last) return false;
+  const intervalMin = Math.max(1, Number(state.waterReminders && state.waterReminders.interval) || 90);
+  return atMs - last < intervalMin * 60000;
+}
+
 function getNativeBridge() {
   return (typeof window !== 'undefined' && window.FitFlowExport) ? window.FitFlowExport : null;
 }
@@ -7596,7 +7618,8 @@ async function scheduleWaterReminders({ requestPermission = true } = {}) {
       let at = new Date(base); at.setHours(sh, sm, 0, 0);
       const dayEnd = new Date(base); dayEnd.setHours(eh, em, 0, 0);
       while (at <= dayEnd && slotCounter < 75) {
-        if (at > now) {
+        // 0.5.6: слот сразу после недавней записи воды не планируем вовсе
+        if (at > now && !isWaterReminderSlotSkipped(at.getTime())) {
           notifications.push({
             id: 75000 + d * 100 + slotCounter,
             title: '💧 Время выпить воду',
@@ -7635,8 +7658,6 @@ function renderWaterReminderSettings() {
   if (opts) opts.hidden = !state.waterReminders.enabled;
   $$('#water-interval-choices button').forEach((btn) =>
     btn.classList.toggle('active', Number(btn.dataset.waterInterval) === state.waterReminders.interval));
-  $$('#water-skip-choices button').forEach((btn) =>
-    btn.classList.toggle('active', Number(btn.dataset.waterSkip) === state.waterReminders.skipRecentGapMin));
   status.textContent = state.waterReminders.enabled
     ? `Каждые ${state.waterReminders.interval} мин с ${state.waterReminders.windowStart} до ${state.waterReminders.windowEnd}.`
     : 'Напоминания о воде выключены.';
@@ -8022,7 +8043,7 @@ function openTermsDialog(viewOnly = false) {
   if (hint) {
     hint.textContent = viewOnly
       ? 'Вы уже приняли эти условия. Если вы не согласны с ними, пожалуйста, прекратите использование приложения и удалите его с устройства.'
-      : 'Нажатием «Понимаю и принимаю» вы подтверждаете ознакомление с условиями.';
+      : 'Нажатием «Понимаю и принимаю» вы подтверждаете ознакомление с условиями использования и лицензией FitFlow (полный текст лицензии — кнопка «📜 Читать лицензию полностью» выше, после входа — Настройки → О приложении → «📜 Лицензия»).';
   }
   dialog.hidden = false;
 }
@@ -8069,6 +8090,18 @@ function openSourcesDialog() {
 
 function closeSourcesDialog() {
   const dialog = $('#sources-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+/* 0.5.6 (п.10 владельца): лицензия — как остальные пункты «О приложении»,
+   отдельным окном с полным текстом; из блока на странице убрана. */
+function openLicenseDialog() {
+  const dialog = $('#license-dialog');
+  if (dialog) dialog.hidden = false;
+}
+
+function closeLicenseDialog() {
+  const dialog = $('#license-dialog');
   if (dialog) dialog.hidden = true;
 }
 
@@ -8272,7 +8305,7 @@ const HELP_TOPICS = {
   },
   'weekly-goal': {
     title: 'Цель активности на 7 дней',
-    text: 'Считаются все записи раздела «Активность» — и тренировки, и активная жизнь: прогулки, включая дорогу на работу, тоже идут в зачёт (ходьбу ВОЗ считает полноценной активностью). Ориентир ВОЗ — 150 минут умеренной активности в неделю. Если вы много ходите по жизни — поднимите цель кнопкой «Цель»; если хотите учитывать только тренировки — оставьте ниже, это ваш ориентир, а не норматив. Шаги с браслета и телефона (этап 0.8.0) будут отдельной метрикой и сюда не суммируются.'
+    text: 'Считаются все записи раздела «Активность» — и тренировки, и активная жизнь: прогулки, включая дорогу на работу, тоже идут в зачёт (ходьбу ВОЗ считает полноценной активностью). Ориентир ВОЗ — 150 минут умеренной активности в неделю. Если вы много ходите по жизни — поднимите цель кнопкой «Цель»; если хотите учитывать только тренировки — оставьте ниже, это ваш ориентир, а не норматив. Шаги с телефона или браслета (этап 0.8.0) тоже пойдут в общий зачёт активности: активность есть активность, отдельной параллельной метрики не будет. Прогресс по конкретным упражнениям (веса, подходы) появится в дневнике тренировок (этап 0.7.0) — с графиками по выбранным упражнениям.'
   },
   'day-checklist': {
     title: 'Чек-лист дня',
@@ -8674,9 +8707,11 @@ if (typeof window !== 'undefined') {
      идёт через плагин FitFlowLocalAI → selectLocalModelFile() → importModel. */
   window.onWidgetAction = function (action) {
     if (action && String(action).startsWith('add_water_')) {
+      // 0.5.6 (решение владельца): запись с виджета подтягивается молча, без
+      // отложенного тоста при входе — «внесли воду не через приложение = она
+      // просто обновилась, лишних окон не надо».
       const ml = Number(String(action).replace('add_water_', '')) || 250;
       addWater(ml);
-      toast(`💧 +${ml} мл воды с виджета`);
     } else if (action === 'notif_settings_water') {
       // 0.5.5: кнопка «⚙️ Настроить» нативного напоминания о воде
       openNotificationSettings('water');
@@ -9773,6 +9808,10 @@ function init() {
 
   // 0.5.2: диалог «Быстрые записи»
   bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
+  // 0.5.6 (полевой баг владельца): значки 🍽 и ✍️ не реагировали — привязка
+  // была только у ⭐. Теперь каждый значок открывает СВОЮ вкладку того же диалога.
+  bindEvent('#quick-open-meals', 'click', () => openQuickRecordsDialog('meals'));
+  bindEvent('#quick-open-manual', 'click', () => openQuickRecordsDialog('manual'));
   bindEvent('#quick-records-close', 'click', closeQuickRecordsDialog);
   $$('#quick-records-tabs [data-quick-tab]').forEach((btn) =>
     btn.addEventListener('click', () => switchQuickTab(btn.dataset.quickTab)));
@@ -9859,6 +9898,10 @@ function init() {
   $('#privacy-help').addEventListener('click', openPrivacyDialog);
   $('#privacy-dialog-ok').addEventListener('click', closePrivacyDialog);
   $('#sources-open').addEventListener('click', openSourcesDialog);
+  // 0.5.6: лицензия отдельным окном; кнопка есть и в окне условий при первом входе
+  bindEvent('#license-open', 'click', openLicenseDialog);
+  bindEvent('#license-dialog-ok', 'click', closeLicenseDialog);
+  bindEvent('#terms-license-open', 'click', openLicenseDialog);
   $('#sources-dialog-ok').addEventListener('click', closeSourcesDialog);
   $('#methodology-open').addEventListener('click', openMethodologyDialog);
   $('#methodology-dialog-ok').addEventListener('click', closeMethodologyDialog);
@@ -10105,8 +10148,6 @@ function init() {
   $('#water-reminders-toggle').addEventListener('change', (e) => updateWaterRemindersEnabled(e.target.checked));
   $$('#water-interval-choices button').forEach((btn) =>
     btn.addEventListener('click', () => updateWaterReminderInterval(Number(btn.dataset.waterInterval))));
-  $$('#water-skip-choices button').forEach((btn) =>
-    btn.addEventListener('click', () => updateWaterSkipGap(Number(btn.dataset.waterSkip))));
   bindEvent('#notification-setup-btn', 'click', () => switchView('notifications'));
   bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
   $('#notifications-back-btn').addEventListener('click', () => switchView('settings-notifications'));
