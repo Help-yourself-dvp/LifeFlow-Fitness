@@ -6301,6 +6301,46 @@ if (typeof window !== 'undefined') {
 function syncHealthDataNow() {
   normalizeHealthSync();
   if (!state.healthSync.enabled) return;
+
+  // 1. Быстрое чтение фонового снимка из нативного кэша (0 мс задержки)
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.getHealthSyncSnapshot === 'function') {
+      const raw = window.FitFlowExport.getHealthSyncSnapshot();
+      if (raw && raw.length > 2) {
+        const snap = JSON.parse(raw);
+        if (snap && snap.date === todayKey()) {
+          const hcSteps = Math.max(0, Number(snap.hcSteps) || 0);
+          const phoneSteps = Math.max(0, Number(snap.phoneSteps) || 0);
+          const hcKcal = Math.max(0, Number(snap.hcKcal) || 0);
+          
+          if (state.healthSync.priority === 'health_connect_only') {
+            state.healthSync.lastSteps = hcSteps;
+            state.healthSync.lastSource = 'Zepp / Health Connect';
+          } else if (state.healthSync.priority === 'phone_only') {
+            state.healthSync.lastSteps = phoneSteps;
+            state.healthSync.lastSource = 'шагомер телефона';
+          } else {
+            // Автоприоритет: часы через Health Connect при наличии, иначе шагомер телефона
+            if (hcSteps > 0) {
+              state.healthSync.lastSteps = hcSteps;
+              state.healthSync.lastSource = 'Zepp / Health Connect';
+            } else if (phoneSteps > 0) {
+              state.healthSync.lastSteps = phoneSteps;
+              state.healthSync.lastSource = 'шагомер телефона';
+            }
+          }
+          if (hcKcal > 0) state.healthSync.lastKcal = hcKcal;
+          state.healthSync.lastSyncTs = snap.lastSync || Date.now();
+          saveState();
+          renderHealthSyncSettings();
+          renderFood();
+          return;
+        }
+      }
+    }
+  } catch (e) { }
+
+  // 2. Прямой опрос телефонного датчика
   const phoneSteps = getPhoneSteps();
   if (phoneSteps > 0) {
     state.healthSync.lastSteps = phoneSteps;
@@ -6308,6 +6348,7 @@ function syncHealthDataNow() {
     state.healthSync.lastSyncTs = Date.now();
     saveState();
     renderHealthSyncSettings();
+    renderFood();
   }
 }
 

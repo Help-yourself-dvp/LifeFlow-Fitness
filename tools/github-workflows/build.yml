@@ -176,6 +176,7 @@ jobs:
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
                   initStepSensors();
+                  try { HealthSyncReceiver.schedulePeriodicSync(this); } catch (Exception e) { }
                   checkPendingWidgetWaterAdd();
                   Intent startIntent = getIntent();
                   if (startIntent != null && startIntent.hasExtra("widget_action")) {
@@ -392,6 +393,27 @@ jobs:
                       } catch (Exception e) {
                           return true;
                       }
+                  }
+
+                  /* Снимок фоновой синхронизации: шаги и калории из Health Connect и телефона */
+                  @JavascriptInterface
+                  public String getHealthSyncSnapshot() {
+                      try {
+                          SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                          String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                          String savedDate = prefs.getString("steps_date", "");
+                          if (today.equals(savedDate)) {
+                              int hcSteps = prefs.getInt("hc_steps_today", 0);
+                              float hcKcal = prefs.getFloat("hc_kcal_today", 0.0f);
+                              int phoneSteps = prefs.getInt("steps_today", 0);
+                              long lastSync = prefs.getLong("hc_last_sync_ts", 0);
+                              return String.format(java.util.Locale.US,
+                                  "{\"date\":\"%s\",\"hcSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"lastSync\":%d}",
+                                  today, hcSteps, hcKcal, phoneSteps, lastSync
+                              );
+                          }
+                      } catch (Exception e) { }
+                      return "{}";
                   }
 
                   /* Шагомер: получить количество шагов телефона за сегодня */
@@ -1242,6 +1264,84 @@ jobs:
           }
           EOF
 
+          cat > android/app/src/main/java/com/fitflow/app/HealthSyncReceiver.java << 'EOF'
+          package com.fitflow.app;
+
+          import android.app.AlarmManager;
+          import android.app.PendingIntent;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.util.Log;
+          import java.time.Instant;
+          import java.time.ZoneId;
+          import java.time.ZonedDateTime;
+          import java.util.HashSet;
+          import java.util.Set;
+
+          public class HealthSyncReceiver extends BroadcastReceiver {
+              public static final String ACTION_PERIODIC_SYNC = "com.fitflow.app.ACTION_HEALTH_PERIODIC_SYNC";
+
+              @Override
+              public void onReceive(final Context context, Intent intent) {
+                  new Thread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              if (androidx.health.connect.client.HealthConnectClient.isProviderAvailable(context)) {
+                                  androidx.health.connect.client.HealthConnectClient client = androidx.health.connect.client.HealthConnectClient.getOrCreate(context);
+                                  ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+                                  ZonedDateTime startOfDay = now.toLocalDate().atStartOfDay(ZoneId.systemDefault());
+                                  androidx.health.connect.client.time.TimeRangeFilter filter = androidx.health.connect.client.time.TimeRangeFilter.between(startOfDay.toInstant(), now.toInstant());
+                                  
+                                  Set<androidx.health.connect.client.aggregate.AggregateMetric<?>> metrics = new HashSet<>();
+                                  metrics.add(androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL);
+                                  metrics.add(androidx.health.connect.client.records.TotalCaloriesBurnedRecord.ENERGY_TOTAL);
+                                  
+                                  androidx.health.connect.client.request.AggregateRequest req = new androidx.health.connect.client.request.AggregateRequest(metrics, filter, new HashSet<>());
+                                  androidx.health.connect.client.aggregate.AggregationResult res = kotlinx.coroutines.BuildersKt.runBlocking(
+                                      kotlinx.coroutines.Dispatchers.getIO(),
+                                      (scope, continuation) -> client.aggregate(req, continuation)
+                                  );
+                                  
+                                  Long stepsObj = res.get(androidx.health.connect.client.records.StepsRecord.COUNT_TOTAL);
+                                  androidx.health.connect.client.units.Energy energyObj = res.get(androidx.health.connect.client.records.TotalCaloriesBurnedRecord.ENERGY_TOTAL);
+                                  int steps = stepsObj != null ? stepsObj.intValue() : 0;
+                                  double kcal = energyObj != null ? energyObj.getKilocalories() : 0.0;
+                                  
+                                  String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                                  SharedPreferences prefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
+                                  prefs.edit()
+                                      .putString("steps_date", today)
+                                      .putInt("hc_steps_today", steps)
+                                      .putFloat("hc_kcal_today", (float) kcal)
+                                      .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                      .apply();
+                              }
+                          } catch (Exception e) {
+                              Log.w("FitFlowHealthSync", "Auto background sync error: " + e.getMessage());
+                          }
+                      }
+                  }).start();
+              }
+
+              public static void schedulePeriodicSync(Context context) {
+                  try {
+                      AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+                      Intent i = new Intent(context, HealthSyncReceiver.class);
+                      i.setAction(ACTION_PERIODIC_SYNC);
+                      PendingIntent pi = PendingIntent.getBroadcast(context, 8402, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                      if (am != null) {
+                          long interval = 60 * 60 * 1000L; // каждый 1 час в фоне
+                          long next = System.currentTimeMillis() + interval;
+                          am.setInexactRepeating(AlarmManager.RTC_WAKEUP, next, interval, pi);
+                      }
+                  } catch (Exception e) { }
+              }
+          }
+          EOF
+
       - name: Patch manifest and icons
         run: |
           sudo apt-get update -qq
@@ -1311,6 +1411,16 @@ jobs:
           )
           if 'WaterReminderReceiver' not in t:
               t = t.replace('</application>', water_receiver + '    </application>')
+          health_sync_receiver = (
+              '        <receiver android:name=".HealthSyncReceiver" android:enabled="true" android:exported="false">\n'
+              '            <intent-filter>\n'
+              '                <action android:name="com.fitflow.app.ACTION_HEALTH_PERIODIC_SYNC" />\n'
+              '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
+              '            </intent-filter>\n'
+              '        </receiver>\n'
+          )
+          if 'HealthSyncReceiver' not in t:
+              t = t.replace('</application>', health_sync_receiver + '    </application>')
           # IME/клавиатура (0.3.17): без softInputMode система не сжимает вьюпорт
           # WebView — клавиатура перекрывает поле, а первая IME-сессия после
           # холодного старта теряется. adjustResize: WebView сам сжимается,
