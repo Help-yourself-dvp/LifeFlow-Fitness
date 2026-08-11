@@ -4507,25 +4507,25 @@ const THEME_ICON_SETS = {
   standard: THEME_ICON_STANDARD,
   neon: {
     ...THEME_ICON_STANDARD,
-    settings: '🎛️', profile: '🧑‍🚀', bell: '📡', course: '🧪', ai: '🔮',
+    settings: '🎛️', profile: '🧑‍🚀', bell: '📡', course: '🧪', ai: '✨',
     backup: '🗃️', about: '💡', medals: '🎖️', water: '🧊', food: '🍱',
     dayplan: '🗒️', mood: '🌃', combo: '🌟'
   },
   sport: {
     ...THEME_ICON_STANDARD,
-    settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
+    settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '✨',
     backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗',
     dayplan: '🗓️', mood: '🔥', combo: '⭐'
   },
   forest: {
     ...THEME_ICON_STANDARD,
-    settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
+    settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '✨',
     backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🍲',
-    dayplan: '🌲', mood: '🌤️', combo: '✨'
+    dayplan: '🌲', mood: '🌤️', combo: '⭐'
   },
   berry: {
     ...THEME_ICON_STANDARD,
-    settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
+    settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '✨',
     backup: '🍯', about: '🌸', medals: '🏵️', water: '🧃', food: '🫕',
     dayplan: '🎀', mood: '🌺', combo: '⭐'
   }
@@ -4536,7 +4536,7 @@ const THEME_ACTIVITY_SETS = {
   neon: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '🦾', stretch: '🧘', leisure: '🛸', other: '⚡' },
   sport: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '🏋️', stretch: '🤸', leisure: '🥊', other: '🏆' },
   forest: { walk: '🥾', cardio: '🦌', swim: '🚣', bike: '🚵', strength: '🪓', stretch: '🌱', leisure: '⛺', other: '🌲' },
-  berry: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '💪', stretch: '🧘', leisure: '✨', other: '🍇' }
+  berry: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '💪', stretch: '🧘', leisure: '🌸', other: '🍇' }
 };
 
 function activityThemeEmoji(type) {
