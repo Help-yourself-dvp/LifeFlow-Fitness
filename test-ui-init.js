@@ -96,7 +96,7 @@ const ids = [
   'license-lang-tabs', 'license-panel-ru', 'license-panel-en', 'license-panel-third-party',
   'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
   'water-reminder-window-start', 'water-reminder-window-end',
-  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'storage-engine-status'
+  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn'
 ];
 
 let failed = 0;
@@ -1380,10 +1380,9 @@ for (const id of ids) {
 
   // SQLite бандл и скрипты
   const okSqlBundle = fs.existsSync('sqlite-bundle.js')
-    && html.includes('<script src="sqlite-bundle.js"></script>')
-    && html.includes('id="storage-engine-status"');
+    && html.includes('<script src="sqlite-bundle.js"></script>');
   if (!okSqlBundle) failed++;
-  console.log(`${okSqlBundle ? '✓' : '✗'} 0.6.0 SQLite бандл: sqlite-bundle.js подключён в index.html и статус в настройках`);
+  console.log(`${okSqlBundle ? '✓' : '✗'} 0.6.0 SQLite бандл: sqlite-bundle.js подключён в index.html (фоновый движок без визуального загромождения)`);
 
   // Модуль SQLite в app.js: инициализация, dual-write, схема таблиц, авто-бэкап
   const okSqlModule = appR.includes('function initSqliteStorage')
@@ -1398,6 +1397,25 @@ for (const id of ids) {
   const okVer060 = appR.includes("const FITFLOW_VERSION = '0.6.0'") && html.includes('v0.6.0');
   if (!okVer060) failed++;
   console.log(`${okVer060 ? '✓' : '✗'} 0.6.0 версия в коде и «О приложении»`);
+}
+
+
+{
+  // Статический регресс-аудит: 100% прямых вызовов $('#...').addEventListener обязаны существовать в index.html
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const directMatches = (appR.match(/\$\('([^']+)'\)\.addEventListener/g) || []);
+  let missingSelectors = 0;
+  directMatches.forEach(m => {
+    const id = m.match(/\$\('([^']+)'\)/)[1].replace('#', '');
+    if (!html.includes(`id="${id}"`) && !html.includes(`id='${id}'`)) {
+      missingSelectors++;
+      console.error(`MISSING ELEMENT IN HTML: #${id}`);
+    }
+  });
+  const okAudit = missingSelectors === 0;
+  if (!okAudit) failed++;
+  console.log(`${okAudit ? '✓' : '✗'} статический аудит: 100% прямых селекторов addEventListener присутствуют в index.html`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

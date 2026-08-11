@@ -9924,7 +9924,7 @@ function init() {
   });
   $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
   $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
-  $('#manual-food-add').addEventListener('click', addManualFood);
+  bindEvent('#manual-food-add', 'click', addManualFood);
   // 0.4.15 (п.6 владельца): «☆ В комбо» у поля Питания — текст не записывается,
   // а сохраняется фразой-шаблоном (гард «парсер не понимает → не сохраняем» в addCombo).
   bindEvent('#food-combo-star', 'click', () => {
@@ -9935,7 +9935,7 @@ function init() {
       toast('⭐ Комбо сохранено — смотрите «Быстрые записи». Поле можно очистить или нажать «Добавить», чтобы записать сразу.');
     }
   });
-  $('#manual-food-favorite').addEventListener('click', saveFavoriteMeal);
+  bindEvent('#manual-food-favorite', 'click', saveFavoriteMeal);
   // ⭐ Мои комбо (0.4.14)
   bindEvent('#combo-manage-btn', 'click', () => { closeQuickRecordsDialog(); openComboDialog(); });
   bindEvent('#combo-dialog-close', 'click', closeComboDialog);
