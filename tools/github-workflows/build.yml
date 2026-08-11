@@ -1138,6 +1138,28 @@ jobs:
           )
           if 'FitFlowWidgetProvider' not in t:
               t = t.replace('</application>', receiver + '    </application>')
+          health_alias = (
+              '        <activity-alias\n'
+              '            android:name="ViewPermissionUsageActivity"\n'
+              '            android:exported="true"\n'
+              '            android:targetActivity=".MainActivity"\n'
+              '            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">\n'
+              '            <intent-filter>\n'
+              '                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />\n'
+              '                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />\n'
+              '            </intent-filter>\n'
+              '        </activity-alias>\n'
+          )
+          if 'ViewPermissionUsageActivity' not in t:
+              t = t.replace('</application>', health_alias + '    </application>')
+
+          health_rationale = (
+              '            <intent-filter>\n'
+              '                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />\n'
+              '            </intent-filter>\n'
+          )
+          if 'ACTION_SHOW_PERMISSIONS_RATIONALE' not in t:
+              t = t.replace('</activity>', health_rationale + '        </activity>')
           water_receiver = (
               '        <receiver android:name=".WaterReminderReceiver" android:enabled="true" android:exported="true">\n'
               '            <intent-filter>\n'

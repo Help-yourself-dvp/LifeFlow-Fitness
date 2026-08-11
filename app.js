@@ -4509,25 +4509,25 @@ const THEME_ICON_SETS = {
     ...THEME_ICON_STANDARD,
     settings: '🎛️', profile: '🧑‍🚀', bell: '📡', course: '🧪', ai: '🔮',
     backup: '🗃️', about: '💡', medals: '🎖️', water: '🧊', food: '🍱',
-    dayplan: '🗒️', mood: '🌃', combo: '⚡'
+    dayplan: '🗒️', mood: '🌃', combo: '🌟'
   },
   sport: {
     ...THEME_ICON_STANDARD,
     settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
     backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗',
-    dayplan: '🗓️', mood: '🔥', combo: '🎯'
+    dayplan: '🗓️', mood: '🔥', combo: '⭐'
   },
   forest: {
     ...THEME_ICON_STANDARD,
     settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
-    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕',
-    dayplan: '🌲', mood: '🌤️', combo: '🌰'
+    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🍲',
+    dayplan: '🌲', mood: '🌤️', combo: '✨'
   },
   berry: {
     ...THEME_ICON_STANDARD,
     settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
     backup: '🍯', about: '🌸', medals: '🏵️', water: '🧃', food: '🫕',
-    dayplan: '🎀', mood: '🌺', combo: '✨'
+    dayplan: '🎀', mood: '🌺', combo: '⭐'
   }
 };
 
@@ -9850,15 +9850,6 @@ function writeProState(pro) {
     } else localStorage.removeItem(PRO_KEY);
   } catch (e) { }
   renderProStatus();
-  initSqliteStorage();
-  bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));
-  bindEvent('#health-budget-toggle', 'change', (e) => updateHealthIncludeInBudget(e.target.checked));
-  bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
-  bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
-  $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
-    btn.addEventListener('click', () => updateHealthPriority(btn.dataset.healthPriority));
-  });
-  renderHealthSyncSettings();
 }
 
 /* Принимает «FF-AB12-CD34-EF56», «ff-ab12…» и «голые» 12 hex-знаков. */
@@ -10446,6 +10437,15 @@ function init() {
   bindEvent('#pro-activate', 'click', () => { activateProFromDialog(); });
   bindEvent('#pro-deactivate', 'click', deactivatePro);
   renderProStatus();
+  initSqliteStorage();
+  bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));
+  bindEvent('#health-budget-toggle', 'change', (e) => updateHealthIncludeInBudget(e.target.checked));
+  bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
+  bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
+  $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
+    btn.addEventListener('click', () => updateHealthPriority(btn.dataset.healthPriority));
+  });
+  renderHealthSyncSettings();
   $('#smart-entry-open').addEventListener('click', openSmartEntry);
   $('#smart-entry-cancel').addEventListener('click', closeSmartEntry);
   $('#smart-entry-parse').addEventListener('click', previewSmartEntry);
