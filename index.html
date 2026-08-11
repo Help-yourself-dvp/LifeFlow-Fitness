@@ -210,12 +210,14 @@
 
       <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
       <!-- 0.4.15 (п.5 владельца): «Быстрые записи» — единый блок; разница ясна из подписи -->
-      <!-- 0.5.2 (решение владельца): россыпь блоков «Быстрые записи» (комбо / блюда /
-           своё блюдо) собрана в один диалог с вкладками — на карточке одна кнопка. -->
-      <button class="quick-records-open" id="quick-records-open" type="button" aria-haspopup="dialog">
-        <span class="quick-records-open-text"><b>⚡ Быстрые записи</b><small>⭐ комбо · 🍽 блюда · ✍️ своё блюдо</small></span>
+      <!-- 0.5.5 (решение владельца): вместо одной большой кнопки — компактный ряд
+           иконок без надписей (⭐ комбо · 🍽 мои блюда · ✍️ своё блюдо); описание — в «?». -->
+      <div class="quick-entry-row" role="group" aria-label="Быстрые записи">
+        <button class="quick-entry-btn" id="quick-records-open" type="button" aria-haspopup="dialog" aria-label="Мои комбо — сохранённые фразы" title="⭐ Мои комбо — сохранённые фразы умного ввода">⭐</button>
+        <button class="quick-entry-btn" id="quick-open-meals" type="button" aria-haspopup="dialog" aria-label="Мои блюда — шаблоны" title="🍽 Мои блюда — ваши шаблоны с ккал">🍽</button>
+        <button class="quick-entry-btn" id="quick-open-manual" type="button" aria-haspopup="dialog" aria-label="Своё блюдо — ручная запись" title="✍️ Своё блюдо — ручная запись названия и ккал">✍️</button>
         <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span>
-      </button>
+      </div>
 
       <div class="meal-type-section">
         <div class="meal-type-summary">
@@ -458,9 +460,12 @@
       <div class="weekly-activity-goal">
         <div class="stats-section-head">
           <div>
-            <span class="training-summary-label">Цель на последние 7 дней</span>
+            <!-- 0.5.5 (владелец): «надпись длинная и непонятно, что считается» —
+                 текст короче, статус отдельным чипом, объяснение переехало в «?» -->
+            <span class="training-summary-label">Цель за 7 дней <span class="help-dot help-dot-inline" role="button" tabindex="0" data-help="weekly-goal" aria-label="Справка: цель активности на 7 дней" title="Что считается и как выбрать цель?">?</span></span>
             <strong id="weekly-activity-total">0 мин из 150 мин</strong>
           </div>
+          <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
           <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
             <div class="goal-stepper" id="weekly-goal-stepper" hidden>
             <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
@@ -866,6 +871,14 @@
             <button class="active" type="button" data-water-interval="90">90 мин</button>
             <button type="button" data-water-interval="120">120 мин</button>
           </div>
+          <!-- 0.5.5 (идея владельца): записал воду — ближайшее напоминание молчит -->
+          <p class="settings-label">Пауза после записи воды</p>
+          <div class="segmented" id="water-skip-choices" role="radiogroup" aria-label="Пропускать напоминание, если вода записана недавно">
+            <button class="active" type="button" data-water-skip="0">Выкл</button>
+            <button type="button" data-water-skip="30">30 мин</button>
+            <button type="button" data-water-skip="45">45 мин</button>
+            <button type="button" data-water-skip="60">60 мин</button>
+          </div>
           <p class="settings-hint" id="water-reminders-status">Напоминания о воде выключены.</p>
         </div>
       </div>
@@ -1053,7 +1066,7 @@
 
       <div class="settings-group">
         <div class="settings-about-content">
-          <p class="settings-hint">FitFlow <span id="about-version">v0.5.4</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
+          <p class="settings-hint">FitFlow <span id="about-version">v0.5.5</span> · Offline-first. Все данные хранятся только на вашем устройстве, регистрация не требуется. База продуктов — приблизительная.</p>
           <div class="about-links">
             <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
             <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
@@ -1073,6 +1086,11 @@
           <div class="charity-block" id="charity-block">
             <p class="settings-hint charity-title">💝 Добрые дела</p>
             <div id="charity-list"></div>
+          </div>
+          <!-- 0.5.5 (решение владельца): краткие условия использования; полный текст — LICENSE в репозитории -->
+          <div class="charity-block" id="about-license-block">
+            <p class="settings-hint charity-title">📜 Лицензия</p>
+            <p class="settings-hint">Личное некоммерческое использование. Распространение, изменение кода и монетизация — только с письменного согласия автора. Полный текст — в файле LICENSE репозитория проекта на GitHub.</p>
           </div>
           <p class="settings-hint" id="terms-status" style="margin-top:8px">Условия использования приняты.</p>
         </div>

@@ -132,6 +132,18 @@ const FOOD_DB = {
   'сельдь': { kcal: 161, p: 17, f: 10, c: 0 }, 'скумбрия': { kcal: 191, p: 18, f: 13, c: 0 }, 'угорь': { kcal: 184, p: 15, f: 14, c: 0 },
   'сом': { kcal: 100, p: 17, f: 3.5, c: 0 }, 'осетрина': { kcal: 164, p: 16, f: 11, c: 0 }, 'икра красная': { kcal: 249, p: 31, f: 13, c: 1 },
   'икра черная': { kcal: 254, p: 28, f: 15, c: 1 }, 'икра минтая': { kcal: 131, p: 27, f: 3, c: 0 },
+  // 0.5.5 (полевой запрос владельца): рыба по сортам и типам приготовления, виды икры.
+  'горбуша': { kcal: 140, p: 20, f: 6, c: 0 }, 'семга': { kcal: 208, p: 20, f: 13, c: 0 },
+  'семга слабосоленая': { kcal: 200, p: 19, f: 13, c: 0 }, 'форель малосольная': { kcal: 195, p: 18, f: 13, c: 0 },
+  'сельдь соленая': { kcal: 217, p: 17, f: 16, c: 0 }, 'сельдь в масле': { kcal: 300, p: 16, f: 25, c: 0 },
+  'скумбрия копченая': { kcal: 221, p: 21, f: 15, c: 0 }, 'скумбрия холодного копчения': { kcal: 221, p: 21, f: 15, c: 0 },
+  'скумбрия горячего копчения': { kcal: 200, p: 18, f: 14, c: 0 },
+  'рыба жареная': { kcal: 140, p: 18, f: 6, c: 0 }, 'рыба вареная': { kcal: 95, p: 18, f: 2, c: 0 },
+  'рыба запеченная': { kcal: 105, p: 19, f: 3, c: 0 }, 'рыба соленая': { kcal: 200, p: 18, f: 14, c: 0 },
+  'рыба копченая': { kcal: 150, p: 20, f: 7, c: 0 },
+  'икра сельди': { kcal: 220, p: 29, f: 13, c: 2 }, 'икра щуки': { kcal: 131, p: 29, f: 2, c: 0 },
+  'икра трески': { kcal: 115, p: 26, f: 2, c: 0 }, 'икра кеты': { kcal: 250, p: 31, f: 13, c: 1 },
+  'икра кабачковая': { kcal: 97, p: 1.5, f: 7, c: 7 }, 'икра баклажанная': { kcal: 148, p: 1.5, f: 13, c: 5 },
   'печень трески': { kcal: 613, p: 4, f: 66, c: 0 }, 'рыба': { kcal: 100, p: 17, f: 3, c: 0 }, 'соленая сельдь': { kcal: 217, p: 17, f: 16, c: 0 },
   'копченая рыба': { kcal: 150, p: 20, f: 7, c: 0 }, 'вяленая рыба': { kcal: 180, p: 30, f: 6, c: 0 },
 
@@ -617,6 +629,15 @@ const FOOD_DB = {
   'тарталетка с икрой': { kcal: 80, p: 4, f: 5, c: 5, per: 'шт' },
   'бутерброд с икрой': { kcal: 90, p: 5, f: 5, c: 7, per: 'шт', pieceG: 45 },
   'бутерброд с рыбой': { kcal: 100, p: 6, f: 5, c: 7, per: 'шт', pieceG: 55 },
+  // 0.5.5 (полевой запрос владельца): хлеб 20 г + красная икра 15 г ≈ 90 ккал;
+  // «и маслом» — +5 г сливочного ≈ +37 ккал. Тарталетка песочная ~12 г сама по себе.
+  'бутерброд с красной икрой': { kcal: 90, p: 6, f: 2.5, c: 10, per: 'шт', pieceG: 35 },
+  'бутерброд с красной икрой и маслом': { kcal: 125, p: 6, f: 6.5, c: 10, per: 'шт', pieceG: 40 },
+  'бутерброд с черной икрой и маслом': { kcal: 127, p: 6, f: 6.7, c: 10, per: 'шт', pieceG: 40 },
+  'тарталетка': { kcal: 55, p: 1, f: 2.4, c: 6.6, per: 'шт', pieceG: 12 },
+  'тарталетка с красной икрой': { kcal: 80, p: 4, f: 4, c: 6.6, per: 'шт', pieceG: 22 },
+  'тарталетка с творожным сыром': { kcal: 85, p: 3.5, f: 4.5, c: 7, per: 'шт', pieceG: 24 },
+  'тарталетка с красной икрой и творожным сыром': { kcal: 100, p: 5.5, f: 6.5, c: 7, per: 'шт', pieceG: 30 },
 
   // ===== Расширение: рыба и морепродукты детальнее =====
   'лосось запеченный': { kcal: 180, p: 20, f: 10, c: 0 },
@@ -854,7 +875,7 @@ function parseSoupCombo(part) {
      молоком» — это одно блюдо): такие пары держатся кураторскими
      ключами базы, остальное не трогаем. */
 function splitWithCompanion(part) {
-  if (/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер|шаурм|блин|сырник|оладь|вафл)[а-яё]*\s+с\s+/iu.test(part)) return [part];
+  if (/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер|шаурм|блин|сырник|оладь|вафл|тарталетк)[а-яё]*\s+с\s+/iu.test(part)) return [part];
   const combo = part.match(/^(.+?)\s+с\s+(.+)$/iu);
   if (!combo) return [part];
   if ((combo[2] || '').split(/\s+/).length > 2) return [part]; // «с X и Y» — не наш случай
@@ -930,7 +951,7 @@ function glueSandwichFillings(split) {
    если весь хвост после «<сэндвич> с » состоит из начинко-слов (творительный
    падеж) и союзов «и». «бутерброд с маслом был вкусный» — не пройдёт. */
 function sandwichTailLooksFillings(prev) {
-  const m = String(prev || '').match(/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер)[а-яё]*\s+с\s+(.+)$/iu);
+  const m = String(prev || '').match(/(?:бутерброд|сэндвич|сандвич|ролл|тост|бургер|тарталетк)[а-яё]*\s+с\s+(.+)$/iu);
   if (!m) return false;
   return m[1].trim().split(/\s+/).every((raw) => {
     const w = raw.replace(/[,.;]+$/g, '');
@@ -2566,7 +2587,7 @@ const DEFAULTS = {
   profileSettings: { weightKg: null, weightHistory: [], sex: null, ageYears: null, heightCm: null, activityLevel: null },
   mealReminders: { enabled: false, meals: [] },
   customMealTypes: [],
-  waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00' },
+  waterReminders: { enabled: false, interval: 90, windowStart: '08:00', windowEnd: '22:00', skipRecentGapMin: 0 },
   dayChecklist: { enabled: false },
   gameMode: { enabled: false },
   customFoods: [], // Личная база продуктов (0.3.25): точные значения с упаковки, перекрывают общую
@@ -2582,7 +2603,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.4';
+const FITFLOW_VERSION = '0.5.5';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -3036,7 +3057,8 @@ function normalizeWaterReminders() {
     enabled: source.enabled === true,
     interval: [60, 90, 120].includes(Number(source.interval)) ? Number(source.interval) : DEFAULTS.waterReminders.interval,
     windowStart: isValidReminderTime(source.windowStart) ? source.windowStart : DEFAULTS.waterReminders.windowStart,
-    windowEnd: isValidReminderTime(source.windowEnd) ? source.windowEnd : DEFAULTS.waterReminders.windowEnd
+    windowEnd: isValidReminderTime(source.windowEnd) ? source.windowEnd : DEFAULTS.waterReminders.windowEnd,
+    skipRecentGapMin: [0, 30, 45, 60].includes(Number(source.skipRecentGapMin)) ? Number(source.skipRecentGapMin) : 0
   };
 }
 
@@ -4267,6 +4289,8 @@ function updateNativeWidget() {
     window.FitFlowExport.updateWidget(JSON.stringify({
       waterTotal: state.water.total,
       waterGoal: state.water.goal,
+      lastWaterAt: state.water.lastAddedAt || 0,
+      waterSkipGapMin: state.waterReminders.skipRecentGapMin || 0,
       foodTotal,
       foodGoal: state.food.goal,
       activityMinutes,
@@ -6170,8 +6194,24 @@ function escapeHtml(s) {
 function addWater(ml) {
   state.water.total += ml;
   state.water.log.push({ ts: Date.now(), ml });
+  state.water.lastAddedAt = Date.now(); // 0.5.5: нативное напоминание умеет молчать сразу после записи
   saveState();
   renderWater();
+}
+
+/* 0.5.5 (идея владельца): если вода записана недавно — ближайшее напоминание
+   пропускается. Сам пропуск делает нативный ресивер на момент срабатывания
+   (сетка времени не сдвигается); JS здесь лишь передаёт зазор в SharedPreferences
+   через мост виджета. Активируется вместе с нативным пакетом 0.5.5. */
+function updateWaterSkipGap(minutes) {
+  const value = [0, 30, 45, 60].includes(Number(minutes)) ? Number(minutes) : 0;
+  state.waterReminders.skipRecentGapMin = value;
+  saveState();
+  renderWaterReminderSettings();
+  updateNativeWidget();
+  toast(value === 0
+    ? 'Пауза после записи выключена — напоминания идут по расписанию'
+    : `После записи воды напоминание молчит ${value} мин`);
 }
 
 function undoWater() {
@@ -6746,15 +6786,24 @@ function renderTraining() {
   const weeklyGoal = state.activitySettings.weeklyGoalMinutes;
   // 0.4.15 (аудит А2): перевыполнение — успех, а не цифра «как ошибка».
   const weeklyOver = weeklyMinutes - weeklyGoal;
-  // 0.5.2 (владелец: «цель 2:40, выполнено 2:30, +10 сверх — непонятно и
-  // некорректно»): проверили математику — она верна (выполнено 2 ч 40 при цели
-  // 2 ч 30 → +10 сверх цели), но порядок «число · цель число» провоцировал
-  // прочитать наоборот. Теперь явно: «выполнено ИЗ цели — осталось/сверх».
-  $('#weekly-activity-total').textContent = weeklyOver > 0
-    ? `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — цель выполнена ✓ +${formatActivityDuration(weeklyOver)} сверх`
-    : (weeklyOver === 0
-      ? `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — цель выполнена ✓ минута в минуту`
-      : `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)} — осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}`);
+  // 0.5.2 — порядок «выполнено ИЗ цели». 0.5.5 (владелец: «надпись длинная,
+  // на несколько строк, проще графиком»): числа коротко, итог — цветным чипом,
+  // длинные объяснения уехали в «?». Арифметика та же, проверена 0.5.2.
+  $('#weekly-activity-total').textContent =
+    `${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)}`;
+  const weeklyChip = $('#weekly-status-chip');
+  if (weeklyChip) {
+    if (weeklyOver > 0) {
+      weeklyChip.textContent = `✓ +${formatActivityDuration(weeklyOver)}`;
+      weeklyChip.className = 'weekly-status-chip good';
+    } else if (weeklyOver === 0) {
+      weeklyChip.textContent = '✓ в цель';
+      weeklyChip.className = 'weekly-status-chip good';
+    } else {
+      weeklyChip.textContent = `осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}`;
+      weeklyChip.className = 'weekly-status-chip todo';
+    }
+  }
   $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
   renderActivityTypeSelection();
   renderActivityTemplates();
@@ -7287,7 +7336,7 @@ async function registerNotificationSettingsActions() {
     await localNotifications.registerActionTypes({
       types: [{
         id: NOTIF_SETTINGS_ACTION_TYPE,
-        actions: [{ id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить', foreground: true }]
+        actions: [{ id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить уведомление', foreground: true }]
       }]
     });
   } catch (e) { console.warn('Действие «⚙️ Настроить» для уведомлений недоступно:', e); }
@@ -7586,6 +7635,8 @@ function renderWaterReminderSettings() {
   if (opts) opts.hidden = !state.waterReminders.enabled;
   $$('#water-interval-choices button').forEach((btn) =>
     btn.classList.toggle('active', Number(btn.dataset.waterInterval) === state.waterReminders.interval));
+  $$('#water-skip-choices button').forEach((btn) =>
+    btn.classList.toggle('active', Number(btn.dataset.waterSkip) === state.waterReminders.skipRecentGapMin));
   status.textContent = state.waterReminders.enabled
     ? `Каждые ${state.waterReminders.interval} мин с ${state.waterReminders.windowStart} до ${state.waterReminders.windowEnd}.`
     : 'Напоминания о воде выключены.';
@@ -8219,6 +8270,10 @@ const HELP_TOPICS = {
     title: 'Быстрые записи',
     text: 'Одно окно — три вкладки. ⭐ Комбо — сохранённая фраза умного ввода: один тап записывает весь набор сразу (вода, еда, активность), калории каждый раз считаются заново по актуальной базе. 🍽 Блюда — ваши шаблоны с точными ккал с упаковки и готовые чипы. ✍️ Своё блюдо — ручная запись названия и ккал; кнопка «Добавить в Мои блюда» сохранит её шаблоном на вкладку «Блюда».'
   },
+  'weekly-goal': {
+    title: 'Цель активности на 7 дней',
+    text: 'Считаются все записи раздела «Активность» — и тренировки, и активная жизнь: прогулки, включая дорогу на работу, тоже идут в зачёт (ходьбу ВОЗ считает полноценной активностью). Ориентир ВОЗ — 150 минут умеренной активности в неделю. Если вы много ходите по жизни — поднимите цель кнопкой «Цель»; если хотите учитывать только тренировки — оставьте ниже, это ваш ориентир, а не норматив. Шаги с браслета и телефона (этап 0.8.0) будут отдельной метрикой и сюда не суммируются.'
+  },
   'day-checklist': {
     title: 'Чек-лист дня',
     text: 'Три простые отметки на Главной: «Норма воды», «Основной рацион учтён», «Активность отмечена». Галочки ставятся сами по вашим записям — вечером видно одним взглядом, «закрыт» ли день. Карточку «Самочувствие» (оценка дня от 1 до 5) удобно заполнять вечером: оценки складываются в статистику.'
@@ -8584,7 +8639,8 @@ async function confirmAllProfilesImport() {
   else localStorage.removeItem('fitflow:font');
   const proBackup = pending.backup.pro;
   if (proBackup && proBackup.unlocked && typeof proBackup.email === 'string') {
-    localStorage.setItem(PRO_KEY, JSON.stringify({ unlocked: true, email: proBackup.email, activatedAt: proBackup.activatedAt || null }));
+    localStorage.setItem(PRO_KEY, JSON.stringify({ unlocked: true, email: proBackup.email, activatedAt: proBackup.activatedAt || null,
+      code: typeof proBackup.code === 'string' ? proBackup.code : '' }));
   } else localStorage.removeItem(PRO_KEY);
   location.reload();
 }
@@ -8621,6 +8677,9 @@ if (typeof window !== 'undefined') {
       const ml = Number(String(action).replace('add_water_', '')) || 250;
       addWater(ml);
       toast(`💧 +${ml} мл воды с виджета`);
+    } else if (action === 'notif_settings_water') {
+      // 0.5.5: кнопка «⚙️ Настроить» нативного напоминания о воде
+      openNotificationSettings('water');
     } else if (action === 'smart_entry') {
       openSmartEntry();
       toast('📝 Быстрый ввод открыт с виджета');
@@ -9209,10 +9268,11 @@ function readProState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PRO_KEY) || 'null');
     if (parsed && parsed.unlocked && typeof parsed.email === 'string') {
-      return { unlocked: true, email: parsed.email, activatedAt: parsed.activatedAt || null };
+      return { unlocked: true, email: parsed.email, activatedAt: parsed.activatedAt || null,
+        code: typeof parsed.code === 'string' ? parsed.code : '' };
     }
   } catch (e) { }
-  return { unlocked: false, email: '', activatedAt: null };
+  return { unlocked: false, email: '', activatedAt: null, code: '' };
 }
 
 function writeProState(pro) {
@@ -9220,7 +9280,8 @@ function writeProState(pro) {
     if (pro && pro.unlocked) {
       localStorage.setItem(PRO_KEY, JSON.stringify({
         unlocked: true, email: String(pro.email || '').trim().toLowerCase(),
-        activatedAt: pro.activatedAt || new Date().toISOString()
+        activatedAt: pro.activatedAt || new Date().toISOString(),
+        code: typeof pro.code === 'string' ? pro.code : '' // 0.5.5: код едет в бэкап — на новом телефоне вводить заново не нужно
       }));
     } else localStorage.removeItem(PRO_KEY);
   } catch (e) { }
@@ -9266,7 +9327,7 @@ async function activateProFromDialog() {
     if (statusEl) statusEl.textContent = 'Код не подошёл. Сверьте e-mail и код из письма — они чувствительны к опечаткам.';
     return;
   }
-  writeProState({ unlocked: true, email });
+  writeProState({ unlocked: true, email, code: `FF-${code.match(/.{4}/g).join('-')}` });
   toast('✓ PRO активирован — спасибо за поддержку проекта!');
   closeProDialog();
 }
@@ -9351,6 +9412,7 @@ function init() {
   });
   installActivityNotificationListener();
   registerNotificationSettingsActions();
+  window.__fitflowReady = true; // 0.5.5: нативная сторона ждёт флаг перед доставкой действий виджета (полевой баг потери «+250 мл»)
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
   refreshTrainingReminderOnLaunch();
@@ -10043,6 +10105,8 @@ function init() {
   $('#water-reminders-toggle').addEventListener('change', (e) => updateWaterRemindersEnabled(e.target.checked));
   $$('#water-interval-choices button').forEach((btn) =>
     btn.addEventListener('click', () => updateWaterReminderInterval(Number(btn.dataset.waterInterval))));
+  $$('#water-skip-choices button').forEach((btn) =>
+    btn.addEventListener('click', () => updateWaterSkipGap(Number(btn.dataset.waterSkip))));
   bindEvent('#notification-setup-btn', 'click', () => switchView('notifications'));
   bindEvent('#notification-test-btn', 'click', sendTestActivityNotification);
   $('#notifications-back-btn').addEventListener('click', () => switchView('settings-notifications'));

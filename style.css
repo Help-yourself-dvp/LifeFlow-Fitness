@@ -3795,27 +3795,6 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 
 /* ===================== 0.5.2 ===================== */
 /* Кнопка-вход в диалог «Быстрые записи» (одна вместо россыпи блоков) */
-.quick-records-open {
-  margin: 12px 0 6px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border: 1.5px dashed var(--md-sys-color-outline-variant);
-  border-radius: 14px;
-  background: var(--md-sys-color-surface-container-low);
-  color: var(--md-sys-color-on-surface);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease;
-}
-.quick-records-open:active { background: var(--md-sys-color-surface-container-high); }
-.quick-records-open-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
-.quick-records-open-text b { font-size: 0.9rem; }
-.quick-records-open-text small { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
-.quick-records-open .help-dot { flex: 0 0 auto; }
 
 .quick-records-dialog { text-align: left; width: min(100%, 430px); }
 .quick-records-dialog h2 { text-align: center; }
@@ -3860,7 +3839,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   25% { box-shadow: 0 0 0 4px rgb(0 105 107 / 0.35); }
   100% { box-shadow: 0 0 0 0 rgb(0 105 107 / 0); }
 }
-.settings-flash { animation: settingsFlash 1.7s ease 2; border-radius: 14px; }
+.settings-flash { animation: settingsFlash 1.5s ease 3; border-radius: 14px; }
 
 /* «Цель достигнута! 🎉» больше не залезает на дугу кольца: текст держим
    внутри безопасной зоны, длинная подпись переносится на две строки */
@@ -3877,3 +3856,45 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 
 /* Постоянный блок поддержки в «О приложении» — кнопка под текстом */
 #about-support-open { margin-top: 8px; }
+
+/* ============================================================
+   0.5.5 — ряд иконок быстрых записей, чип недельной цели
+   ============================================================ */
+/* Ряд иконок быстрых записей — три равные кнопки + «?» справа */
+.quick-entry-row {
+  margin: 12px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quick-entry-btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  font-size: 1.25rem;
+  line-height: 1;
+  border: 1.5px dashed var(--md-sys-color-outline-variant);
+  border-radius: 14px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.quick-entry-btn:active { background: var(--md-sys-color-surface-container-high); }
+.quick-entry-row .help-dot { flex: 0 0 auto; }
+
+/* Недельная цель: строка не переносится, чип-статус не даёт сомневаться в итоге */
+.weekly-activity-goal .stats-section-head { flex-wrap: nowrap; align-items: center; gap: 8px; }
+.weekly-activity-goal .stats-section-head > div { min-width: 0; }
+.weekly-activity-goal strong { white-space: nowrap; }
+.weekly-status-chip {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.weekly-status-chip.good { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.weekly-status-chip.todo { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.weekly-status-chip.todo { font-weight: 600; }
+.help-dot-inline { vertical-align: -2px; }

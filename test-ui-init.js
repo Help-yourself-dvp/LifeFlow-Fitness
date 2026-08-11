@@ -90,7 +90,8 @@ const ids = [
   'setup-wizard-text', 'setup-wizard-progress', 'setup-wizard-actions', 'setup-wizard-yes',
   'setup-wizard-no', 'setup-wizard-finish-actions', 'setup-wizard-done', 'setup-wizard-prof',
   'setup-wizard-skip', 'support-dialog', 'support-later', 'support-open-pro',
-  'pro-howto', 'charity-block', 'charity-list', 'about-support-block', 'about-support-open'
+  'pro-howto', 'charity-block', 'charity-list', 'about-support-block', 'about-support-open',
+  'quick-open-meals', 'quick-open-manual', 'water-skip-choices', 'weekly-status-chip', 'about-license-block'
 ];
 
 let failed = 0;
@@ -871,10 +872,10 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
-  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.4 в коде и «О приложении»`);
+  console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.5 в коде и «О приложении»`);
 
   // ===================== 0.4.15 =====================
   // 0.5.1: формулировка «записей N из M дн.» собирается через daysChunk
@@ -1004,7 +1005,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1060,7 +1061,7 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
@@ -1084,7 +1085,8 @@ for (const id of ids) {
     && !html.includes('data-collapse-target="manual-food-content"')
     && appR.includes('function switchQuickTab') && appR.includes('function openQuickRecordsDialog')
     && appR.includes('closeQuickRecordsDialog(); openComboDialog();')
-    && cssR.includes('.quick-records-open');
+    && cssR.includes('.quick-entry-row')
+    && html.includes('id="quick-open-meals"') && html.includes('id="quick-open-manual"');
   if (!okQuick052) failed++;
   console.log(`${okQuick052 ? '✓' : '✗'} 0.5.2 быстрые записи: один диалог, вкладки комбо/блюда/своё`);
 
@@ -1094,13 +1096,15 @@ for (const id of ids) {
   if (!okStatsHead052) failed++;
   console.log(`${okStatsHead052 ? '✓' : '✗'} 0.5.2 статистика: «Итоги за…» в одну строку, кнопка справа без наслоений`);
 
-  // Недельная активность: «выполнено из цели — осталось/сверх»
-  const okWeekly052 = appR.includes('— осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}')
-    && appR.includes('цель выполнена ✓ +${formatActivityDuration(weeklyOver)} сверх');
+  // Недельная активность: «выполнено ИЗ цели» (0.5.2); 0.5.5 — короткая строка + чип-статус
+  const okWeekly052 = appR.includes('${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)}')
+    && html.includes('id="weekly-status-chip"') && appR.includes('weekly-status-chip good')
+    && appR.includes('осталось ${formatActivityDuration(weeklyGoal - weeklyMinutes)}')
+    && html.includes('data-help="weekly-goal"') && cssR.includes('.weekly-status-chip');
   if (!okWeekly052) failed++;
-  console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2 активность: «выполнено ИЗ цели», сверх/осталось явно`);
+  console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2/0.5.5 активность: «выполнено ИЗ цели», чип-статус, «?» с объяснением`);
 
-  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4');
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5');
   if (!okVer052) failed++;
   console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
 }
@@ -1135,7 +1139,7 @@ for (const id of ids) {
   if (!okCharity) failed++;
   console.log(`${okCharity ? '✓' : '✗'} 0.5.3 добрые дела: открытые отчёты в «О приложении», пусто — честно`);
 
-  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4');
+  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5');
   if (!okVer053) failed++;
   console.log(`${okVer053 ? '✓' : '✗'} 0.5.3 версия в коде и «О приложении»`);
 }
@@ -1174,9 +1178,57 @@ for (const id of ids) {
   if (!okSupport054) failed++;
   console.log(`${okSupport054 ? '✓' : '✗'} 0.5.4 поддержка: повтор не чаще 14 дней, PRO не тревожим, блок в «О приложении»`);
 
-  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.4'") && html.includes('v0.5.4');
+  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5');
   if (!okVer054) failed++;
   console.log(`${okVer054 ? '✓' : '✗'} 0.5.4 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.5.5 (пакет владельца: еда, бэкап, вода, виджет, лицензия) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // База еды: рыба по сортам/приготовлению, виды икры, бутерброды и тарталетки с икрой
+  const okFood055 = appR.includes("'икра сельди'") && appR.includes("'икра щуки'")
+    && appR.includes("'скумбрия копченая'") && appR.includes("'семга слабосоленая'")
+    && appR.includes("'бутерброд с красной икрой и маслом'")
+    && appR.includes("'тарталетка с красной икрой и творожным сыром'");
+  if (!okFood055) failed++;
+  console.log(`${okFood055 ? '✓' : '✗'} 0.5.5 еда: рыба по сортам/приготовлению, виды икры, бутерброды/тарталетки`);
+
+  // Бэкап: PRO-код едет в копии и восстанавливается
+  const okBackup055 = appR.includes('code: typeof parsed.code')
+    && appR.includes('code: typeof pro.code') && appR.includes('code: typeof proBackup.code')
+    && appR.includes("code: `FF-${code.match");
+  if (!okBackup055) failed++;
+  console.log(`${okBackup055 ? '✓' : '✗'} 0.5.5 бэкап: PRO-код в копии (read/write/activate/restore)`);
+
+  // Пауза напоминаний воды после записи + мост виджета (готовность, маршрут настроек)
+  const okWater055 = appR.includes('skipRecentGapMin') && html.includes('id="water-skip-choices"')
+    && appR.includes('function updateWaterSkipGap') && appR.includes('lastWaterAt: state.water.lastAddedAt')
+    && appR.includes('window.__fitflowReady = true')
+    && appR.includes("action === 'notif_settings_water'");
+  if (!okWater055) failed++;
+  console.log(`${okWater055 ? '✓' : '✗'} 0.5.5 вода: пауза после записи + надёжная доставка с виджета (JS-сторона)`);
+
+  // Нативный пакет в зеркале: полночь виджета, skip после записи, «⚙️» у воды
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const okMirror055 = mirror.includes('WIDGET_MIDNIGHT_REFRESH')
+    && mirror.includes('notif_settings_water') && mirror.includes('waterSkipGapMin')
+    && mirror.includes('__fitflowReady === true');
+  if (!okMirror055) failed++;
+  console.log(`${okMirror055 ? '✓' : '✗'} 0.5.5 зеркало: виджет-полночь, пауза напоминания, «⚙️» у воды (ждёт замены workflow)`);
+
+  // Лицензия: файл в репозитории + краткий текст в «О приложении»
+  const okLicense055 = fs.existsSync('LICENSE') && html.includes('id="about-license-block"')
+    && html.includes('Лицензия');
+  if (!okLicense055) failed++;
+  console.log(`${okLicense055 ? '✓' : '✗'} 0.5.5 лицензия: LICENSE + блок в «О приложении»`);
+
+  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.5.5'") && html.includes('v0.5.5');
+  if (!okVer055) failed++;
+  console.log(`${okVer055 ? '✓' : '✗'} 0.5.5 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
