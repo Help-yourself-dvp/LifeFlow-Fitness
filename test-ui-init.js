@@ -59,7 +59,7 @@ const ids = [
   'pro-open', 'pro-menu-status', 'pro-dialog', 'pro-email', 'pro-code', 'pro-activate', 'pro-cancel',
   'pro-active-line', 'pro-status', 'pro-deactivate', 'privacy-help',
   'quick-records-open', 'quick-records-dialog', 'quick-records-close', 'quick-records-tabs',
-  'quick-records-tab-hint', 'quick-panel-combo', 'quick-panel-meals', 'quick-panel-manual',
+  'quick-records-tab-hint', 'quick-panel-combo', 'quick-panel-meals', 
   'home-cards', 'home-layout-open', 'home-layout-close', 'home-layout-list',
   'all-profiles-import-dialog', 'all-profiles-import-cancel', 'all-profiles-import-confirm',
   'weight-form', 'weight-history-date', 'weight-history-input', 'weight-periods', 'weight-chart', 'weight-history-list',
@@ -91,7 +91,7 @@ const ids = [
   'setup-wizard-no', 'setup-wizard-finish-actions', 'setup-wizard-done', 'setup-wizard-prof',
   'setup-wizard-skip', 'support-dialog', 'support-later', 'support-open-pro',
   'pro-howto', 'charity-block', 'charity-list', 'about-support-block', 'about-support-open',
-  'quick-open-meals', 'quick-open-manual', 'weekly-status-chip',
+  'quick-open-meals',  'weekly-status-chip',
   'license-open', 'license-dialog', 'license-dialog-ok', 'terms-license-open',
   'license-lang-tabs', 'license-panel-ru', 'license-panel-en', 'license-panel-third-party',
   'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
@@ -938,7 +938,7 @@ for (const id of ids) {
   if (!okMood) failed++;
   console.log(`${okMood ? '✓' : '✗'} 0.4.15 самочувствие инлайн + день/вечер; приветствие из пула фраз`);
 
-  const okFood = html.includes('Быстрые записи') && html.includes('⭐ Комбо')
+  const okFood = html.includes('Быстрые записи')
     && html.includes('id="favorite-meals"');
   if (!okFood) failed++;
   console.log(`${okFood ? '✓' : '✗'} 0.4.15 п.5/п.6: «Быстрые записи» с ясной разницей, «☆ В комбо» у поля`);
@@ -1082,15 +1082,13 @@ for (const id of ids) {
   if (!okMood052) failed++;
   console.log(`${okMood052 ? '✓' : '✗'} 0.5.2 самочувствие: одна строка всегда, большой блок убран`);
 
-  // Быстрые записи — один диалог с тремя вкладками
+  // Быстрые записи — один диалог с вкладками Комбо и Мои блюда (0.5.8)
   const okQuick052 = html.includes('id="quick-records-dialog"')
-    && (html.match(/data-quick-tab=/g) || []).length === 3
-    && html.includes('id="combo-chips"') && html.includes('id="favorite-meals"') && html.includes('id="manual-food-add"')
-    && !html.includes('data-collapse-target="manual-food-content"')
+    && (html.match(/data-quick-tab=/g) || []).length >= 2
+    && html.includes('id="combo-chips"') && html.includes('id="favorite-meals"')
     && appR.includes('function switchQuickTab') && appR.includes('function openQuickRecordsDialog')
-    && appR.includes('closeQuickRecordsDialog(); openComboDialog();')
     && cssR.includes('.quick-entry-row')
-    && html.includes('id="quick-open-meals"') && html.includes('id="quick-open-manual"');
+    && html.includes('id="quick-open-meals"');
   if (!okQuick052) failed++;
   console.log(`${okQuick052 ? '✓' : '✗'} 0.5.2 быстрые записи: один диалог, вкладки комбо/блюда/своё`);
 

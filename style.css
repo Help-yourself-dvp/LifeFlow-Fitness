@@ -3926,3 +3926,34 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 .water-time-window-row label { font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); }
 .water-time-window-row .time-input { flex: 1; max-width: 110px; }
 .combo-quick-add { border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 10px; }
+
+/* 🎨 0.5.8: тематические стили кнопок действий (.ai-icon-btn) для каждой темы */
+html[data-palette="neon"][data-theme="dark"] .ai-icon-btn {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  color: var(--md-sys-color-primary);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
+}
+html[data-palette="neon"][data-theme="dark"] .ai-icon-btn:hover {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent);
+  filter: brightness(1.15);
+}
+html[data-palette="sport"] .ai-icon-btn {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+  color: var(--md-sys-color-primary);
+}
+html[data-palette="sport"] .ai-icon-btn svg { stroke-width: 2.2px; }
+html[data-palette="forest"] .ai-icon-btn {
+  background: color-mix(in srgb, var(--grad-b) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--grad-a) 30%, transparent);
+  color: var(--md-sys-color-primary);
+}
+html[data-palette="berry"] .ai-icon-btn {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--grad-a) 15%, transparent);
+  border: 1.2px solid color-mix(in srgb, var(--grad-b) 30%, transparent);
+  color: var(--grad-a);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--grad-a) 20%, transparent);
+}

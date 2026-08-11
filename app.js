@@ -4157,29 +4157,29 @@ const PALETTE_IDS = new Set(PALETTES.map((p) => p.id));
 const THEME_ICON_STANDARD = {
   settings: '⚙️', profile: '👤', bell: '🔔', course: '💊', ai: '✨',
   backup: '💾', about: 'ℹ️', medals: '🏅', water: '💧', food: '🍽️',
-  dayplan: '📋', mood: '🌗'
+  dayplan: '📋', mood: '🌗', combo: '⭐'
 };
 const THEME_ICON_SETS = {
   standard: THEME_ICON_STANDARD,
   neon: {
     ...THEME_ICON_STANDARD,
     settings: '🎛️', profile: '🧑‍🚀', bell: '📡', ai: '🔮', backup: '🗃️',
-    about: '💡', medals: '🎖️', water: '🧊', food: '🍱', dayplan: '🗒️', mood: '🌃'
+    about: '💡', medals: '🎖️', water: '🧊', food: '🍱', dayplan: '🗒️', mood: '🌃', combo: '⚡'
   },
   sport: {
     ...THEME_ICON_STANDARD,
     settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
-    backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗', dayplan: '🗓️', mood: '🔥'
+    backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗', dayplan: '🗓️', mood: '🔥', combo: '🎯'
   },
   forest: {
     ...THEME_ICON_STANDARD,
     settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
-    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕', dayplan: '🌲', mood: '🌤️'
+    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕', dayplan: '🌲', mood: '🌤️', combo: '🌰'
   },
   berry: {
     ...THEME_ICON_STANDARD,
     settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
-    backup: '🍯', about: '🍷', medals: '🏵️', water: '🧃', food: '🫕', dayplan: '🎀', mood: '🌸'
+    backup: '🍯', about: '🍷', medals: '🏵️', water: '🧃', food: '🫕', dayplan: '🎀', mood: '🌸', combo: '✨'
   }
 };
 function themeIcon(slot) {
@@ -8349,7 +8349,7 @@ const HELP_TOPICS = {
   },
   'quick-records': {
     title: 'Быстрые записи',
-    text: 'Одно окно — три вкладки. ⭐ Комбо — сохранённая фраза умного ввода: один тап записывает весь набор сразу (вода, еда, активность), калории каждый раз считаются заново по актуальной базе. 🍽 Блюда — ваши шаблоны с точными ккал с упаковки и готовые чипы. ✍️ Своё блюдо — ручная запись названия и ккал; кнопка «Добавить в Мои блюда» сохранит её шаблоном на вкладку «Блюда».'
+    text: 'Две вкладки для мгновенного ввода:\n\n⭐ Комбо — сохранённые фразы: один тап записывает весь набор сразу (вода, еда, активность), калории считаются по актуальной базе.\n\n🍽 Мои блюда — ваши сохранённые шаблоны продуктов с точными КБЖУ с упаковки (тап сразу вносит порцию в дневник) и готовые чипы. Внизу можно сохранить новое блюдо.'
   },
   'weekly-goal': {
     title: 'Цель активности на 7 дней',
@@ -9300,8 +9300,7 @@ function renderCharityReports() {
    ============================================================ */
 const QUICK_TAB_HINTS = {
   combo: 'Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.',
-  meals: 'Ваши блюда — точные ккал с упаковки: тап пишет блюдо без ввода. Ниже — пара готовых чипов для примера.',
-  manual: 'Ручная запись: название, ккал, при желании БЖУ. Кнопка «Добавить в Мои блюда» сохранит блюдо шаблоном на вкладку «Блюда».'
+  meals: 'Ваши блюда с точными ккал с упаковки: тап сразу вносит блюдо в дневник. Ниже можно создать свой шаблон.'
 };
 
 function switchQuickTab(name) {
@@ -9311,7 +9310,7 @@ function switchQuickTab(name) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
   });
-  ['combo', 'meals', 'manual'].forEach((t) => {
+  ['combo', 'meals'].forEach((t) => {
     const panel = $(`#quick-panel-${t}`);
     if (panel) panel.hidden = t !== name;
   });

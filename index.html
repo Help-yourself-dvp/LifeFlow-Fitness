@@ -212,9 +212,8 @@
       <!-- 0.5.5 (решение владельца): вместо одной большой кнопки — компактный ряд
            иконок без надписей (⭐ комбо · 🍽 мои блюда · ✍️ своё блюдо); описание — в «?». -->
       <div class="quick-entry-row" role="group" aria-label="Быстрые записи">
-        <button class="quick-entry-btn" id="quick-records-open" type="button" aria-haspopup="dialog" aria-label="Мои комбо — сохранённые фразы" title="⭐ Мои комбо — сохранённые фразы умного ввода">⭐</button>
-        <button class="quick-entry-btn" id="quick-open-meals" type="button" aria-haspopup="dialog" aria-label="Мои блюда — шаблоны" title="🍽 Мои блюда — ваши шаблоны с ккал">🍽</button>
-        <button class="quick-entry-btn" id="quick-open-manual" type="button" aria-haspopup="dialog" aria-label="Своё блюдо — ручная запись" title="✍️ Своё блюдо — ручная запись названия и ккал">✍️</button>
+        <button class="quick-entry-btn" id="quick-records-open" type="button" aria-haspopup="dialog" aria-label="Мои комбо — сохранённые фразы" title="Мои комбо — сохранённые фразы"><span data-icon-slot="combo">⭐</span></button>
+        <button class="quick-entry-btn" id="quick-open-meals" type="button" aria-haspopup="dialog" aria-label="Мои блюда — шаблоны" title="Мои блюда — сохранённые шаблоны"><span data-icon-slot="food">🍽️</span></button>
         <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span>
       </div>
 
@@ -1817,9 +1816,8 @@
     <section class="app-dialog quick-records-dialog">
       <h2 id="quick-records-title">⚡ Быстрые записи</h2>
       <div class="segmented quick-records-tabs" id="quick-records-tabs" role="tablist" aria-label="Виды быстрых записей">
-        <button type="button" role="tab" data-quick-tab="combo" class="active" aria-selected="true">⭐ Комбо</button>
-        <button type="button" role="tab" data-quick-tab="meals" aria-selected="false">🍽 Блюда</button>
-        <button type="button" role="tab" data-quick-tab="manual" aria-selected="false">✍️ Своё блюдо</button>
+        <button type="button" role="tab" data-quick-tab="combo" class="active" aria-selected="true"><span data-icon-slot="combo">⭐</span> Комбо</button>
+        <button type="button" role="tab" data-quick-tab="meals" aria-selected="false"><span data-icon-slot="food">🍽</span> Мои блюда</button>
       </div>
       <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.</p>
 
@@ -1867,25 +1865,7 @@
         </div>
       </div>
 
-      <div class="quick-panel" id="quick-panel-manual" role="tabpanel" hidden>
-        <div class="manual-food-section">
-          <p class="quick-label">Название и калории готового блюда:</p>
-          <div class="manual-food-row">
-            <input id="manual-food-name" type="text" maxlength="60" placeholder="Например, домашний обед" aria-label="Название своего блюда">
-            <input id="manual-food-kcal" type="text" inputmode="numeric" placeholder="ккал" aria-label="Калории своего блюда">
-          </div>
-          <div class="manual-food-macros">
-            <input id="manual-food-p" type="text" inputmode="decimal" placeholder="Белки г" aria-label="Белки в граммах">
-            <input id="manual-food-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры в граммах">
-            <input id="manual-food-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы в граммах">
-          </div>
-          <div class="settings-row manual-food-actions">
-            <button class="btn btn-secondary" id="manual-food-add" type="button">Добавить запись</button>
-            <button class="btn btn-secondary" id="manual-food-favorite" type="button">Добавить в Мои блюда</button>
-          </div>
-          <p class="settings-hint" style="margin:0">«Добавить запись» пишет блюдо в дневник сегодня. «Добавить в Мои блюда» сохраняет его шаблоном на вкладку «Блюда», без записи в дневник.</p>
-        </div>
-      </div>
+
 
       <div class="app-dialog-actions"><button class="btn btn-secondary" id="quick-records-close" type="button">Закрыть</button></div>
     </section>
