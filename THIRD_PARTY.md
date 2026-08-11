@@ -31,6 +31,7 @@
 
 | Компонент | Версия | Лицензия |
 |---|---|---|
+| sql.js (SQLite WebAssembly) / SQLite | 1.14.1 | MIT / Public Domain |
 | Capacitor (core, android, plugins) | 5.7.0 | MIT |
 | LiteRT-LM Android (`litertlm-android`) | 0.12.0 | Apache 2.0 |
 | Kotlin stdlib / kotlinx | 2.2.21 (транзитивно) | Apache 2.0 |

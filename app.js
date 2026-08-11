@@ -2603,7 +2603,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.5.8';
+const FITFLOW_VERSION = '0.6.0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -4070,11 +4070,353 @@ function loadState() {
   }
 }
 
+
+/* ============================================================
+   💾 SQLite Storage Engine (0.6.0 — sql.js WASM + IndexedDB)
+   ------------------------------------------------------------
+   - Полная независимость: sql.js скомпилирован в WebAssembly
+     (работает 100% офлайн, без нативных плагинов и правок workflow).
+   - Двойная запись (Dual-Write): каждая операция сохраняется
+     в localStorage и синхронизируется в реляционные таблицы SQLite.
+   - Автоматическая резервная копия: перед первой миграцией
+     создаётся полный JSON-снимок fitflow:pre-sqlite-backup.
+   - Безопасный откат: при любой непредвиденной ошибке WASM
+     приложение бесшовно продолжает работу на localStorage.
+   ============================================================ */
+let sqliteDb = null;
+let sqliteReady = false;
+let sqliteSyncTimer = null;
+
+const SQLITE_IDB_NAME = 'fitflow_sqlite_db';
+const SQLITE_IDB_STORE = 'fitflow_store';
+const SQLITE_IDB_KEY = 'main_db_bytes';
+
+function openSqliteIdb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') return reject(new Error('IndexedDB is not available'));
+    const req = indexedDB.open(SQLITE_IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(SQLITE_IDB_STORE)) {
+        db.createObjectStore(SQLITE_IDB_STORE);
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function loadSqliteIdbBytes() {
+  return new Promise(async (resolve) => {
+    try {
+      const db = await openSqliteIdb();
+      const tx = db.transaction(SQLITE_IDB_STORE, 'readonly');
+      const store = tx.objectStore(SQLITE_IDB_STORE);
+      const req = store.get(SQLITE_IDB_KEY);
+      req.onsuccess = (e) => resolve(e.target.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+function saveSqliteIdbBytes(bytes) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const db = await openSqliteIdb();
+      const tx = db.transaction(SQLITE_IDB_STORE, 'readwrite');
+      const store = tx.objectStore(SQLITE_IDB_STORE);
+      const req = store.put(bytes, SQLITE_IDB_KEY);
+      req.onsuccess = () => resolve(true);
+      req.onerror = (e) => reject(e.target.error);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function createSqliteSchema(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    CREATE TABLE IF NOT EXISTS profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at INTEGER,
+      updated_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS states (
+      profile_id TEXT PRIMARY KEY,
+      schema_version INTEGER,
+      state_json TEXT NOT NULL,
+      updated_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS daily_summaries (
+      profile_id TEXT,
+      date TEXT,
+      water_ml INTEGER,
+      food_kcal REAL,
+      activity_min INTEGER,
+      weight_kg REAL,
+      mood_rating INTEGER,
+      PRIMARY KEY (profile_id, date)
+    );
+    CREATE TABLE IF NOT EXISTS food_entries (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT,
+      date TEXT,
+      name TEXT,
+      amount REAL,
+      unit TEXT,
+      kcal REAL,
+      p REAL,
+      f REAL,
+      c REAL,
+      meal_type TEXT,
+      time TEXT,
+      created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS workout_entries (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT,
+      date TEXT,
+      type TEXT,
+      duration_min INTEGER,
+      kcal REAL,
+      intensity TEXT,
+      note TEXT,
+      created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS weight_entries (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT,
+      date TEXT,
+      weight_kg REAL,
+      created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS custom_foods (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT,
+      name TEXT,
+      kcal REAL,
+      p REAL,
+      f REAL,
+      c REAL,
+      piece_g REAL,
+      created_at INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS combos (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT,
+      name TEXT,
+      text TEXT NOT NULL,
+      created_at INTEGER
+    );
+  `);
+}
+
+function syncStateToSqliteNow() {
+  if (!sqliteDb || !sqliteReady) return;
+  try {
+    const pId = activeProfileId || 'default';
+    const sJson = JSON.stringify(state);
+
+    // 1. Meta
+    const metaStmt = sqliteDb.prepare('INSERT OR REPLACE INTO meta VALUES (?, ?)');
+    metaStmt.run(['schema_version', String(STATE_SCHEMA_VERSION || 2)]);
+    metaStmt.run(['active_profile', pId]);
+    metaStmt.run(['fitflow_version', FITFLOW_VERSION || '0.6.0']);
+    metaStmt.run(['last_sync_ts', String(Date.now())]);
+    metaStmt.free();
+
+    // 2. States
+    const stateStmt = sqliteDb.prepare('INSERT OR REPLACE INTO states VALUES (?, ?, ?, ?)');
+    stateStmt.run([pId, STATE_SCHEMA_VERSION || 2, sJson, Date.now()]);
+    stateStmt.free();
+
+    // 3. Profiles
+    const profiles = getProfiles();
+    const profStmt = sqliteDb.prepare('INSERT OR REPLACE INTO profiles VALUES (?, ?, ?, ?)');
+    profiles.forEach((p) => {
+      profStmt.run([p.id, p.name || 'Пользователь', p.createdAt || Date.now(), Date.now()]);
+    });
+    profStmt.free();
+
+    // 4. Daily Summaries
+    const dailyHist = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
+    const sumStmt = sqliteDb.prepare('INSERT OR REPLACE INTO daily_summaries VALUES (?, ?, ?, ?, ?, ?, ?)');
+    dailyHist.forEach((d) => {
+      if (d && d.date) {
+        sumStmt.run([pId, d.date, Number(d.water) || 0, Number(d.food) || 0, Number(d.workoutMinutes) || 0, d.weight != null ? Number(d.weight) : null, d.mood != null ? Number(d.mood) : null]);
+      }
+    });
+    const cur = currentDaySummary();
+    sumStmt.run([pId, cur.date, Number(cur.water) || 0, Number(cur.food) || 0, Number(cur.workoutMinutes) || 0, cur.weight != null ? Number(cur.weight) : null, cur.mood != null ? Number(cur.mood) : null]);
+    sumStmt.free();
+
+    // 5. Food Entries (today)
+    const foodItems = (state.food && Array.isArray(state.food.items)) ? state.food.items : [];
+    const foodStmt = sqliteDb.prepare('INSERT OR REPLACE INTO food_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    foodItems.forEach((f) => {
+      if (f && f.id) {
+        foodStmt.run([f.id, pId, todayKey(), f.name || f.raw || '', f.amount != null ? Number(f.amount) : null, f.unit || 'г', Number(f.kcal) || 0, f.p != null ? Number(f.p) : null, f.f != null ? Number(f.f) : null, f.c != null ? Number(f.c) : null, f.mealType || null, f.time || null, Number(f.createdAt) || Date.now()]);
+      }
+    });
+    foodStmt.free();
+
+    // 6. Workout Entries
+    const workouts = Array.isArray(state.workouts) ? state.workouts : [];
+    const wStmt = sqliteDb.prepare('INSERT OR REPLACE INTO workout_entries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    workouts.forEach((w) => {
+      if (w && w.id) {
+        wStmt.run([w.id, pId, w.date || todayKey(), w.type || 'other', Number(w.minutes || w.durationMin) || 0, Number(w.kcal) || 0, w.intensity || 'medium', w.note || null, Number(w.createdAt) || Date.now()]);
+      }
+    });
+    wStmt.free();
+
+    // 7. Weight Entries
+    const weightHist = (state.profileSettings && Array.isArray(state.profileSettings.weightHistory)) ? state.profileSettings.weightHistory : [];
+    const wtStmt = sqliteDb.prepare('INSERT OR REPLACE INTO weight_entries VALUES (?, ?, ?, ?, ?)');
+    weightHist.forEach((wt) => {
+      if (wt && wt.date) {
+        wtStmt.run([wt.id || uid(), pId, wt.date, Number(wt.weight) || 0, Number(wt.createdAt) || Date.now()]);
+      }
+    });
+    wtStmt.free();
+
+    // 8. Custom Foods
+    const customFoods = Array.isArray(state.customFoods) ? state.customFoods : [];
+    const cfStmt = sqliteDb.prepare('INSERT OR REPLACE INTO custom_foods VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    customFoods.forEach((cf) => {
+      if (cf && cf.id) {
+        cfStmt.run([cf.id, pId, cf.name || '', Number(cf.kcal) || 0, cf.p != null ? Number(cf.p) : null, cf.f != null ? Number(cf.f) : null, cf.c != null ? Number(cf.c) : null, cf.pieceG != null ? Number(cf.pieceG) : null, Number(cf.createdAt) || Date.now()]);
+      }
+    });
+    cfStmt.free();
+
+    // 9. Combos
+    const combos = getCombos();
+    const cbStmt = sqliteDb.prepare('INSERT OR REPLACE INTO combos VALUES (?, ?, ?, ?, ?)');
+    combos.forEach((cb) => {
+      if (cb && cb.id) {
+        cbStmt.run([cb.id, pId, cb.name || '', cb.text || '', Number(cb.createdAt) || Date.now()]);
+      }
+    });
+    cbStmt.free();
+
+    // Export binary and persist to IndexedDB
+    const bytes = sqliteDb.export();
+    saveSqliteIdbBytes(bytes).catch((err) => console.warn('IndexedDB save failed:', err));
+    renderStorageEngineStatus();
+  } catch (e) {
+    console.warn('SQLite sync error:', e);
+  }
+}
+
+function scheduleSqliteSync() {
+  if (sqliteSyncTimer) clearTimeout(sqliteSyncTimer);
+  sqliteSyncTimer = setTimeout(syncStateToSqliteNow, 180);
+}
+
+function getSqliteStats() {
+  if (!sqliteDb || !sqliteReady) return null;
+  try {
+    const qCount = (tbl) => {
+      try {
+        const res = sqliteDb.exec(`SELECT count(*) as c FROM ${tbl};`);
+        return (res && res[0] && res[0].values && res[0].values[0] && res[0].values[0][0]) || 0;
+      } catch (e) { return 0; }
+    };
+    return {
+      summaries: qCount('daily_summaries'),
+      food: qCount('food_entries'),
+      workouts: qCount('workout_entries'),
+      weight: qCount('weight_entries'),
+      customFoods: qCount('custom_foods'),
+      combos: qCount('combos'),
+      profiles: qCount('profiles')
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderStorageEngineStatus() {
+  if (typeof document === 'undefined') return;
+  const statusEl = document.getElementById('storage-engine-status');
+  if (!statusEl) return;
+  if (sqliteReady && sqliteDb) {
+    const stats = getSqliteStats();
+    if (stats) {
+      statusEl.innerHTML = `💾 <b>SQLite активен (WASM + IndexedDB)</b><br><small style="opacity:0.85">Записей в базе: ${stats.summaries} дн. истории · ${stats.food} еды · ${stats.workouts} трен. · ${stats.weight} веса · Резерв: localStorage (Dual-Write)</small>`;
+    } else {
+      statusEl.textContent = '💾 SQLite активен (WASM + IndexedDB) · Резерв: localStorage';
+    }
+  } else {
+    statusEl.textContent = '💾 Хранилище: localStorage (Dual-Write резерв)';
+  }
+}
+
+async function initSqliteStorage() {
+  if (typeof window === 'undefined') return;
+  try {
+    // 1. Check if SQLite bundle / init function is available
+    const initFn = window.initFitFlowSqlite || (typeof initSqlJs !== 'undefined' ? initSqlJs : null);
+    if (!initFn) {
+      console.log('SQLite bundle не подключён, используется localStorage fallback');
+      renderStorageEngineStatus();
+      return;
+    }
+
+    const SQL = await initFn();
+    if (!SQL || !SQL.Database) return;
+
+    // 2. Load existing binary database from IndexedDB
+    const savedBytes = await loadSqliteIdbBytes();
+    if (savedBytes && savedBytes.length > 0) {
+      sqliteDb = new SQL.Database(savedBytes);
+      createSqliteSchema(sqliteDb);
+      sqliteReady = true;
+      console.log('✓ SQLite база успешно загружена из IndexedDB (' + savedBytes.length + ' байт)');
+    } else {
+      // 3. First time migration from localStorage to SQLite
+      sqliteDb = new SQL.Database();
+      createSqliteSchema(sqliteDb);
+      sqliteReady = true;
+
+      // Safety snapshot before migration
+      try {
+        localStorage.setItem('fitflow:pre-sqlite-backup', JSON.stringify({
+          state,
+          allProfiles: JSON.parse(localStorage.getItem('fitflow:all-profiles') || 'null'),
+          ts: Date.now(),
+          version: FITFLOW_VERSION
+        }));
+      } catch (e) { }
+
+      // Initial sync
+      syncStateToSqliteNow();
+      console.log('✓ Выполнена начальная миграция из localStorage в SQLite');
+    }
+
+    renderStorageEngineStatus();
+  } catch (err) {
+    console.warn('Ошибка инициализации SQLite, переключаюсь на localStorage fallback:', err);
+    sqliteReady = false;
+    sqliteDb = null;
+    renderStorageEngineStatus();
+  }
+}
+
 function saveState() {
   try {
     recordDailySummary(todayKey());
     localStorage.setItem(profileStateKey(), JSON.stringify(state));
     updateNativeWidget();
+    scheduleSqliteSync();
   } catch (e) {
     console.warn('Не удалось сохранить данные:', e);
   }
@@ -9366,6 +9708,7 @@ function writeProState(pro) {
     } else localStorage.removeItem(PRO_KEY);
   } catch (e) { }
   renderProStatus();
+  initSqliteStorage();
 }
 
 /* Принимает «FF-AB12-CD34-EF56», «ff-ab12…» и «голые» 12 hex-знаков. */
@@ -12173,6 +12516,7 @@ if (typeof module !== 'undefined' && module.exports) {
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
-    normalizeCombos, COMBOS_LIMIT
+    normalizeCombos, COMBOS_LIMIT,
+    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema
   };
 }
