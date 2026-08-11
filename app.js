@@ -2599,11 +2599,12 @@ const DEFAULTS = {
   onlineFeatures: { barcodeLookup: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
+  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, lastSyncTs: null, lastSteps: 0, lastSource: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.6.0';
+const FITFLOW_VERSION = '0.7.0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -4065,6 +4066,7 @@ function loadState() {
   normalizeSleepCheckin();
   normalizeDayMood();
   normalizeAiSettings();
+  normalizeHealthSync();
   if (previousWaterDate !== today || previousFoodDate !== today) {
     try { localStorage.setItem(profileStateKey(), JSON.stringify(state)); } catch (e) { /* localStorage недоступен */ }
   }
@@ -4505,29 +4507,43 @@ const THEME_ICON_SETS = {
   standard: THEME_ICON_STANDARD,
   neon: {
     ...THEME_ICON_STANDARD,
-    settings: '⚙️', profile: '👤', bell: '🔔', course: '🧪', ai: '✨',
-    backup: '💾', about: 'ℹ️', medals: '🏆', water: '💧', food: '🥗',
-    dayplan: '📊', mood: '⚡', combo: '⚡'
+    settings: '🎛️', profile: '🧑‍🚀', bell: '📡', course: '🧪', ai: '🔮',
+    backup: '🗃️', about: '💡', medals: '🎖️', water: '🧊', food: '🍱',
+    dayplan: '🗒️', mood: '🌃', combo: '⚡'
   },
   sport: {
     ...THEME_ICON_STANDARD,
-    settings: '⚙️', profile: '💪', bell: '⏰', course: '🥤', ai: '🔥',
-    backup: '💾', about: 'ℹ️', medals: '🥇', water: '💧', food: '🥗',
-    dayplan: '📋', mood: '🔋', combo: '🎯'
+    settings: '🎚️', profile: '💪', bell: '⏰', course: '🥤', ai: '🧠',
+    backup: '📦', about: '📣', medals: '🏆', water: '🚰', food: '🥗',
+    dayplan: '🗓️', mood: '🔥', combo: '🎯'
   },
   forest: {
     ...THEME_ICON_STANDARD,
-    settings: '⚙️', profile: '🌱', bell: '🔔', course: '🌿', ai: '✨',
-    backup: '💾', about: 'ℹ️', medals: '🎋', water: '💧', food: '🥑',
-    dayplan: '📋', mood: '☀️', combo: '🍀'
+    settings: '🪵', profile: '🥾', bell: '🐦', course: '🌿', ai: '🦉',
+    backup: '🧺', about: '🍃', medals: '🎋', water: '🫗', food: '🥕',
+    dayplan: '🌲', mood: '🌤️', combo: '🌰'
   },
   berry: {
     ...THEME_ICON_STANDARD,
-    settings: '⚙️', profile: '👤', bell: '🔔', course: '💊', ai: '✨',
-    backup: '💾', about: 'ℹ️', medals: '🏅', water: '💧', food: '🍇',
-    dayplan: '📋', mood: '🌸', combo: '⭐'
+    settings: '🍇', profile: '🫐', bell: '💜', course: '🍬', ai: '🔮',
+    backup: '🍯', about: '🌸', medals: '🏵️', water: '🧃', food: '🫕',
+    dayplan: '🎀', mood: '🌺', combo: '✨'
   }
 };
+
+const THEME_ACTIVITY_SETS = {
+  standard: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚲', strength: '🏋️', stretch: '🧘', leisure: '⛸️', other: '💪' },
+  neon: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '🦾', stretch: '🧘', leisure: '🛸', other: '⚡' },
+  sport: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '🏋️', stretch: '🤸', leisure: '🥊', other: '🏆' },
+  forest: { walk: '🥾', cardio: '🦌', swim: '🚣', bike: '🚵', strength: '🪓', stretch: '🌱', leisure: '⛺', other: '🌲' },
+  berry: { walk: '🚶', cardio: '🏃', swim: '🏊', bike: '🚴', strength: '💪', stretch: '🧘', leisure: '✨', other: '🍇' }
+};
+
+function activityThemeEmoji(type) {
+  const p = getPalette();
+  const set = THEME_ACTIVITY_SETS[p] || THEME_ACTIVITY_SETS.standard;
+  return set[type] || (ACTIVITY_TYPES[type] && ACTIVITY_TYPES[type].emoji) || '💪';
+}
 function themeIcon(slot) {
   const set = THEME_ICON_SETS[getPalette()] || THEME_ICON_STANDARD;
   return set[slot] || THEME_ICON_STANDARD[slot] || '';
@@ -6129,6 +6145,128 @@ function renderWater() {
 
   $('#water-undo').style.opacity = total > 0 ? '1' : '0.45';
   renderDayChecklist();
+}
+
+
+/* ============================================================
+   🏃 Health Connect & Шагомер (0.7.0)
+   ------------------------------------------------------------
+   Трёхуровневая система приоритета источников без задвоения:
+   1) Health Connect (часы / Zepp / Amazfit / Garmin / Samsung);
+   2) Аппаратный шагомер телефона (TYPE_STEP_COUNTER);
+   3) Ручной ввод.
+   ============================================================ */
+function normalizeHealthSync() {
+  const source = state.healthSync || {};
+  state.healthSync = {
+    enabled: source.enabled === true,
+    priority: ['auto', 'phone_only', 'health_connect_only'].includes(source.priority) ? source.priority : 'auto',
+    includeInDailyBudget: source.includeInDailyBudget === true,
+    lastSyncTs: Number(source.lastSyncTs) || null,
+    lastSteps: Math.max(0, Number(source.lastSteps) || 0),
+    lastSource: typeof source.lastSource === 'string' ? source.lastSource : null
+  };
+}
+
+function getPhoneSteps() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.getPhoneStepsToday === 'function') {
+      return Math.max(0, Number(window.FitFlowExport.getPhoneStepsToday()) || 0);
+    }
+  } catch (e) { }
+  return 0;
+}
+
+function openHealthConnectSettings() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.openHealthConnectSettings === 'function') {
+      window.FitFlowExport.openHealthConnectSettings();
+      return;
+    }
+  } catch (e) { }
+  toast('Health Connect доступен в Android-сборке на телефоне');
+}
+
+function requestActivityRecognition() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.requestActivityRecognition === 'function') {
+      window.FitFlowExport.requestActivityRecognition();
+      toast('Запрос разрешения на шагомер отправлен');
+      return;
+    }
+  } catch (e) { }
+  toast('Шагомер доступен в Android-сборке на телефоне');
+}
+
+function renderHealthSyncSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#health-sync-toggle');
+  const budgetToggle = $('#health-budget-toggle');
+  const statusEl = $('#health-sync-status');
+  const opts = $('#health-sync-options');
+  if (!toggle) return;
+  normalizeHealthSync();
+  toggle.checked = state.healthSync.enabled;
+  if (budgetToggle) budgetToggle.checked = state.healthSync.includeInDailyBudget;
+  if (opts) opts.hidden = !state.healthSync.enabled;
+  
+  $$('#health-priority-choices button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.healthPriority === state.healthSync.priority);
+  });
+  
+  if (statusEl) {
+    if (!state.healthSync.enabled) {
+      statusEl.textContent = 'Синхронизация шагов и активности выключена.';
+    } else {
+      const steps = state.healthSync.lastSteps || getPhoneSteps() || 0;
+      const src = state.healthSync.lastSource || 'датчик телефона';
+      statusEl.textContent = `Синхронизация активна. Шагов сегодня: ${fmt(steps)} (${src}).`;
+    }
+  }
+}
+
+function updateHealthSyncEnabled(enabled) {
+  normalizeHealthSync();
+  state.healthSync.enabled = enabled;
+  saveState();
+  renderHealthSyncSettings();
+  if (enabled) {
+    requestActivityRecognition();
+    syncHealthDataNow();
+    toast('🏃 Синхронизация шагов включена');
+  } else {
+    toast('Синхронизация шагов выключена');
+  }
+}
+
+function updateHealthPriority(priority) {
+  normalizeHealthSync();
+  state.healthSync.priority = priority;
+  saveState();
+  renderHealthSyncSettings();
+  syncHealthDataNow();
+  toast('Приоритет обновлён: ' + (priority === 'auto' ? 'Авто (Часы → Телефон)' : (priority === 'phone_only' ? 'Только телефон' : 'Только часы')));
+}
+
+function updateHealthIncludeInBudget(include) {
+  normalizeHealthSync();
+  state.healthSync.includeInDailyBudget = include;
+  saveState();
+  renderFood();
+  toast(include ? 'Сожжённые калории учитываются в балансе питания' : 'Баланс питания считает только базовую цель');
+}
+
+function syncHealthDataNow() {
+  normalizeHealthSync();
+  if (!state.healthSync.enabled) return;
+  const phoneSteps = getPhoneSteps();
+  if (phoneSteps > 0) {
+    state.healthSync.lastSteps = phoneSteps;
+    state.healthSync.lastSource = 'шагомер телефона';
+    state.healthSync.lastSyncTs = Date.now();
+    saveState();
+    renderHealthSyncSettings();
+  }
 }
 
 function renderFood() {
@@ -9713,6 +9851,14 @@ function writeProState(pro) {
   } catch (e) { }
   renderProStatus();
   initSqliteStorage();
+  bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));
+  bindEvent('#health-budget-toggle', 'change', (e) => updateHealthIncludeInBudget(e.target.checked));
+  bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
+  bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
+  $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
+    btn.addEventListener('click', () => updateHealthPriority(btn.dataset.healthPriority));
+  });
+  renderHealthSyncSettings();
 }
 
 /* Принимает «FF-AB12-CD34-EF56», «ff-ab12…» и «голые» 12 hex-знаков. */
@@ -12521,6 +12667,6 @@ if (typeof module !== 'undefined' && module.exports) {
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT,
-    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema
+    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS
   };
 }
