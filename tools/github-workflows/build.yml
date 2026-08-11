@@ -132,6 +132,10 @@ jobs:
           import android.provider.Settings;
           import android.webkit.JavascriptInterface;
           import android.webkit.WebView;
+          import android.hardware.Sensor;
+          import android.hardware.SensorEvent;
+          import android.hardware.SensorEventListener;
+          import android.hardware.SensorManager;
 
           import androidx.core.app.NotificationManagerCompat;
 
@@ -142,12 +146,15 @@ jobs:
           import java.io.OutputStream;
           import java.util.ArrayList;
 
-          public class MainActivity extends BridgeActivity {
+          public class MainActivity extends BridgeActivity implements SensorEventListener {
 
               private static final int REQ_SAVE_BACKUP = 7301;
               private static final int REQ_VOICE_INPUT = 7302;
               private String pendingBackupJson = null;
               private String pendingWidgetAction = null;
+              private SensorManager sensorManager;
+              private Sensor stepCounterSensor;
+              private Sensor stepDetectorSensor;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -167,6 +174,7 @@ jobs:
                   requestExactAlarmPermission();
                   requestIgnoreBatteryOptimizations();
                   installBackupBridge();
+                  initStepSensors();
                   checkPendingWidgetWaterAdd();
                   Intent startIntent = getIntent();
                   if (startIntent != null && startIntent.hasExtra("widget_action")) {
@@ -197,6 +205,12 @@ jobs:
               @Override
               public void onResume() {
                   super.onResume();
+                  try {
+                      if (sensorManager != null) {
+                          if (stepCounterSensor != null) sensorManager.registerListener(this, stepCounterSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                          if (stepDetectorSensor != null) sensorManager.registerListener(this, stepDetectorSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                      }
+                  } catch (Exception e) { }
                   checkPendingWidgetWaterAdd();
                   if (pendingWidgetAction != null) processWidgetAction();
               }
@@ -273,6 +287,67 @@ jobs:
               }
 
               /* ===== Сохранение резервной копии через системное окно Android ===== */
+
+              private void initStepSensors() {
+                  try {
+                      sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+                      if (sensorManager != null) {
+                          stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+                          if (stepCounterSensor != null) {
+                              sensorManager.registerListener(this, stepCounterSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                          }
+                          stepDetectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+                          if (stepDetectorSensor != null) {
+                              sensorManager.registerListener(this, stepDetectorSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                          }
+                      }
+                  } catch (Exception e) { }
+              }
+
+              @Override
+              public void onSensorChanged(SensorEvent event) {
+                  try {
+                      if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
+                          int totalSteps = (int) event.values[0];
+                          updatePhoneSteps(totalSteps);
+                      } else if (event.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {
+                          incrementStepDetector();
+                      }
+                  } catch (Exception e) { }
+              }
+
+              private void updatePhoneSteps(int rawSteps) {
+                  try {
+                      SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                      String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                      String savedDate = prefs.getString("steps_date", "");
+                      int baseSteps = prefs.getInt("steps_base", -1);
+                      if (!today.equals(savedDate) || baseSteps == -1 || rawSteps < baseSteps) {
+                          baseSteps = rawSteps;
+                          prefs.edit().putString("steps_date", today).putInt("steps_base", baseSteps).putInt("steps_today", 0).apply();
+                      } else {
+                          int stepsToday = rawSteps - baseSteps;
+                          prefs.edit().putInt("steps_today", Math.max(0, stepsToday)).apply();
+                      }
+                  } catch (Exception e) { }
+              }
+
+              private void incrementStepDetector() {
+                  try {
+                      SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                      String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                      String savedDate = prefs.getString("steps_date", "");
+                      if (!today.equals(savedDate)) {
+                          prefs.edit().putString("steps_date", today).putInt("steps_today", 1).putInt("steps_base", 0).apply();
+                      } else {
+                          int current = prefs.getInt("steps_today", 0);
+                          prefs.edit().putInt("steps_today", current + 1).apply();
+                      }
+                  } catch (Exception e) { }
+              }
+
+              @Override
+              public void onAccuracyChanged(Sensor sensor, int accuracy) { }
 
               private void installBackupBridge() {
                   try {
