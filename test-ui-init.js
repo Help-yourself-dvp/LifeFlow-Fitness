@@ -96,7 +96,7 @@ const ids = [
   'license-lang-tabs', 'license-panel-ru', 'license-panel-en', 'license-panel-third-party',
   'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
   'water-reminder-window-start', 'water-reminder-window-end',
-  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'health-sync-toggle', 'health-sync-options', 'health-priority-choices', 'health-budget-toggle', 'health-connect-open-btn', 'health-phone-perm-btn', 'health-sync-status'
+  'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'health-sync-toggle', 'health-sync-options', 'health-priority-choices', 'health-budget-toggle', 'health-connect-open-btn', 'health-phone-perm-btn', 'health-sync-now-btn', 'health-sync-status'
 ];
 
 let failed = 0;
@@ -1431,6 +1431,7 @@ for (const id of ids) {
     && html.includes('id="health-budget-toggle"')
     && html.includes('id="health-connect-open-btn"')
     && html.includes('id="health-phone-perm-btn"')
+    && html.includes('id="health-sync-now-btn"')
     && html.includes('id="health-sync-status"');
   if (!okHealthUI) failed++;
   console.log(`${okHealthUI ? '✓' : '✗'} 0.7.0 Health Connect UI: переключатели синхронизации, приоритетов и системных разрешений`);

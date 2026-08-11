@@ -6258,6 +6258,46 @@ function updateHealthIncludeInBudget(include) {
   toast(include ? 'Сожжённые калории учитываются в балансе питания' : 'Баланс питания считает только базовую цель');
 }
 
+function requestHealthSyncNow() {
+  normalizeHealthSync();
+  if (!state.healthSync.enabled) {
+    toast('Сначала включите тумблер синхронизации выше');
+    return;
+  }
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
+      window.FitFlowExport.syncHealthConnectNow();
+      toast('Запрос в Health Connect отправлен...');
+      return;
+    }
+  } catch (e) { }
+  
+  // Fallback: телефонный шагомер
+  syncHealthDataNow();
+  const steps = state.healthSync.lastSteps || getPhoneSteps() || 0;
+  toast(steps > 0 ? `Шагов сегодня: ${fmt(steps)} (шагомер телефона)` : 'Данные шагомера обновлены (0 шагов)');
+}
+
+if (typeof window !== 'undefined') {
+  window.onHealthConnectDataReceived = function(steps, kcal, sleepMin, bedTime, wakeTime) {
+    normalizeHealthSync();
+    const receivedSteps = Math.max(0, Number(steps) || 0);
+    const receivedKcal = Math.max(0, Number(kcal) || 0);
+    if (receivedSteps > 0 || receivedKcal > 0) {
+      state.healthSync.lastSteps = receivedSteps;
+      state.healthSync.lastKcal = receivedKcal;
+      state.healthSync.lastSource = 'Zepp / Health Connect';
+      state.healthSync.lastSyncTs = Date.now();
+      saveState();
+      renderHealthSyncSettings();
+      renderFood();
+      toast(`✓ Health Connect: ${fmt(receivedSteps)} шагов (${fmt(Math.round(receivedKcal))} ккал)`);
+    } else {
+      syncHealthDataNow();
+    }
+  };
+}
+
 function syncHealthDataNow() {
   normalizeHealthSync();
   if (!state.healthSync.enabled) return;
@@ -10458,6 +10498,7 @@ function init() {
   initSqliteStorage();
   bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));
   bindEvent('#health-budget-toggle', 'change', (e) => updateHealthIncludeInBudget(e.target.checked));
+  bindEvent('#health-sync-now-btn', 'click', requestHealthSyncNow);
   bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
   bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
   $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
