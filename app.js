@@ -6538,6 +6538,14 @@ function openHealthDiagnostics() {
   const hcStepsToday = (state.healthSync && state.healthSync.lastSteps && state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect'))
     ? state.healthSync.lastSteps
     : (rawDiag ? (rawDiag.hcStepsToday || 0) : 0);
+  // Health Connect error state from Kotlin helper
+  let hcLastError = '';
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.getHealthConnectLastError === 'function') {
+      hcLastError = window.FitFlowExport.getHealthConnectLastError() || '';
+    }
+  } catch (e) { }
+
   const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
 
   const sleepEntry = ((state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null)
@@ -6558,6 +6566,7 @@ function openHealthDiagnostics() {
     `Шагов получено от Health Connect: ${hcStepsToday}`,
     `Сон из Health Connect (Zepp): ${sleepStr}`,
     `Последний синк: ${lastSyncStr}`,
+    `Статус Health Connect: ${hcLastError || 'нет данных'}`,
     `Активный приоритет в FitFlow: ${state.healthSync.priority}`,
     `Учитывать калории в бюджете: ${state.healthSync.includeInDailyBudget ? 'Да' : 'Нет'}`
   ];
@@ -6573,6 +6582,10 @@ function openHealthDiagnostics() {
     <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect:</strong> ${fmt(hcStepsToday)}</div>
     <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect / Zepp):</strong> ${sleepStr}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
+    ${hcLastError && !hcLastError.startsWith('ok') ? '<div style="margin-bottom:8px; padding:8px; background:rgba(220,50,50,0.1); border-radius:6px; font-size:12px;"><strong>⚠️ Health Connect статус:</strong> ' + escapeHtml(hcLastError) + '</div>' : ''}
+    <div style="margin-bottom:8px">
+      <button class="btn btn-secondary" type="button" onclick="requestHCPermissions()" style="font-size:12px; padding:6px 12px">🔓 Разрешить доступ к Health Connect</button>
+    </div>
     <div style="margin-top:10px; padding:10px; background:rgba(0,105,107,0.08); border-radius:8px; font-size:12px; line-height:1.45;">
       <strong>📌 Как передать шаги и сон из Zepp (Amazfit):</strong><br>
       1. Откройте приложение <strong>Zepp</strong> на телефоне.<br>
@@ -6582,6 +6595,19 @@ function openHealthDiagnostics() {
       5. В FitFlow нажмите «🔄 Загрузить данные из Health Connect».
     </div>
   `;
+}
+
+function requestHCPermissions() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.requestHealthConnectPermissions === 'function') {
+      window.FitFlowExport.requestHealthConnectPermissions();
+      toast('Открываю настройки разрешений Health Connect…');
+    } else {
+      toast('Health Connect доступен только в APK-сборке');
+    }
+  } catch (e) {
+    toast('Не удалось открыть настройки: ' + (e.message || e));
+  }
 }
 
 function closeHealthDiagnostics() {
