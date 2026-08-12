@@ -3888,10 +3888,38 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 .quick-entry-btn:active { background: var(--md-sys-color-surface-container-high); }
 .quick-entry-row .help-dot { flex: 0 0 auto; }
 
-/* Недельная цель: строка не переносится, чип-статус не даёт сомневаться в итоге */
-.weekly-activity-goal .stats-section-head { flex-wrap: nowrap; align-items: center; gap: 8px; }
-.weekly-activity-goal .stats-section-head > div { min-width: 0; }
-.weekly-activity-goal strong { white-space: nowrap; }
+/* 0.7.0 Недельная цель активности: статус слева, минуты посередине, кнопка «Цель» и «?» справа */
+.weekly-activity-goal .weekly-goal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  position: relative;
+}
+.weekly-goal-center {
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.weekly-goal-center .training-summary-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+.weekly-goal-center strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+.weekly-goal-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  position: relative;
+}
 .weekly-status-chip {
   flex: 0 0 auto;
   font-size: 0.72rem;

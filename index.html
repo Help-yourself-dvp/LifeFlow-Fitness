@@ -456,18 +456,19 @@
       </div>
 
       <div class="weekly-activity-goal">
-        <div class="stats-section-head">
-          <div>
-            <!-- 0.5.5 (владелец): «надпись длинная и непонятно, что считается» —
-                 текст короче, статус отдельным чипом, объяснение переехало в «?» -->
-            <span class="training-summary-label">Цель за 7 дней <span class="help-dot help-dot-inline" role="button" tabindex="0" data-help="weekly-goal" aria-label="Справка: цель активности на 7 дней" title="Что считается и как выбрать цель?">?</span></span>
+        <div class="weekly-goal-header">
+          <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
+          <div class="weekly-goal-center">
+            <span class="training-summary-label">Цель за 7 дней</span>
             <strong id="weekly-activity-total">0 мин из 150 мин</strong>
           </div>
-          <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
-          <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
+          <div class="weekly-goal-right">
+            <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
+            <span class="help-dot" role="button" tabindex="0" data-help="weekly-goal" aria-label="Справка: цель активности на 7 дней" title="Что считается и как выбрать цель?">?</span>
             <div class="goal-stepper" id="weekly-goal-stepper" hidden>
-            <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
-            <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
+              <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
+              <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
+            </div>
           </div>
         </div>
         <div class="progress-track"><div class="progress-fill" id="weekly-activity-progress"></div></div>
@@ -578,37 +579,37 @@
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-profile">
-            <span class="settings-menu-emoji" aria-hidden="true">👤</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="profile">👤</span>
             <span class="settings-menu-text"><b>Профиль и цели</b><small>Пол, возраст, рост, активность, расчёт норм</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-profile" aria-label="Справка: Профиль и цели" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-notifications">
-            <span class="settings-menu-emoji" aria-hidden="true">🔔</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="bell">🔔</span>
             <span class="settings-menu-text"><b>Уведомления</b><small>Мотивация, приёмы пищи, вода и вечерняя активность</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-notifications" aria-label="Справка: Уведомления" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-courses">
-            <span class="settings-menu-emoji" aria-hidden="true">💊</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="course">💊</span>
             <span class="settings-menu-text"><b>Мой курс</b><small>Витамины, добавки и приёмы по расписанию с напоминаниями</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-courses" aria-label="Справка: Мой курс" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-ai">
-            <span class="settings-menu-emoji" aria-hidden="true">✨</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="ai">✨</span>
             <span class="settings-menu-text"><b>Помощник FitFlow</b><small>Офлайн-анализ, облачная нейросеть или модель на устройстве</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: Помощник FitFlow" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-data">
-            <span class="settings-menu-emoji" aria-hidden="true">💾</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="backup">💾</span>
             <span class="settings-menu-text"><b>Данные и резервные копии</b><small>Экспорт, импорт, сброс</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-data" aria-label="Справка: Данные и резервные копии" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-about">
-            <span class="settings-menu-emoji" aria-hidden="true">ℹ️</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="about">ℹ️</span>
             <span class="settings-menu-text"><b>О приложении</b><small>Версия, источники данных, методика, условия</small></span>
             <span class="help-dot" role="button" tabindex="0" data-help="settings-about" aria-label="Справка: О приложении" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -616,7 +617,7 @@
           <!-- 0.5.1 (решение владельца, п.13): PRO-каркас — экран активации кода.
                НИЧЕГО не закрыто: все функции доступны бесплатно, PRO — поддержка проекта. -->
           <button class="settings-menu-btn" id="pro-open" type="button">
-            <span class="settings-menu-emoji" aria-hidden="true">🏅</span>
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="medals">🏅</span>
             <span class="settings-menu-text"><b>FitFlow PRO</b><small id="pro-menu-status">Поддержка проекта — не активировано</small></span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>

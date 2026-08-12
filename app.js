@@ -3102,11 +3102,38 @@ function normalizeProfileSettings() {
   state.profileSettings = {
     weightKg: Number.isFinite(weight) && weight >= 25 && weight <= 300 ? Math.round(weight * 10) / 10 : null,
     weightHistory: normalizeWeightHistory(profile.weightHistory),
+    lastWeightReminderTs: Number(profile.lastWeightReminderTs) || 0,
     sex,
     ageYears: clampOptionalInt(profile.ageYears, 5, 120),
     heightCm: clampOptionalInt(profile.heightCm, 80, 250),
     activityLevel
   };
+}
+
+function checkWeighInReminder() {
+  normalizeProfileSettings();
+  const history = normalizeWeightHistory(state.profileSettings && state.profileSettings.weightHistory);
+  if (!history || history.length === 0) return;
+  const latest = history[history.length - 1];
+  if (!latest || !latest.date) return;
+
+  const now = Date.now();
+  const lastWeightDateMs = new Date(latest.date).getTime();
+  if (isNaN(lastWeightDateMs)) return;
+  const daysSinceWeight = Math.floor((now - lastWeightDateMs) / (1000 * 60 * 60 * 24));
+
+  // 0.7.0 (запрос владельца): разовое напоминание, если вес не вносился 35+ дней (1-1.5 месяца). При игноре — новый период отсчёта.
+  if (daysSinceWeight >= 35) {
+    const lastReminder = state.profileSettings.lastWeightReminderTs || 0;
+    const daysSinceReminder = Math.floor((now - lastReminder) / (1000 * 60 * 60 * 24));
+    if (daysSinceReminder >= 35) {
+      state.profileSettings.lastWeightReminderTs = now;
+      saveState();
+      setTimeout(() => {
+        toast(`⚖️ Пора обновить вес: последняя запись была ${daysSinceWeight} дн. назад. Свежий вес помогает точнее рассчитывать нормы калорий и воды.`);
+      }, 2000);
+    }
+  }
 }
 
 /* Личные нормы на день:
@@ -10193,6 +10220,7 @@ function init() {
   refreshTrainingReminderOnLaunch();
   refreshWaterRemindersOnLaunch();
   refreshCourseRemindersOnLaunch();
+  checkWeighInReminder();
 
   // Тема
   bindEvent('#theme-toggle', 'click', toggleTheme);
