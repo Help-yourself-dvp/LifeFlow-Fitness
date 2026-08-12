@@ -108,7 +108,29 @@ jobs:
           # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
           sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"' android/app/build.gradle
           sed -i '/dependencies {/a\    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"' android/app/build.gradle
-                    # Apply Kotlin plugin to app module for HealthConnectHelper.kt
+                              # Kotlin plugin for HealthConnectHelper.kt
+          python3 - <<'PYEOF2'
+          from pathlib import Path
+          _p = Path('android/build.gradle')
+          _t = _p.read_text(encoding='utf-8')
+          if 'kotlin-gradle-plugin' not in _t:
+              _anchor = "classpath 'com.android.tools:r8:"
+              _out = []
+              _done = False
+              for _ln in _t.split('\n'):
+                  _out.append(_ln)
+                  if (not _done) and _anchor in _ln:
+                      _out.append("        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21'")
+                      _done = True
+              if _done:
+                  _p.write_text('\n'.join(_out), encoding='utf-8')
+                  print('OK: Kotlin plugin added to root build.gradle')
+              else:
+                  print('WARNING: R8 anchor not found, Kotlin plugin NOT added')
+          else:
+              print('Kotlin plugin already in root build.gradle')
+          PYEOF2
+          # Apply Kotlin plugin to app module
           sed -i "/id 'com.android.application'/a\\apply plugin: 'kotlin-android'" android/app/build.gradle
           npx cap sync android
 
@@ -152,6 +174,12 @@ jobs:
           // Health Connect API — чтение шагов и сна из Zepp/Garmin/Samsung
                                                                                                               import java.util.List;
           import java.util.Set;
+          import androidx.health.connect.client.HealthConnectClient;
+          import androidx.health.connect.client.records.StepsRecord;
+          import androidx.health.connect.client.records.SleepSessionRecord;
+          import androidx.health.connect.client.request.ReadRecordsRequest;
+          import androidx.health.connect.client.response.ReadRecordsResponse;
+          import androidx.health.connect.client.time.TimeRangeFilter;
 
           import java.io.OutputStream;
           import java.util.ArrayList;
@@ -514,21 +542,15 @@ jobs:
                                   String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
                                   String savedDate = prefs.getString("steps_date", "");
                                   final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
-
                                   final int[] result = HealthConnectHelper.syncNow(getApplicationContext());
-
                                   final int bestSteps = Math.max(phoneSteps, result[0]);
                                   final double kcal = bestSteps * 0.04;
-
                                   prefs.edit()
                                       .putInt("hc_steps_today", result[0])
                                       .putFloat("hc_kcal_today", (float) kcal)
                                       .putInt("hc_sleep_min", result[1])
-                                      .putString("hc_bed_time", "")
-                                      .putString("hc_wake_time", "")
                                       .putLong("hc_last_sync_ts", System.currentTimeMillis())
                                       .apply();
-
                                   runOnUiThread(new Runnable() {
                                       @Override public void run() {
                                           try {
@@ -539,10 +561,10 @@ jobs:
                                                       bestSteps, kcal, result[1]);
                                                   wv.evaluateJavascript(js, null);
                                               }
-                                          } catch (Exception e) { }
+                                          } catch (Exception e) {}
                                       }
                                   });
-                              } catch (Exception e) { }
+                              } catch (Exception e) {}
                           }
                       }).start();
                   }
@@ -1377,9 +1399,10 @@ jobs:
               }
           }
           EOF
+      - name: Create HealthConnectHelper.kt
+        run: |
           cat > android/app/src/main/java/com/fitflow/app/HealthConnectHelper.kt << 'KOTLIN_EOF'
           package com.fitflow.app
-
           import android.content.Context
           import androidx.health.connect.client.HealthConnectClient
           import androidx.health.connect.client.records.StepsRecord
@@ -1389,13 +1412,7 @@ jobs:
           import kotlinx.coroutines.runBlocking
           import java.time.LocalDate
           import java.time.ZoneId
-
           object HealthConnectHelper {
-              /**
-               * Reads steps and sleep from Health Connect (Zepp, Garmin, Samsung, etc.)
-               * Returns intArrayOf(hcSteps, sleepMin)
-               * Must be called from a background thread (uses runBlocking).
-               */
               @JvmStatic
               fun syncNow(context: Context): IntArray {
                   return try {
@@ -1404,31 +1421,22 @@ jobs:
                       val startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant()
                       val endOfDay = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
                       val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
-
-                      // Read steps from ALL sources (Zepp, phone, Garmin, etc.)
                       val stepsReq = ReadRecordsRequest(StepsRecord::class, timeRange)
                       val stepsResponse = runBlocking { client.readRecords(stepsReq) }
                       var totalSteps = 0L
-                      for (record in stepsResponse.records) {
-                          totalSteps += record.count
-                      }
-
-                      // Read sleep from Health Connect
+                      for (record in stepsResponse.records) { totalSteps += record.count }
                       var sleepMin = 0
                       try {
                           val sleepReq = ReadRecordsRequest(SleepSessionRecord::class, timeRange)
                           val sleepResponse = runBlocking { client.readRecords(sleepReq) }
-                          var totalSleepMs = 0L
+                          var totalMs = 0L
                           for (record in sleepResponse.records) {
-                              totalSleepMs += record.endTime.toEpochMilli() - record.startTime.toEpochMilli()
+                              totalMs += record.endTime.toEpochMilli() - record.startTime.toEpochMilli()
                           }
-                          sleepMin = (totalSleepMs / 60000).toInt()
+                          sleepMin = (totalMs / 60000).toInt()
                       } catch (_: Exception) {}
-
                       intArrayOf(totalSteps.toInt(), sleepMin)
-                  } catch (_: Exception) {
-                      intArrayOf(0, 0)
-                  }
+                  } catch (_: Exception) { intArrayOf(0, 0) }
               }
           }
           KOTLIN_EOF
