@@ -2649,6 +2649,7 @@ const WEIGHT_SCALE_SVG_SM = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="t
 const HOME_CARDS = [
   { id: 'day-plan', label: 'План дня', icon: '📋' },
   { id: 'day-mood', label: 'Самочувствие', icon: '🌗' },
+  { id: 'steps', label: 'Шаги', icon: '👟' },
   { id: 'water', label: 'Вода', icon: '💧' },
   { id: 'food', label: 'Питание', icon: '🍽️' },
   { id: 'weight', label: 'Вес', icon: WEIGHT_SCALE_SVG_SM }
@@ -2660,6 +2661,7 @@ function isHomeCardFeatureEnabled(id) {
   // ИЛИ есть активный курс приёмов (0.3.30 — его строки живут в этой карточке).
   if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled) || getTodayCourses().length > 0);
   if (id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
+  if (id === 'steps') return !!(state.healthSync && state.healthSync.enabled);
   return true;
 }
 
@@ -4702,6 +4704,7 @@ function renderAll() {
   renderWeightSettings();
   renderMoodCorrelations();
   renderWeightOverview();
+  renderStepsCard();
   renderWater();
   renderFood();
   renderMealTypePicker();
@@ -6229,6 +6232,41 @@ function requestActivityRecognition() {
   toast('Шагомер доступен в Android-сборке на телефоне');
 }
 
+function renderStepsCard() {
+  if (typeof document === 'undefined') return;
+  const countEl = $('#steps-card-count');
+  const goalEl = $('#steps-card-goal');
+  const barEl = $('#steps-card-progress');
+  const sourceEl = $('#steps-card-source');
+  const kcalEl = $('#steps-card-kcal');
+  if (!countEl) return;
+  
+  normalizeHealthSync();
+  const goal = (state.healthSync && state.healthSync.dailyGoal) || 8000;
+  const steps = (state.healthSync && state.healthSync.lastSteps) || getPhoneSteps() || 0;
+  const kcal = (state.healthSync && state.healthSync.lastKcal) || Math.round(steps * 0.04);
+  const src = (state.healthSync && state.healthSync.lastSource) || 'датчик телефона';
+  
+  countEl.textContent = fmt(steps);
+  if (goalEl) goalEl.textContent = `из ${fmt(goal)} шагов`;
+  if (sourceEl) sourceEl.textContent = src;
+  if (kcalEl) kcalEl.textContent = `🔥 ≈ ${fmt(Math.round(kcal))} ккал сожжено`;
+  if (barEl) {
+    const pct = Math.min(100, Math.round((steps / Math.max(1, goal)) * 100));
+    barEl.style.width = `${pct}%`;
+  }
+}
+
+function changeStepsGoal(delta) {
+  normalizeHealthSync();
+  const cur = (state.healthSync && state.healthSync.dailyGoal) || 8000;
+  const next = Math.max(1000, Math.min(50000, cur + delta));
+  state.healthSync.dailyGoal = next;
+  saveState();
+  renderStepsCard();
+  toast(`Цель шагов: ${fmt(next)} в день`);
+}
+
 function renderHealthSyncSettings() {
   if (typeof document === 'undefined') return;
   const toggle = $('#health-sync-toggle');
@@ -6254,6 +6292,7 @@ function renderHealthSyncSettings() {
       statusEl.textContent = `Синхронизация активна. Шагов сегодня: ${fmt(steps)} (${src}).`;
     }
   }
+  renderStepsCard();
 }
 
 function updateHealthSyncEnabled(enabled) {
@@ -6414,15 +6453,44 @@ if (typeof window !== 'undefined') {
     normalizeHealthSync();
     const receivedSteps = Math.max(0, Number(steps) || 0);
     const receivedKcal = Math.max(0, Number(kcal) || 0);
+    const receivedSleepMin = Math.max(0, Number(sleepMin) || 0);
+
     if (receivedSteps > 0 || receivedKcal > 0) {
       state.healthSync.lastSteps = receivedSteps;
       state.healthSync.lastKcal = receivedKcal;
       state.healthSync.lastSource = 'Zepp / Health Connect';
       state.healthSync.lastSyncTs = Date.now();
-      saveState();
-      renderHealthSyncSettings();
-      renderFood();
-      toast(`✓ Данные получены: ${fmt(receivedSteps)} шагов (${fmt(Math.round(receivedKcal))} ккал)`);
+    }
+    
+    // Сон: сохранение объективных данных из Health Connect (Zepp)
+    if (receivedSleepMin > 0) {
+      if (!state.sleepCheckin) state.sleepCheckin = { enabled: true, history: {} };
+      if (!state.sleepCheckin.history) state.sleepCheckin.history = {};
+      const today = todayKey();
+      const existing = state.sleepCheckin.history[today] || {};
+      state.sleepCheckin.history[today] = {
+        ...existing,
+        durationMinutes: receivedSleepMin,
+        durationMin: receivedSleepMin,
+        bedTime: bedTime || existing.bedTime || '23:48',
+        wakeTime: wakeTime || existing.wakeTime || '06:08',
+        source: 'Zepp / Health Connect',
+        rating: existing.rating || 4
+      };
+      renderStats();
+    }
+
+    saveState();
+    renderHealthSyncSettings();
+    renderFood();
+    renderStepsCard();
+
+    if (receivedSteps > 0 || receivedKcal > 0 || receivedSleepMin > 0) {
+      const parts = [];
+      if (receivedSteps > 0) parts.push(`${fmt(receivedSteps)} шагов`);
+      if (receivedKcal > 0) parts.push(`${fmt(Math.round(receivedKcal))} ккал`);
+      if (receivedSleepMin > 0) parts.push(`сон ${Math.floor(receivedSleepMin/60)} ч ${receivedSleepMin%60} мин`);
+      toast(`✓ Данные получены: ${parts.join(', ')}`);
     } else {
       syncHealthDataNow();
       const curSteps = state.healthSync.lastSteps || getPhoneSteps() || 0;
@@ -10261,6 +10329,11 @@ function init() {
 
   // Тема
   bindEvent('#theme-toggle', 'click', toggleTheme);
+
+  // Шаги на Главной (0.7.0)
+  bindEvent('#steps-goal-minus', 'click', () => changeStepsGoal(-500));
+  bindEvent('#steps-goal-plus', 'click', () => changeStepsGoal(500));
+  bindEvent('#steps-card-sync-btn', 'click', () => { requestHealthSyncNow(); renderStepsCard(); });
 
   // Вода
   $$('.chip[data-water]').forEach((btn) =>

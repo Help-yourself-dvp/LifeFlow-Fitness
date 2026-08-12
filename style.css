@@ -2341,7 +2341,36 @@ html[data-theme="dark"] .segmented button.active {
   white-space: nowrap;
 }
 
-/* ---------- Цель и заметки активности ---------- */
+/* ---------- Карточка: Шаги на Главной (0.7.0) ---------- */
+.steps-card .steps-progress-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.steps-card .steps-progress-row strong {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--md-sys-color-primary);
+  font-weight: 700;
+}
+.steps-goal-target {
+  font-size: 0.88rem;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+.steps-sub-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.steps-sub-info .btn-sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
 .weekly-activity-goal {
   margin-bottom: 16px;
   padding: 12px 14px;

@@ -68,6 +68,32 @@
 
     <div id="day-plan-card" hidden></div>
     <div id="day-mood-card" hidden></div>
+
+    <!-- ===== Карточка: Шаги и движение (0.7.0) ===== -->
+    <section class="card steps-card" id="steps-card" aria-labelledby="steps-card-title">
+      <div class="card-header">
+        <div class="card-icon steps-icon" aria-hidden="true">👟</div>
+        <div class="card-title-wrap">
+          <h2 id="steps-card-title">Шаги и движение</h2>
+          <p id="steps-card-source">датчик телефона</p>
+        </div>
+        <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#steps-goal-stepper" aria-expanded="false" title="Изменить суточную цель шагов">Цель</button>
+        <div class="goal-stepper" id="steps-goal-stepper" hidden>
+          <button class="mini-btn" id="steps-goal-minus" type="button" aria-label="Уменьшить цель шагов">−</button>
+          <button class="mini-btn" id="steps-goal-plus" type="button" aria-label="Увеличить цель шагов">+</button>
+        </div>
+      </div>
+      <div class="steps-progress-row">
+        <strong id="steps-card-count">0</strong>
+        <span class="steps-goal-target" id="steps-card-goal">из 8 000 шагов</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="steps-card-progress"></div></div>
+      <div class="steps-sub-info">
+        <span id="steps-card-kcal">🔥 0 ккал</span>
+        <button class="btn btn-ghost btn-sm" id="steps-card-sync-btn" type="button">🔄 Синхронизировать</button>
+      </div>
+    </section>
+
     <!-- ===== Карточка: Вода ===== -->
     <section class="card water-card" id="water-card" aria-labelledby="water-title">
       <div class="card-header">
