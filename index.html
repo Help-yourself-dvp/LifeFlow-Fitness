@@ -78,13 +78,12 @@
           <p id="steps-card-source">датчик телефона</p>
         </div>
         <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#steps-goal-stepper" aria-expanded="false" title="Изменить суточную цель шагов">Цель</button>
-        <span class="help-dot" role="button" tabindex="0" data-explain="steps" title="Откуда цель шагов?">?</span>
         <div class="goal-stepper" id="steps-goal-stepper" hidden>
           <button class="mini-btn" id="steps-goal-minus" type="button" aria-label="Уменьшить цель шагов">−</button>
           <button class="mini-btn" id="steps-goal-plus" type="button" aria-label="Увеличить цель шагов">+</button>
         </div>
       </div>
-      <div class="steps-progress-row">
+      <div class="steps-progress-row clickable-metric" id="steps-card-metrics" role="button" tabindex="0" title="Нажмите для подробного расчёта формулы шагов">
         <strong id="steps-card-count">0</strong>
         <span class="steps-goal-target" id="steps-card-goal">из 8 000 шагов</span>
       </div>
@@ -128,7 +127,7 @@
             <circle class="ring-bg" cx="60" cy="60" r="54"/>
             <circle class="ring-fg" id="water-ring-fg" cx="60" cy="60" r="54"/>
           </svg>
-          <div class="water-ring-center">
+          <div class="water-ring-center clickable-metric" id="water-ring-center" role="button" tabindex="0" title="Нажмите для подробного расчёта нормы воды">
             <span class="water-value" id="water-total">0</span>
             <span class="water-unit">мл</span>
             <span class="water-sub" id="water-status">из 2 500 мл</span>
@@ -168,7 +167,6 @@
         <div class="goal-row">
           <span class="goal-label">Цель на день</span>
           <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#water-goal-stepper" aria-expanded="false" title="Изменить цель на день">Цель</button>
-          <span class="help-dot" role="button" tabindex="0" data-explain="water" title="Откуда норма воды?">?</span>
           <div class="goal-stepper" id="water-goal-stepper" hidden>
             <button class="mini-btn" id="water-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
             <span class="goal-value" id="water-goal">2500 мл</span>
@@ -203,7 +201,7 @@
       </div>
 
       <div class="calorie-summary">
-        <div class="calorie-numbers">
+        <div class="calorie-numbers clickable-metric" id="food-calorie-numbers" role="button" tabindex="0" title="Нажмите для подробного расчёта нормы калорий">
           <span class="calorie-value" id="food-total">0</span>
           <span class="calorie-divider">/</span>
           <span class="calorie-goal" id="food-goal-label">2 000</span>
@@ -267,7 +265,6 @@
       <div class="goal-row">
         <span class="goal-label">Цель по калориям</span>
         <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#food-goal-stepper" aria-expanded="false" title="Изменить дневную цель">Цель</button>
-        <span class="help-dot" role="button" tabindex="0" data-explain="food" title="Откуда норма калорий?">?</span>
         <div class="goal-stepper" id="food-goal-stepper" hidden>
           <button class="mini-btn" id="food-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
           <span class="goal-value" id="food-goal">2 000 ккал</span>
@@ -494,8 +491,14 @@
       </div>
 
       <div class="weekly-activity-goal">
-        <div class="weekly-goal-top-row">
-          <span class="training-summary-label">Цель тренировок за 7 дней</span>
+        <div class="weekly-goal-header">
+          <div class="weekly-goal-title-wrap">
+            <span class="training-summary-label">Цель за 7 дней</span>
+            <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
+          </div>
+          <div class="weekly-goal-metrics">
+            <strong id="weekly-activity-total">0 мин из 150 мин</strong>
+          </div>
           <div class="weekly-goal-controls">
             <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
             <span class="help-dot" role="button" tabindex="0" data-help="weekly-goal" aria-label="Справка: цель активности на 7 дней" title="Что считается и как выбрать цель?">?</span>
@@ -504,10 +507,6 @@
               <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
             </div>
           </div>
-        </div>
-        <div class="weekly-goal-main-row">
-          <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
-          <strong id="weekly-activity-total">0 мин из 150 мин</strong>
         </div>
         <div class="progress-track"><div class="progress-fill" id="weekly-activity-progress"></div></div>
       </div>
@@ -1147,7 +1146,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.7.5 (build 237)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.7.5 (build 238)</span> · Offline-first</p>
         </div>
       </div>
 

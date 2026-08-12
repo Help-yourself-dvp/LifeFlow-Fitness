@@ -3918,50 +3918,78 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 .quick-entry-btn:active { background: var(--md-sys-color-surface-container-high); }
 .quick-entry-row .help-dot { flex: 0 0 auto; }
 
-/* 0.7.0 Недельная цель активности: статус слева, минуты посередине, кнопка «Цель» и «?» справа */
+/* Кликабельные метрики (объяснение формул по тапу на число) */
+.clickable-metric {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.clickable-metric:active {
+  opacity: 0.75;
+  transform: scale(0.98);
+}
+
+/* 0.7.0 / 0.7.5 Недельная цель активности: статус слева, минуты посередине, кнопка «Цель» и «?» справа */
 .weekly-activity-goal .weekly-goal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  position: relative;
+  flex-wrap: wrap;
 }
-.weekly-goal-center {
-  text-align: center;
+.weekly-goal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 1 1 auto;
-  min-width: 0;
 }
-.weekly-goal-center .training-summary-label {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--md-sys-color-on-surface-variant);
-  font-weight: 500;
-}
-.weekly-goal-center strong {
-  display: block;
-  font-size: 0.95rem;
-  margin-top: 1px;
+.weekly-goal-title-wrap .training-summary-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
   white-space: nowrap;
 }
-.weekly-goal-right {
+.weekly-goal-metrics {
+  flex: 0 0 auto;
+}
+.weekly-goal-metrics strong {
+  display: inline-block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+}
+.weekly-goal-controls {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
   position: relative;
+  flex: 0 0 auto;
 }
 .weekly-status-chip {
   flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
   white-space: nowrap;
 }
 .weekly-status-chip.good { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
-.weekly-status-chip.todo { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
-.weekly-status-chip.todo { font-weight: 600; }
+.weekly-status-chip.todo { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
 .help-dot-inline { vertical-align: -2px; }
+
+/* Плотность Главного экрана (0.7.5) */
+[data-density="minimal"] .home-cards { gap: 10px; }
+[data-density="minimal"] .home-cards .card { padding: 14px 16px; }
+[data-density="minimal"] #day-plan-card,
+[data-density="minimal"] #day-mood-card { display: none !important; }
+
+[data-density="normal"] .home-cards { gap: 12px; }
+[data-density="normal"] .home-cards .card { padding: 16px 18px; }
+
+[data-density="full"] .home-cards { gap: 16px; }
+[data-density="full"] .home-cards .card { padding: 18px 20px; }
 
 /* ============================================================
    0.5.7 — быстрый ввод: «Разобрать» всегда на виду (полевой баг

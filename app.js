@@ -2607,7 +2607,7 @@ const DEFAULTS = {
 };
 
 const FITFLOW_VERSION = '0.7.5';
-const FITFLOW_BUILD = 'build 237';
+const FITFLOW_BUILD = 'build 238';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -2991,6 +2991,41 @@ function normalizeSleepCheckin() {
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-400); // чуть больше года истории достаточно
+
+  // 0.7.0 / 0.7.5: сохранение и синхронизация объективных данных сна (Health Connect)
+  const rawHistory = sc.history && typeof sc.history === 'object' ? sc.history : {};
+  const history = {};
+  Object.keys(rawHistory).forEach((d) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && rawHistory[d] && typeof rawHistory[d] === 'object') {
+      const h = rawHistory[d];
+      const dur = Number(h.durationMinutes || h.durationMin) || 0;
+      history[d] = {
+        date: d,
+        durationMinutes: dur > 0 ? dur : (Number(h.durationMin) || 0),
+        durationMin: dur > 0 ? dur : (Number(h.durationMin) || 0),
+        bedTime: validTime(h.bedTime, null),
+        wakeTime: validTime(h.wakeTime, null),
+        rating: Number(h.rating) || 4,
+        source: typeof h.source === 'string' ? h.source : 'Health Connect'
+      };
+    }
+  });
+
+  // Синхронизируем log в history
+  log.forEach((entry) => {
+    if (!history[entry.date]) {
+      history[entry.date] = {
+        date: entry.date,
+        durationMinutes: entry.durationMin || 0,
+        durationMin: entry.durationMin || 0,
+        bedTime: entry.bedTime,
+        wakeTime: entry.wakeTime,
+        rating: entry.rating || 4,
+        source: 'Чек-ин'
+      };
+    }
+  });
+
   state.sleepCheckin = {
     enabled: sc.enabled === true,
     targetBed: validTime(sc.targetBed, DEFAULTS.sleepCheckin.targetBed),
@@ -2998,6 +3033,7 @@ function normalizeSleepCheckin() {
     windowStart: validTime(sc.windowStart, DEFAULTS.sleepCheckin.windowStart),
     windowEnd: validTime(sc.windowEnd, DEFAULTS.sleepCheckin.windowEnd),
     log,
+    history,
     skipped: (typeof sc.skipped === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sc.skipped)) ? sc.skipped : null
   };
   // Равные границы окна бессмысленны («всегда»/«никогда» по логике) — откатываем на умолчание.
@@ -3329,6 +3365,14 @@ function closeExplainDialog() {
   if (dialog) dialog.hidden = true;
 }
 
+function applyHomeDensityClass() {
+  if (typeof document === 'undefined') return;
+  const density = state.homeDensity || 'normal';
+  const homeView = $('#home-view');
+  if (homeView) homeView.dataset.density = density;
+  if (document.body) document.body.dataset.density = density;
+}
+
 function setHomeDensity(density) {
   if (!['minimal', 'normal', 'full'].includes(density)) density = 'normal';
   state.homeDensity = density;
@@ -3359,22 +3403,26 @@ function setHomeDensity(density) {
   state.homeLayout = layout;
   saveState();
   applyHomeLayout();
+  applyHomeDensityClass();
+  renderDayPlan();
+  renderDayMood();
   renderHomeDensity();
   renderHomeLayoutSettings();
-  toast(density === 'minimal' ? 'Главная: только шаги, вода, еда и вес' : (density === 'normal' ? 'Главная: обычный вид' : 'Главная: полный вид'));
+  toast(density === 'minimal' ? 'Главная: «Минимум» (только шаги, вода, еда и вес)' : (density === 'normal' ? 'Главная: «Обычный» (+ план дня и самочувствие)' : 'Главная: «Полный» (все карточки и расширения)'));
 }
 
 function renderHomeDensity() {
   if (typeof document === 'undefined') return;
   const density = state.homeDensity || 'normal';
+  applyHomeDensityClass();
   $$('#home-density-segmented button').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.density === density);
   });
   const hint = $('#home-density-hint');
   if (hint) {
-    if (density === 'minimal') hint.textContent = 'Минимум: только шаги, вода, еда и вес (максимально чисто).';
-    else if (density === 'normal') hint.textContent = 'Обычный: шаги, вода, еда, вес, план дня и самочувствие.';
-    else hint.textContent = 'Полный: все карточки, задания, медали и курсы на Главной.';
+    if (density === 'minimal') hint.textContent = 'Минимум: только шаги, вода, еда и вес (максимально чистый фокус-экран).';
+    else if (density === 'normal') hint.textContent = 'Обычный: шаги, вода, еда, вес, компактный план дня и самочувствие.';
+    else hint.textContent = 'Полный: все карточки, развёрнутый план с курсами, медали и быстрые записи на Главной.';
   }
 }
 
@@ -6475,7 +6523,8 @@ function openHealthDiagnostics() {
   const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : 0;
   const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
 
-  const sleepEntry = (state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null;
+  const sleepEntry = ((state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null)
+    || ((state.sleepCheckin && state.sleepCheckin.log) ? state.sleepCheckin.log.find((e) => e.date === today) : null);
   const hcSleepMin = sleepEntry ? (sleepEntry.durationMinutes || sleepEntry.durationMin || 0) : 0;
   const sleepStr = hcSleepMin > 0
     ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'})`
@@ -6591,8 +6640,9 @@ if (typeof window !== 'undefined') {
     
     // Сон: сохранение объективных данных из Health Connect (Zepp)
     if (receivedSleepMin > 0) {
-      if (!state.sleepCheckin) state.sleepCheckin = { enabled: true, history: {} };
+      if (!state.sleepCheckin) state.sleepCheckin = { enabled: true, history: {}, log: [] };
       if (!state.sleepCheckin.history) state.sleepCheckin.history = {};
+      if (!Array.isArray(state.sleepCheckin.log)) state.sleepCheckin.log = [];
       const today = todayKey();
       const existing = state.sleepCheckin.history[today] || {};
       state.sleepCheckin.history[today] = {
@@ -6604,6 +6654,25 @@ if (typeof window !== 'undefined') {
         source: 'Zepp / Health Connect',
         rating: existing.rating || 4
       };
+
+      const logIdx = state.sleepCheckin.log.findIndex((e) => e.date === today);
+      const logEntry = {
+        id: logIdx >= 0 ? state.sleepCheckin.log[logIdx].id : uid(),
+        date: today,
+        durationMin: receivedSleepMin,
+        bedTime: bedTime || (logIdx >= 0 ? state.sleepCheckin.log[logIdx].bedTime : '23:48'),
+        wakeTime: wakeTime || (logIdx >= 0 ? state.sleepCheckin.log[logIdx].wakeTime : '06:08'),
+        rating: logIdx >= 0 ? (state.sleepCheckin.log[logIdx].rating || 4) : 4,
+        tags: logIdx >= 0 ? (state.sleepCheckin.log[logIdx].tags || []) : [],
+        onSchedule: true,
+        createdAt: Date.now()
+      };
+      if (logIdx >= 0) {
+        state.sleepCheckin.log[logIdx] = logEntry;
+      } else {
+        state.sleepCheckin.log.push(logEntry);
+      }
+
       renderStats();
     }
 
@@ -10471,15 +10540,28 @@ function init() {
   bindEvent('#steps-goal-plus', 'click', () => changeStepsGoal(500));
   bindEvent('#steps-card-sync-btn', 'click', () => { requestHealthSyncNow(); renderStepsCard(); });
 
-  // 0.7.5: объяснимые расчёты («Откуда это число?»)
+  // 0.7.5: объяснимые расчёты («Откуда это число?») по клику на цифры цели и текущего прогресса
   $$('[data-explain]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       openExplainDialog(btn.dataset.explain);
     });
   });
+  // Питание: клик по текущим ккал, цели или всей панели цифр
+  bindEvent('#food-calorie-numbers', 'click', () => openExplainDialog('food'));
+  bindEvent('#food-total', 'click', () => openExplainDialog('food'));
+  bindEvent('#food-goal-label', 'click', () => openExplainDialog('food'));
   bindEvent('#food-goal', 'click', () => openExplainDialog('food'));
+
+  // Вода: клик по текущему объёму, цели или центру кольца
+  bindEvent('#water-ring-center', 'click', () => openExplainDialog('water'));
+  bindEvent('#water-total', 'click', () => openExplainDialog('water'));
+  bindEvent('#water-status', 'click', () => openExplainDialog('water'));
   bindEvent('#water-goal', 'click', () => openExplainDialog('water'));
+
+  // Шаги: клик по текущим шагам, цели или всей строке шагов
+  bindEvent('#steps-card-metrics', 'click', () => openExplainDialog('steps'));
+  bindEvent('#steps-card-count', 'click', () => openExplainDialog('steps'));
   bindEvent('#steps-card-goal', 'click', () => openExplainDialog('steps'));
 
   // Вода
