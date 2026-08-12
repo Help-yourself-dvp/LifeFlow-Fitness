@@ -23,10 +23,10 @@
 
 ## Текущее состояние
 
-- Версия приложения: **0.7.9 (build 285)** (обновление библиотеки Health Connect для Android 14+):
+- Версия приложения: **0.7.9 (build 287)** (обновление библиотеки Health Connect для Android 14+):
   - ⌚ **Совместимость со встроенным сервисом Android 14+**: библиотека `androidx.health.connect:connect-client` обновлена с версии `1.0.0-alpha11` (февраль 2023) до `1.1.0-alpha07` (2024, для `compileSdk 34`). Старая версия использовала устаревший механизм проверки разрешений и отклоняла запросы с ошибкой `SecurityException`, даже когда права были включены в системном Health Connect на Android 14+.
   - 🩺 **Аудит выданных прав в диагностике**: при возникновении ошибки `HealthConnectHelper.kt` проверяет количество реально выданных ОС разрешений через `client.permissionController.getGrantedPermissions()`.
-  - 🔢 **Синхронизация версии**: `0.7.9 (build 285)` во всех файлах.
+  - 🔢 **Синхронизация версии**: `0.7.9 (build 287)` во всех файлах.
 - Версия приложения: **0.7.8 (build 283)** (исправлена кнопка «?», интент `MANAGE_HEALTH_PERMISSIONS` для Android 14+ и авто-опрос в диагностике):
   - ❓ **Исправление кнопки справки в Самочувствии**: добавлено делегирование кликов на уровне документа для элементов `[data-help]` и прямой вызов `openHelpTopicDialog('day-mood')`.
   - 🔓 **Интент MANAGE_HEALTH_PERMISSIONS для Android 14+**: метод `requestHealthConnectPermissions()` переведён на системный интент `"android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"`, открывающий страницу прав FitFlow в Health Connect; добавлена вторая кнопка для открытия общего меню Health Connect.
