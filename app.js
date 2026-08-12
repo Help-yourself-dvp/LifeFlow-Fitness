@@ -6637,6 +6637,10 @@ function openHCSettingsSystem() {
     toast('Не удалось открыть настройки: ' + (e.message || e));
   }
 }
+if (typeof window !== 'undefined') {
+  window.requestHCPermissions = requestHCPermissions;
+  window.openHCSettingsSystem = openHCSettingsSystem;
+}
 
 function closeHealthDiagnostics() {
   const dialog = $('#health-diag-dialog');
@@ -9507,6 +9511,9 @@ function openHelpTopicDialog(topicId) {
   }
   $('#help-text').textContent = text;
   dialog.hidden = false;
+}
+if (typeof window !== 'undefined') {
+  window.openHelpTopicDialog = openHelpTopicDialog;
 }
 
 function closeHelpTopicDialog() {
