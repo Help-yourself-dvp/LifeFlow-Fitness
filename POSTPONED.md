@@ -284,9 +284,63 @@ generate с картинкой реализуем без изменения ар
 
 ## P12. Health Connect — данные с часов (шаги/сон/активность → нормы и анализ)
 
-**Статус (0.4.14):** проектирование начато, реализация — отдельным релизом
-(нужна правка Gradle-зависимостей и манифеста → замена workflow пользователем).
-Перенесён в этап 0.8.0 вместе с шагами по датчикам телефона (общий контур).
+**Статус (12.08.2026):** интеграция начата в сессии 0.7.6, нативная сборка НЕ прошла.
+Код JavaScript (диагностика, UI переключателей, приоритет источников) работает с 0.7.0.
+Нативная часть (реальное чтение из Health Connect API) — в доработке.
+
+### Что пробовали и не получилось (сессия 12.08.2026):
+
+**Итерация 1 — `connect-client:1.1.0-alpha11` + `compileSdk 35`:**
+- Ошибка: `connect-client:1.1.0-alpha11` требует `compileSdkVersion ≥ 35`.
+- Подняли compileSdk до 35 → `android-35/android.jar` не установлен в CI-окружении
+  GitHub Actions (AGP 8.0.0 Capacitor тестирует до compileSdk 33).
+- Установка SDK platform-35 в CI не решает проблему: `aapt2` из AGP 8.0.0 не
+  умеет читать ресурсы platform-35.
+
+**Итерация 2 — `connect-client:1.0.0-alpha12` + `compileSdk 34`:**
+- Ошибка: версия `1.0.0-alpha12` **не существует** в Maven. Серия 1.0.x
+  заканчивается на `alpha11` (февраль 2023).
+
+**Итерация 3 — `connect-client:1.0.0-alpha11` + `compileSdk 34` + Java ListenableFuture:**
+- Ошибка: `com.google.common.util.concurrent` (Guava: Futures, FutureCallback,
+  ListenableFuture) **не подключается** как транзитивная зависимость connect-client.
+- Дополнительно: `ReadRecordsRequest` в 1.0.x принимает `KClass` (Kotlin), а не
+  `Class` (Java); `readRecords()` — suspend-функция, нельзя вызвать напрямую из Java.
+
+**Итерация 4 — `connect-client:1.0.0-alpha11` + Kotlin-хелпер + `runBlocking`:**
+- Создан `HealthConnectHelper.kt` с `@JvmStatic fun syncNow()` через `runBlocking`.
+- Добавлена зависимость `kotlinx-coroutines-android:1.7.3`.
+- Ошибка: `sed`-команда для добавления coroutines-зависимости в Gradle была
+  с неправильным экранированием (лишние слэши + лишний `' android/app/build.gradle`).
+- **Статус: sed исправлен, зеркало обновлено, ждёт замены workflow пользователем.**
+
+### Корневая проблема:
+
+Capacitor 5.7.0 использует AGP 8.0.0 + Gradle 8.0.2, которые тестируются до
+compileSdk 33. Любая библиотека, требующая compileSdk 34+, рискует сломать
+сборку. Health Connect `connect-client` серии 1.0.x (до alpha11) совместим с
+compileSdk 34, но написан на Kotlin с suspend-функциями — вызов из Java требует
+`kotlinx-coroutines` + `runBlocking` в отдельном .kt файле.
+
+### Что сделано и работает:
+
+- ✅ JS-слой: переключатель Health Connect в настройках, диагностика датчиков,
+  приоритет источников (MAX шагов из всех), UI карточки шагов.
+- ✅ Манифест: разрешения `health.READ_STEPS`, `READ_SLEEP`, `READ_EXERCISE`,
+  `READ_TOTAL_CALORIES_BURNED`, `ACTIVITY_RECOGNITION`, `queries`-блок Zepp.
+- ✅ Нативный шагомер телефона: `TYPE_STEP_COUNTER` + `TYPE_STEP_DETECTOR` читает
+  датчик телефона и сохраняет в SharedPreferences.
+- ✅ Kotlin-хелпер `HealthConnectHelper.kt` с `runBlocking` + `ReadRecordsRequest`.
+- ⏳ Сборка: sed-исправление coroutines dependency готово, ждёт подтверждения
+  успешной сборки в CI.
+
+### Что нужно для завершения:
+
+1. Успешная сборка в CI с `connect-client:1.0.0-alpha11` + `coroutines-android:1.7.3`.
+2. Проверка на устройстве: шаги из Zepp должны отличаться от шагов телефона.
+3. Если `connect-client:1.0.0-alpha11` не работает (API изменился) — рассмотреть
+   альтернативу: прямое чтение через `ContentProvider` Health Connect (меньше
+   зависимостей, но сложнее код) или обновление AGP Capacitor (риск ломки).
 
 **Дополнение (0.5.4, уточнение владельца):** источников шагов может быть ДВА
 одновременно — телефон и браслет/часы. Правило приоритета без двойного счёта:
