@@ -2607,6 +2607,7 @@ const DEFAULTS = {
 };
 
 const FITFLOW_VERSION = '0.7.0';
+const FITFLOW_BUILD = 'build 232';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -7626,7 +7627,16 @@ function renderTraining() {
       weeklyChip.className = 'weekly-status-chip todo';
     }
   }
-  $('#weekly-activity-progress').style.width = `${Math.min(100, (weeklyMinutes / weeklyGoal) * 100)}%`;
+  const progressEl = $('#weekly-activity-progress');
+  if (progressEl) {
+    const pct = (weeklyMinutes / Math.max(1, weeklyGoal)) * 100;
+    progressEl.style.width = `${Math.min(100, pct)}%`;
+    if (weeklyOver > 0) {
+      progressEl.classList.add('over-goal');
+    } else {
+      progressEl.classList.remove('over-goal');
+    }
+  }
   renderActivityTypeSelection();
   renderActivityTemplates();
   renderDayChecklist();
@@ -10306,7 +10316,7 @@ function init() {
   initTheme();
   renderGreeting();
   const aboutVersion = $('#about-version');
-  if (aboutVersion) aboutVersion.textContent = `v${FITFLOW_VERSION}`;
+  if (aboutVersion) aboutVersion.textContent = `v${FITFLOW_VERSION} (${FITFLOW_BUILD})`;
   renderAll();
   renderProfiles();
   // 0.4.8: честный след прерванного фото-пикера (см. openPhotoPickerInput): если

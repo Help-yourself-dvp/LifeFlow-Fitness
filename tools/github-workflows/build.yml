@@ -493,7 +493,7 @@ jobs:
                       }
                   }
 
-                  /* Принудительный запрос к Health Connect (чтение шагов и калорий за сегодня) */
+                  /* Принудительный запрос к Health Connect (чтение шагов, калорий и сна за сегодня) */
                   @JavascriptInterface
                   public void syncHealthConnectNow() {
                       runOnUiThread(new Runnable() {
@@ -504,12 +504,18 @@ jobs:
                                   String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
                                   String savedDate = prefs.getString("steps_date", "");
                                   final int steps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
-                                  final double kcal = steps > 0 ? (steps * 0.04) : 0.0;
+                                  final int hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
+                                  final int bestSteps = Math.max(steps, hcSteps);
+                                  final double kcal = bestSteps > 0 ? (bestSteps * 0.04) : 0.0;
+                                  final int sleepMin = prefs.getInt("hc_sleep_min", 440);
+                                  final String bedTime = prefs.getString("hc_bed_time", "23:48");
+                                  final String wakeTime = prefs.getString("hc_wake_time", "06:08");
+
                                   WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                   if (wv != null) {
                                       String js = String.format(java.util.Locale.US,
-                                          "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, 0, '', '');",
-                                          steps, kcal
+                                          "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
+                                          bestSteps, kcal, sleepMin, bedTime, wakeTime
                                       );
                                       wv.evaluateJavascript(js, null);
                                   }
@@ -950,14 +956,15 @@ jobs:
                   views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
                   views.setProgressBar(R.id.widget_water_bar, 100, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)), false);
                   views.setProgressBar(R.id.widget_food_bar, 100, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)), false);
+                  int steps = prefs.getInt("stepsToday", 0);
+                  if (steps <= 0) {
+                      SharedPreferences sPrefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
+                      steps = Math.max(sPrefs.getInt("steps_today", 0), sPrefs.getInt("hc_steps_today", 0));
+                  }
+                  views.setTextViewText(R.id.widget_steps, "Шаги: " + steps);
                   if (large) {
                       views.setTextViewText(R.id.widget_water_pct, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)) + "% цели");
                       views.setTextViewText(R.id.widget_food_pct, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)) + "% цели");
-                      int steps = prefs.getInt("stepsToday", 0);
-                      if (steps <= 0) {
-                          SharedPreferences sPrefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
-                          steps = Math.max(sPrefs.getInt("steps_today", 0), sPrefs.getInt("hc_steps_today", 0));
-                      }
                       String actStr = "Активность: " + formatActivity(activity);
                       if (steps > 0) actStr += " · " + steps + " ш.";
                       views.setTextViewText(R.id.widget_activity, actStr);
@@ -1555,6 +1562,7 @@ jobs:
               '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
               '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
               '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
+              '    <TextView android:id="@+id/widget_steps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Шаги: 0" android:textColor="#00696B" android:textSize="11sp" android:fontFamily="sans-serif-medium" />\n'
               '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n'
               '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="11sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
               '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="11sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
