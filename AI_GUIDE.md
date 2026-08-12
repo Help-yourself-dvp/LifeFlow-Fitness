@@ -271,6 +271,26 @@ AI самостоятельно принимает мелкие техничес
 - основные исходные файлы;
 - описание новой задачи.
 
+### Золотой стандарт нативного workflow (build.yml) с первого дня
+
+Чтобы владельцу **никогда не приходилось вручную редактировать `.github/workflows/build.yml`** на протяжении жизни проекта (из-за ограничений прав GitHub App на изменение workflows), в первом же коммите нового проекта AI обязан развернуть **полный универсальный нативный каркас**:
+
+1. **Автоматическое чтение версии**: workflow с самого начала читает версию из `version.txt` (`APP_VERSION="$(tr -d '[:space:]' < version.txt)"`). Номер сборки берется из `${{ github.run_number }}`. Для выпуска релиза достаточно изменить `version.txt` и JS-константу — workflow трогать не нужно.
+2. **Постоянная подпись (Keystore)**: с первого дня настраивается восстановление стабильного `debug.keystore` (из секрета `DEBUG_KEYSTORE_BASE64` или генерации постоянного ключа), чтобы все последующие сборки устанавливались поверх без удаления приложения и потери данных.
+3. **Полный набор системных разрешений в AndroidManifest.xml**:
+   - Уведомления и планировщик: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`.
+   - Фоновая работа и батарея: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+   - Медиа и ввод: `RECORD_AUDIO`, `CAMERA` + `<uses-feature android:name="android.hardware.camera.any" android:required="false" />` (пункт «Камера» в WebView file picker).
+   - Датчики и активность: `ACTIVITY_RECOGNITION`, `Sensor.TYPE_STEP_COUNTER`, `Sensor.TYPE_STEP_DETECTOR`.
+   - Здоровье и внешние устройства: `android.permission.health.READ_STEPS`, `READ_TOTAL_CALORIES_BURNED`, `READ_EXERCISE`, `READ_SLEEP`, `activity-alias` `ViewPermissionUsageActivity`.
+4. **Блок видимости пакетов (`<queries>`)**: с первого дня объявлять интенты Health Connect (`android.health.connect.action.HEALTH_HOME_SETTINGS`, `androidx.health.ACTION_HEALTH_CONNECT_SETTINGS`) и пакеты сопутствующих приложений (`com.google.android.apps.healthdata`, `com.huami.watch.hmwatchmanager` для Zepp/Amazfit, Samsung Health).
+5. **Универсальные нативные мосты в MainActivity.java**:
+   - IME-прогрев фокуса для предотвращения залипания клавиатуры.
+   - Мост `JavascriptInterface` (`FitFlowExport`): сохранение бэкапов через системный SAF `ACTION_CREATE_DOCUMENT` (без прав на всю память), голосовой ввод, чтение SharedPreferences для виджета, опрос системных датчиков.
+   - Виджет рабочего стола (`AppWidgetProvider` с поддержкой компактного и расширенного размера).
+   - R8 8.5.35 в buildscript для поддержки Java-21 байткода современных библиотек (LiteRT, WASM).
+6. **Принцип изоляции логики в Web/JS слое**: нативный каркас служит надежной универсальной «платформой», а вся бизнес-логика, математика, алгоритмы Master Priority, SQLite WASM и интерфейс живут в `app.js` / `index.html` / `style.css`. Это позволяет AI развивать проект на 100% автономно через обычные коммиты без привлечения пользователя.
+
 ---
 
 # Начало нового диалога
