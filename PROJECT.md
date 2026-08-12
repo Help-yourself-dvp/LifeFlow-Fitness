@@ -493,7 +493,7 @@ node test-parser.js
 
 # 14. История версий
 
-## 0.7.8 — Исправление кнопки справки «Самочувствие», интента MANAGE_HEALTH_PERMISSIONS для Android 14+ и авто-теста диагностики (12.08.2026, build 280)
+## 0.7.8 — Исправление кнопки справки «Самочувствие», интента MANAGE_HEALTH_PERMISSIONS для Android 14+ и авто-теста диагностики (12.08.2026, build 283)
 
 - **Исправление кнопки справки в Самочувствии**: добавлено делегирование кликов на уровне документа для элементов `[data-help]` и прямой вызов `openHelpTopicDialog('day-mood')`. Теперь справка работает всегда и на любых карточках.
 - **Интент MANAGE_HEALTH_PERMISSIONS для Android 14+**: исправлен метод `requestHealthConnectPermissions()` — теперь он использует системный интент `"android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"`, гарантированно открывающий страницу прав FitFlow в Health Connect (стандартный вызов `requestPermissions` для `health.*` на Android 14+ игнорировался ОС). Добавлена вторая кнопка для открытия общего меню Health Connect в системе.
