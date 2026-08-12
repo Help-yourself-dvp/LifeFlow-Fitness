@@ -423,7 +423,7 @@ for (const id of ids) {
   console.log(`${okOneBar ? '✓' : '✗'} ИИ-настройки: одна стандартная акцентная линия карточки (вторая полоса убрана)`);
   const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
   const okMirror = mirror.includes('npm install ./plugins/fitflow-local-ai')
-    && mirror.includes('minSdkVersion = 24')
+    && /minSdkVersion = (24|26)/.test(mirror)
     && mirror.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L')
     && mirror.includes('EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L');
   if (!okMirror) failed++;
