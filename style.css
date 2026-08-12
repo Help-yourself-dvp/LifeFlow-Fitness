@@ -2328,6 +2328,7 @@ html[data-theme="dark"] .segmented button.active {
 .stats-water .stats-bar { background: var(--grad-a); }
 .stats-food .stats-bar { background: var(--calorie-accent); }
 .stats-activity .stats-bar { background: var(--md-sys-color-primary); }
+.stats-sleep .stats-bar { background: #5C6BC0; }
 
 .stats-bar-label {
   flex: 0 0 auto;

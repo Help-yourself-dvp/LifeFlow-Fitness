@@ -6472,6 +6472,12 @@ function openHealthDiagnostics() {
   const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : 0;
   const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
 
+  const sleepEntry = (state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null;
+  const hcSleepMin = sleepEntry ? (sleepEntry.durationMinutes || sleepEntry.durationMin || 0) : 0;
+  const sleepStr = hcSleepMin > 0
+    ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'})`
+    : 'нет данных за сегодня';
+
   const reportLines = [
     `=== ОТЧЁТ ДИАГНОСТИКИ FITFLOW (${today}) ===`,
     `Устройство: ${model} (Android API ${androidApi})`,
@@ -6481,6 +6487,7 @@ function openHealthDiagnostics() {
     `Системный сервис Health Connect: ${hcApp}`,
     `Шагов насчитано телефоном: ${phoneStepsToday}`,
     `Шагов получено от Health Connect: ${hcStepsToday}`,
+    `Сон из Health Connect (Zepp): ${sleepStr}`,
     `Последний синк: ${lastSyncStr}`,
     `Активный приоритет в FitFlow: ${state.healthSync.priority}`,
     `Учитывать калории в бюджете: ${state.healthSync.includeInDailyBudget ? 'Да' : 'Нет'}`
@@ -6495,12 +6502,13 @@ function openHealthDiagnostics() {
     <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
     <div style="margin-bottom:6px"><strong>📊 Шагов телефоном за сегодня:</strong> ${fmt(phoneStepsToday)}</div>
     <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect:</strong> ${fmt(hcStepsToday)}</div>
+    <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect / Zepp):</strong> ${sleepStr}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
     <div style="margin-top:10px; padding:10px; background:rgba(0,105,107,0.08); border-radius:8px; font-size:12px; line-height:1.45;">
-      <strong>📌 Как передать шаги из Zepp (Amazfit):</strong><br>
+      <strong>📌 Как передать шаги и сон из Zepp (Amazfit):</strong><br>
       1. Откройте приложение <strong>Zepp</strong> на телефоне.<br>
       2. Перейдите: <em>Профиль → Добавить учётные записи → Health Connect</em>.<br>
-      3. Включите переключатель синхронизации.<br>
+      3. Включите переключатели синхронизации шагов и сна.<br>
       4. Стяните экран вниз на Главной в Zepp (синхронизация с часами).<br>
       5. В FitFlow нажмите «🔄 Загрузить данные из Health Connect».
     </div>
@@ -10459,6 +10467,17 @@ function init() {
   bindEvent('#steps-goal-minus', 'click', () => changeStepsGoal(-500));
   bindEvent('#steps-goal-plus', 'click', () => changeStepsGoal(500));
   bindEvent('#steps-card-sync-btn', 'click', () => { requestHealthSyncNow(); renderStepsCard(); });
+
+  // 0.7.5: объяснимые расчёты («Откуда это число?»)
+  $$('[data-explain]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openExplainDialog(btn.dataset.explain);
+    });
+  });
+  bindEvent('#food-goal', 'click', () => openExplainDialog('food'));
+  bindEvent('#water-goal', 'click', () => openExplainDialog('water'));
+  bindEvent('#steps-card-goal', 'click', () => openExplainDialog('steps'));
 
   // Вода
   $$('.chip[data-water]').forEach((btn) =>
