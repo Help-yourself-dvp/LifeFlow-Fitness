@@ -493,7 +493,7 @@ node test-parser.js
 
 # 14. История версий
 
-## 0.7.7 — Исправление синхронизации Health Connect (Zepp / Amazfit) и логирование ошибок (12.08.2026, build 245)
+## 0.7.7 — Исправление синхронизации Health Connect (Zepp / Amazfit) и логирование ошибок (12.08.2026, build 279)
 
 - **Системный запрос разрешений Health Connect**: добавлен метод `requestHealthConnectPermissions()`, вызывающий системное окно запроса рантайм-разрешений (`READ_STEPS`, `READ_SLEEP`, `READ_EXERCISE`, `READ_TOTAL_CALORIES_BURNED`) на Android 14+ по кнопке из диагностики.
 - **Честное отображение источников шагов**: исправлен нативный мост (`syncHealthConnectNow`), чтобы в JavaScript передавались реальные шаги из Health Connect, а не смешанные с шагомером телефона; устранена ложная подпись `Zepp / Health Connect`, когда данные фактически шли с датчика телефона.
