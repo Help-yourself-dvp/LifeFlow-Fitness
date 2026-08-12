@@ -98,7 +98,8 @@ const ids = [
   'charity-dialog', 'charity-dialog-ok', 'about-charity-open',
   'water-reminder-window-start', 'water-reminder-window-end',
   'quick-combo-name', 'quick-combo-text', 'quick-combo-save-btn', 'quick-combo-toggle', 'quick-meal-toggle', 'quick-meal-save-btn', 'health-sync-toggle', 'health-sync-options', 'health-priority-choices', 'health-budget-toggle', 'health-connect-open-btn', 'health-phone-perm-btn', 'health-sync-now-btn', 'health-sync-status', 'health-diag-btn', 'health-diag-dialog', 'health-diag-sync-btn', 'health-diag-copy-btn', 'health-diag-close-btn',
-  'steps-card', 'steps-card-title', 'steps-card-source', 'steps-goal-stepper', 'steps-goal-minus', 'steps-goal-plus', 'steps-card-count', 'steps-card-goal', 'steps-card-progress', 'steps-card-kcal', 'steps-card-sync-btn'
+  'steps-card', 'steps-card-title', 'steps-card-source', 'steps-goal-stepper', 'steps-goal-minus', 'steps-goal-plus', 'steps-card-count', 'steps-card-goal', 'steps-card-progress', 'steps-card-kcal', 'steps-card-sync-btn',
+  'home-density-segmented', 'home-density-hint', 'explain-dialog', 'explain-dialog-title', 'explain-dialog-content', 'explain-dialog-ok'
 ];
 
 let failed = 0;
@@ -879,7 +880,7 @@ for (const id of ids) {
 
   const okBench = !appR.includes('runAiBenchmark');
   const okCompact = cssR.includes('#palette-segmented button, #font-segmented button') && cssR.includes('flex: 1 1 27%');
-  const okVer = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   const okMisc = okBench && okCompact && okVer;
   if (!okMisc) failed++;
   console.log(`${okMisc ? '✓' : '✗'} 0.4.14 прочее: бенчмарк убран, компактные сегменты, версия 0.5.5 в коде и «О приложении»`);
@@ -1011,7 +1012,7 @@ for (const id of ids) {
   if (!okHeader) failed++;
   console.log(`${okHeader ? '✓' : '✗'} 0.5.0 шапка: имя в приветствии, строка «Профиль:» убрана`);
 
-  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0')
+  const okVer050 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5')
     && appR.includes('Помощник FitFlow и план дня');
   if (!okVer050) failed++;
   console.log(`${okVer050 ? '✓' : '✗'} 0.5.0 версия в коде/«О приложении», онбординг-lite`);
@@ -1067,7 +1068,7 @@ for (const id of ids) {
   if (!okPro) failed++;
   console.log(`${okPro ? '✓' : '✗'} 0.5.1 п.13/16: PRO-каркас (экран/код/бэкап/генератор), шапка — 3 значка`);
 
-  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0') && fs.existsSync('tools/make-pro-code.js');
+  const okVer051 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5') && fs.existsSync('tools/make-pro-code.js');
   if (!okVer051) failed++;
   console.log(`${okVer051 ? '✓' : '✗'} 0.5.1 версия в коде и «О приложении»`);
 }
@@ -1108,7 +1109,7 @@ for (const id of ids) {
   if (!okWeekly052) failed++;
   console.log(`${okWeekly052 ? '✓' : '✗'} 0.5.2/0.5.5 активность: «выполнено ИЗ цели», чип-статус, «?» с объяснением`);
 
-  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer052 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer052) failed++;
   console.log(`${okVer052 ? '✓' : '✗'} 0.5.2 версия в коде и «О приложении»`);
 }
@@ -1143,7 +1144,7 @@ for (const id of ids) {
   if (!okCharity) failed++;
   console.log(`${okCharity ? '✓' : '✗'} 0.5.3 добрые дела: открытые отчёты в «О приложении», пусто — честно`);
 
-  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer053 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer053) failed++;
   console.log(`${okVer053 ? '✓' : '✗'} 0.5.3 версия в коде и «О приложении»`);
 }
@@ -1182,7 +1183,7 @@ for (const id of ids) {
   if (!okSupport054) failed++;
   console.log(`${okSupport054 ? '✓' : '✗'} 0.5.4 поддержка: повтор не чаще 14 дней, PRO не тревожим, блок в «О приложении»`);
 
-  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer054 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer054) failed++;
   console.log(`${okVer054 ? '✓' : '✗'} 0.5.4 версия в коде и «О приложении»`);
 }
@@ -1229,7 +1230,7 @@ for (const id of ids) {
   if (!okLicense055) failed++;
   console.log(`${okLicense055 ? '✓' : '✗'} 0.5.5 лицензия: LICENSE в репозитории`);
 
-  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer055 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer055) failed++;
   console.log(`${okVer055 ? '✓' : '✗'} 0.5.5 версия в коде и «О приложении»`);
 }
@@ -1282,11 +1283,11 @@ for (const id of ids) {
 
   // Единое описание приложения (п.1 владельца): файл есть и актуален версии
   const descR = fs.existsSync('APP_DESCRIPTION.md') ? fs.readFileSync('APP_DESCRIPTION.md', 'utf8') : '';
-  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.7.0');
+  const okDesc065 = descR.includes('Актуально для версии:') && descR.includes('0.7.5');
   if (!okDesc065) failed++;
   console.log(`${okDesc065 ? '✓' : '✗'} 0.5.6 APP_DESCRIPTION.md: единое описание приложения на месте и актуально`);
 
-  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer065 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer065) failed++;
   console.log(`${okVer065 ? '✓' : '✗'} 0.5.6 версия в коде и «О приложении»`);
 }
@@ -1313,7 +1314,7 @@ for (const id of ids) {
   if (!okWaterText057) failed++;
   console.log(`${okWaterText057 ? '✓' : '✗'} 0.5.7 уведомление воды: короткий текст (натив + JS)`);
 
-  const okVer057 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer057 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer057) failed++;
   console.log(`${okVer057 ? '✓' : '✗'} 0.5.7 версия в коде и «О приложении»`);
 }
@@ -1368,7 +1369,7 @@ for (const id of ids) {
   if (!okAbout058) failed++;
   console.log(`${okAbout058 ? '✓' : '✗'} 0.5.8 о приложении: лаконичный вид с кнопками + диалог добрых дел`);
 
-  const okVer058 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer058 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer058) failed++;
   console.log(`${okVer058 ? '✓' : '✗'} 0.5.8 версия в коде и «О приложении»`);
 }
@@ -1396,7 +1397,7 @@ for (const id of ids) {
   if (!okSqlModule) failed++;
   console.log(`${okSqlModule ? '✓' : '✗'} 0.6.0 SQLite движок: схема таблиц, Dual-Write синхронизация, авто-бэкап`);
 
-  const okVer060 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer060 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer060) failed++;
   console.log(`${okVer060 ? '✓' : '✗'} 0.6.0 версия в коде и «О приложении»`);
 }
@@ -1457,7 +1458,7 @@ for (const id of ids) {
   if (!okMirrorHealth) failed++;
   console.log(`${okMirrorHealth ? '✓' : '✗'} 0.7.0 зеркало build.yml: Health Connect permissions + нативный шагомер`);
 
-  const okVer070 = appR.includes("const FITFLOW_VERSION = '0.7.0'") && html.includes('v0.7.0');
+  const okVer070 = appR.includes("const FITFLOW_VERSION = '0.7.5'") && html.includes('v0.7.5');
   if (!okVer070) failed++;
   console.log(`${okVer070 ? '✓' : '✗'} 0.7.0 версия в коде и «О приложении»`);
 }
