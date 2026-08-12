@@ -2373,21 +2373,6 @@ html[data-theme="dark"] .segmented button.active {
   padding: 4px 10px;
   font-size: 0.75rem;
 }
-.weekly-activity-goal {
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  background: var(--md-sys-color-secondary-container);
-  border-radius: 16px;
-}
-
-.weekly-activity-goal strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.9rem;
-}
-
-.weekly-activity-goal .progress-track { margin-top: 10px; }
-.weekly-activity-goal .progress-fill { background: var(--md-sys-color-primary); }
 
 .activity-note-label {
   display: grid;
@@ -3218,8 +3203,22 @@ html.dialog-open body {
   -webkit-tap-highlight-color: transparent;
 }
 .settings-menu-btn .help-dot { margin-left: -4px; margin-right: -4px; } /* компактнее внутри flex-строки с gap */
+.weekly-goal-controls .help-dot { margin-left: 0; }
 .help-dot:active { background: var(--md-sys-color-surface-container-high); }
 .help-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+#help-text {
+  white-space: pre-line;
+  line-height: 1.55;
+  font-size: 0.88rem;
+  color: var(--md-sys-color-on-surface);
+  margin-top: 8px;
+}
+
+.weekly-activity-goal .progress-fill.over-goal {
+  background: linear-gradient(90deg, var(--md-sys-color-primary) 0%, #2E7D32 100%);
+  box-shadow: 0 0 8px rgba(46, 125, 50, 0.4);
+}
 
 .game-medals-list { text-align: left; max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
 .game-medal {
