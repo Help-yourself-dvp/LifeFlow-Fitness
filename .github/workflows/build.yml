@@ -106,7 +106,8 @@ jobs:
           sed -i "s/versionName \"1.0\"/versionName \"${APP_VERSION}\"/g" android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
-          sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"' android/app/build.gradle
+          sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"
+          sed -i "/dependencies {/a\\    implementation \"org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3\"" android/app/build.gradle' android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
@@ -147,20 +148,7 @@ jobs:
           import org.json.JSONObject;
 
           // Health Connect API — чтение шагов и сна из Zepp/Garmin/Samsung
-          import androidx.health.connect.client.HealthConnectClient;
-          import androidx.health.connect.client.permission.HealthPermission;
-          import androidx.health.connect.client.records.StepsRecord;
-          import androidx.health.connect.client.records.SleepSessionRecord;
-          import androidx.health.connect.client.request.ReadRecordsRequest;
-          import androidx.health.connect.client.response.ReadRecordsResponse;
-          import androidx.health.connect.client.time.TimeRangeFilter;
-          import com.google.common.util.concurrent.Futures;
-          import com.google.common.util.concurrent.FutureCallback;
-          import com.google.common.util.concurrent.ListenableFuture;
-          import java.time.Instant;
-          import java.time.LocalDate;
-          import java.time.ZoneId;
-          import java.util.List;
+                                                                                                              import java.util.List;
           import java.util.Set;
 
           import java.io.OutputStream;
@@ -513,8 +501,7 @@ jobs:
                       }
                   }
 
-                  /* Принудительный запрос к Health Connect (реальное чтение шагов, калорий и сна за сегодня
-                     через ReadRecordsRequest — работает с Zepp, Garmin, Samsung Health и др.) */
+                  /* Принудительный запрос к Health Connect через Kotlin-хелпер */
                   @JavascriptInterface
                   public void syncHealthConnectNow() {
                       new Thread(new Runnable() {
@@ -526,77 +513,36 @@ jobs:
                                   String savedDate = prefs.getString("steps_date", "");
                                   final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
 
-                                  try {
-                                      HealthConnectClient client = HealthConnectClient.getOrCreate(getApplicationContext());
-                                      LocalDate todayDate = LocalDate.now();
-                                      Instant startOfDay = todayDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
-                                      Instant endOfDay = todayDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                                      final TimeRangeFilter timeRange = TimeRangeFilter.between(startOfDay, endOfDay);
+                                  final int[] result = HealthConnectHelper.syncNow(getApplicationContext());
 
-                                      // Чтение шагов из ВСЕХ источников (Zepp, Garmin, телефон и др.)
-                                      ReadRecordsRequest<StepsRecord> stepsReq = new ReadRecordsRequest<StepsRecord>(StepsRecord.class, timeRange);
-                                      ListenableFuture<ReadRecordsResponse<StepsRecord>> stepsFuture = client.readRecords(stepsReq);
-                                      Futures.addCallback(stepsFuture, new FutureCallback<ReadRecordsResponse<StepsRecord>>() {
-                                          @Override public void onSuccess(ReadRecordsResponse<StepsRecord> result) {
-                                              long totalSteps = 0;
-                                              for (StepsRecord sr : result.getRecords()) { totalSteps += sr.getCount(); }
-                                              final int hcStepsVal = (int) totalSteps;
-                                              final float hcKcalVal = hcStepsVal > 0 ? (float)(hcStepsVal * 0.04) : 0f;
-                                              prefs.edit().putInt("hc_steps_today", hcStepsVal).putFloat("hc_kcal_today", hcKcalVal).putLong("hc_last_sync_ts", System.currentTimeMillis()).apply();
-                                              // Чтение сна
-                                              ReadRecordsRequest<SleepSessionRecord> sleepReq = new ReadRecordsRequest<SleepSessionRecord>(SleepSessionRecord.class, timeRange);
-                                              Futures.addCallback(client.readRecords(sleepReq), new FutureCallback<ReadRecordsResponse<SleepSessionRecord>>() {
-                                                  @Override public void onSuccess(ReadRecordsResponse<SleepSessionRecord> sr) {
-                                                      long totalMs = 0; Instant fb = null, lw = null;
-                                                      for (SleepSessionRecord r : sr.getRecords()) {
-                                                          totalMs += r.getEndTime().toEpochMilli() - r.getStartTime().toEpochMilli();
-                                                          if (fb == null || r.getStartTime().isBefore(fb)) fb = r.getStartTime();
-                                                          if (lw == null || r.getEndTime().isAfter(lw)) lw = r.getEndTime();
-                                                      }
-                                                      int sm = (int)(totalMs / 60000); String bt = "", wt = "";
-                                                      java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
-                                                      if (fb != null) bt = tf.format(new java.util.Date(fb.toEpochMilli()));
-                                                      if (lw != null) wt = tf.format(new java.util.Date(lw.toEpochMilli()));
-                                                      prefs.edit().putInt("hc_sleep_min", sm).putString("hc_bed_time", bt).putString("hc_wake_time", wt).apply();
-                                                      deliverHcResult(phoneSteps, Math.max(phoneSteps, hcStepsVal), Math.max(phoneSteps, hcStepsVal) * 0.04, sm, bt, wt);
-                                                  }
-                                                  @Override public void onFailure(Throwable t2) {
-                                                      deliverHcResult(phoneSteps, Math.max(phoneSteps, hcStepsVal), Math.max(phoneSteps, hcStepsVal) * 0.04, 0, "", "");
-                                                  }
-                                              }, ContextCompat.getMainExecutor(MainActivity.this));
-                                          }
-                                          @Override public void onFailure(Throwable t2) {
-                                              int cHc = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
-                                              int bC = Math.max(phoneSteps, cHc);
-                                              deliverHcResult(phoneSteps, bC, bC * 0.04, prefs.getInt("hc_sleep_min", 0), prefs.getString("hc_bed_time", ""), prefs.getString("hc_wake_time", ""));
-                                          }
-                                      }, ContextCompat.getMainExecutor(MainActivity.this));
-                                  } catch (Exception e) {
-                                      int cHc = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
-                                      int bC = Math.max(phoneSteps, cHc);
-                                      deliverHcResult(phoneSteps, bC, bC * 0.04, prefs.getInt("hc_sleep_min", 0), prefs.getString("hc_bed_time", ""), prefs.getString("hc_wake_time", ""));
-                                  }
+                                  final int bestSteps = Math.max(phoneSteps, result[0]);
+                                  final double kcal = bestSteps * 0.04;
 
+                                  prefs.edit()
+                                      .putInt("hc_steps_today", result[0])
+                                      .putFloat("hc_kcal_today", (float) kcal)
+                                      .putInt("hc_sleep_min", result[1])
+                                      .putString("hc_bed_time", "")
+                                      .putString("hc_wake_time", "")
+                                      .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                      .apply();
 
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) {
+                                                  String js = String.format(java.util.Locale.US,
+                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '', '');",
+                                                      bestSteps, kcal, result[1]);
+                                                  wv.evaluateJavascript(js, null);
+                                              }
+                                          } catch (Exception e) { }
+                                      }
+                                  });
                               } catch (Exception e) { }
                           }
                       }).start();
-                  }
-
-                  private void deliverHcResult(final int phoneSteps, final int bestSteps, final double kcal, final int sleepMin, final String bedTime, final String wakeTime) {
-                      runOnUiThread(new Runnable() {
-                          @Override public void run() {
-                              try {
-                                  WebView wv = getBridge() != null ? getBridge().getWebView() : null;
-                                  if (wv != null) {
-                                      String js = String.format(java.util.Locale.US,
-                                          "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
-                                          bestSteps, kcal, sleepMin, bedTime, wakeTime);
-                                      wv.evaluateJavascript(js, null);
-                                  }
-                              } catch (Exception e) { }
-                          }
-                      });
                   }
 
                   /* Открыть системные настройки разрешений Health Connect */
@@ -1429,6 +1375,61 @@ jobs:
               }
           }
           EOF
+          cat > android/app/src/main/java/com/fitflow/app/HealthConnectHelper.kt << 'KOTLIN_EOF'
+          package com.fitflow.app
+
+          import android.content.Context
+          import androidx.health.connect.client.HealthConnectClient
+          import androidx.health.connect.client.records.StepsRecord
+          import androidx.health.connect.client.records.SleepSessionRecord
+          import androidx.health.connect.client.request.ReadRecordsRequest
+          import androidx.health.connect.client.time.TimeRangeFilter
+          import kotlinx.coroutines.runBlocking
+          import java.time.LocalDate
+          import java.time.ZoneId
+
+          object HealthConnectHelper {
+              /**
+               * Reads steps and sleep from Health Connect (Zepp, Garmin, Samsung, etc.)
+               * Returns intArrayOf(hcSteps, sleepMin)
+               * Must be called from a background thread (uses runBlocking).
+               */
+              @JvmStatic
+              fun syncNow(context: Context): IntArray {
+                  return try {
+                      val client = HealthConnectClient.getOrCreate(context)
+                      val today = LocalDate.now()
+                      val startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant()
+                      val endOfDay = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+                      val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
+
+                      // Read steps from ALL sources (Zepp, phone, Garmin, etc.)
+                      val stepsReq = ReadRecordsRequest(StepsRecord::class, timeRange)
+                      val stepsResponse = runBlocking { client.readRecords(stepsReq) }
+                      var totalSteps = 0L
+                      for (record in stepsResponse.records) {
+                          totalSteps += record.count
+                      }
+
+                      // Read sleep from Health Connect
+                      var sleepMin = 0
+                      try {
+                          val sleepReq = ReadRecordsRequest(SleepSessionRecord::class, timeRange)
+                          val sleepResponse = runBlocking { client.readRecords(sleepReq) }
+                          var totalSleepMs = 0L
+                          for (record in sleepResponse.records) {
+                              totalSleepMs += record.endTime.toEpochMilli() - record.startTime.toEpochMilli()
+                          }
+                          sleepMin = (totalSleepMs / 60000).toInt()
+                      } catch (_: Exception) {}
+
+                      intArrayOf(totalSteps.toInt(), sleepMin)
+                  } catch (_: Exception) {
+                      intArrayOf(0, 0)
+                  }
+              }
+          }
+          KOTLIN_EOF
 
       - name: Patch manifest and icons
         run: |
