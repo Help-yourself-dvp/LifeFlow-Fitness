@@ -108,6 +108,8 @@ jobs:
           # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
           sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"' android/app/build.gradle
           sed -i '/dependencies {/a\    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"' android/app/build.gradle
+                    # Apply Kotlin plugin to app module for HealthConnectHelper.kt
+          sed -i "/id 'com.android.application'/a\\apply plugin: 'kotlin-android'" android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
