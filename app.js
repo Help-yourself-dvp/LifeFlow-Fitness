@@ -2606,8 +2606,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.5';
-const FITFLOW_BUILD = 'build 243';
+const FITFLOW_VERSION = '0.7.6';
+const FITFLOW_BUILD = 'build 244';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -3379,7 +3379,7 @@ function applyHomeDensityClass() {
 function setHomeDensity(density) {
   if (!['minimal', 'normal', 'full'].includes(density)) density = 'normal';
   state.homeDensity = density;
-  
+
   const layout = normalizeHomeLayoutValue(state.homeLayout);
   if (density === 'minimal') {
     layout.visible['day-plan'] = false;
@@ -3388,6 +3388,8 @@ function setHomeDensity(density) {
     layout.visible['water'] = true;
     layout.visible['food'] = true;
     layout.visible['weight'] = true;
+    // Минимум — план свёрнут, быстрые записи скрыты
+    try { localStorage.setItem('fitflow:dayplan-collapsed', '1'); } catch (e) {}
   } else if (density === 'normal') {
     layout.visible['day-plan'] = true;
     layout.visible['day-mood'] = true;
@@ -3395,6 +3397,8 @@ function setHomeDensity(density) {
     layout.visible['water'] = true;
     layout.visible['food'] = true;
     layout.visible['weight'] = true;
+    // Обычный — план свёрнут в компактную строку, быстрые записи скрыты
+    try { localStorage.setItem('fitflow:dayplan-collapsed', '1'); } catch (e) {}
   } else if (density === 'full') {
     layout.visible['day-plan'] = true;
     layout.visible['day-mood'] = true;
@@ -3402,6 +3406,8 @@ function setHomeDensity(density) {
     layout.visible['water'] = true;
     layout.visible['food'] = true;
     layout.visible['weight'] = true;
+    // Полный — план развёрнут, быстрые записи видны
+    try { localStorage.setItem('fitflow:dayplan-collapsed', '0'); } catch (e) {}
   }
   state.homeLayout = layout;
   saveState();

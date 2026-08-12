@@ -3209,10 +3209,12 @@ html.dialog-open body {
 
 #help-text {
   white-space: pre-line;
-  line-height: 1.55;
+  line-height: 1.65;
   font-size: 0.88rem;
   color: var(--md-sys-color-on-surface);
-  margin-top: 8px;
+  margin-top: 10px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .weekly-activity-goal .progress-fill.over-goal {
@@ -3971,6 +3973,9 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   align-items: center;
   gap: 6px;
   position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: visible;
 }
 .weekly-status-chip {
   flex: 0 0 auto;
@@ -3993,7 +3998,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 
 [data-density="normal"] .home-cards { gap: 12px; }
 [data-density="normal"] .home-cards .card { padding: 16px 18px; }
-[data-density="normal"] .quick-entry-row { display: flex; }
+[data-density="normal"] .quick-entry-row { display: none !important; }
 
 [data-density="full"] .home-cards { gap: 16px; }
 [data-density="full"] .home-cards .card { padding: 18px 20px; }
