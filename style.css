@@ -1444,12 +1444,12 @@ textarea.form-input.ai-textarea {
 
 .training-summary {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 16px;
-  padding: 12px 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 10px 14px;
   background: var(--md-sys-color-surface-container-high);
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .training-summary-label,
@@ -1460,7 +1460,8 @@ textarea.form-input.ai-textarea {
 }
 
 .training-summary strong {
-  font-size: 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .training-form {
@@ -3931,22 +3932,29 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 }
 
 /* 0.7.0 / 0.7.5 Недельная цель активности: статус слева, минуты посередине, кнопка «Цель» и «?» справа */
+.weekly-activity-goal {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .weekly-activity-goal .weekly-goal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  flex-wrap: wrap;
 }
 .weekly-goal-title-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1 1 auto;
+  gap: 6px;
 }
 .weekly-goal-title-wrap .training-summary-label {
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--md-sys-color-on-surface);
   white-space: nowrap;
 }
@@ -3955,7 +3963,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 }
 .weekly-goal-metrics strong {
   display: inline-block;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--md-sys-color-on-surface);
   white-space: nowrap;
@@ -3984,12 +3992,14 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 [data-density="minimal"] .home-cards .card { padding: 14px 16px; }
 [data-density="minimal"] #day-plan-card,
 [data-density="minimal"] #day-mood-card { display: none !important; }
+[data-density="minimal"] .quick-entry-row { display: none !important; }
 
 [data-density="normal"] .home-cards { gap: 12px; }
 [data-density="normal"] .home-cards .card { padding: 16px 18px; }
 
 [data-density="full"] .home-cards { gap: 16px; }
 [data-density="full"] .home-cards .card { padding: 18px 20px; }
+[data-density="full"] .quick-entry-row { display: flex !important; }
 
 /* ============================================================
    0.5.7 — быстрый ввод: «Разобрать» всегда на виду (полевой баг

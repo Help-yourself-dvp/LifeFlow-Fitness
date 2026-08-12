@@ -2607,7 +2607,7 @@ const DEFAULTS = {
 };
 
 const FITFLOW_VERSION = '0.7.5';
-const FITFLOW_BUILD = 'build 238';
+const FITFLOW_BUILD = 'build 239';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -2658,11 +2658,14 @@ const HOME_CARDS = [
 
 /* Включена ли функция, которой принадлежит карточка (независимо от layout). */
 function isHomeCardFeatureEnabled(id) {
-  // «План дня» живёт, пока включён чек-лист ИЛИ задания (игровой режим)
-  // ИЛИ есть активный курс приёмов (0.3.30 — его строки живут в этой карточке).
-  if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled) || getTodayCourses().length > 0);
-  if (id === 'day-mood') return !!(state.dayChecklist && state.dayChecklist.enabled);
-  if (id === 'steps') return !!(state.healthSync && state.healthSync.enabled);
+  const density = state.homeDensity || 'normal';
+  if (density === 'minimal') {
+    if (id === 'day-plan' || id === 'day-mood') return false;
+    return true;
+  }
+  if (id === 'steps') return true;
+  if (id === 'day-plan') return !!((state.dayChecklist && state.dayChecklist.enabled) || (state.gameMode && state.gameMode.enabled) || getTodayCourses().length > 0 || density === 'normal' || density === 'full');
+  if (id === 'day-mood') return !!((state.dayChecklist && state.dayChecklist.enabled) || density === 'normal' || density === 'full');
   return true;
 }
 
@@ -6872,16 +6875,34 @@ function formatActivityDuration(minutes) {
   return formatWorkoutDuration(minutes);
 }
 
-function renderStatsBars(container, days, valueKey, maxValue, period) {
+function formatSleepDuration(minutes) {
+  if (!minutes || minutes <= 0) return '0 мин';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h > 0 && m > 0) return `${h} ч ${m} мин`;
+  if (h > 0) return `${h} ч`;
+  return `${m} мин`;
+}
+
+function formatSleepDurationShort(minutes) {
+  if (!minutes || minutes <= 0) return '';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h > 0 && m > 0) return `${h}ч ${m}м`;
+  if (h > 0) return `${h}ч`;
+  return `${m}м`;
+}
+
+function renderStatsBars(container, days, valueKey, maxValue, period, formatFn) {
   const safeMax = Math.max(1, maxValue);
   container.innerHTML = days.map((day) => {
     const value = Number(day[valueKey]) || 0;
     const height = Math.max(2, Math.min(100, (value / safeMax) * 100));
-    // 0.5.1 (кейс владельца «подпись 06 уехала под высоким столбцом за край»):
-    // цифра и столбец — в гибкой колонке, дата — всегда в своей строке снизу.
-    return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${Math.round(value)}">
+    const valText = formatFn ? formatFn(value) : (value > 0 ? String(Math.round(value)) : '');
+    const titleVal = formatFn ? formatFn(value) : String(Math.round(value));
+    return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${titleVal || '0'}">
       <div class="stats-bar-col">
-        ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${Math.round(value)}</span>` : ''}
+        ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${valText}</span>` : ''}
         <div class="stats-bar" style="height:${height}%"></div>
       </div>
       <span class="stats-bar-label">${statsDateLabel(day.date, period)}</span>
@@ -6956,7 +6977,8 @@ function renderStats() {
   const sleepSection = $('#stats-sleep-section');
   if (sleepSection) {
     const sleepDays = days.map((day) => {
-      const entry = (state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[day.date] : null;
+      const entry = ((state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[day.date] : null)
+        || ((state.sleepCheckin && state.sleepCheckin.log) ? state.sleepCheckin.log.find((e) => e.date === day.date) : null);
       return {
         date: day.date,
         durationMinutes: entry ? (entry.durationMinutes || (entry.durationMin || 0)) : 0,
@@ -6972,9 +6994,15 @@ function renderStats() {
     const sleepBarsEl = $('#stats-sleep-bars');
     
     if (sleepTotalEl) {
-      sleepTotalEl.textContent = avgSleepMin > 0 
-        ? `≈ ${Math.floor(avgSleepMin / 60)} ч ${avgSleepMin % 60 ? (avgSleepMin % 60 + ' мин') : ''} в день`
-        : (sleepWithData.length ? `${sleepWithData.length} чек-инов` : '—');
+      if (isDay) {
+        const todayEntry = sleepDays[sleepDays.length - 1];
+        const todaySleep = todayEntry ? todayEntry.durationMinutes : 0;
+        sleepTotalEl.textContent = todaySleep > 0 ? formatSleepDuration(todaySleep) : '—';
+      } else {
+        sleepTotalEl.textContent = avgSleepMin > 0 
+          ? `≈ ${formatSleepDuration(avgSleepMin)} в день`
+          : (sleepWithData.length ? `${sleepWithData.length} чек-инов` : '—');
+      }
     }
     if (sleepHintEl) {
       sleepHintEl.textContent = sleepWithData.length
@@ -6982,7 +7010,7 @@ function renderStats() {
         : 'Данные о сне пока не отмечены';
     }
     if (sleepBarsEl) {
-      renderStatsBars(sleepBarsEl, sleepDays, 'durationMinutes', 600, period);
+      renderStatsBars(sleepBarsEl, sleepDays, 'durationMinutes', 600, period, formatSleepDurationShort);
     }
   }
 
