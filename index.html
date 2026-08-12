@@ -487,17 +487,14 @@
 
       <div class="training-summary">
         <span class="training-summary-label">Сегодня</span>
-        <strong id="training-total">Сегодня активности пока нет</strong>
+        <strong id="training-total">0 мин</strong>
       </div>
 
       <div class="weekly-activity-goal">
-        <div class="weekly-goal-header">
-          <div class="weekly-goal-title-wrap">
-            <span class="training-summary-label">Цель за 7 дней</span>
+        <div class="weekly-goal-header-row">
+          <div class="weekly-goal-label-group">
+            <span class="weekly-goal-title">Цель за 7 дней</span>
             <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
-          </div>
-          <div class="weekly-goal-metrics">
-            <strong id="weekly-activity-total">0 мин из 150 мин</strong>
           </div>
           <div class="weekly-goal-controls">
             <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
@@ -507,6 +504,9 @@
               <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
             </div>
           </div>
+        </div>
+        <div class="weekly-goal-value-row">
+          <strong id="weekly-activity-total">0 мин из 150 мин</strong>
         </div>
         <div class="progress-track"><div class="progress-fill" id="weekly-activity-progress"></div></div>
       </div>
@@ -1146,7 +1146,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.7.5 (build 239)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.7.5 (build 240)</span> · Offline-first</p>
         </div>
       </div>
 

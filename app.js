@@ -2607,7 +2607,7 @@ const DEFAULTS = {
 };
 
 const FITFLOW_VERSION = '0.7.5';
-const FITFLOW_BUILD = 'build 239';
+const FITFLOW_BUILD = 'build 240';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -5004,7 +5004,7 @@ function renderDayPlan() {
   renderHomeQuickNav();
   if (!shown) return;
 
-  const showChecklist = !!(state.dayChecklist && state.dayChecklist.enabled);
+  const showChecklist = (state.homeDensity === 'normal' || state.homeDensity === 'full') || !!(state.dayChecklist && state.dayChecklist.enabled);
   const showTasks = !!(state.gameMode && state.gameMode.enabled);
 
   // --- Секция чек-листа: авто-отметки по записям дня ---
@@ -6522,8 +6522,12 @@ function openHealthDiagnostics() {
   const actPerm = rawDiag ? (rawDiag.activityRecognitionGranted ? '✓ Выдано' : '⚠️ Не выдано (нажмите «Разрешить»)') : 'Не требуется';
   const stepSensor = rawDiag ? (rawDiag.hasStepCounterSensor ? '✓ Найден (аппаратный сопроцессор)' : '⚠️ Нет аппаратного датчика') : 'Не доступен';
   const hcApp = isAndroid14Plus ? '✓ Встроен в систему (Android 14+)' : (rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK');
-  const phoneStepsToday = rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps;
-  const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : 0;
+  const phoneStepsToday = (state.healthSync && state.healthSync.lastSteps && state.healthSync.lastSource && state.healthSync.lastSource.includes('телефон'))
+    ? state.healthSync.lastSteps
+    : (rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps);
+  const hcStepsToday = (state.healthSync && state.healthSync.lastSteps && state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect'))
+    ? state.healthSync.lastSteps
+    : (rawDiag ? (rawDiag.hcStepsToday || 0) : 0);
   const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
 
   const sleepEntry = ((state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null)
@@ -7805,10 +7809,10 @@ function renderTraining() {
   const workouts = getWorkoutsForDate();
   const totalMinutes = workouts.reduce((sum, workout) => sum + workout.durationMinutes, 0);
   if (workouts.length === 0) {
-    total.textContent = 'Сегодня активности пока нет';
+    total.textContent = '0 мин';
     list.innerHTML = '<li class="workout-empty">Выберите вид активности, укажите длительность и добавьте первую запись 🚶</li>';
   } else {
-    total.textContent = `${workouts.length} ${activityCountText(workouts.length)} · ${formatWorkoutDuration(totalMinutes)}`;
+    total.textContent = `${formatWorkoutDuration(totalMinutes)} (${workouts.length} ${activityCountText(workouts.length)})`;
     list.innerHTML = workouts.map((workout) => {
       const type = ACTIVITY_TYPES[workout.type] || ACTIVITY_TYPES.other;
       const title = workout.title || type.label;

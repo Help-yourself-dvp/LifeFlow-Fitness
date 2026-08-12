@@ -1452,16 +1452,16 @@ textarea.form-input.ai-textarea {
   border-radius: 14px;
 }
 
-.training-summary-label,
-.training-field-label {
+.training-summary-label {
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .training-summary strong {
   font-size: 0.95rem;
   font-weight: 700;
+  color: var(--md-sys-color-on-surface);
 }
 
 .training-form {
@@ -3931,7 +3931,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   transform: scale(0.98);
 }
 
-/* 0.7.0 / 0.7.5 Недельная цель активности: статус слева, минуты посередине, кнопка «Цель» и «?» справа */
+/* 0.7.0 / 0.7.5 Недельная цель активности: компактная 2-строчная вёрстка */
 .weekly-activity-goal {
   margin-bottom: 14px;
   padding: 12px 14px;
@@ -3941,39 +3941,37 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   flex-direction: column;
   gap: 8px;
 }
-.weekly-activity-goal .weekly-goal-header {
+.weekly-goal-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-.weekly-goal-title-wrap {
+.weekly-goal-label-group {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.weekly-goal-title-wrap .training-summary-label {
-  font-size: 0.8rem;
+.weekly-goal-title {
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--md-sys-color-on-surface);
   white-space: nowrap;
 }
-.weekly-goal-metrics {
-  flex: 0 0 auto;
+.weekly-goal-value-row {
+  display: flex;
+  align-items: center;
 }
-.weekly-goal-metrics strong {
-  display: inline-block;
-  font-size: 0.95rem;
+.weekly-goal-value-row strong {
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--md-sys-color-on-surface);
-  white-space: nowrap;
 }
 .weekly-goal-controls {
   display: flex;
   align-items: center;
   gap: 6px;
   position: relative;
-  flex: 0 0 auto;
 }
 .weekly-status-chip {
   flex: 0 0 auto;
@@ -3996,6 +3994,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 
 [data-density="normal"] .home-cards { gap: 12px; }
 [data-density="normal"] .home-cards .card { padding: 16px 18px; }
+[data-density="normal"] .quick-entry-row { display: flex; }
 
 [data-density="full"] .home-cards { gap: 16px; }
 [data-density="full"] .home-cards .card { padding: 18px 20px; }
