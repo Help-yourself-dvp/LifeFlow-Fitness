@@ -105,6 +105,8 @@ jobs:
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"${APP_VERSION}\"/g" android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
+          # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
+          echo '    implementation "androidx.health.connect:connect-client:1.1.0-alpha11"' >> android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
@@ -142,6 +144,20 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           import org.json.JSONObject;
+
+          // Health Connect API — чтение шагов и сна из Zepp/Garmin/Samsung
+          import androidx.health.connect.client.HealthConnectClient;
+          import androidx.health.connect.client.permission.HealthPermission;
+          import androidx.health.connect.client.records.StepsRecord;
+          import androidx.health.connect.client.records.SleepSessionRecord;
+          import androidx.health.connect.client.request.ReadRecordsRequest;
+          import androidx.health.connect.client.time.TimeRangeFilter;
+          import java.time.Instant;
+          import java.time.LocalDate;
+          import java.time.ZoneId;
+          import java.time.LocalTime;
+          import java.util.List;
+          import java.util.Set;
 
           import java.io.OutputStream;
           import java.util.ArrayList;
@@ -216,14 +232,16 @@ jobs:
                   if (pendingWidgetAction != null) processWidgetAction();
               }
 
-              private void checkPendingWidgetWaterAdd() {
+              private boolean isDeliveringWater = false;
+
+              private synchronized void checkPendingWidgetWaterAdd() {
                   try {
+                      if (isDeliveringWater) return;
                       SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
                       final int pending = prefs.getInt("pendingWaterAdd", 0);
                       if (pending > 0) {
-                          // 0.5.5 (полевой баг: первое «+250 мл» в новый день терялось):
-                          // обнуляем ТОЛЬКО после подтверждённой доставки в JS —
-                          // см. deliverWidgetAction ниже.
+                          isDeliveringWater = true;
+                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
                           tryProcessWidgetAction("add_water_" + pending, 0);
                       }
                   } catch (Exception e) { }
@@ -262,26 +280,26 @@ jobs:
 
               private void deliverWidgetAction(String action) {
                   try {
-                      if (action != null && action.startsWith("add_water_")) {
-                          SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
-                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
-                      }
+                      isDeliveringWater = false;
                       WebView wv = getBridge().getWebView();
                       if (wv != null) {
                           wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
                           return;
                       }
                   } catch (Exception e) { }
+                  isDeliveringWater = false;
                   retryWidgetAction(action, 0);
               }
 
               private void retryWidgetAction(final String action, final int attempt) {
-                  if (action == null) return;
+                  if (action == null) { isDeliveringWater = false; return; }
                   if (attempt < 40) {
                       new android.os.Handler().postDelayed(new Runnable() {
                           @Override
                           public void run() { tryProcessWidgetAction(action, attempt + 1); }
                       }, 300);
+                  } else {
+                      isDeliveringWater = false;
                   }
                   // Если и за ~12 секунд не дождались — действие остаётся в prefs
                   // (add_water) или теряется безвредно (smart_entry/notif_settings_*).
@@ -451,10 +469,22 @@ jobs:
                           diag.put("lastSyncTs", lastSync);
 
                           boolean hasHcIntent = false;
-                          try {
-                              Intent hcIntent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
-                              hasHcIntent = getPackageManager().resolveActivity(hcIntent, 0) != null;
-                          } catch (Exception e) { }
+                          String[] hcIntents = new String[] {
+                              "android.health.connect.action.HEALTH_HOME_SETTINGS",
+                              "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
+                          };
+                          for (String act : hcIntents) {
+                              try {
+                                  Intent testIntent = new Intent(act);
+                                  if (getPackageManager().resolveActivity(testIntent, 0) != null) {
+                                      hasHcIntent = true;
+                                      break;
+                                  }
+                              } catch (Exception e) { }
+                          }
+                          if (Build.VERSION.SDK_INT >= 34) {
+                              hasHcIntent = true;
+                          }
                           diag.put("hasHealthConnectApp", hasHcIntent);
 
                           return diag.toString();
@@ -479,29 +509,106 @@ jobs:
                       }
                   }
 
-                  /* Принудительный запрос к Health Connect (чтение шагов и калорий за сегодня) */
+                  /* Принудительный запрос к Health Connect (реальное чтение шагов, калорий и сна за сегодня
+                     через ReadRecordsRequest — работает с Zepp, Garmin, Samsung Health и др.) */
                   @JavascriptInterface
                   public void syncHealthConnectNow() {
-                      runOnUiThread(new Runnable() {
+                      new Thread(new Runnable() {
                           @Override
                           public void run() {
                               try {
                                   SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
                                   String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
                                   String savedDate = prefs.getString("steps_date", "");
-                                  final int steps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
-                                  final double kcal = steps > 0 ? (steps * 0.04) : 0.0;
+                                  final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
+
+                                  int hcSteps = 0;
+                                  float hcKcal = 0f;
+                                  int sleepMin = 0;
+                                  String bedTime = "";
+                                  String wakeTime = "";
+
+                                  try {
+                                      HealthConnectClient client = HealthConnectClient.getOrCreate(getApplicationContext());
+                                      LocalDate todayDate = LocalDate.now();
+                                      Instant startOfDay = todayDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                                      Instant endOfDay = todayDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                                      TimeRangeFilter timeRange = TimeRangeFilter.between(startOfDay, endOfDay);
+
+                                      // Чтение шагов из ВСЕХ источников (Zepp, Garmin, телефон и др.)
+                                      ReadRecordsRequest<StepsRecord> stepsReq = new ReadRecordsRequest(StepsRecord.class, timeRange);
+                                      java.util.List<StepsRecord> stepsList = client.readRecords(stepsReq).getRecords();
+                                      long totalSteps = 0;
+                                      for (StepsRecord sr : stepsList) {
+                                          totalSteps += sr.getCount();
+                                      }
+                                      hcSteps = (int) totalSteps;
+                                      hcKcal = hcSteps > 0 ? (float)(hcSteps * 0.04) : 0f;
+
+                                      // Чтение сна из Health Connect
+                                      try {
+                                          ReadRecordsRequest<SleepSessionRecord> sleepReq = new ReadRecordsRequest(SleepSessionRecord.class, timeRange);
+                                          java.util.List<SleepSessionRecord> sleepList = client.readRecords(sleepReq).getRecords();
+                                          long totalSleepMs = 0;
+                                          Instant firstBed = null;
+                                          Instant lastWake = null;
+                                          for (SleepSessionRecord sr : sleepList) {
+                                              totalSleepMs += sr.getEndTime().toEpochMilli() - sr.getStartTime().toEpochMilli();
+                                              if (firstBed == null || sr.getStartTime().isBefore(firstBed)) firstBed = sr.getStartTime();
+                                              if (lastWake == null || sr.getEndTime().isAfter(lastWake)) lastWake = sr.getEndTime();
+                                          }
+                                          sleepMin = (int)(totalSleepMs / 60000);
+                                          if (firstBed != null) {
+                                              java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+                                              bedTime = tf.format(new java.util.Date(firstBed.toEpochMilli()));
+                                          }
+                                          if (lastWake != null) {
+                                              java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+                                              wakeTime = tf.format(new java.util.Date(lastWake.toEpochMilli()));
+                                          }
+                                      } catch (Exception se) { }
+
+                                      // Сохраняем в SharedPreferences
+                                      prefs.edit()
+                                          .putInt("hc_steps_today", hcSteps)
+                                          .putFloat("hc_kcal_today", hcKcal)
+                                          .putInt("hc_sleep_min", sleepMin)
+                                          .putString("hc_bed_time", bedTime)
+                                          .putString("hc_wake_time", wakeTime)
+                                          .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                          .apply();
+
+                                  } catch (Exception e) {
+                                      // Health Connect недоступен — используем кэш
+                                      hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
+                                      hcKcal = today.equals(savedDate) ? prefs.getFloat("hc_kcal_today", 0f) : 0f;
+                                      sleepMin = prefs.getInt("hc_sleep_min", 0);
+                                      bedTime = prefs.getString("hc_bed_time", "");
+                                      wakeTime = prefs.getString("hc_wake_time", "");
+                                  }
+
+                                  final int bestSteps = Math.max(phoneSteps, hcSteps);
+                                  final double bestKcal = bestSteps > 0 ? (bestSteps * 0.04) : 0.0;
+                                  final int finalSleep = sleepMin;
+                                  final String finalBed = bedTime;
+                                  final String finalWake = wakeTime;
+
                                   WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                   if (wv != null) {
                                       String js = String.format(java.util.Locale.US,
-                                          "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, 0, '', '');",
-                                          steps, kcal
+                                          "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
+                                          bestSteps, bestKcal, finalSleep, finalBed, finalWake
                                       );
-                                      wv.evaluateJavascript(js, null);
+                                      runOnUiThread(new Runnable() {
+                                          @Override public void run() {
+                                              WebView w = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (w != null) w.evaluateJavascript(js, null);
+                                          }
+                                      });
                                   }
                               } catch (Exception e) { }
                           }
-                      });
+                      }).start();
                   }
 
                   /* Открыть системные настройки разрешений Health Connect */
@@ -510,17 +617,24 @@ jobs:
                       runOnUiThread(new Runnable() {
                           @Override
                           public void run() {
+                              String[] actions = new String[] {
+                                  "android.health.connect.action.HEALTH_HOME_SETTINGS",
+                                  "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
+                              };
+                              for (String act : actions) {
+                                  try {
+                                      Intent intent = new Intent(act);
+                                      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      startActivity(intent);
+                                      return;
+                                  } catch (Exception e) { }
+                              }
                               try {
-                                  Intent intent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+                                  Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                  intent.setData(Uri.fromParts("package", getPackageName(), null));
                                   intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                                   startActivity(intent);
-                              } catch (Exception e) {
-                                  try {
-                                      Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                      intent.setData(Uri.fromParts("package", getPackageName(), null));
-                                      startActivity(intent);
-                                  } catch (Exception e2) { }
-                              }
+                              } catch (Exception e2) { }
                           }
                       });
                   }
@@ -606,6 +720,7 @@ jobs:
                                       .putInt("foodTotal", data.optInt("foodTotal", 0))
                                       .putInt("foodGoal", data.optInt("foodGoal", 2000))
                                       .putInt("activityMinutes", data.optInt("activityMinutes", 0))
+                                      .putInt("stepsToday", data.optInt("stepsToday", 0))
                                       .putString("profileName", data.optString("profileName", "Мой профиль"))
                                       .putString("date", data.optString("date", ""))
                                       // 0.5.5/0.5.6: момент последней записи воды — ресивер сам
@@ -928,10 +1043,18 @@ jobs:
                   views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
                   views.setProgressBar(R.id.widget_water_bar, 100, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)), false);
                   views.setProgressBar(R.id.widget_food_bar, 100, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)), false);
+                  int steps = prefs.getInt("stepsToday", 0);
+                  if (steps <= 0) {
+                      SharedPreferences sPrefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
+                      steps = Math.max(sPrefs.getInt("steps_today", 0), sPrefs.getInt("hc_steps_today", 0));
+                  }
+                  views.setTextViewText(R.id.widget_steps, "Шаги: " + steps);
                   if (large) {
                       views.setTextViewText(R.id.widget_water_pct, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)) + "% цели");
                       views.setTextViewText(R.id.widget_food_pct, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)) + "% цели");
-                      views.setTextViewText(R.id.widget_activity, "Активность: " + formatActivity(activity));
+                      String actStr = "Активность: " + formatActivity(activity);
+                      if (steps > 0) actStr += " · " + steps + " ш.";
+                      views.setTextViewText(R.id.widget_activity, actStr);
                   }
 
                   Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
@@ -1397,6 +1520,20 @@ jobs:
           )
           if 'HealthSyncReceiver' not in t:
               t = t.replace('</application>', health_sync_receiver + '    </application>')
+          queries_block = (
+              '    <queries>\n'
+              '        <intent>\n'
+              '            <action android:name="android.health.connect.action.HEALTH_HOME_SETTINGS" />\n'
+              '        </intent>\n'
+              '        <intent>\n'
+              '            <action android:name="androidx.health.ACTION_HEALTH_CONNECT_SETTINGS" />\n'
+              '        </intent>\n'
+              '        <package android:name="com.google.android.apps.healthdata" />\n'
+              '        <package android:name="com.huami.watch.hmwatchmanager" />\n'
+              '    </queries>\n'
+          )
+          if '<queries>' not in t:
+              t = t.replace('</manifest>', queries_block + '</manifest>')
           # IME/клавиатура (0.3.17): без softInputMode система не сжимает вьюпорт
           # WebView — клавиатура перекрывает поле, а первая IME-сессия после
           # холодного старта теряется. adjustResize: WebView сам сжимается,
@@ -1512,6 +1649,7 @@ jobs:
               '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
               '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
               '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
+              '    <TextView android:id="@+id/widget_steps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Шаги: 0" android:textColor="#00696B" android:textSize="11sp" android:fontFamily="sans-serif-medium" />\n'
               '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n'
               '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="11sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
               '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="11sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
