@@ -3743,11 +3743,11 @@ html[data-font="standard"] .settings-label {
    «Статистика». 0.5.2 (владелец: «наслаиваются друг на друга, “Итоги за…” в две
    строки»): запрет переносов — заголовок и подпись обрезаются с многоточием,
    кнопка компактная и всегда на своём месте справа. */
-.stats-card .card-header { align-items: center; flex-wrap: nowrap; gap: 10px; }
+.stats-card .card-header { align-items: center; flex-wrap: nowrap; gap: 8px; }
 .stats-card .card-title-wrap { flex: 1 1 auto; min-width: 0; }
-.stats-card .card-title-wrap h2,
-.stats-card .card-title-wrap p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 8px 11px; font-size: 0.74rem; white-space: nowrap; }
+.stats-card .card-title-wrap h2 { font-size: 1.2rem; margin: 0; line-height: 1.2; }
+.stats-card .card-title-wrap p { font-size: 0.82rem; margin: 2px 0 0; color: var(--md-sys-color-on-surface-variant); }
+.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 6px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
 
 /* Дата в форме активности (задним числом) */
 .workout-date-field { margin-top: 8px; }

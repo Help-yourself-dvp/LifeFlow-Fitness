@@ -6687,6 +6687,41 @@ function renderStats() {
   renderStatsBars($('#stats-water-bars'), days, 'waterTotal', Math.max(...days.map((day) => day.waterGoal)), period);
   renderStatsBars($('#stats-food-bars'), days, 'foodTotal', Math.max(...days.map((day) => day.foodGoal)), period);
   renderStatsBars($('#stats-activity-bars'), days, 'activityMinutes', Math.max(...days.map((day) => day.activityMinutes), 30), period);
+
+  // Сон и восстановление в Статистике (0.7.0)
+  const sleepSection = $('#stats-sleep-section');
+  if (sleepSection) {
+    const sleepDays = days.map((day) => {
+      const entry = (state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[day.date] : null;
+      return {
+        date: day.date,
+        durationMinutes: entry ? (entry.durationMinutes || (entry.durationMin || 0)) : 0,
+        rating: entry ? (entry.rating || 0) : 0
+      };
+    });
+    const sleepWithData = sleepDays.filter((d) => d.durationMinutes > 0 || d.rating > 0);
+    const sleepTotalMin = sleepDays.reduce((sum, d) => sum + (d.durationMinutes || 0), 0);
+    const avgSleepMin = sleepWithData.length && sleepTotalMin > 0 ? Math.round(sleepTotalMin / sleepWithData.length) : 0;
+    
+    const sleepTotalEl = $('#stats-sleep-total');
+    const sleepHintEl = $('#stats-sleep-hint');
+    const sleepBarsEl = $('#stats-sleep-bars');
+    
+    if (sleepTotalEl) {
+      sleepTotalEl.textContent = avgSleepMin > 0 
+        ? `≈ ${Math.floor(avgSleepMin / 60)} ч ${avgSleepMin % 60 ? (avgSleepMin % 60 + ' мин') : ''} в день`
+        : (sleepWithData.length ? `${sleepWithData.length} чек-инов` : '—');
+    }
+    if (sleepHintEl) {
+      sleepHintEl.textContent = sleepWithData.length
+        ? `Отмечено ${sleepWithData.length} из ${days.length} ночей · регулярность восстановления`
+        : 'Данные о сне пока не отмечены';
+    }
+    if (sleepBarsEl) {
+      renderStatsBars(sleepBarsEl, sleepDays, 'durationMinutes', 600, period);
+    }
+  }
+
   $$('#stats-periods button').forEach((button) =>
     button.classList.toggle('active', button.dataset.statsPeriod === period));
   renderStatsCompare();

@@ -75,6 +75,7 @@ const ids = [
   'game-medals-view', 'game-medals-grid', 'game-medals-count', 'game-medals-back',
   'help-dialog', 'help-title', 'help-text', 'help-ok', 'water-custom-cancel',
   'stats-compare-section', 'stats-compare-text', 'stats-compare-motivation',
+  'stats-sleep-section', 'stats-sleep-title', 'stats-sleep-total', 'stats-sleep-hint', 'stats-sleep-bars',
   'ai-quick-clear-btn', 'ai-chat-clear-btn', 'ai-recipe-clear-btn',
   'ai-cloud-base-row', 'ai-cloud-base', 'ai-quick-result', 'ai-chat-result', 'ai-recipe-result',
   'sleep-checkin-toggle', 'sleep-targets-row', 'sleep-target-bed', 'sleep-target-wake', 'sleep-checkin-status',
@@ -1092,11 +1093,11 @@ for (const id of ids) {
   if (!okQuick052) failed++;
   console.log(`${okQuick052 ? '✓' : '✗'} 0.5.2 быстрые записи: один диалог, вкладки комбо/блюда/своё`);
 
-  // Шапка статистики: без наслоений и двухстрочной подписи
+  // Шапка статистики: без наслоений и двухстрочной подписи (0.5.2/0.7.0)
   const okStatsHead052 = cssR.includes('.stats-card .card-header { align-items: center; flex-wrap: nowrap;')
-    && cssR.includes('.stats-card .card-title-wrap p { overflow: hidden;');
+    && cssR.includes('.stats-day-edit-btn');
   if (!okStatsHead052) failed++;
-  console.log(`${okStatsHead052 ? '✓' : '✗'} 0.5.2 статистика: «Итоги за…» в одну строку, кнопка справа без наслоений`);
+  console.log(`${okStatsHead052 ? '✓' : '✗'} 0.5.2/0.7.0 статистика: «Итоги за…» в одну строку, кнопка справа без наслоений`);
 
   // Недельная активность: «выполнено ИЗ цели» (0.5.2); 0.5.5 — короткая строка + чип-статус
   const okWeekly052 = appR.includes('${formatActivityDuration(weeklyMinutes)} из ${formatActivityDuration(weeklyGoal)}')
