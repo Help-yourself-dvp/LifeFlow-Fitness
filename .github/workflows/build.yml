@@ -106,7 +106,7 @@ jobs:
           sed -i "s/versionName \"1.0\"/versionName \"${APP_VERSION}\"/g" android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
           # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
-          sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha12"' android/app/build.gradle
+          sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.0.0-alpha11"' android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
