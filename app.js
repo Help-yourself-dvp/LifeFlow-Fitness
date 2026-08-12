@@ -2606,8 +2606,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.6';
-const FITFLOW_BUILD = 'build 244';
+const FITFLOW_VERSION = '0.7.7';
+const FITFLOW_BUILD = 'build 245';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -6532,12 +6532,8 @@ function openHealthDiagnostics() {
   const actPerm = rawDiag ? (rawDiag.activityRecognitionGranted ? '✓ Выдано' : '⚠️ Не выдано (нажмите «Разрешить»)') : 'Не требуется';
   const stepSensor = rawDiag ? (rawDiag.hasStepCounterSensor ? '✓ Найден (аппаратный сопроцессор)' : '⚠️ Нет аппаратного датчика') : 'Не доступен';
   const hcApp = isAndroid14Plus ? '✓ Встроен в систему (Android 14+)' : (rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK');
-  const phoneStepsToday = (state.healthSync && state.healthSync.lastSteps && state.healthSync.lastSource && state.healthSync.lastSource.includes('телефон'))
-    ? state.healthSync.lastSteps
-    : (rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps);
-  const hcStepsToday = (state.healthSync && state.healthSync.lastSteps && state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect'))
-    ? state.healthSync.lastSteps
-    : (rawDiag ? (rawDiag.hcStepsToday || 0) : 0);
+  const phoneStepsToday = rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps;
+  const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : (state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect') ? state.healthSync.lastSteps : 0);
   // Health Connect error state from Kotlin helper
   let hcLastError = '';
   try {
@@ -6551,8 +6547,9 @@ function openHealthDiagnostics() {
   const sleepEntry = ((state.sleepCheckin && state.sleepCheckin.history) ? state.sleepCheckin.history[today] : null)
     || ((state.sleepCheckin && state.sleepCheckin.log) ? state.sleepCheckin.log.find((e) => e.date === today) : null);
   const hcSleepMin = sleepEntry ? (sleepEntry.durationMinutes || sleepEntry.durationMin || 0) : 0;
+  const isSleepFromHC = sleepEntry && sleepEntry.source && sleepEntry.source.includes('Health Connect');
   const sleepStr = hcSleepMin > 0
-    ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'})`
+    ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'}) [${isSleepFromHC ? 'Zepp / Health Connect' : 'Ручной чек-ин'}]`
     : 'нет данных за сегодня';
 
   const reportLines = [
@@ -6678,6 +6675,13 @@ if (typeof window !== 'undefined') {
       state.healthSync.lastSteps = receivedSteps;
       state.healthSync.lastKcal = receivedKcal;
       state.healthSync.lastSource = 'Zepp / Health Connect';
+      state.healthSync.lastSyncTs = Date.now();
+    } else {
+      const phoneSteps = getPhoneSteps();
+      if (phoneSteps > 0) {
+        state.healthSync.lastSteps = phoneSteps;
+        state.healthSync.lastSource = 'шагомер телефона';
+      }
       state.healthSync.lastSyncTs = Date.now();
     }
     

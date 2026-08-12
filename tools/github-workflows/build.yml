@@ -508,6 +508,14 @@ jobs:
                               hasHcIntent = true;
                           }
                           diag.put("hasHealthConnectApp", hasHcIntent);
+                          diag.put("hcLastError", HealthConnectHelper.getLastError());
+                          boolean hcPerm = true;
+                          try {
+                              if (Build.VERSION.SDK_INT >= 34) {
+                                  hcPerm = checkSelfPermission("android.permission.health.READ_STEPS") == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                              }
+                          } catch (Exception e) { }
+                          diag.put("healthConnectPermissionGranted", hcPerm);
 
                           return diag.toString();
                       } catch (Exception e) {
@@ -543,8 +551,7 @@ jobs:
                                   String savedDate = prefs.getString("steps_date", "");
                                   final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
                                   final int[] result = HealthConnectHelper.syncNow(getApplicationContext());
-                                  final int bestSteps = Math.max(phoneSteps, result[0]);
-                                  final double kcal = bestSteps * 0.04;
+                                  final double kcal = result[0] * 0.04;
                                   prefs.edit()
                                       .putInt("hc_steps_today", result[0])
                                       .putFloat("hc_kcal_today", (float) kcal)
@@ -558,7 +565,7 @@ jobs:
                                               if (wv != null) {
                                                   String js = String.format(java.util.Locale.US,
                                                       "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '', '');",
-                                                      bestSteps, kcal, result[1]);
+                                                      result[0], (float) kcal, result[1]);
                                                   wv.evaluateJavascript(js, null);
                                               }
                                           } catch (Exception e) {}
@@ -567,6 +574,35 @@ jobs:
                               } catch (Exception e) {}
                           }
                       }).start();
+                  }
+
+                  @JavascriptInterface
+                  public String getHealthConnectLastError() {
+                      return HealthConnectHelper.getLastError();
+                  }
+
+                  /* Запросить рантайм-разрешения Health Connect на Android 14+ */
+                  @JavascriptInterface
+                  public void requestHealthConnectPermissions() {
+                      runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              try {
+                                  if (Build.VERSION.SDK_INT >= 34) {
+                                      requestPermissions(new String[]{
+                                          "android.permission.health.READ_STEPS",
+                                          "android.permission.health.READ_SLEEP",
+                                          "android.permission.health.READ_EXERCISE",
+                                          "android.permission.health.READ_TOTAL_CALORIES_BURNED"
+                                      }, 1003);
+                                  } else {
+                                      openHealthConnectSettings();
+                                  }
+                              } catch (Exception e) {
+                                  openHealthConnectSettings();
+                              }
+                          }
+                      });
                   }
 
                   /* Открыть системные настройки разрешений Health Connect */
@@ -1414,6 +1450,12 @@ jobs:
           import java.time.ZoneId
           object HealthConnectHelper {
               @JvmStatic
+              var lastError: String = ""
+
+              @JvmStatic
+              fun getLastError(): String = lastError
+
+              @JvmStatic
               fun syncNow(context: Context): IntArray {
                   return try {
                       val client = HealthConnectClient.getOrCreate(context)
@@ -1435,8 +1477,12 @@ jobs:
                           }
                           sleepMin = (totalMs / 60000).toInt()
                       } catch (_: Exception) {}
+                      lastError = "OK (шаги: " + totalSteps + ", сон: " + sleepMin + "м)"
                       intArrayOf(totalSteps.toInt(), sleepMin)
-                  } catch (_: Exception) { intArrayOf(0, 0) }
+                  } catch (e: Exception) {
+                      lastError = e.javaClass.simpleName + ": " + (e.message ?: "ошибка доступа")
+                      intArrayOf(0, 0)
+                  }
               }
           }
           KOTLIN_EOF

@@ -16,13 +16,18 @@
 Ссылки всегда давать КЛИКАБЕЛЬНЫМИ, а активный файл — сразу в режиме редактирования:
 
 1. Скопировать зеркало целиком:
-   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/019ff03f-lifeflow-fitness/tools/github-workflows/build.yml
+   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/019ff6d3-lifeflow-fitness/tools/github-workflows/build.yml
 2. Открыть активный workflow в режиме редактирования и заменить всё содержимое:
-   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/019ff03f-lifeflow-fitness/.github/workflows/build.yml
+   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/019ff6d3-lifeflow-fitness/.github/workflows/build.yml
 3. Commit changes → вкладка «Actions» → дождаться сборки → APK в Releases.
 
 ## Текущее состояние
 
+- Версия приложения: **0.7.7 (build 245)** (исправление интеграции Health Connect API и системный запрос рантайм-разрешений):
+  - 🔓 **Системный запрос разрешений Health Connect**: добавлены методы `requestHealthConnectPermissions()` и `getHealthConnectLastError()` в мост `MainActivity.java`; кнопка на экране диагностики теперь вызывает системное окно запроса рантайм-разрешений (`READ_STEPS`, `READ_SLEEP`, `READ_EXERCISE`, `READ_TOTAL_CALORIES_BURNED`) на Android 14+.
+  - ⌚ **Честные источники шагов**: в `syncHealthConnectNow()` исправлена передача реальных шагов Health Connect (`result[0]`) вместо смешанного значения с шагомером телефона; устранена ложная подпись источника `Zepp / Health Connect`.
+  - 🩺 **Логирование ошибок в Kotlin-хелпере**: `HealthConnectHelper.kt` сохраняет точный класс и текст ошибки при сбое (`lastError`), отображая его в диагностике.
+  - 🔢 **Синхронизация версии**: `0.7.7 (build 245)` во всех файлах.
 - Версия приложения: **0.7.6 (build 244)** (исправления UX и начало интеграции Health Connect API):
   - 📱 **Работающая плотность Главного экрана**: «Минимум» скрывает план/самочувствие/быстрые записи, «Обычный» показывает план компактной строкой, «Полный» развёртывает всё.
   - ❓ **Справка недельной цели**: уточнение что учитываются только тренировки из раздела «Активность», а не бытовые шаги.
@@ -184,13 +189,14 @@
 - Guava `ListenableFuture` — не транзитивная зависимость connect-client
 - Java-вызов `readRecords()` напрямую — это Kotlin suspend-функция, требует Continuation
 
-**Что ГОТОВО и работает:**
+**Что ГОТОВО и работает (0.7.7):**
 - JS: UI Health Connect, диагностика, приоритет источников, карточка шагов (с 0.7.0)
 - Манифест: разрешения health.READ_STEPS/SLEEP/EXERCISE, queries Zepp (с 0.7.0)
 - Нативный шагомер телефона: TYPE_STEP_COUNTER в SharedPreferences (с 0.7.0)
-- Kotlin-хелпер: `HealthConnectHelper.kt` с `runBlocking` + `ReadRecordsRequest`
+- Kotlin-хелпер: `HealthConnectHelper.kt` с `runBlocking` + `ReadRecordsRequest` + сохранением ошибки в `lastError`
 - Зависимости: `connect-client:1.0.0-alpha11` + `kotlinx-coroutines-android:1.7.3`
-- sed-команды для Gradle исправлены (предыдущие версии имели проблемы с экранированием)
+- Системный запрос рантайм-разрешений Health Connect: метод `requestHealthConnectPermissions()` в `MainActivity.java` и кнопка на экране диагностики (с 0.7.7)
+- Честная передача шагов в JS-колбэк без подмены источника (с 0.7.7)
 
 **Ключевой урок:** Capacitor 5.7.0 использует AGP 8.0.0 + Gradle 8.0.2. любая
 библиотека с `minCompileSdk > 34` сломает сборку. Health Connect API написан
