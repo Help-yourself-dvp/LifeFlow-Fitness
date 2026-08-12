@@ -216,14 +216,16 @@ jobs:
                   if (pendingWidgetAction != null) processWidgetAction();
               }
 
-              private void checkPendingWidgetWaterAdd() {
+              private boolean isDeliveringWater = false;
+
+              private synchronized void checkPendingWidgetWaterAdd() {
                   try {
+                      if (isDeliveringWater) return;
                       SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
                       final int pending = prefs.getInt("pendingWaterAdd", 0);
                       if (pending > 0) {
-                          // 0.5.5 (полевой баг: первое «+250 мл» в новый день терялось):
-                          // обнуляем ТОЛЬКО после подтверждённой доставки в JS —
-                          // см. deliverWidgetAction ниже.
+                          isDeliveringWater = true;
+                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
                           tryProcessWidgetAction("add_water_" + pending, 0);
                       }
                   } catch (Exception e) { }
@@ -262,26 +264,26 @@ jobs:
 
               private void deliverWidgetAction(String action) {
                   try {
-                      if (action != null && action.startsWith("add_water_")) {
-                          SharedPreferences prefs = getSharedPreferences("fitflow_widget", MODE_PRIVATE);
-                          prefs.edit().putInt("pendingWaterAdd", 0).apply();
-                      }
+                      isDeliveringWater = false;
                       WebView wv = getBridge().getWebView();
                       if (wv != null) {
                           wv.evaluateJavascript("window.onWidgetAction && window.onWidgetAction('" + action + "');", null);
                           return;
                       }
                   } catch (Exception e) { }
+                  isDeliveringWater = false;
                   retryWidgetAction(action, 0);
               }
 
               private void retryWidgetAction(final String action, final int attempt) {
-                  if (action == null) return;
+                  if (action == null) { isDeliveringWater = false; return; }
                   if (attempt < 40) {
                       new android.os.Handler().postDelayed(new Runnable() {
                           @Override
                           public void run() { tryProcessWidgetAction(action, attempt + 1); }
                       }, 300);
+                  } else {
+                      isDeliveringWater = false;
                   }
                   // Если и за ~12 секунд не дождались — действие остаётся в prefs
                   // (add_water) или теряется безвредно (smart_entry/notif_settings_*).
@@ -451,10 +453,22 @@ jobs:
                           diag.put("lastSyncTs", lastSync);
 
                           boolean hasHcIntent = false;
-                          try {
-                              Intent hcIntent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
-                              hasHcIntent = getPackageManager().resolveActivity(hcIntent, 0) != null;
-                          } catch (Exception e) { }
+                          String[] hcIntents = new String[] {
+                              "android.health.connect.action.HEALTH_HOME_SETTINGS",
+                              "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
+                          };
+                          for (String act : hcIntents) {
+                              try {
+                                  Intent testIntent = new Intent(act);
+                                  if (getPackageManager().resolveActivity(testIntent, 0) != null) {
+                                      hasHcIntent = true;
+                                      break;
+                                  }
+                              } catch (Exception e) { }
+                          }
+                          if (Build.VERSION.SDK_INT >= 34) {
+                              hasHcIntent = true;
+                          }
                           diag.put("hasHealthConnectApp", hasHcIntent);
 
                           return diag.toString();
@@ -510,17 +524,24 @@ jobs:
                       runOnUiThread(new Runnable() {
                           @Override
                           public void run() {
+                              String[] actions = new String[] {
+                                  "android.health.connect.action.HEALTH_HOME_SETTINGS",
+                                  "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
+                              };
+                              for (String act : actions) {
+                                  try {
+                                      Intent intent = new Intent(act);
+                                      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                      startActivity(intent);
+                                      return;
+                                  } catch (Exception e) { }
+                              }
                               try {
-                                  Intent intent = new Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS");
+                                  Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                  intent.setData(Uri.fromParts("package", getPackageName(), null));
                                   intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                                   startActivity(intent);
-                              } catch (Exception e) {
-                                  try {
-                                      Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                      intent.setData(Uri.fromParts("package", getPackageName(), null));
-                                      startActivity(intent);
-                                  } catch (Exception e2) { }
-                              }
+                              } catch (Exception e2) { }
                           }
                       });
                   }
@@ -1397,6 +1418,20 @@ jobs:
           )
           if 'HealthSyncReceiver' not in t:
               t = t.replace('</application>', health_sync_receiver + '    </application>')
+          queries_block = (
+              '    <queries>\n'
+              '        <intent>\n'
+              '            <action android:name="android.health.connect.action.HEALTH_HOME_SETTINGS" />\n'
+              '        </intent>\n'
+              '        <intent>\n'
+              '            <action android:name="androidx.health.ACTION_HEALTH_CONNECT_SETTINGS" />\n'
+              '        </intent>\n'
+              '        <package android:name="com.google.android.apps.healthdata" />\n'
+              '        <package android:name="com.huami.watch.hmwatchmanager" />\n'
+              '    </queries>\n'
+          )
+          if '<queries>' not in t:
+              t = t.replace('</manifest>', queries_block + '</manifest>')
           # IME/клавиатура (0.3.17): без softInputMode система не сжимает вьюпорт
           # WebView — клавиатура перекрывает поле, а первая IME-сессия после
           # холодного старта теряется. adjustResize: WebView сам сжимается,

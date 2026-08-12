@@ -6278,11 +6278,12 @@ function openHealthDiagnostics() {
   const today = todayKey();
   
   const hasBridge = !!(window.FitFlowExport);
+  const isAndroid14Plus = rawDiag && rawDiag.androidApi >= 34;
   const androidApi = rawDiag && rawDiag.androidApi ? rawDiag.androidApi : (hasBridge ? 'Да' : 'Веб-режим');
   const model = rawDiag ? `${rawDiag.manufacturer || ''} ${rawDiag.model || ''}`.trim() : 'Браузер / WebView';
   const actPerm = rawDiag ? (rawDiag.activityRecognitionGranted ? '✓ Выдано' : '⚠️ Не выдано (нажмите «Разрешить»)') : 'Не требуется';
   const stepSensor = rawDiag ? (rawDiag.hasStepCounterSensor ? '✓ Найден (аппаратный сопроцессор)' : '⚠️ Нет аппаратного датчика') : 'Не доступен';
-  const hcApp = rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK';
+  const hcApp = isAndroid14Plus ? '✓ Встроен в систему (Android 14+)' : (rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK');
   const phoneStepsToday = rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps;
   const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : 0;
   const lastSyncStr = (rawDiag && rawDiag.lastSyncTs) ? new Date(rawDiag.lastSyncTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'нет';
@@ -6309,10 +6310,15 @@ function openHealthDiagnostics() {
     <div style="margin-bottom:8px"><strong>⌚ Health Connect:</strong> ${hcApp}</div>
     <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
     <div style="margin-bottom:6px"><strong>📊 Шагов телефоном за сегодня:</strong> ${fmt(phoneStepsToday)}</div>
-    <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect (Zepp):</strong> ${fmt(hcStepsToday)}</div>
+    <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect:</strong> ${fmt(hcStepsToday)}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
-    <div style="margin-top:10px; padding:8px; background:rgba(0,105,107,0.06); border-radius:8px; font-size:12px; line-height:1.4;">
-      💡 <em>Если шагов от Zepp 0: откройте приложение Zepp на телефоне, проведите пальцем вниз для синхронизации с часами, затем проверьте в Health Connect, что Zepp выгрузил данные.</em>
+    <div style="margin-top:10px; padding:10px; background:rgba(0,105,107,0.08); border-radius:8px; font-size:12px; line-height:1.45;">
+      <strong>📌 Как передать шаги из Zepp (Amazfit):</strong><br>
+      1. Откройте приложение <strong>Zepp</strong> на телефоне.<br>
+      2. Перейдите: <em>Профиль → Добавить учётные записи → Health Connect</em>.<br>
+      3. Включите переключатель синхронизации.<br>
+      4. Стяните экран вниз на Главной в Zepp (синхронизация с часами).<br>
+      5. В FitFlow нажмите «🔄 Загрузить данные из Health Connect».
     </div>
   `;
 }
@@ -9434,7 +9440,15 @@ if (typeof window !== 'undefined') {
      фальшивый modelPath вида 'local://имя', которого на самом деле не
      существует (принцип «нет кнопок-призраков»). Реальный выбор файла теперь
      идёт через плагин FitFlowLocalAI → selectLocalModelFile() → importModel. */
+  let lastWidgetAction = '';
+  let lastWidgetActionTime = 0;
   window.onWidgetAction = function (action) {
+    const now = Date.now();
+    if (action === lastWidgetAction && now - lastWidgetActionTime < 2000) {
+      return; // 0.7.0 (защита от тройного добавления воды при холодном старте)
+    }
+    lastWidgetAction = action;
+    lastWidgetActionTime = now;
     if (action && String(action).startsWith('add_water_')) {
       // 0.5.6 (решение владельца): запись с виджета подтягивается молча, без
       // отложенного тоста при входе — «внесли воду не через приложение = она
