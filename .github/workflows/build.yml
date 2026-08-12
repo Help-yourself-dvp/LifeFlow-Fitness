@@ -131,7 +131,7 @@ jobs:
               print('Kotlin plugin already in root build.gradle')
           PYEOF2
           # Apply Kotlin plugin to app module
-          sed -i "/id 'com.android.application'/a\\apply plugin: 'kotlin-android'" android/app/build.gradle
+          sed -i "/apply plugin: 'com.android.application'/a\\apply plugin: 'kotlin-android'" android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
