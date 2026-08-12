@@ -23,6 +23,10 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.7.9 (build 285)** (обновление библиотеки Health Connect для Android 14+):
+  - ⌚ **Совместимость со встроенным сервисом Android 14+**: библиотека `androidx.health.connect:connect-client` обновлена с версии `1.0.0-alpha11` (февраль 2023) до `1.1.0-alpha07` (2024, для `compileSdk 34`). Старая версия использовала устаревший механизм проверки разрешений и отклоняла запросы с ошибкой `SecurityException`, даже когда права были включены в системном Health Connect на Android 14+.
+  - 🩺 **Аудит выданных прав в диагностике**: при возникновении ошибки `HealthConnectHelper.kt` проверяет количество реально выданных ОС разрешений через `client.permissionController.getGrantedPermissions()`.
+  - 🔢 **Синхронизация версии**: `0.7.9 (build 285)` во всех файлах.
 - Версия приложения: **0.7.8 (build 283)** (исправлена кнопка «?», интент `MANAGE_HEALTH_PERMISSIONS` для Android 14+ и авто-опрос в диагностике):
   - ❓ **Исправление кнопки справки в Самочувствии**: добавлено делегирование кликов на уровне документа для элементов `[data-help]` и прямой вызов `openHelpTopicDialog('day-mood')`.
   - 🔓 **Интент MANAGE_HEALTH_PERMISSIONS для Android 14+**: метод `requestHealthConnectPermissions()` переведён на системный интент `"android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"`, открывающий страницу прав FitFlow в Health Connect; добавлена вторая кнопка для открытия общего меню Health Connect.
@@ -194,13 +198,13 @@
 - Guava `ListenableFuture` — не транзитивная зависимость connect-client
 - Java-вызов `readRecords()` напрямую — это Kotlin suspend-функция, требует Continuation
 
-**Что ГОТОВО и работает (0.7.7):**
+**Что ГОТОВО и работает (0.7.9):**
 - JS: UI Health Connect, диагностика, приоритет источников, карточка шагов (с 0.7.0)
 - Манифест: разрешения health.READ_STEPS/SLEEP/EXERCISE, queries Zepp (с 0.7.0)
 - Нативный шагомер телефона: TYPE_STEP_COUNTER в SharedPreferences (с 0.7.0)
-- Kotlin-хелпер: `HealthConnectHelper.kt` с `runBlocking` + `ReadRecordsRequest` + сохранением ошибки в `lastError`
-- Зависимости: `connect-client:1.0.0-alpha11` + `kotlinx-coroutines-android:1.7.3`
-- Системный запрос рантайм-разрешений Health Connect: метод `requestHealthConnectPermissions()` в `MainActivity.java` и кнопка на экране диагностики (с 0.7.7)
+- Kotlin-хелпер: `HealthConnectHelper.kt` с `runBlocking` + `ReadRecordsRequest` + сохранением ошибки в `lastError` и проверкой выданных ОС разрешений (с 0.7.9)
+- Зависимости: `connect-client:1.1.0-alpha07` (совместима с Android 14+ / `compileSdk 34`) + `kotlinx-coroutines-android:1.7.3` (с 0.7.9)
+- Системный запрос рантайм-разрешений Health Connect: интент `MANAGE_HEALTH_PERMISSIONS` и кнопки на экране диагностики (с 0.7.8)
 - Честная передача шагов в JS-колбэк без подмены источника (с 0.7.7)
 
 **Ключевой урок:** Capacitor 5.7.0 использует AGP 8.0.0 + Gradle 8.0.2. любая

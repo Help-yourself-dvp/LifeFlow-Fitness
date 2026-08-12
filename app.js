@@ -2606,8 +2606,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.8';
-const FITFLOW_BUILD = 'build 283';
+const FITFLOW_VERSION = '0.7.9';
+const FITFLOW_BUILD = 'build 285';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
