@@ -23,6 +23,11 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.7.8 (build 280)** (исправлена кнопка «?», интент `MANAGE_HEALTH_PERMISSIONS` для Android 14+ и авто-опрос в диагностике):
+  - ❓ **Исправление кнопки справки в Самочувствии**: добавлено делегирование кликов на уровне документа для элементов `[data-help]` и прямой вызов `openHelpTopicDialog('day-mood')`.
+  - 🔓 **Интент MANAGE_HEALTH_PERMISSIONS для Android 14+**: метод `requestHealthConnectPermissions()` переведён на системный интент `"android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"`, открывающий страницу прав FitFlow в Health Connect; добавлена вторая кнопка для открытия общего меню Health Connect.
+  - 🩺 **Автоматический тест и сохранение статуса Health Connect**: при открытии окна диагностики приложение автоматически запускает опрос Health Connect и обновляет отчёт через 1.5 секунды; статус и текст ошибки сохраняются в `SharedPreferences` (`hc_last_error`).
+  - 🔢 **Синхронизация версии**: `0.7.8 (build 280)` во всех файлах.
 - Версия приложения: **0.7.7 (build 279)** (исправление интеграции Health Connect API и системный запрос рантайм-разрешений):
   - 🔓 **Системный запрос разрешений Health Connect**: добавлены методы `requestHealthConnectPermissions()` и `getHealthConnectLastError()` в мост `MainActivity.java`; кнопка на экране диагностики теперь вызывает системное окно запроса рантайм-разрешений (`READ_STEPS`, `READ_SLEEP`, `READ_EXERCISE`, `READ_TOTAL_CALORIES_BURNED`) на Android 14+.
   - ⌚ **Честные источники шагов**: в `syncHealthConnectNow()` исправлена передача реальных шагов Health Connect (`result[0]`) вместо смешанного значения с шагомером телефона; устранена ложная подпись источника `Zepp / Health Connect`.

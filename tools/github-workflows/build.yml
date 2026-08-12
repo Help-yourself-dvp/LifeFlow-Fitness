@@ -508,7 +508,11 @@ jobs:
                               hasHcIntent = true;
                           }
                           diag.put("hasHealthConnectApp", hasHcIntent);
-                          diag.put("hcLastError", HealthConnectHelper.getLastError());
+                          String currErr = HealthConnectHelper.getLastError();
+                          if (currErr.isEmpty()) {
+                              currErr = prefs.getString("hc_last_error", "");
+                          }
+                          diag.put("hcLastError", currErr);
                           boolean hcPerm = true;
                           try {
                               if (Build.VERSION.SDK_INT >= 34) {
@@ -557,6 +561,7 @@ jobs:
                                       .putFloat("hc_kcal_today", (float) kcal)
                                       .putInt("hc_sleep_min", result[1])
                                       .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                      .putString("hc_last_error", HealthConnectHelper.getLastError())
                                       .apply();
                                   runOnUiThread(new Runnable() {
                                       @Override public void run() {
@@ -578,7 +583,10 @@ jobs:
 
                   @JavascriptInterface
                   public String getHealthConnectLastError() {
-                      return HealthConnectHelper.getLastError();
+                      String curr = HealthConnectHelper.getLastError();
+                      if (!curr.isEmpty()) return curr;
+                      SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                      return prefs.getString("hc_last_error", "");
                   }
 
                   /* Запросить рантайм-разрешения Health Connect на Android 14+ */
@@ -588,19 +596,19 @@ jobs:
                           @Override
                           public void run() {
                               try {
-                                  if (Build.VERSION.SDK_INT >= 34) {
-                                      requestPermissions(new String[]{
-                                          "android.permission.health.READ_STEPS",
-                                          "android.permission.health.READ_SLEEP",
-                                          "android.permission.health.READ_EXERCISE",
-                                          "android.permission.health.READ_TOTAL_CALORIES_BURNED"
-                                      }, 1003);
-                                  } else {
-                                      openHealthConnectSettings();
-                                  }
-                              } catch (Exception e) {
-                                  openHealthConnectSettings();
-                              }
+                                  Intent intent = new Intent("android.health.connect.action.MANAGE_HEALTH_PERMISSIONS");
+                                  intent.putExtra(Intent.EXTRA_PACKAGE_NAME, getPackageName());
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(intent);
+                                  return;
+                              } catch (Exception e) { }
+                              try {
+                                  Intent intent = new Intent("android.health.connect.action.HEALTH_HOME_SETTINGS");
+                                  intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                  startActivity(intent);
+                                  return;
+                              } catch (Exception e2) { }
+                              openHealthConnectSettings();
                           }
                       });
                   }

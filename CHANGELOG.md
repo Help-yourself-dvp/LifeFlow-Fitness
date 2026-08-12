@@ -5,6 +5,15 @@
 
 ---
 
+## 0.7.8 — Исправление кнопки справки «Самочувствие», интента MANAGE_HEALTH_PERMISSIONS для Android 14+ и авто-теста диагностики (12.08.2026, сборка 280)
+
+- ❓ **Исправление кнопки справки в Самочувствии**: добавлено делегирование кликов на уровне документа для элементов `[data-help]` и прямой вызов `openHelpTopicDialog('day-mood')`. Теперь справка работает всегда и на любых карточках.
+- 🔓 **Интент MANAGE_HEALTH_PERMISSIONS для Android 14+**: исправлен метод `requestHealthConnectPermissions()` — теперь он использует системный интент `"android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"`, гарантированно открывающий страницу прав FitFlow в Health Connect (стандартный вызов `requestPermissions` для `health.*` на Android 14+ игнорировался ОС). Добавлена вторая кнопка для открытия общего меню Health Connect в системе.
+- 🩺 **Автоматический тест и сохранение статуса Health Connect**: при открытии окна диагностики приложение автоматически запускает опрос Health Connect и обновляет отчёт через 1.5 секунды; статус и текст ошибки сохраняются в `SharedPreferences` (`hc_last_error`).
+- 🔢 **Синхронизация версии**: `0.7.8 (build 280)` во всех файлах.
+
+---
+
 ## 0.7.7 — Исправление синхронизации Health Connect (Zepp / Amazfit) и логирование ошибок (12.08.2026, сборка 279)
 
 - 🔓 **Системный запрос разрешений Health Connect**: добавлен метод `requestHealthConnectPermissions()`, вызывающий системное окно запроса рантайм-разрешений (`READ_STEPS`, `READ_SLEEP`, `READ_EXERCISE`, `READ_TOTAL_CALORIES_BURNED`) на Android 14+ по кнопке из диагностики.

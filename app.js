@@ -2606,8 +2606,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.7';
-const FITFLOW_BUILD = 'build 279';
+const FITFLOW_VERSION = '0.7.8';
+const FITFLOW_BUILD = 'build 280';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -5150,7 +5150,7 @@ function renderDayMoodCard() {
     <div class="mood-card-row mood-compact-row">
       <div class="mood-compact-top">
         <span class="mood-compact-label">🌗 Самочувствие</span>
-        <span class="help-dot mood-help-dot" role="button" tabindex="0" data-help="day-mood" aria-label="Справка о самочувствии" title="Зачем отмечать самочувствие?">?</span>
+        <span class="help-dot mood-help-dot" role="button" tabindex="0" onclick="openHelpTopicDialog('day-mood')" data-help="day-mood" aria-label="Справка о самочувствии" title="Зачем отмечать самочувствие?">?</span>
       </div>
       <div class="mood-compact-bottom">
         <span class="mood-inline-row">${buttons}</span>
@@ -6513,7 +6513,24 @@ function openHealthDiagnostics() {
   const content = $('#health-diag-content');
   if (!dialog || !content) return;
   dialog.hidden = false;
-  
+
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
+      window.FitFlowExport.syncHealthConnectNow();
+      setTimeout(() => {
+        if (!dialog.hidden) renderHealthDiagnosticsContent();
+      }, 1500);
+    }
+  } catch (e) { }
+
+  renderHealthDiagnosticsContent();
+}
+
+function renderHealthDiagnosticsContent() {
+  const dialog = $('#health-diag-dialog');
+  const content = $('#health-diag-content');
+  if (!dialog || !content) return;
+
   let rawDiag = null;
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.getHealthDiagnosticsJson === 'function') {
@@ -6580,8 +6597,9 @@ function openHealthDiagnostics() {
     <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect / Zepp):</strong> ${sleepStr}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
     ${hcLastError && !hcLastError.startsWith('ok') ? '<div style="margin-bottom:8px; padding:8px; background:rgba(220,50,50,0.1); border-radius:6px; font-size:12px;"><strong>⚠️ Health Connect статус:</strong> ' + escapeHtml(hcLastError) + '</div>' : ''}
-    <div style="margin-bottom:8px">
-      <button class="btn btn-secondary" type="button" onclick="requestHCPermissions()" style="font-size:12px; padding:6px 12px">🔓 Разрешить доступ к Health Connect</button>
+    <div style="margin-bottom:8px; display:flex; flex-direction:column; gap:6px;">
+      <button class="btn btn-secondary" type="button" onclick="requestHCPermissions()" style="font-size:12px; padding:6px 12px">🔓 Разрешить в Health Connect (FitFlow)</button>
+      <button class="btn btn-ghost" type="button" onclick="openHCSettingsSystem()" style="font-size:12px; padding:6px 12px">⚙️ Открыть Health Connect в системе</button>
     </div>
     <div style="margin-top:10px; padding:10px; background:rgba(0,105,107,0.08); border-radius:8px; font-size:12px; line-height:1.45;">
       <strong>📌 Как передать шаги и сон из Zepp (Amazfit):</strong><br>
@@ -6599,6 +6617,19 @@ function requestHCPermissions() {
     if (window.FitFlowExport && typeof window.FitFlowExport.requestHealthConnectPermissions === 'function') {
       window.FitFlowExport.requestHealthConnectPermissions();
       toast('Открываю настройки разрешений Health Connect…');
+    } else {
+      toast('Health Connect доступен только в APK-сборке');
+    }
+  } catch (e) {
+    toast('Не удалось открыть настройки: ' + (e.message || e));
+  }
+}
+
+function openHCSettingsSystem() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.openHealthConnectSettings === 'function') {
+      window.FitFlowExport.openHealthConnectSettings();
+      toast('Открываю системное приложение Health Connect…');
     } else {
       toast('Health Connect доступен только в APK-сборке');
     }
@@ -9575,9 +9606,16 @@ function bindSettingsMenu() {
     btn.addEventListener('click', () => btn.dataset.settingsView && switchView(btn.dataset.settingsView)));
   $$('.settings-back-btn').forEach((btn) =>
     btn.addEventListener('click', () => switchView('settings')));
-  // Значки «?»: своя обработка и остановка всплытия, чтобы клик не открывал раздел.
+  // Делегированная обработка значков «?», чтобы клик работал на статических и динамических карточках
+  document.addEventListener('click', (e) => {
+    const helpEl = e.target && e.target.closest && e.target.closest('[data-help]');
+    if (helpEl) {
+      e.stopPropagation();
+      e.preventDefault();
+      openHelpTopicDialog(helpEl.dataset.help);
+    }
+  });
   $$('[data-help]').forEach((el) => {
-    el.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); openHelpTopicDialog(el.dataset.help); });
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); openHelpTopicDialog(el.dataset.help); }
     });
