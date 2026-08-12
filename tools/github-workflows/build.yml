@@ -105,6 +105,8 @@ jobs:
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/g" android/app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"${APP_VERSION}\"/g" android/app/build.gradle
           echo 'android.suppressUnsupportedCompileSdk=34' >> android/gradle.properties
+          # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
+          echo '    implementation "androidx.health.connect:connect-client:1.1.0-alpha11"' >> android/app/build.gradle
           npx cap sync android
 
       - name: Verify webDir is correct (safety check)
@@ -142,6 +144,20 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           import org.json.JSONObject;
+
+          // Health Connect API — чтение шагов и сна из Zepp/Garmin/Samsung
+          import androidx.health.connect.client.HealthConnectClient;
+          import androidx.health.connect.client.permission.HealthPermission;
+          import androidx.health.connect.client.records.StepsRecord;
+          import androidx.health.connect.client.records.SleepSessionRecord;
+          import androidx.health.connect.client.request.ReadRecordsRequest;
+          import androidx.health.connect.client.time.TimeRangeFilter;
+          import java.time.Instant;
+          import java.time.LocalDate;
+          import java.time.ZoneId;
+          import java.time.LocalTime;
+          import java.util.List;
+          import java.util.Set;
 
           import java.io.OutputStream;
           import java.util.ArrayList;
@@ -493,35 +509,106 @@ jobs:
                       }
                   }
 
-                  /* Принудительный запрос к Health Connect (чтение шагов, калорий и сна за сегодня) */
+                  /* Принудительный запрос к Health Connect (реальное чтение шагов, калорий и сна за сегодня
+                     через ReadRecordsRequest — работает с Zepp, Garmin, Samsung Health и др.) */
                   @JavascriptInterface
                   public void syncHealthConnectNow() {
-                      runOnUiThread(new Runnable() {
+                      new Thread(new Runnable() {
                           @Override
                           public void run() {
                               try {
                                   SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
                                   String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
                                   String savedDate = prefs.getString("steps_date", "");
-                                  final int steps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
-                                  final int hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
-                                  final int bestSteps = Math.max(steps, hcSteps);
-                                  final double kcal = bestSteps > 0 ? (bestSteps * 0.04) : 0.0;
-                                  final int sleepMin = prefs.getInt("hc_sleep_min", 440);
-                                  final String bedTime = prefs.getString("hc_bed_time", "23:48");
-                                  final String wakeTime = prefs.getString("hc_wake_time", "06:08");
+                                  final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
+
+                                  int hcSteps = 0;
+                                  float hcKcal = 0f;
+                                  int sleepMin = 0;
+                                  String bedTime = "";
+                                  String wakeTime = "";
+
+                                  try {
+                                      HealthConnectClient client = HealthConnectClient.getOrCreate(getApplicationContext());
+                                      LocalDate todayDate = LocalDate.now();
+                                      Instant startOfDay = todayDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                                      Instant endOfDay = todayDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                                      TimeRangeFilter timeRange = TimeRangeFilter.between(startOfDay, endOfDay);
+
+                                      // Чтение шагов из ВСЕХ источников (Zepp, Garmin, телефон и др.)
+                                      ReadRecordsRequest<StepsRecord> stepsReq = new ReadRecordsRequest(StepsRecord.class, timeRange);
+                                      java.util.List<StepsRecord> stepsList = client.readRecords(stepsReq).getRecords();
+                                      long totalSteps = 0;
+                                      for (StepsRecord sr : stepsList) {
+                                          totalSteps += sr.getCount();
+                                      }
+                                      hcSteps = (int) totalSteps;
+                                      hcKcal = hcSteps > 0 ? (float)(hcSteps * 0.04) : 0f;
+
+                                      // Чтение сна из Health Connect
+                                      try {
+                                          ReadRecordsRequest<SleepSessionRecord> sleepReq = new ReadRecordsRequest(SleepSessionRecord.class, timeRange);
+                                          java.util.List<SleepSessionRecord> sleepList = client.readRecords(sleepReq).getRecords();
+                                          long totalSleepMs = 0;
+                                          Instant firstBed = null;
+                                          Instant lastWake = null;
+                                          for (SleepSessionRecord sr : sleepList) {
+                                              totalSleepMs += sr.getEndTime().toEpochMilli() - sr.getStartTime().toEpochMilli();
+                                              if (firstBed == null || sr.getStartTime().isBefore(firstBed)) firstBed = sr.getStartTime();
+                                              if (lastWake == null || sr.getEndTime().isAfter(lastWake)) lastWake = sr.getEndTime();
+                                          }
+                                          sleepMin = (int)(totalSleepMs / 60000);
+                                          if (firstBed != null) {
+                                              java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+                                              bedTime = tf.format(new java.util.Date(firstBed.toEpochMilli()));
+                                          }
+                                          if (lastWake != null) {
+                                              java.text.SimpleDateFormat tf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US);
+                                              wakeTime = tf.format(new java.util.Date(lastWake.toEpochMilli()));
+                                          }
+                                      } catch (Exception se) { }
+
+                                      // Сохраняем в SharedPreferences
+                                      prefs.edit()
+                                          .putInt("hc_steps_today", hcSteps)
+                                          .putFloat("hc_kcal_today", hcKcal)
+                                          .putInt("hc_sleep_min", sleepMin)
+                                          .putString("hc_bed_time", bedTime)
+                                          .putString("hc_wake_time", wakeTime)
+                                          .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                          .apply();
+
+                                  } catch (Exception e) {
+                                      // Health Connect недоступен — используем кэш
+                                      hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
+                                      hcKcal = today.equals(savedDate) ? prefs.getFloat("hc_kcal_today", 0f) : 0f;
+                                      sleepMin = prefs.getInt("hc_sleep_min", 0);
+                                      bedTime = prefs.getString("hc_bed_time", "");
+                                      wakeTime = prefs.getString("hc_wake_time", "");
+                                  }
+
+                                  final int bestSteps = Math.max(phoneSteps, hcSteps);
+                                  final double bestKcal = bestSteps > 0 ? (bestSteps * 0.04) : 0.0;
+                                  final int finalSleep = sleepMin;
+                                  final String finalBed = bedTime;
+                                  final String finalWake = wakeTime;
 
                                   WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                   if (wv != null) {
                                       String js = String.format(java.util.Locale.US,
                                           "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
-                                          bestSteps, kcal, sleepMin, bedTime, wakeTime
+                                          bestSteps, bestKcal, finalSleep, finalBed, finalWake
                                       );
-                                      wv.evaluateJavascript(js, null);
+                                      runOnUiThread(new Runnable() {
+                                          @Override public void run() {
+                                              WebView w = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (w != null) w.evaluateJavascript(js, null);
+                                          }
+                                      });
                                   }
                               } catch (Exception e) { }
                           }
-                      });
+                      }).start();
                   }
 
                   /* Открыть системные настройки разрешений Health Connect */

@@ -3941,6 +3941,7 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
 }
 .weekly-goal-header-row {
   display: flex;
@@ -3971,11 +3972,10 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
 .weekly-goal-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  position: relative;
+  gap: 4px;
   flex: 0 0 auto;
   min-width: 0;
-  overflow: visible;
+  max-width: 100%;
 }
 .weekly-status-chip {
   flex: 0 0 auto;
