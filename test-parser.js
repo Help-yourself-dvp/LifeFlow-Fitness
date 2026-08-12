@@ -1,5 +1,14 @@
 'use strict';
 /* Временный тест парсера: node test-parser.js */
+if (typeof global.localStorage === 'undefined') {
+  const store = {};
+  global.localStorage = {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+    clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
+  };
+}
 const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT } = require('./app.js');
 
 const tests = [
@@ -528,7 +537,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 
   // 0.3.11: старые id (day-checklist/game-tasks) переводятся на объединённую карточку
   const legacy = normalizeHomeLayoutValue({ order: ['day-checklist', 'water', 'game-tasks', 'food', 'weight'] });
-  const okLegacy = legacy.order.join(',') === 'day-mood,day-plan,water,food,weight';
+  const okLegacy = legacy.order.join(',') === 'day-mood,steps,day-plan,water,food,weight';
   if (!okLegacy) failed++;
   console.log(`${okLegacy ? '✓' : '✗'} старые id порядка карточек переезжают на «План дня» → ${legacy.order.join(',')}`);
 }

@@ -2601,13 +2601,13 @@ const DEFAULTS = {
   onlineFeatures: { barcodeLookup: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
-  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, lastSyncTs: null, lastSteps: 0, lastSource: null },
+  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
 const FITFLOW_VERSION = '0.7.5';
-const FITFLOW_BUILD = 'build 234';
+const FITFLOW_BUILD = 'build 237';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -3309,14 +3309,15 @@ function openExplainDialog(metric) {
   } else if (metric === 'steps') {
     if (title) title.textContent = 'Откуда цель шагов?';
     const steps = (state.healthSync && state.healthSync.lastSteps) || getPhoneSteps() || 0;
-    const kcal = Math.round(steps * 0.04);
+    const goal = (state.healthSync && state.healthSync.dailyGoal) || 8000;
+    const kcal = (state.healthSync && state.healthSync.lastKcal) || Math.round(steps * 0.04);
     html = `
       <div style="margin-bottom:8px"><strong>Суточное движение (NEAT):</strong></div>
       <div style="margin-bottom:4px">• Рекомендованный ориентир: <strong>8 000 – 10 000 шагов</strong></div>
       <div style="margin-bottom:4px">• Энерготраты при ходьбе: ≈ <strong>0.04 ккал на 1 шаг</strong></div>
       <div style="margin-bottom:4px">• Сегодня пройдено: <strong>${fmt(steps)} шагов</strong> (≈ ${fmt(kcal)} ккал)</div>
       <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
-      <div style="color:#666; font-size:12px"><em>Бытовые шаги поддерживают кровообращение и общий тонус организма.</em></div>
+      <div style="color:#666; font-size:12px"><em>Ваша текущая цель: ${fmt(goal)} шагов/день. Можно изменить кнопками «Цель −/+» на карточке.</em></div>
     `;
   }
   content.innerHTML = html;
@@ -6312,8 +6313,10 @@ function normalizeHealthSync() {
     enabled: source.enabled === true,
     priority: ['auto', 'phone_only', 'health_connect_only'].includes(source.priority) ? source.priority : 'auto',
     includeInDailyBudget: source.includeInDailyBudget === true,
+    dailyGoal: Math.max(1000, Math.min(50000, Number(source.dailyGoal) || 8000)),
     lastSyncTs: Number(source.lastSyncTs) || null,
     lastSteps: Math.max(0, Number(source.lastSteps) || 0),
+    lastKcal: Math.max(0, Number(source.lastKcal) || 0),
     lastSource: typeof source.lastSource === 'string' ? source.lastSource : null
   };
 }
