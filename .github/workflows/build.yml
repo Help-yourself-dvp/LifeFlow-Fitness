@@ -1453,9 +1453,6 @@ jobs:
               var lastError: String = ""
 
               @JvmStatic
-              fun getLastError(): String = lastError
-
-              @JvmStatic
               fun syncNow(context: Context): IntArray {
                   return try {
                       val client = HealthConnectClient.getOrCreate(context)
