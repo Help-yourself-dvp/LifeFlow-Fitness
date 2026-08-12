@@ -68,7 +68,7 @@ jobs:
           sed -i 's/targetSdkVersion = .*/targetSdkVersion = 34/g' android/variables.gradle
           sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/g' android/variables.gradle
           # LOCAL_AI_PATCH: LiteRT-LM требует minSdk 24 (по умолчанию шаблон ставит 22/23)
-          sed -i 's/minSdkVersion = .*/minSdkVersion = 24/g' android/variables.gradle
+          sed -i 's/minSdkVersion = .*/minSdkVersion = 26/g' android/variables.gradle
           # CAMERA_CHOOSER_PATCH (0.4.3): пункт «Камера» в системном выборе фото WebView
           # (input type=file accept="image/*") виден только при объявленном permission
           # CAMERA в манифесте — без него пикер сразу открывает галерею (полевой баг:
