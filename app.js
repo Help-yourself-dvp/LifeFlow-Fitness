@@ -3262,6 +3262,121 @@ function closeMethodologyDialog() {
   if (dialog) dialog.hidden = true;
 }
 
+function openExplainDialog(metric) {
+  const dialog = $('#explain-dialog');
+  const content = $('#explain-dialog-content');
+  const title = $('#explain-dialog-title');
+  if (!dialog || !content) return;
+  
+  normalizeProfileSettings();
+  const profile = state.profileSettings || {};
+  const weight = profile.weightKg || 70;
+  const height = profile.heightCm || 175;
+  const age = profile.ageYears || 30;
+  const sex = profile.sex || 'male';
+  const activity = profile.activityLevel || 'medium';
+
+  let html = '';
+  if (metric === 'food') {
+    if (title) title.textContent = 'Откуда цель по калориям?';
+    const bmr = sex === 'female'
+      ? Math.round(10 * weight + 6.25 * height - 5 * age - 161)
+      : Math.round(10 * weight + 6.25 * height - 5 * age + 5);
+    const mult = activity === 'high' ? 1.55 : (activity === 'medium' ? 1.375 : 1.2);
+    const calculated = Math.round(bmr * mult);
+    html = `
+      <div style="margin-bottom:8px"><strong>Формула Миффлина — Сан Жеора:</strong></div>
+      <div style="margin-bottom:4px">• Вес: ${weight} кг · Рост: ${height} см · Возраст: ${age} лет (${sex === 'female' ? 'жен.' : 'муж.'})</div>
+      <div style="margin-bottom:4px">• Базовый обмен (BMR): ≈ <strong>${fmt(bmr)} ккал</strong> (на работу органов)</div>
+      <div style="margin-bottom:4px">• Коэффициент активности: × ${mult} (${activity === 'high' ? 'высокая' : (activity === 'medium' ? 'умеренная' : 'низкая')})</div>
+      <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
+      <div>• Расчётный ориентир: ≈ <strong>${fmt(calculated)} ккал/день</strong></div>
+      <div style="margin-top:6px; color:#666; font-size:12px"><em>Ваша текущая цель: ${fmt(state.food.goal)} ккал. Можно скорректировать кнопками «Цель −/+».</em></div>
+    `;
+  } else if (metric === 'water') {
+    if (title) title.textContent = 'Откуда норма воды?';
+    const baseWater = Math.round(weight * 30);
+    const actAdd = activity === 'high' ? 500 : (activity === 'medium' ? 250 : 0);
+    const calculated = baseWater + actAdd;
+    html = `
+      <div style="margin-bottom:8px"><strong>Базовый физиологический расчёт:</strong></div>
+      <div style="margin-bottom:4px">• Вес: ${weight} кг × 30 мл/кг = ≈ <strong>${fmt(baseWater)} мл</strong></div>
+      <div style="margin-bottom:4px">• Надбавка за активность: + <strong>${actAdd} мл</strong></div>
+      <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
+      <div>• Стартовый ориентир: ≈ <strong>${fmt(calculated)} мл/день</strong></div>
+      <div style="margin-top:6px; color:#666; font-size:12px"><em>Ваша текущая цель: ${fmt(state.water.goal)} мл.</em></div>
+    `;
+  } else if (metric === 'steps') {
+    if (title) title.textContent = 'Откуда цель шагов?';
+    const steps = (state.healthSync && state.healthSync.lastSteps) || getPhoneSteps() || 0;
+    const kcal = Math.round(steps * 0.04);
+    html = `
+      <div style="margin-bottom:8px"><strong>Суточное движение (NEAT):</strong></div>
+      <div style="margin-bottom:4px">• Рекомендованный ориентир: <strong>8 000 – 10 000 шагов</strong></div>
+      <div style="margin-bottom:4px">• Энерготраты при ходьбе: ≈ <strong>0.04 ккал на 1 шаг</strong></div>
+      <div style="margin-bottom:4px">• Сегодня пройдено: <strong>${fmt(steps)} шагов</strong> (≈ ${fmt(kcal)} ккал)</div>
+      <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
+      <div style="color:#666; font-size:12px"><em>Бытовые шаги поддерживают кровообращение и общий тонус организма.</em></div>
+    `;
+  }
+  content.innerHTML = html;
+  dialog.hidden = false;
+}
+
+function closeExplainDialog() {
+  const dialog = $('#explain-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function setHomeDensity(density) {
+  if (!['minimal', 'normal', 'full'].includes(density)) density = 'normal';
+  state.homeDensity = density;
+  
+  const layout = normalizeHomeLayoutValue(state.homeLayout);
+  if (density === 'minimal') {
+    layout.visible['day-plan'] = false;
+    layout.visible['day-mood'] = false;
+    layout.visible['steps'] = true;
+    layout.visible['water'] = true;
+    layout.visible['food'] = true;
+    layout.visible['weight'] = true;
+  } else if (density === 'normal') {
+    layout.visible['day-plan'] = true;
+    layout.visible['day-mood'] = true;
+    layout.visible['steps'] = true;
+    layout.visible['water'] = true;
+    layout.visible['food'] = true;
+    layout.visible['weight'] = true;
+  } else if (density === 'full') {
+    layout.visible['day-plan'] = true;
+    layout.visible['day-mood'] = true;
+    layout.visible['steps'] = true;
+    layout.visible['water'] = true;
+    layout.visible['food'] = true;
+    layout.visible['weight'] = true;
+  }
+  state.homeLayout = layout;
+  saveState();
+  applyHomeLayout();
+  renderHomeDensity();
+  renderHomeLayoutSettings();
+  toast(density === 'minimal' ? 'Главная: только шаги, вода, еда и вес' : (density === 'normal' ? 'Главная: обычный вид' : 'Главная: полный вид'));
+}
+
+function renderHomeDensity() {
+  if (typeof document === 'undefined') return;
+  const density = state.homeDensity || 'normal';
+  $$('#home-density-segmented button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.density === density);
+  });
+  const hint = $('#home-density-hint');
+  if (hint) {
+    if (density === 'minimal') hint.textContent = 'Минимум: только шаги, вода, еда и вес (максимально чисто).';
+    else if (density === 'normal') hint.textContent = 'Обычный: шаги, вода, еда, вес, план дня и самочувствие.';
+    else hint.textContent = 'Полный: все карточки, задания, медали и курсы на Главной.';
+  }
+}
+
 function normalizeHomeLayoutValue(source) {
   const layout = source && typeof source === 'object' ? source : {};
   const knownIds = HOME_CARDS.map((card) => card.id);
@@ -10795,6 +10910,10 @@ function init() {
   bindEvent('#pro-cancel', 'click', closeProDialog);
   bindEvent('#pro-activate', 'click', () => { activateProFromDialog(); });
   bindEvent('#pro-deactivate', 'click', deactivatePro);
+  bindEvent('#explain-dialog-ok', 'click', closeExplainDialog);
+  $$('#home-density-segmented button').forEach((btn) => {
+    btn.addEventListener('click', () => setHomeDensity(btn.dataset.density));
+  });
   renderProStatus();
   initSqliteStorage();
   bindEvent('#health-sync-toggle', 'change', (e) => updateHealthSyncEnabled(e.target.checked));

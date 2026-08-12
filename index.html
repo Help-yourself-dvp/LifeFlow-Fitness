@@ -717,6 +717,15 @@
         </div>
       </div>
       <div class="settings-group">
+        <p class="settings-label">📱 Плотность Главного экрана</p>
+        <div class="segmented" id="home-density-segmented" role="radiogroup" aria-label="Плотность Главного экрана">
+          <button type="button" data-density="minimal">Минимум</button>
+          <button class="active" type="button" data-density="normal">Обычный</button>
+          <button type="button" data-density="full">Полный</button>
+        </div>
+        <p class="settings-hint" id="home-density-hint">Обычный: шаги, вода, питание, вес, план дня и самочувствие.</p>
+      </div>
+      <div class="settings-group">
         <div class="settings-label-row">
           <p class="settings-label">🎮 Игровой режим <span class="help-dot" role="button" tabindex="0" data-help="game-mode" aria-label="Справка: Игровой режим" title="Что это и зачем?">?</span></p>
           <label class="switch" for="game-mode-toggle">
@@ -1958,6 +1967,16 @@
         <button class="btn btn-secondary" id="health-diag-copy-btn" type="button">📋 Скопировать отчёт</button>
         <button class="btn btn-secondary" id="health-diag-close-btn" type="button">Закрыть</button>
       </div>
+    </section>
+  </div>
+
+  <!-- 0.7.5 Объяснимые расчёты: почему это число? -->
+  <div class="app-dialog-backdrop" id="explain-dialog" role="dialog" aria-modal="true" aria-labelledby="explain-dialog-title" hidden>
+    <section class="app-dialog" style="max-width:400px">
+      <div class="app-dialog-icon" aria-hidden="true">🧮</div>
+      <h2 id="explain-dialog-title">Откуда это число?</h2>
+      <div id="explain-dialog-content" class="diag-content-box" style="text-align:left; font-size:13px; margin:12px 0; line-height:1.5; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; border:1px solid rgba(0,0,0,0.08);"></div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="explain-dialog-ok" type="button">Понятно</button></div>
     </section>
   </div>
 
