@@ -529,8 +529,18 @@
           <span>🏋️ Силовая: вес × повторы</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="collapsible-content" id="strength-diary-content"><div>
-          <p class="training-hint">Детальный дневник зала: сеты, тоннаж и расчётный 1RM. Учитывается отдельно от минут активности — если хотите зачесть время в недельную цель, добавьте «Силовую» обычной формой выше.</p>
+          <p class="training-hint">Детальный дневник зала: сеты «вес × повторы», тоннаж и расчётный 1RM. Укажите длительность — она зачтётся в недельную цель активности; без длительности останется только журнал подходов.</p>
           <div class="strength-diary" id="strength-diary"></div>
+        </div></div>
+      </section>
+
+      <!-- ===== 0.8.5: прогресс и рекорды силовых ===== -->
+      <section class="collapsible-block strength-history-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-history-content" aria-expanded="false">
+          <span>📈 Прогресс силовых</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-history-content"><div>
+          <div class="strength-history" id="strength-history"></div>
         </div></div>
       </section>
 
@@ -1169,7 +1179,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.4 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.5 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

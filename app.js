@@ -2659,7 +2659,7 @@ const DEFAULTS = {
   strengthSessions: [] // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
 };
 
-const FITFLOW_VERSION = '0.8.4';
+const FITFLOW_VERSION = '0.8.5';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -8333,10 +8333,12 @@ function normalizeStrengthSessions() {
         })
         .filter(Boolean)
         .slice(0, 30);
+      const dur = Number(s.durationMinutes);
       return {
         id: String(s.id || uid()),
         date: s.date,
         title: normalizeActivityName(s.title) || null,
+        durationMinutes: (Number.isFinite(dur) && dur >= 5 && dur <= 1440) ? Math.round(dur) : null,
         exercises,
         createdAt: Number(s.createdAt) || Date.now()
       };
@@ -8346,7 +8348,7 @@ function normalizeStrengthSessions() {
 }
 
 /* Черновик (в памяти, до сохранения) и текущая группа в выборе упражнения. */
-let strengthDraft = { title: '', exercises: [] };
+let strengthDraft = { title: '', durationMinutes: '', exercises: [] };
 let strengthPickerGroup = STRENGTH_GROUPS[0];
 
 function openStrengthExercisePicker() {
@@ -8413,7 +8415,10 @@ function renderStrengthDiary() {
   const sessions = (state.strengthSessions || []).filter((s) => s.date === today);
 
   let html = '';
-  html += `<label class="strength-title-field"><span>Название (необязательно)</span><input type="text" class="form-input" maxlength="60" placeholder="Например, День ног" value="${escapeHtml(strengthDraft.title)}" data-s-title></label>`;
+  html += '<div class="strength-meta">'
+    + `<label class="strength-title-field"><span>Название (необязательно)</span><input type="text" class="form-input" maxlength="60" placeholder="Например, День ног" value="${escapeHtml(strengthDraft.title)}" data-s-title></label>`
+    + `<label class="strength-title-field"><span>Длительность, мин (в недельную цель)</span><input type="number" inputmode="numeric" min="0" step="5" placeholder="Например, 60" value="${escapeHtml(strengthDraft.durationMinutes)}" data-s-duration aria-label="Длительность силовой в минутах"></label>`
+    + '</div>';
   if (strengthDraft.exercises.length) {
     html += '<div class="strength-exercises">';
     strengthDraft.exercises.forEach((ex, idx) => {
@@ -8470,19 +8475,94 @@ function saveStrengthSession() {
     toast('Добавьте хотя бы один подход: вес (кг) × повторы');
     return;
   }
+  // 0.8.5: длительность силовой засчитывается в недельную цель активности —
+  // это одна запись тренировки, а не два независимых места (дневник + минуты).
+  let durMin = Math.round(Number(String(strengthDraft.durationMinutes || '').replace(',', '.')));
+  if (!Number.isFinite(durMin) || durMin < 0) durMin = 0;
+  if (durMin > 1440) durMin = 1440;
+  const sessionTitle = normalizeActivityName(title) || 'Силовая тренировка';
   state.strengthSessions.unshift({
     id: uid(),
     date: todayKey(),
-    title: normalizeActivityName(title) || null,
+    title: sessionTitle,
+    durationMinutes: durMin || null,
     exercises,
     createdAt: Date.now()
   });
+  if (durMin >= 5) {
+    state.workouts.unshift({
+      id: uid(),
+      date: todayKey(),
+      type: 'strength',
+      title: sessionTitle,
+      note: 'из дневника силовых',
+      intensity: 'medium',
+      durationMinutes: durMin,
+      createdAt: Date.now()
+    });
+  }
   normalizeStrengthSessions();
   const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets), 0);
-  strengthDraft = { title: '', exercises: [] };
+  strengthDraft = { title: '', durationMinutes: '', exercises: [] };
   saveState();
-  renderStrengthDiary();
-  toast(`✓ Силовая сохранена: ${exercises.length} упр. · тоннаж ${fmt(totalTonnage)} кг`);
+  renderTraining(); // обновляет и недельную цель, и дневник силовых
+  toast(`✓ Силовая сохранена: ${exercises.length} упр. · тоннаж ${fmt(totalTonnage)} кг${durMin >= 5 ? ` · +${durMin} мин в цель недели` : ''}`);
+}
+
+/* 0.8.5: личные рекорды по упражнениям (прогресс) — чистый расчёт для тестов. */
+function computeStrengthRecords(sessions) {
+  const map = new Map();
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+    (Array.isArray(s.exercises) ? s.exercises : []).forEach((ex) => {
+      const name = String((ex && ex.name) || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const rec = map.get(key) || { name, best1RM: 0, bestWeight: 0, bestReps: 0, bestSetTonnage: 0, lastDate: '' };
+      const rm = computeExercise1RM(ex.sets);
+      if (rm > rec.best1RM) rec.best1RM = rm;
+      (Array.isArray(ex.sets) ? ex.sets : []).forEach((set) => {
+        const w = Number(set && set.weight) || 0;
+        const r = Number(set && set.reps) || 0;
+        if (w > 0 && r > 0 && (w > rec.bestWeight || (w === rec.bestWeight && r > rec.bestReps))) {
+          rec.bestWeight = w;
+          rec.bestReps = r;
+          rec.bestSetTonnage = w * r;
+        }
+      });
+      if (s.date > rec.lastDate) rec.lastDate = s.date;
+      map.set(key, rec);
+    });
+  });
+  return Array.from(map.values()).sort((a, b) => b.best1RM - a.best1RM);
+}
+
+function renderStrengthHistory() {
+  if (typeof document === 'undefined') return;
+  const box = $('#strength-history');
+  if (!box) return;
+  const sessions = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
+  const records = computeStrengthRecords(sessions);
+  let html = '';
+  if (records.length) {
+    html += '<p class="strength-history-hint">Личные рекорды по упражнениям</p><div class="strength-records">';
+    records.slice(0, 20).forEach((r) => {
+      html += `<div class="strength-record"><strong>${escapeHtml(r.name)}</strong><span>1RM ≈ ${fmt(r.best1RM)} кг · лучший подход ${fmt(r.bestWeight)} кг × ${r.bestReps} · ${formatWeightDate(r.lastDate)}</span></div>`;
+    });
+    html += '</div>';
+  }
+  const sorted = [...sessions].sort((a, b) => (b.date > a.date ? 1 : (b.date < a.date ? -1 : b.createdAt - a.createdAt)));
+  if (sorted.length) {
+    html += '<p class="strength-history-hint">Прошедшие тренировки</p><div class="strength-history-list">';
+    sorted.slice(0, 30).forEach((s) => {
+      const dur = s.durationMinutes ? ` · ${formatWorkoutDuration(s.durationMinutes)}` : '';
+      html += `<div class="strength-history-row"><span>${escapeHtml(s.date)} · ${escapeHtml(s.title || 'Силовая тренировка')}</span><span>${s.exercises.length} упр. · ${fmt(computeSessionTonnage(s))} кг${dur}</span></div>`;
+    });
+    html += '</div>';
+  }
+  if (!records.length && !sorted.length) {
+    html = '<p class="strength-empty">Сохраните первую силовую — здесь появятся рекорды и история.</p>';
+  }
+  box.innerHTML = html;
 }
 
 if (typeof window !== 'undefined') {
@@ -8559,6 +8639,7 @@ function renderTraining() {
   renderDayChecklist();
   renderWatchWorkoutsSuggest(); // 0.8.0: подсказка «нашли тренировку с часов»
   renderStrengthDiary(); // 0.8.4: дневник силовых
+  renderStrengthHistory(); // 0.8.5: рекорды и история силовых
 }
 
 async function syncTrainingReminderForToday() {
@@ -11664,6 +11745,10 @@ function init() {
       strengthDraft.title = e.target.value;
       return;
     }
+    if (e.target.hasAttribute && e.target.hasAttribute('data-s-duration')) {
+      strengthDraft.durationMinutes = e.target.value;
+      return;
+    }
     const field = e.target.dataset && e.target.dataset.sField;
     if (field === 'weight' || field === 'reps') {
       const exIdx = Number(e.target.dataset.sEx);
@@ -14119,6 +14204,6 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeCombos, COMBOS_LIMIT,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
-    EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions
+    EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords
   };
 }

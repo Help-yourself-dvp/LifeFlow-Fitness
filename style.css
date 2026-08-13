@@ -2442,6 +2442,7 @@ html[data-theme="dark"] .segmented button.active {
 /* ---------- Дневник силовых тренировок (0.8.4) ---------- */
 .strength-diary-section { text-align: left; }
 .strength-diary { display: grid; gap: 10px; text-align: left; }
+.strength-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .strength-title-field { display: grid; gap: 5px; }
 .strength-title-field span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-empty { margin: 0; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); }
@@ -2464,6 +2465,16 @@ html[data-theme="dark"] .segmented button.active {
 .strength-exercise-btn { text-align: left; padding: 9px 11px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.78rem; cursor: pointer; }
 .strength-custom { display: grid; gap: 5px; margin-bottom: 4px; text-align: left; }
 .strength-custom span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+/* Прогресс силовых (0.8.5) */
+.strength-history-section { text-align: left; }
+.strength-history { display: grid; gap: 10px; text-align: left; }
+.strength-history-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
+.strength-records { display: grid; gap: 4px; }
+.strength-record { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; }
+.strength-record strong { font-size: 0.8rem; }
+.strength-record span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-history-list { display: grid; gap: 4px; }
+.strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 
 /* ---------- Карточка: Шаги на Главной (0.7.0) ---------- */
 .steps-card .steps-progress-row {

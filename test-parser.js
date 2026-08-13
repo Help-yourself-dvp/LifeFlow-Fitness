@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1462,9 +1462,21 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const groups = Object.keys(EXERCISE_CATALOG);
   if (groups.length < 5) bad++;
   if (!groups.every((g) => Array.isArray(EXERCISE_CATALOG[g]) && EXERCISE_CATALOG[g].length >= 3)) bad++;
+  // 0.8.5: рекорды по упражнениям — лучший 1RM и лучший подход
+  const recs = computeStrengthRecords([
+    { date: '2026-08-10', exercises: [{ name: 'Жим лёжа', sets: [{ weight: 100, reps: 5 }, { weight: 80, reps: 10 }] }] },
+    { date: '2026-08-12', exercises: [{ name: 'Жим лёжа', sets: [{ weight: 105, reps: 3 }] }, { name: 'Присед', sets: [{ weight: 120, reps: 5 }] }] }
+  ]);
+  const bench = recs.find((r) => r.name.toLowerCase() === 'жим лёжа');
+  const squat = recs.find((r) => r.name.toLowerCase() === 'присед');
+  if (!bench || !squat) bad++;
+  // Жим: лучший 1RM — от 105×3 (Эпли 115.5 + Бржицки ~111)/2 ≈ 113; лучший подход — 105×3
+  if (!(bench.best1RM > 100 && bench.bestWeight === 105 && bench.bestReps === 3 && bench.lastDate === '2026-08-12')) bad++;
+  // Присед 120×5 → 1RM ≈ (140 + 135)/2 ≈ 138
+  if (!(squat.best1RM === 138 && squat.bestWeight === 120)) bad++;
   const ok18 = bad === 0;
   if (!ok18) failed++;
-  console.log(`${ok18 ? '✓' : '✗'} 0.8.4 дневник силовых: тоннаж 980, 1RM(100×5)=115, каталог по группам`);
+  console.log(`${ok18 ? '✓' : '✗'} 0.8.5 силовые: рекорды по упражнениям (1RM, лучший подход), тоннаж, каталог`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

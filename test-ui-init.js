@@ -1794,5 +1794,34 @@ for (const id of ids) {
   console.log(`${okVer084 ? '✓' : '✗'} 0.8.4 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.5 (силовая в недельную цель + прогресс/рекорды) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // Длительность силовой засчитывается в недельную цель (запись workout)
+  const okIntegrate = appR.includes('durationMinutes: durMin || null')
+    && appR.includes("note: 'из дневника силовых'")
+    && appR.includes("type: 'strength'")
+    && appR.includes('data-s-duration')
+    && html.includes('Длительность, мин');
+  if (!okIntegrate) failed++;
+  console.log(`${okIntegrate ? '✓' : '✗'} 0.8.5 силовая: длительность засчитывается в недельную цель`);
+
+  // Прогресс/рекорды
+  const okProgress = appR.includes('function computeStrengthRecords')
+    && appR.includes('function renderStrengthHistory')
+    && html.includes('id="strength-history"')
+    && html.includes('data-collapse-target="strength-history-content"')
+    && css.includes('.strength-history');
+  if (!okProgress) failed++;
+  console.log(`${okProgress ? '✓' : '✗'} 0.8.5 силовые: блок «Прогресс» с рекордами и историей`);
+
+  const okVer085 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer085) failed++;
+  console.log(`${okVer085 ? '✓' : '✗'} 0.8.5 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

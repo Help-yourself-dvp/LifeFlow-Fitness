@@ -23,6 +23,11 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.5** (силовая в недельную цель + прогресс/рекорды):
+  - 🎯 Дневник силовых: поле «Длительность» → при ≥5 мин создаётся запись workout (`strength`, «из дневника силовых») — идёт в недельную цель и MET-ккал.
+  - 📈 `computeStrengthRecords` + блок `#strength-history` (рекорды 1RM/лучший подход + история сессий).
+  - ✅ Только JS/HTML/CSS — нативный мост не менялся.
+  - 🔢 **Синхронизация версии**: `0.8.5` во всех файлах.
 - Версия приложения: **0.8.4** (дневник силовых: сеты, тоннаж, 1RM):
   - 🏋️ `state.strengthSessions` (schemaVersion 3, миграция + normalizeStrengthSessions), каталог `EXERCISE_CATALOG`, расчёты `computeSetTonnage`/`estimate1RM`/`computeExercise1RM`/`computeSessionTonnage`.
   - 🧾 UI: блок `#strength-diary` в Активности + диалог `#strength-exercise-dialog`.
