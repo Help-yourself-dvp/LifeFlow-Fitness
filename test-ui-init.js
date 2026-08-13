@@ -1515,6 +1515,7 @@ for (const id of ids) {
     && mirror.includes('lastWatchEndMs')
     && mirror.includes('hc_watch_last_ts')
     && mirror.includes('pageToken = stepsResponse.pageToken')
+    && mirror.includes('steps_base_date')
     && mirror.includes('Inject build number')
     && mirror.includes('активный workflow совпадает с зеркалом');
   if (!okNative) failed++;

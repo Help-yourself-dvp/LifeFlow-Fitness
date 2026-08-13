@@ -380,11 +380,20 @@ jobs:
                   try {
                       SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
                       String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-                      String savedDate = prefs.getString("steps_date", "");
+                      String baseDate = prefs.getString("steps_base_date", "");
                       int baseSteps = prefs.getInt("steps_base", -1);
-                      if (!today.equals(savedDate) || baseSteps == -1 || rawSteps < baseSteps) {
+                      // Перебазирование: новый день, нет базы или счётчик сброшен (перезагрузка).
+                      // Отдельный ключ steps_base_date хранит ДЕНЬ установки базы: ночной сброс
+                      // HealthSyncReceiver меняет steps_date, но не базу — раньше утром счётчик
+                      // продолжал считать от вчерашней базы и прибавлял вчерашние шаги к сегодняшним.
+                      if (!today.equals(baseDate) || baseSteps == -1 || rawSteps < baseSteps) {
                           baseSteps = rawSteps;
-                          prefs.edit().putString("steps_date", today).putInt("steps_base", baseSteps).putInt("steps_today", 0).apply();
+                          prefs.edit()
+                              .putString("steps_date", today)
+                              .putString("steps_base_date", today)
+                              .putInt("steps_base", baseSteps)
+                              .putInt("steps_today", 0)
+                              .apply();
                       } else {
                           int stepsToday = rawSteps - baseSteps;
                           prefs.edit().putInt("steps_today", Math.max(0, stepsToday)).apply();
@@ -1454,6 +1463,8 @@ jobs:
                       if (!today.equals(savedDate)) {
                           prefs.edit()
                               .putString("steps_date", today)
+                              .putString("steps_base_date", "")
+                              .putInt("steps_base", -1)
                               .putInt("steps_today", 0)
                               .putInt("hc_steps_today", 0)
                               .putInt("hc_total_steps_today", 0)
