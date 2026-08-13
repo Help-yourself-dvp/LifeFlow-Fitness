@@ -25,6 +25,17 @@ jobs:
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "Версия приложения из version.txt: $APP_VERSION"
 
+      - name: Проверить, что активный workflow совпадает с зеркалом
+        shell: bash
+        run: |
+          if cmp -s .github/workflows/build.yml tools/github-workflows/build.yml; then
+            echo "✓ Активный workflow совпадает с зеркалом tools/github-workflows/build.yml — нативные правки применены."
+          else
+            echo "⚠️ ВНИМАНИЕ: активный .github/workflows/build.yml ОТЛИЧАЕТСЯ от зеркала tools/github-workflows/build.yml."
+            echo "   Сборка идёт на СТАРОМ нативе — после установки проверьте замену workflow по протоколу."
+            diff --stat .github/workflows/build.yml tools/github-workflows/build.yml || true
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -53,6 +64,14 @@ jobs:
           cp food-db.js www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
           cp icon.png www/ 2>/dev/null || true
+
+      - name: Inject build number (0.7.11)
+        shell: bash
+        run: |
+          RUN_NUMBER="${{ github.run_number }}"
+          sed -i "s/const FITFLOW_BUILD = '[^']*';/const FITFLOW_BUILD = 'build ${RUN_NUMBER}';/" www/app.js
+          sed -i "s/v${APP_VERSION} (build [0-9]*)/v${APP_VERSION} (build ${RUN_NUMBER})/" www/index.html
+          echo "FITFLOW_BUILD = build ${RUN_NUMBER} (версия ${APP_VERSION})"
 
       - name: Install Capacitor
         run: |
@@ -447,9 +466,10 @@ jobs:
                               float hcKcal = prefs.getFloat("hc_kcal_today", 0.0f);
                               int phoneSteps = prefs.getInt("steps_today", 0);
                               long lastSync = prefs.getLong("hc_last_sync_ts", 0);
+                              long watchLastTs = prefs.getLong("hc_watch_last_ts", 0);
                               return String.format(java.util.Locale.US,
-                                  "{\"date\":\"%s\",\"hcSteps\":%d,\"watchSteps\":%d,\"hcTotalSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"lastSync\":%d}",
-                                  today, hcSteps, hcSteps, hcTotalSteps, hcKcal, phoneSteps, lastSync
+                                  "{\"date\":\"%s\",\"hcSteps\":%d,\"watchSteps\":%d,\"hcTotalSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"watchLastTs\":%d,\"lastSync\":%d}",
+                                  today, hcSteps, hcSteps, hcTotalSteps, hcKcal, phoneSteps, watchLastTs, lastSync
                               );
                           }
                       } catch (Exception e) { }
@@ -495,6 +515,7 @@ jobs:
                           diag.put("hcSleepMin", prefs.getInt("hc_sleep_min", 0));
                           diag.put("hcSleepBedTime", prefs.getString("hc_sleep_bed", ""));
                           diag.put("hcSleepWakeTime", prefs.getString("hc_sleep_wake", ""));
+                          diag.put("hcWatchLastTs", prefs.getLong("hc_watch_last_ts", 0));
                           diag.put("lastSyncTs", lastSync);
 
                           boolean hasHcIntent = false;
@@ -564,6 +585,7 @@ jobs:
                                   final int totalSteps = result[1];
                                   final int sleepMin = result[2];
                                   final double kcal = watchSteps * 0.04;
+                                  final long watchLastTs = HealthConnectHelper.getLastWatchEndMs();
                                   prefs.edit()
                                       .putInt("hc_steps_today", watchSteps)
                                       .putInt("hc_total_steps_today", totalSteps)
@@ -571,6 +593,7 @@ jobs:
                                       .putInt("hc_sleep_min", sleepMin)
                                       .putString("hc_sleep_bed", HealthConnectHelper.getLastBedTime())
                                       .putString("hc_sleep_wake", HealthConnectHelper.getLastWakeTime())
+                                      .putLong("hc_watch_last_ts", watchLastTs)
                                       .putLong("hc_last_sync_ts", System.currentTimeMillis())
                                       .putString("hc_last_error", HealthConnectHelper.getLastError())
                                       .apply();
@@ -580,9 +603,9 @@ jobs:
                                               WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                               if (wv != null) {
                                                   String js = String.format(java.util.Locale.US,
-                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
+                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s', %d);",
                                                       watchSteps, (float) kcal, sleepMin,
-                                                      HealthConnectHelper.getLastBedTime(), HealthConnectHelper.getLastWakeTime());
+                                                      HealthConnectHelper.getLastBedTime(), HealthConnectHelper.getLastWakeTime(), watchLastTs);
                                                   wv.evaluateJavascript(js, null);
                                               }
                                           } catch (Exception e) {}
@@ -1482,14 +1505,28 @@ jobs:
               @JvmStatic
               var lastWakeTime: String = ""
 
+              // Время последней записи шагов с часов (epoch ms, 0 = нет) —
+              // для определения свежести данных в режиме «Авто» (часы сняты?).
+              @JvmStatic
+              var lastWatchEndMs: Long = 0L
+
               // Приложения-спутники носимых устройств (часы/браслеты), которые пишут
               // в Health Connect данные именно с устройства, а не с телефона.
+              // ВАЖНО: Google Fit (com.google.android.apps.fitness) сюда НЕ входит —
+              // он пишет шаги с телефона, и мы не хотим помечать их как «часы».
               private val WEARABLE_PACKAGES = setOf(
                   "com.huami.watch.hmwatchmanager",         // Zepp / Amazfit
                   "com.garmin.android.apps.connectmobile",  // Garmin Connect
                   "fi.polar.polarflow",                     // Polar Flow
                   "com.suunto.sports",                      // Suunto
-                  "com.coros.health"                        // COROS
+                  "com.coros.health",                       // COROS
+                  "com.huawei.health",                      // Huawei Health (Huawei Watch/Band)
+                  "com.hihonor.health",                     // Honor Health
+                  "com.xiaomi.hm.health",                   // Zepp Life (бывш. Mi Fit) / Xiaomi Band
+                  "com.xiaomi.wearable",                    // Mi Fitness (Xiaomi Wear)
+                  "com.sec.android.app.shealth",            // Samsung Health (Galaxy Watch)
+                  "com.fitbit.FitbitMobile",                // Fitbit
+                  "com.withings.wiscale2"                   // Withings Health Mate
               )
 
               @JvmStatic
@@ -1507,13 +1544,19 @@ jobs:
                       val stepsResponse = runBlocking { client.readRecords(stepsReq) }
                       var totalSteps = 0L
                       var watchSteps = 0L
+                      var watchLastEndMs = 0L
                       val origins = mutableMapOf<String, Long>()
                       for (record in stepsResponse.records) {
                           val pkg = record.metadata.dataOrigin?.packageName ?: ""
+                          val endMs = record.endTime.toEpochMilli()
                           totalSteps += record.count
                           origins[pkg] = (origins[pkg] ?: 0L) + record.count
-                          if (WEARABLE_PACKAGES.contains(pkg)) watchSteps += record.count
+                          if (WEARABLE_PACKAGES.contains(pkg)) {
+                              watchSteps += record.count
+                              if (endMs > watchLastEndMs) watchLastEndMs = endMs
+                          }
                       }
+                      lastWatchEndMs = watchLastEndMs
 
                       // 2. СОН: ночная сессия пересекает полночь, поэтому окно с 18:00
                       // вчерашнего дня до 18:00 сегодняшнего накрывает её целиком.
