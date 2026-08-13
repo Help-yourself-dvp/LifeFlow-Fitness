@@ -1503,7 +1503,6 @@ for (const id of ids) {
   const okJs = appR.includes('function resolveHealthSteps')
     && appR.includes('refreshHealthDataOnResume')
     && appR.includes('watchLastTs')
-    && appR.includes('последние шаги часов в')
     && appR.includes('unknownWatchSource');
   if (!okJs) failed++;
   console.log(`${okJs ? '✓' : '✗'} 0.7.11 JS: часы приоритет в «Авто», авто-обновление при входе, подсказка о возрасте данных часов`);
@@ -1530,6 +1529,36 @@ for (const id of ids) {
   const okVer0711 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVer0711) failed++;
   console.log(`${okVer0711 ? '✓' : '✗'} 0.7.11 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.7.13 (фоновая синхронизация для виджета + компактная карточка шагов) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  // JS: приоритет едет в виджет + карточка шагов с подсказкой обновления
+  const okJs = appR.includes("priority: (state.healthSync && state.healthSync.priority) || 'auto'")
+    && appR.includes('updateNativeWidget(); // 0.7.13: приоритет сразу уезжает')
+    && appR.includes('steps-card-sync-hint')
+    && html.includes('id="steps-card-sync-hint"')
+    && html.includes('class="steps-sync-btn"')
+    && css.includes('.steps-sync-btn');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.7.13 JS/HTML/CSS: компактная кнопка sync + строка обновления + приоритет в виджет`);
+
+  // Натив: фоновый синк для виджета + разрешение шагов по приоритету
+  const okNative = mirror.includes('BACKGROUND_SYNC_MIN_INTERVAL')
+    && mirror.includes('FitFlowWidgetProvider.updateAll(context)')
+    && mirror.includes('resolveWidgetSteps')
+    && mirror.includes('putString("health_priority"');
+  if (!okNative) failed++;
+  console.log(`${okNative ? '✓' : '✗'} 0.7.13 зеркало build.yml: фоновое обновление виджета + шаги по приоритету`);
+
+  const okVer0713 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0713) failed++;
+  console.log(`${okVer0713 ? '✓' : '✗'} 0.7.13 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

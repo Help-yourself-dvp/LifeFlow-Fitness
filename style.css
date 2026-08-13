@@ -2369,9 +2369,29 @@ html[data-theme="dark"] .segmented button.active {
   font-size: 0.82rem;
   color: var(--md-sys-color-on-surface-variant);
 }
-.steps-sub-info .btn-sm {
-  padding: 4px 10px;
-  font-size: 0.75rem;
+/* 0.7.13: компактная кнопка синхронизации шагов — иконка + «sync» */
+.steps-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  line-height: 1;
+}
+.steps-sync-btn:active { opacity: 0.6; }
+.steps-sync-btn svg { width: 14px; height: 14px; }
+.steps-sync-hint {
+  margin: 6px 0 0;
+  font-size: 0.68rem;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.72;
+  text-align: right;
 }
 
 .activity-note-label {

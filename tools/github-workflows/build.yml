@@ -773,6 +773,11 @@ jobs:
                                       // пропускает ближайшее напоминание (настройки «пауза» больше нет)
                                       .putLong("lastWaterAt", data.optLong("lastWaterAt", prefs.getLong("lastWaterAt", 0)))
                                       .apply();
+                                  // 0.7.13: приоритет источников шагов — в сенсорные prefs,
+                                  // чтобы фоновый HealthSyncReceiver мог разрешать шаги без WebView.
+                                  getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE).edit()
+                                      .putString("health_priority", data.optString("priority", "auto"))
+                                      .apply();
                                   FitFlowWidgetProvider.updateAll(MainActivity.this);
                               } catch (Exception e) {
                               }
@@ -1089,11 +1094,7 @@ jobs:
                   views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
                   views.setProgressBar(R.id.widget_water_bar, 100, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)), false);
                   views.setProgressBar(R.id.widget_food_bar, 100, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)), false);
-                  int steps = prefs.getInt("stepsToday", 0);
-                  if (steps <= 0) {
-                      SharedPreferences sPrefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
-                      steps = Math.max(sPrefs.getInt("steps_today", 0), sPrefs.getInt("hc_steps_today", 0));
-                  }
+                  int steps = resolveWidgetSteps(context);
                   views.setTextViewText(R.id.widget_steps, "Шаги: " + steps);
                   if (large) {
                       views.setTextViewText(R.id.widget_water_pct, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)) + "% цели");
@@ -1132,6 +1133,22 @@ jobs:
                   if (hours == 0) return minutes + " мин";
                   if (rest == 0) return hours + " ч";
                   return hours + " ч " + rest + " мин";
+              }
+
+              /* 0.7.13: шаги виджета по приоритету пользователя (часы vs телефон) —
+                 без суммы источников и без устаревшего значения из JS-кэша.
+                 phone_only → аппаратный шагомер; health_connect_only → часы;
+                 auto → часы при наличии, иначе телефон. */
+              private static int resolveWidgetSteps(Context context) {
+                  SharedPreferences s = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
+                  String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                  String savedDate = s.getString("steps_date", "");
+                  int phone = today.equals(savedDate) ? s.getInt("steps_today", 0) : 0;
+                  int watch = today.equals(savedDate) ? s.getInt("hc_steps_today", 0) : 0;
+                  String priority = s.getString("health_priority", "auto");
+                  if ("phone_only".equals(priority)) return phone;
+                  if ("health_connect_only".equals(priority)) return watch;
+                  return watch > 0 ? watch : phone;
               }
 
               @Override
@@ -1453,27 +1470,59 @@ jobs:
 
           public class HealthSyncReceiver extends BroadcastReceiver {
               public static final String ACTION_PERIODIC_SYNC = "com.fitflow.app.ACTION_HEALTH_PERIODIC_SYNC";
+              private static final long BACKGROUND_SYNC_MIN_INTERVAL = 15 * 60 * 1000L; // не чаще раза в 15 минут
 
               @Override
               public void onReceive(Context context, Intent intent) {
-                  try {
-                      SharedPreferences prefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
-                      String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-                      String savedDate = prefs.getString("steps_date", "");
-                      if (!today.equals(savedDate)) {
-                          prefs.edit()
-                              .putString("steps_date", today)
-                              .putString("steps_base_date", "")
-                              .putInt("steps_base", -1)
-                              .putInt("steps_today", 0)
-                              .putInt("hc_steps_today", 0)
-                              .putInt("hc_total_steps_today", 0)
-                              .putInt("hc_sleep_min", 0)
-                              .putFloat("hc_kcal_today", 0.0f)
-                              .putLong("hc_last_sync_ts", System.currentTimeMillis())
-                              .apply();
+                  // 0.7.13: фоновое обновление шагов для виджета без открытия приложения.
+                  // Работа в отдельном потоке (goAsync), чтобы не блокировать главный.
+                  final PendingResult pending = goAsync();
+                  new Thread(new Runnable() {
+                      @Override public void run() {
+                          try {
+                              SharedPreferences prefs = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
+                              String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                              String savedDate = prefs.getString("steps_date", "");
+                              if (!today.equals(savedDate)) {
+                                  prefs.edit()
+                                      .putString("steps_date", today)
+                                      .putString("steps_base_date", "")
+                                      .putInt("steps_base", -1)
+                                      .putInt("steps_today", 0)
+                                      .putInt("hc_steps_today", 0)
+                                      .putInt("hc_total_steps_today", 0)
+                                      .putInt("hc_sleep_min", 0)
+                                      .putFloat("hc_kcal_today", 0.0f)
+                                      .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                      .apply();
+                              }
+
+                              long lastSync = prefs.getLong("hc_last_sync_ts", 0);
+                              if (System.currentTimeMillis() - lastSync >= BACKGROUND_SYNC_MIN_INTERVAL) {
+                                  try {
+                                      int[] result = HealthConnectHelper.syncNow(context);
+                                      int watchSteps = result[0];
+                                      int totalSteps = result[1];
+                                      int sleepMin = result[2];
+                                      prefs.edit()
+                                          .putInt("hc_steps_today", watchSteps)
+                                          .putInt("hc_total_steps_today", totalSteps)
+                                          .putInt("hc_sleep_min", sleepMin)
+                                          .putString("hc_sleep_bed", HealthConnectHelper.getLastBedTime())
+                                          .putString("hc_sleep_wake", HealthConnectHelper.getLastWakeTime())
+                                          .putLong("hc_watch_last_ts", HealthConnectHelper.getLastWatchEndMs())
+                                          .putLong("hc_last_sync_ts", System.currentTimeMillis())
+                                          .putString("hc_last_error", HealthConnectHelper.getLastError())
+                                          .apply();
+                                  } catch (Exception e) { }
+                                  // Виджет перерисовывается сам по resolveWidgetSteps (часы/телефон по приоритету).
+                                  try { FitFlowWidgetProvider.updateAll(context); } catch (Exception e) { }
+                              }
+                          } catch (Exception e) { } finally {
+                              pending.finish();
+                          }
                       }
-                  } catch (Exception e) { }
+                  }).start();
               }
 
               public static void schedulePeriodicSync(Context context) {

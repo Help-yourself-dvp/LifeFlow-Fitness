@@ -2606,7 +2606,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.12';
+const FITFLOW_VERSION = '0.7.13';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -4864,6 +4864,7 @@ function updateNativeWidget() {
       foodGoal: state.food.goal,
       activityMinutes,
       stepsToday,
+      priority: (state.healthSync && state.healthSync.priority) || 'auto', // 0.7.13: для фонового разрешения шагов в виджете
       profileName,
       date: todayKey()
     }));
@@ -6445,26 +6446,36 @@ function renderStepsCard() {
   const barEl = $('#steps-card-progress');
   const sourceEl = $('#steps-card-source');
   const kcalEl = $('#steps-card-kcal');
+  const hintEl = $('#steps-card-sync-hint');
   if (!countEl) return;
-  
+
   normalizeHealthSync();
   const goal = (state.healthSync && state.healthSync.dailyGoal) || 8000;
   const steps = (state.healthSync && state.healthSync.lastSteps) || getPhoneSteps() || 0;
   const kcal = (state.healthSync && state.healthSync.lastKcal) || Math.round(steps * 0.04);
   const src = (state.healthSync && state.healthSync.lastSource) || 'датчик телефона';
-  // 0.7.12: если источник — часы, честно показываем возраст последних шагов с часов
-  // (Zepp может синхронизироваться с Health Connect с задержкой — это не ошибка приложения).
-  const watchTs = (state.healthSync && state.healthSync.watchLastTs) || 0;
-  let srcLabel = src;
-  if (watchTs > 0 && src.includes('Health Connect') && (Date.now() - watchTs) > 3600000) {
-    const t = new Date(watchTs).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    srcLabel = src + ' · последние шаги часов в ' + t;
-  }
 
   countEl.textContent = fmt(steps);
   if (goalEl) goalEl.textContent = `из ${fmt(goal)} шагов`;
-  if (sourceEl) sourceEl.textContent = srcLabel;
-  if (kcalEl) kcalEl.textContent = `🔥 ≈ ${fmt(Math.round(kcal))} ккал сожжено`;
+  if (sourceEl) sourceEl.textContent = src; // короткий источник в шапке
+  if (kcalEl) kcalEl.textContent = `🔥 ≈ ${fmt(Math.round(kcal))} ккал`;
+
+  // 0.7.13: краткая строка обновления под кнопкой синхронизации.
+  // Если источник — часы и их данные устарели (Zepp давно не синхронизировался),
+  // показываем время последних шагов с часов, чтобы число не выглядело «застрявшим».
+  if (hintEl) {
+    const clock = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const parts = [];
+    const ts = (state.healthSync && state.healthSync.lastSyncTs) || 0;
+    if (ts) parts.push('обновлено ' + clock(ts));
+    const watchTs = (state.healthSync && state.healthSync.watchLastTs) || 0;
+    if (watchTs > 0 && src.includes('Health Connect') && (Date.now() - watchTs) > 3600000) {
+      parts.push('часы: ' + clock(watchTs));
+    }
+    hintEl.textContent = parts.join(' · ');
+    hintEl.hidden = parts.length === 0;
+  }
+
   if (barEl) {
     const pct = Math.min(100, Math.round((steps / Math.max(1, goal)) * 100));
     barEl.style.width = `${pct}%`;
@@ -6529,6 +6540,7 @@ function updateHealthPriority(priority) {
   saveState();
   renderHealthSyncSettings();
   syncHealthDataNow();
+  updateNativeWidget(); // 0.7.13: приоритет сразу уезжает в SharedPreferences для фонового виджета
   toast('Приоритет обновлён: ' + (priority === 'auto' ? 'Авто (Часы → Телефон)' : (priority === 'phone_only' ? 'Только телефон' : 'Только часы')));
 }
 
