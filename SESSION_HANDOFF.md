@@ -23,6 +23,12 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.1** (фикс подсветки быстрого перехода):
+  - 🧭 `updateHomeQuickNavActive` не считает подсветку на скрытой Главной (гард `#home-view.hidden`) + пересчёт при возврате (`switchView` → rAF).
+  - 📌 P31 (POSTPONED): двойной учёт калорий «шаги + тренировки» — зафиксирован, решение после полевой проверки импорта.
+  - ⌚ 0.8.0: импорт тренировок с часов (натив `readTodayWorkouts` + баннер `#watch-workouts-suggest`).
+  - ⚙️ Нативная часть (0.8.0) в зеркале — заменена владельцем; JS собирается обычным релизом.
+  - 🔢 **Синхронизация версии**: `0.8.1` во всех файлах.
 - Версия приложения: **0.8.0** (импорт тренировок с часов, шаг 1):
   - ⌚ Натив: `HealthConnectHelper.readTodayWorkouts` (ExerciseSessionRecord) + мост `syncHealthWorkoutsNow`.
   - JS: `state.healthSync.watchWorkouts` + баннер `#watch-workouts-suggest` («Добавить»/«Игнорировать»), дедуп по recordId, маппинг типа `mapWatchWorkoutType`.

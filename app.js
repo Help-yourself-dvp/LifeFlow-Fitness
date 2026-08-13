@@ -2658,7 +2658,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.8.0';
+const FITFLOW_VERSION = '0.8.1';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6286,6 +6286,11 @@ function updateHomeQuickNavActive() {
   if (typeof document === 'undefined') return;
   const nav = $('#home-quicknav');
   if (!nav || nav.hidden) return;
+  // 0.8.1: не считаем подсветку, пока Главная скрыта — у скрытых карточек
+  // getBoundingClientRect() отдаёт 0, и «активным» ошибочно становился
+  // последний чип («Вес») при переключении на другой экран и обратно.
+  const homeView = $('#home-view');
+  if (homeView && homeView.hidden) return;
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
   if (!chips.length) return;
   let activeId = null;
@@ -10057,6 +10062,13 @@ function switchView(view) {
   if (view === 'settings-courses') renderCoursesSettings();
   if (isSettings || isSettingsSub) applySettingsAccordion();
   window.scrollTo(0, 0);
+  // 0.8.1: при возврате на Главную пересчитываем подсветку быстрого перехода
+  // после раскладки — иначе scrollTo(0,0) может быть no-op и подсветка останется
+  // «застрявшей» с предыдущего экрана.
+  if (isHome) {
+    syncQuickNavTop();
+    requestAnimationFrame(() => requestAnimationFrame(updateHomeQuickNavActive));
+  }
 }
 
 function cloneForBackup(value) {

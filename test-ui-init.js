@@ -1683,5 +1683,28 @@ for (const id of ids) {
   console.log(`${okVer080 ? '✓' : '✗'} 0.8.0 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.1 (фикс подсветки быстрого перехода + фиксация двойного учёта ккал) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const postponed = fs.readFileSync('POSTPONED.md', 'utf8');
+
+  // Подсветка не считается на скрытой Главной + пересчёт при возврате
+  const okNav = appR.includes("const homeView = $('#home-view');")
+    && appR.includes('if (homeView && homeView.hidden) return;')
+    && appR.includes('requestAnimationFrame(() => requestAnimationFrame(updateHomeQuickNavActive));');
+  if (!okNav) failed++;
+  console.log(`${okNav ? '✓' : '✗'} 0.8.1 быстрый переход: подсветка не «застревает» при смене экранов`);
+
+  // Двойной учёт калорий (шаги+тренировки) зафиксирован как P31
+  const okP31 = postponed.includes('P31. Двойной учёт калорий: шаги + тренировки (бег)');
+  if (!okP31) failed++;
+  console.log(`${okP31 ? '✓' : '✗'} 0.8.1 POSTPONED: P31 (двойной учёт ккал) зафиксирован`);
+
+  const okVer081 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer081) failed++;
+  console.log(`${okVer081 ? '✓' : '✗'} 0.8.1 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
