@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -542,15 +542,17 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${okLegacy ? '✓' : '✗'} старые id порядка карточек переезжают на «План дня» → ${legacy.order.join(',')}`);
 }
 
-// 0.3.8: медали — 4 группы (привычки, бег ≈, шаги ≈, вес), цели внутри значка
+// 0.3.8 → 0.8.6: медали — 5 групп (привычки, бег ≈, шаги ≈, вес, сила), цели внутри значка
 {
   const { computeGameMedals, medalBadgeSvg } = require('./app.js');
   const groups = computeGameMedals();
-  const okGroups = Array.isArray(groups) && groups.length === 4
-    && groups.flatMap((g) => g.medals).length === 16
-    && groups.flatMap((g) => g.medals).every((m) => m.badgeText && typeof m.earned === 'boolean');
+  const all = groups.flatMap((g) => g.medals);
+  const okGroups = Array.isArray(groups) && groups.length === 5
+    && groups.some((g) => g.id === 'strength')
+    && all.length >= 17
+    && all.every((m) => m.badgeText && typeof m.earned === 'boolean');
   if (!okGroups) failed++;
-  console.log(`${okGroups ? '✓' : '✗'} медали: 4 группы × всего 16 медалей → групп=${groups.length}, медалей=${groups.flatMap((g) => g.medals).length}`);
+  console.log(`${okGroups ? '✓' : '✗'} медали: 5 групп (вкл. «Сила (уровни)») → групп=${groups.length}, медалей=${all.length}`);
   const svg = medalBadgeSvg({ id: 'run-5', badgeText: '5', earned: true });
   const okSvg = /<svg/u.test(svg) && />5</u.test(svg);
   if (!okSvg) failed++;
@@ -1477,6 +1479,41 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok18 = bad === 0;
   if (!ok18) failed++;
   console.log(`${ok18 ? '✓' : '✗'} 0.8.5 силовые: рекорды по упражнениям (1RM, лучший подход), тоннаж, каталог`);
+}
+
+// ===== 0.8.6: уровни силовых (лестница порогов на упражнение) =====
+{
+  let bad = 0;
+  // Жим лёжа: база 40, шаги 5,5,5,5,3,3,3,1…
+  const bench = strengthLadderFor('жим лёжа');
+  if (!(bench.base === 40 && bench.steps[0] === 5 && bench.steps[4] === 3)) bad++;
+  if (strengthLadderFor('жим штанги лежа').base !== 40) bad++;
+  // Присед/становая: база и крупный первый шаг
+  if (strengthLadderFor('приседания').base !== 60 || strengthLadderFor('присед').steps[0] !== 10) bad++;
+  if (strengthLadderFor('становая тяга').base !== 70) bad++;
+  // Жим стоя: база 30
+  if (strengthLadderFor('жим штанги стоя').base !== 30) bad++;
+  // Generic для незнакомого упражнения
+  if (strengthLadderFor('болгарские выпады').base !== 20) bad++;
+  // Пороги: жим 40 → уровень 1 (база взята), следующая цель 45
+  const lvlBase = computeStrengthLevel('жим лёжа', 40);
+  if (!(lvlBase.level === 1 && lvlBase.nextTarget === 45 && lvlBase.nextDelta === 5)) bad++;
+  // 0 кг → уровень 0, цель 40
+  const lvlZero = computeStrengthLevel('жим лёжа', 0);
+  if (!(lvlZero.level === 0 && lvlZero.nextTarget === 40 && lvlZero.nextDelta === 40)) bad++;
+  // 100 кг: после 69 шаг 1 кг → следующая цель 101, прирост 1
+  const lvl100 = computeStrengthLevel('жим лёжа', 100);
+  if (!(lvl100.nextTarget === 101 && lvl100.nextDelta === 1 && lvl100.level >= 10)) bad++;
+  // Присед 60 → уровень 1, следующая цель 70
+  const squat60 = computeStrengthLevel('приседания', 60);
+  if (!(squat60.level === 1 && squat60.nextTarget === 70)) bad++;
+  // strengthTargetAt: 0 → база, k — накопительно
+  if (strengthTargetAt(strengthLadderFor('жим лёжа'), 0) !== 40) bad++;
+  if (strengthTargetAt(strengthLadderFor('жим лёжа'), 1) !== 45) bad++;
+  if (strengthTargetAt(strengthLadderFor('жим лёжа'), 4) !== 60) bad++;
+  const ok19 = bad === 0;
+  if (!ok19) failed++;
+  console.log(`${ok19 ? '✓' : '✗'} 0.8.6 уровни силовых: жим 40→45(+5), 100→101(+1), присед 60→70, generic-база 20`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

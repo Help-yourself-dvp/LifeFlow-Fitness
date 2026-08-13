@@ -1823,5 +1823,32 @@ for (const id of ids) {
   console.log(`${okVer085 ? '✓' : '✗'} 0.8.5 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.6 (уровни силовых — лестница порогов + медали) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+  const design = fs.readFileSync('design/strength-game.md', 'utf8');
+
+  // Лестницы порогов + расчёт уровня + цель в прогрессе + медали
+  const okLadder = appR.includes('STRENGTH_LADDER_RULES')
+    && appR.includes('function computeStrengthLevel')
+    && appR.includes('strength-record-goal')
+    && appR.includes("id: 'strength', title: '🏋️ Сила (уровни)'")
+    && appR.includes('Новый уровень')
+    && css.includes('.strength-record-goal');
+  if (!okLadder) failed++;
+  console.log(`${okLadder ? '✓' : '✗'} 0.8.6 уровни силовых: лестница порогов, цель, группа медалей, момент награды`);
+
+  // Проектирование расписано в файле
+  const okDesign = design.includes('лестница уровней') && design.includes('каждый кг — приз');
+  if (!okDesign) failed++;
+  console.log(`${okDesign ? '✓' : '✗'} 0.8.6 design/strength-game.md: логика расписана`);
+
+  const okVer086 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer086) failed++;
+  console.log(`${okVer086 ? '✓' : '✗'} 0.8.6 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

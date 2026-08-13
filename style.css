@@ -2473,6 +2473,7 @@ html[data-theme="dark"] .segmented button.active {
 .strength-record { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; }
 .strength-record strong { font-size: 0.8rem; }
 .strength-record span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-record-goal { color: var(--md-sys-color-primary); font-weight: 600; }
 .strength-history-list { display: grid; gap: 4px; }
 .strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 

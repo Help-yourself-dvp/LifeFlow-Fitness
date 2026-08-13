@@ -2659,7 +2659,7 @@ const DEFAULTS = {
   strengthSessions: [] // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
 };
 
-const FITFLOW_VERSION = '0.8.5';
+const FITFLOW_VERSION = '0.8.6';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5731,11 +5731,36 @@ function computeGameMedals() {
     cur: lostKg, target: kg
   }));
 
+  // 0.8.6: силовые уровни — карточка на упражнение (лестница порогов).
+  const strengthMedals = (computeStrengthRecords(state.strengthSessions) || [])
+    .slice(0, 8)
+    .map((r) => {
+      const lvl = computeStrengthLevel(r.name, r.best1RM);
+      return {
+        id: 'str-' + r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40),
+        badgeText: lvl.level >= 1 ? 'Lv' + lvl.level : fmt(lvl.nextTarget),
+        name: r.name,
+        earned: lvl.level >= 1,
+        desc: lvl.level >= 1
+          ? `Уровень ${lvl.level} · 1RM ≈ ${fmt(r.best1RM)} кг · до следующего ${fmt(lvl.nextTarget)} кг`
+          : `1RM ≈ ${fmt(r.best1RM)} кг · первый уровень с ${fmt(lvl.nextTarget)} кг (осталось ${fmt(lvl.nextDelta)} кг)`,
+        cur: r.best1RM, target: lvl.nextTarget
+      };
+    });
+  if (!strengthMedals.length) {
+    strengthMedals.push({
+      id: 'str-empty', badgeText: '🏋️', name: 'Силовые уровни', earned: false,
+      desc: 'Начните дневник силовых (вес × повторы) — появятся уровни по упражнениям',
+      cur: 0, target: 1
+    });
+  }
+
   return [
     { id: 'habits', title: 'Привычки', hint: 'За регулярные записи и полные дни', medals: habits },
     { id: 'run', title: '🏃 Бег (по оценке)', hint: 'Километры считаются из минут бега: расстояние не измеряется напрямую', medals: runMedals },
     { id: 'steps', title: '👟 Шаги (по оценке)', hint: 'Шаги считаются из минут ходьбы: ≈100 шагов за минуту', medals: stepMedals },
-    { id: 'weight', title: WEIGHT_SCALE_SVG_SM + ' Снижение веса', hint: 'Разница между максимальным и текущим весом в истории профиля', medals: weightMedals }
+    { id: 'weight', title: WEIGHT_SCALE_SVG_SM + ' Снижение веса', hint: 'Разница между максимальным и текущим весом в истории профиля', medals: weightMedals },
+    { id: 'strength', title: '🏋️ Сила (уровни)', hint: 'Личный уровень по каждому упражнению: шаг прогресса у каждого свой', medals: strengthMedals }
   ];
 }
 
@@ -8312,6 +8337,56 @@ function computeSessionTonnage(session) {
   return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets), 0);
 }
 
+/* ============================================================
+   🏅 Уровни силовых (0.8.6) — лестница порогов на упражнение.
+   База + расписание шагов: в начале шаг крупный, дальше сжимается,
+   в конце «каждый кг — приз». Пороги — прикидочные для прогрессии
+   (опора — открытые strength standards), а не официальные нормативы.
+============================================================ */
+const STRENGTH_LADDER_RULES = [
+  { base: 40, steps: [5, 5, 5, 5, 3, 3, 3, 1], keys: ['жим лежа', 'жим лёжа', 'жим штанги лежа', 'жим гантелей лежа', 'жим на наклонной'] },
+  { base: 60, steps: [10, 10, 10, 5, 5, 5, 1], keys: ['присед'] },
+  { base: 70, steps: [10, 10, 10, 5, 5, 5, 1], keys: ['становая'] },
+  { base: 30, steps: [5, 5, 3, 3, 1], keys: ['жим стоя', 'армейский жим', 'жим штанги стоя', 'жим гантелей сидя'] },
+  { base: 30, steps: [5, 5, 3, 3, 1], keys: ['тяга штанги', 'тяга гантели', 'тяга верхнего', 'тяга к подбородку'] },
+  { base: 100, steps: [10, 10, 10, 5, 5, 1], keys: ['жим ногами'] }
+];
+const STRENGTH_GENERIC_LADDER = { base: 20, steps: [5, 5, 3, 3, 1] };
+
+function strengthLadderFor(name) {
+  const n = String(name || '').toLowerCase();
+  const rule = STRENGTH_LADDER_RULES.find((r) => r.keys.some((k) => n.includes(k)));
+  return rule ? { base: rule.base, steps: rule.steps } : STRENGTH_GENERIC_LADDER;
+}
+
+/* Порог уровня `level` (level=0 → база). После исчерпания списка шаг повторяется последним. */
+function strengthTargetAt(ladder, level) {
+  const l = (ladder && Number.isFinite(Number(ladder.base))) ? ladder : STRENGTH_GENERIC_LADDER;
+  let t = Number(l.base);
+  for (let i = 0; i < level; i++) {
+    t += l.steps[Math.min(i, l.steps.length - 1)];
+  }
+  return Math.round(t * 10) / 10;
+}
+
+/* Уровень по лучшему 1RM: сколько порогов ≤ PR + следующая цель. */
+function computeStrengthLevel(name, prKg) {
+  const ladder = strengthLadderFor(name);
+  const pr = Math.max(0, Number(prKg) || 0);
+  let level = 0;
+  let target = strengthTargetAt(ladder, 0);
+  while (target <= pr) {
+    level++;
+    target = strengthTargetAt(ladder, level);
+  }
+  return {
+    ladder,
+    level,
+    nextTarget: target,
+    nextDelta: Math.max(0, Math.round((target - pr) * 10) / 10)
+  };
+}
+
 /* Нормализация сохранённых силовых (после загрузки/импорта/порчи). */
 function normalizeStrengthSessions() {
   const list = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
@@ -8475,6 +8550,10 @@ function saveStrengthSession() {
     toast('Добавьте хотя бы один подход: вес (кг) × повторы');
     return;
   }
+  // 0.8.6: уровни ДО сохранения — чтобы поймать «уровень поднят» как момент награды.
+  const beforeLevels = new Map(
+    computeStrengthRecords(state.strengthSessions).map((r) => [r.name.toLowerCase(), computeStrengthLevel(r.name, r.best1RM).level])
+  );
   // 0.8.5: длительность силовой засчитывается в недельную цель активности —
   // это одна запись тренировки, а не два независимых места (дневник + минуты).
   let durMin = Math.round(Number(String(strengthDraft.durationMinutes || '').replace(',', '.')));
@@ -8506,7 +8585,12 @@ function saveStrengthSession() {
   strengthDraft = { title: '', durationMinutes: '', exercises: [] };
   saveState();
   renderTraining(); // обновляет и недельную цель, и дневник силовых
-  toast(`✓ Силовая сохранена: ${exercises.length} упр. · тоннаж ${fmt(totalTonnage)} кг${durMin >= 5 ? ` · +${durMin} мин в цель недели` : ''}`);
+  // 0.8.6: моменты награды — какие упражнения подняли уровень.
+  const ups = computeStrengthRecords(state.strengthSessions)
+    .filter((r) => computeStrengthLevel(r.name, r.best1RM).level > (beforeLevels.get(r.name.toLowerCase()) || 0))
+    .map((r) => `${r.name} → Lv ${computeStrengthLevel(r.name, r.best1RM).level}`);
+  const upText = ups.length ? ` 🏅 Новый уровень: ${ups.join(' · ')}` : '';
+  toast(`✓ Силовая сохранена: ${exercises.length} упр. · тоннаж ${fmt(totalTonnage)} кг${durMin >= 5 ? ` · +${durMin} мин в цель недели` : ''}${upText}`);
 }
 
 /* 0.8.5: личные рекорды по упражнениям (прогресс) — чистый расчёт для тестов. */
@@ -8546,7 +8630,12 @@ function renderStrengthHistory() {
   if (records.length) {
     html += '<p class="strength-history-hint">Личные рекорды по упражнениям</p><div class="strength-records">';
     records.slice(0, 20).forEach((r) => {
-      html += `<div class="strength-record"><strong>${escapeHtml(r.name)}</strong><span>1RM ≈ ${fmt(r.best1RM)} кг · лучший подход ${fmt(r.bestWeight)} кг × ${r.bestReps} · ${formatWeightDate(r.lastDate)}</span></div>`;
+      const lvl = computeStrengthLevel(r.name, r.best1RM);
+      const levelTag = lvl.level >= 1 ? ` · Lv ${lvl.level}` : '';
+      const goal = lvl.nextDelta > 0
+        ? `🏅 цель: ${fmt(lvl.nextTarget)} кг (+${fmt(lvl.nextDelta)} кг)`
+        : `🏅 цель: ${fmt(lvl.nextTarget)} кг`;
+      html += `<div class="strength-record"><strong>${escapeHtml(r.name)}${levelTag}</strong><span>1RM ≈ ${fmt(r.best1RM)} кг · лучший подход ${fmt(r.bestWeight)} кг × ${r.bestReps} · ${formatWeightDate(r.lastDate)}</span><span class="strength-record-goal">${goal}</span></div>`;
     });
     html += '</div>';
   }
@@ -14204,6 +14293,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeCombos, COMBOS_LIMIT,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
-    EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords
+    EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel
   };
 }
