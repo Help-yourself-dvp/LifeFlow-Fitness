@@ -23,6 +23,10 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.10** (таймер отдыха + баланс нагрузки):
+  - ⏱ Таймер отдыха (пресеты 30/60/90/120 с, вибрация); ⚖️ баланс нагрузки за 7 дней (`computeLoadBalance` + `#weekly-load-balance`).
+  - ✅ Только JS/HTML/CSS — нативный мост не менялся.
+  - 🔢 **Синхронизация версии**: `0.8.10` во всех файлах.
 - Версия приложения: **0.8.9** (план тренировок по дням недели):
   - 📅 `state.strengthPlan` (schemaVersion 5) + `normalizeStrengthPlanList`/`togglePlanDay`/`renderStrengthPlan`/`isPlanDoneToday`; блок `#strength-plan`.
   - ✅ Только JS/HTML/CSS — нативный мост не менялся.

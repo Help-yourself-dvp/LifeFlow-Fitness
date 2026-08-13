@@ -1916,5 +1916,34 @@ for (const id of ids) {
   console.log(`${okVer089 ? '✓' : '✗'} 0.8.9 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.10 (таймер отдыха + баланс нагрузки) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // Таймер отдыха: пресеты + старт/стоп + вибрация
+  const okTimer = appR.includes('function startStrengthRest')
+    && appR.includes('function stopStrengthRest')
+    && appR.includes('navigator.vibrate')
+    && appR.includes('renderStrengthRestTimer()')
+    && html.includes('id="strength-rest-presets"')
+    && html.includes('id="strength-rest-start"')
+    && css.includes('.strength-rest-timer');
+  if (!okTimer) failed++;
+  console.log(`${okTimer ? '✓' : '✗'} 0.8.10 таймер отдыха: пресеты, старт/стоп, вибрация`);
+
+  // Баланс нагрузки
+  const okBalance = appR.includes('function computeLoadBalance')
+    && appR.includes('renderWeeklyLoadBalance()')
+    && html.includes('id="weekly-load-balance"');
+  if (!okBalance) failed++;
+  console.log(`${okBalance ? '✓' : '✗'} 0.8.10 баланс нагрузки за 7 дней: Сила/Кардио/Растяжка`);
+
+  const okVer0810 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0810) failed++;
+  console.log(`${okVer0810 ? '✓' : '✗'} 0.8.10 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

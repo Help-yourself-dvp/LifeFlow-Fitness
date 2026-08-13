@@ -2514,6 +2514,17 @@ html[data-theme="dark"] .segmented button.active {
   color: var(--md-sys-color-on-primary);
   border-color: transparent;
 }
+/* Таймер отдыха (0.8.10) */
+.strength-rest-timer { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.strength-rest-label { font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-primary); }
+.strength-rest-presets { display: flex; gap: 4px; }
+.strength-rest-presets button {
+  padding: 4px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px;
+  background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 0.72rem; cursor: pointer;
+}
+.strength-rest-presets button.on { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); border-color: transparent; }
+.strength-rest-count { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--md-sys-color-primary); min-width: 42px; text-align: center; }
+.weekly-load-balance { margin: 8px 0 0; text-align: left; }
 .strength-history-list { display: grid; gap: 4px; }
 .strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 

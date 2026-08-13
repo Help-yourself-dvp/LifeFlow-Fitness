@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1580,6 +1580,33 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok22 = bad === 0;
   if (!ok22) failed++;
   console.log(`${ok22 ? '✓' : '✗'} 0.8.9 план тренировок: дедуп шаблона/дня, отсев мусора, дни 0..6`);
+}
+
+// ===== 0.8.10: баланс нагрузки — минуты/ккал по категориям за 7 дней =====
+{
+  let bad = 0;
+  const today = new Date();
+  const d = (offset) => {
+    const x = new Date(today); x.setDate(x.getDate() - offset);
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  };
+  const bal = computeLoadBalance([
+    { date: d(0), type: 'strength', intensity: 'medium', durationMinutes: 60 },
+    { date: d(1), type: 'cardio', intensity: 'medium', durationMinutes: 30 },
+    { date: d(2), type: 'bike', intensity: 'medium', durationMinutes: 40 },
+    { date: d(3), type: 'stretch', intensity: 'low', durationMinutes: 20 },
+    { date: d(3), type: 'walk', intensity: 'low', durationMinutes: 30 }, // → «Другое»
+    { date: d(8), type: 'cardio', intensity: 'medium', durationMinutes: 999 } // вне 7 дней
+  ], 7, 70);
+  if (bal.strength.minutes !== 60) bad++;
+  if (bal.cardio.minutes !== 70) bad++; // бег 30 + велосипед 40
+  if (bal.stretch.minutes !== 20) bad++;
+  if (bal.other.minutes !== 30) bad++; // прогулка
+  // MET: силовая medium = 5 × 70 × 1 ч = 350 ккал
+  if (bal.strength.kcal !== 350) bad++;
+  const ok23 = bad === 0;
+  if (!ok23) failed++;
+  console.log(`${ok23 ? '✓' : '✗'} 0.8.10 баланс нагрузки: Сила 60 · Кардио 70 · Растяжка 20 · Другое 30 мин, силовая 350 ккал`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

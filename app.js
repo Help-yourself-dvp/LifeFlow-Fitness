@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.9';
+const FITFLOW_VERSION = '0.8.10';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -8471,6 +8471,33 @@ function computeStrengthLevel(name, prKg) {
   };
 }
 
+/* 0.8.10: баланс нагрузки за последние N дней — минуты и ккал по категориям.
+   Чистая функция (тестируется). Кардио = бег + велосипед + плавание. */
+function computeLoadBalance(workouts, days, weightKg) {
+  const cutoff = statsDateKey((Number(days) || 7) - 1);
+  const cats = {
+    strength: { label: 'Сила', minutes: 0, kcal: 0 },
+    cardio: { label: 'Кардио', minutes: 0, kcal: 0 },
+    stretch: { label: 'Растяжка', minutes: 0, kcal: 0 },
+    other: { label: 'Другое', minutes: 0, kcal: 0 }
+  };
+  const weight = Number(weightKg) || 70;
+  (Array.isArray(workouts) ? workouts : []).forEach((w) => {
+    if (!w || !w.date || w.date < cutoff) return;
+    const minutes = Number(w.durationMinutes) || 0;
+    if (minutes <= 0) return;
+    let key;
+    if (w.type === 'strength') key = 'strength';
+    else if (w.type === 'cardio' || w.type === 'bike' || w.type === 'swim') key = 'cardio';
+    else if (w.type === 'stretch') key = 'stretch';
+    else key = 'other';
+    const met = (ACTIVITY_MET[w.type] || ACTIVITY_MET.other)[w.intensity || 'medium'];
+    cats[key].minutes += minutes;
+    cats[key].kcal += Math.round(met * weight * (minutes / 60));
+  });
+  return cats;
+}
+
 /* Нормализация сохранённых силовых (после загрузки/импорта/порчи). */
 function normalizeStrengthSessions() {
   const list = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
@@ -8631,6 +8658,75 @@ function togglePlanDay(templateId, day) {
   normalizeStrengthPlan();
   saveState();
   renderStrengthPlan();
+}
+
+/* ============================================================
+   ⏱ Таймер отдыха между подходами (0.8.10)
+   Минимально: пресеты 30/60/90/120 с, отсчёт, вибрация в конце.
+   Не привязан к renderStrengthDiary — живёт в своей строке, чтобы
+   не сбрасываться при правках дневника.
+============================================================ */
+let strengthRestTimer = { seconds: 90, remaining: 0, timerId: null };
+
+function setStrengthRestSeconds(seconds) {
+  strengthRestTimer.seconds = Math.max(10, Math.min(600, Number(seconds) || 90));
+  stopStrengthRest(false);
+  renderStrengthRestTimer();
+}
+
+function startStrengthRest() {
+  stopStrengthRest(false);
+  strengthRestTimer.remaining = strengthRestTimer.seconds;
+  renderStrengthRestTimer();
+  strengthRestTimer.timerId = setInterval(() => {
+    strengthRestTimer.remaining--;
+    if (strengthRestTimer.remaining <= 0) {
+      stopStrengthRest(true);
+      return;
+    }
+    renderStrengthRestTimer();
+  }, 1000);
+}
+
+function stopStrengthRest(notify) {
+  if (strengthRestTimer.timerId) clearInterval(strengthRestTimer.timerId);
+  strengthRestTimer.timerId = null;
+  strengthRestTimer.remaining = 0;
+  if (notify) {
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) { }
+    toast('⏱ Отдых окончен — следующий подход');
+  }
+  renderStrengthRestTimer();
+}
+
+function renderStrengthRestTimer() {
+  if (typeof document === 'undefined') return;
+  const start = $('#strength-rest-start');
+  const count = $('#strength-rest-count');
+  if (start) start.textContent = strengthRestTimer.timerId ? 'Стоп' : 'Старт';
+  if (count) {
+    const active = !!strengthRestTimer.timerId;
+    count.hidden = !active;
+    if (active) {
+      const m = Math.floor(strengthRestTimer.remaining / 60);
+      const s = strengthRestTimer.remaining % 60;
+      count.textContent = m + ':' + String(s).padStart(2, '0');
+    }
+  }
+  const presets = document.querySelectorAll('#strength-rest-presets [data-rest]');
+  if (presets.length) {
+    presets.forEach((btn) => btn.classList.toggle('on', Number(btn.dataset.rest) === strengthRestTimer.seconds));
+  }
+}
+
+function renderWeeklyLoadBalance() {
+  const el = $('#weekly-load-balance');
+  if (!el) return;
+  const cats = computeLoadBalance(state.workouts, 7, (state.profileSettings && state.profileSettings.weightKg) || null);
+  const parts = ['strength', 'cardio', 'stretch', 'other']
+    .filter((k) => cats[k].minutes > 0)
+    .map((k) => `${cats[k].label} ${formatWorkoutDuration(cats[k].minutes)}`);
+  el.textContent = parts.length ? 'Баланс за 7 дней: ' + parts.join(' · ') : 'Баланс нагрузки появится после тренировок';
 }
 
 /* Выполнена ли тренировка по шаблону сегодня (сессия с тем же именем). */
@@ -9015,6 +9111,8 @@ function renderTraining() {
   renderStrengthDiary(); // 0.8.4: дневник силовых
   renderStrengthHistory(); // 0.8.5: рекорды и история силовых
   renderStrengthPlan(); // 0.8.9: план тренировок по дням недели
+  renderStrengthRestTimer(); // 0.8.10: таймер отдыха
+  renderWeeklyLoadBalance(); // 0.8.10: баланс нагрузки за 7 дней
 }
 
 async function syncTrainingReminderForToday() {
@@ -12128,6 +12226,13 @@ function init() {
     const startBtn = e.target.closest('[data-s-plan-start]');
     if (startBtn) return startStrengthFromTemplate(startBtn.dataset.sPlanStart);
   });
+  // 0.8.10: таймер отдыха между подходами
+  $$('#strength-rest-presets [data-rest]').forEach((btn) =>
+    btn.addEventListener('click', () => setStrengthRestSeconds(Number(btn.dataset.rest))));
+  bindEvent('#strength-rest-start', 'click', () => {
+    if (strengthRestTimer.timerId) stopStrengthRest(false);
+    else startStrengthRest();
+  });
   $('#strength-diary').addEventListener('input', (e) => {
     if (e.target.hasAttribute && e.target.hasAttribute('data-s-title')) {
       strengthDraft.title = e.target.value;
@@ -14593,6 +14698,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance
   };
 }
