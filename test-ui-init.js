@@ -1493,5 +1493,41 @@ for (const id of ids) {
   console.log(`${okVer0710 ? '✓' : '✗'} 0.7.10 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.7.11 (свежесть часов в «Авто», больше производителей, авто-номер сборки) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  // JS: свежесть часов в «Авто» + честная подсказка о нераспознанном источнике
+  const okJs = appR.includes('WATCH_FRESH_MS')
+    && appR.includes('watchLastTs')
+    && appR.includes('часы неактивны')
+    && appR.includes('unknownWatchSource');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.7.11 JS: свежесть часов в «Авто» + подсказка о нераспознанном источнике`);
+
+  // Натив: расширенный список производителей часов + метка свежести + авто-номер сборки + страховка зеркала
+  const okNative = mirror.includes('com.huawei.health')
+    && mirror.includes('com.hihonor.health')
+    && mirror.includes('com.xiaomi.wearable')
+    && mirror.includes('com.sec.android.app.shealth')
+    && mirror.includes('lastWatchEndMs')
+    && mirror.includes('hc_watch_last_ts')
+    && mirror.includes('Inject build number')
+    && mirror.includes('активный workflow совпадает с зеркалом');
+  if (!okNative) failed++;
+  console.log(`${okNative ? '✓' : '✗'} 0.7.11 зеркало build.yml: производители часов + свежесть + авто-номер сборки + страховка зеркала`);
+
+  // Сборка сама подставляет номер run_number вместо «build 0»
+  const okBuildInject = mirror.includes("sed -i \"s/const FITFLOW_BUILD = '[^']*';/const FITFLOW_BUILD = 'build ${RUN_NUMBER}';/\" www/app.js");
+  if (!okBuildInject) failed++;
+  console.log(`${okBuildInject ? '✓' : '✗'} 0.7.11: номер сборки в APK подставляется автоматически из run_number`);
+
+  const okVer0711 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0711) failed++;
+  console.log(`${okVer0711 ? '✓' : '✗'} 0.7.11 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
