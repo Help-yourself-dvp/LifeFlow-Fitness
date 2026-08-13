@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1440,6 +1440,31 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok17 = bad === 0;
   if (!ok17) failed++;
   console.log(`${ok17 ? '✓' : '✗'} 0.8.2: тип тренировки с часов + баланс калорий без двойного счёта (бег 30 мин / 10 000 шагов → 488, не 680)`);
+}
+
+// ===== 0.8.4: дневник силовых — тоннаж, 1RM, каталог =====
+{
+  let bad = 0;
+  // Тоннаж = Σ вес × повторы
+  if (computeSetTonnage([{ weight: 50, reps: 10 }, { weight: 60, reps: 8 }]) !== 980) bad++;
+  if (computeSetTonnage([]) !== 0) bad++;
+  if (computeSetTonnage([{ weight: 0, reps: 10 }, { weight: 50, reps: 0 }, { weight: 60, reps: 8 }]) !== 480) bad++;
+  // 1RM: 100 кг × 5 = (Эпли 116.67 + Бржицки 112.5)/2 ≈ 115
+  if (estimate1RM(100, 5) !== 115) bad++;
+  if (estimate1RM(100, 1) !== 100) bad++;
+  if (estimate1RM(0, 5) !== 0) bad++;
+  // 1RM упражнения — максимум по подходам
+  if (computeExercise1RM([{ weight: 100, reps: 5 }, { weight: 80, reps: 10 }]) !== 115) bad++;
+  if (computeExercise1RM([]) !== 0) bad++;
+  // Тоннаж сессии
+  if (computeSessionTonnage({ exercises: [{ name: 'a', sets: [{ weight: 50, reps: 10 }] }, { name: 'b', sets: [{ weight: 60, reps: 8 }] }] }) !== 980) bad++;
+  // Каталог: у каждой группы есть упражнения
+  const groups = Object.keys(EXERCISE_CATALOG);
+  if (groups.length < 5) bad++;
+  if (!groups.every((g) => Array.isArray(EXERCISE_CATALOG[g]) && EXERCISE_CATALOG[g].length >= 3)) bad++;
+  const ok18 = bad === 0;
+  if (!ok18) failed++;
+  console.log(`${ok18 ? '✓' : '✗'} 0.8.4 дневник силовых: тоннаж 980, 1RM(100×5)=115, каталог по группам`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

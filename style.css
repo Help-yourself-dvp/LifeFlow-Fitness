@@ -2439,6 +2439,32 @@ html[data-theme="dark"] .segmented button.active {
   border: 1px solid var(--md-sys-color-outline-variant);
 }
 
+/* ---------- Дневник силовых тренировок (0.8.4) ---------- */
+.strength-diary-section { text-align: left; }
+.strength-diary { display: grid; gap: 10px; text-align: left; }
+.strength-title-field { display: grid; gap: 5px; }
+.strength-title-field span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-empty { margin: 0; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-exercises { display: grid; gap: 8px; }
+.strength-exercise { padding: 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; }
+.strength-exercise-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.strength-exercise-head strong { font-size: 0.85rem; flex: 1; min-width: 0; }
+.strength-exercise-summary { font-size: 0.72rem; color: var(--md-sys-color-primary); white-space: nowrap; }
+.strength-exercise-remove { border: none; background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
+.strength-set { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.strength-set input { width: 0; flex: 1 1 0; min-width: 0; padding: 7px 9px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.8rem; }
+.strength-set-x { color: var(--md-sys-color-on-surface-variant); }
+.strength-set-remove { border: none; background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 1rem; cursor: pointer; padding: 0 4px; }
+.strength-set-add { border: 1px dashed var(--md-sys-color-outline-variant); background: transparent; color: var(--md-sys-color-primary); font-size: 0.75rem; border-radius: 9px; padding: 5px 10px; cursor: pointer; }
+.strength-saved { display: grid; gap: 4px; }
+.strength-saved-hint { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin: 0; }
+.strength-saved-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; justify-content: center; }
+.strength-exercise-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 10px; text-align: left; }
+.strength-exercise-btn { text-align: left; padding: 9px 11px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.strength-custom { display: grid; gap: 5px; margin-bottom: 4px; text-align: left; }
+.strength-custom span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+
 /* ---------- Карточка: Шаги на Главной (0.7.0) ---------- */
 .steps-card .steps-progress-row {
   display: flex;

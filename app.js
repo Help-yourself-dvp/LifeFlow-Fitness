@@ -2655,16 +2655,17 @@ const DEFAULTS = {
   dayMood: { date: null, rating: null },
   healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
-  homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
+  homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
+  strengthSessions: [] // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
 };
 
-const FITFLOW_VERSION = '0.8.3';
+const FITFLOW_VERSION = '0.8.4';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
 // сюда при каждом изменении формата (v < N → преобразование).
-const STATE_SCHEMA_VERSION = 2;
+const STATE_SCHEMA_VERSION = 3;
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2902,7 +2903,8 @@ const state = {
   sleepCheckin: { ...DEFAULTS.sleepCheckin, log: [] },
   dayMood: { ...DEFAULTS.dayMood },
   customMealTypes: [],
-  theme: null
+  theme: null,
+  strengthSessions: [] // 0.8.4
 };
 
 function isValidReminderTime(time) {
@@ -4280,6 +4282,10 @@ async function confirmDeleteProfile() {
 // схемы = v1) получают номер актуальной схемы; будущие изменения формата
 // добавляют сюда шаги «если версия < N — преобразовать данные».
 function migrateStateSchema() {
+  // 0.8.4: дневник силовых — новое поле; старые состояния дополняем пустым списком.
+  if ((state.schemaVersion || 0) < 3 && !Array.isArray(state.strengthSessions)) {
+    state.strengthSessions = [];
+  }
   state.schemaVersion = STATE_SCHEMA_VERSION;
 }
 
@@ -4316,6 +4322,7 @@ function loadState() {
   normalizeCombosState();
   normalizeCourses();
   normalizeWorkouts();
+  normalizeStrengthSessions();
   normalizeActivityTemplates();
   normalizeWaterReminders();
   normalizeDayChecklist();
@@ -8254,6 +8261,235 @@ function renderActivityIntensity() {
   updateActivityKcalHint();
 }
 
+/* ============================================================
+   🏋️ Дневник силовых тренировок (0.8.0, шаг 2 / 0.8.4)
+   Каталог упражнений по мышечным группам, сеты «вес × повторы»,
+   тоннаж и расчёт 1RM (Эпли + Бржицки). Полностью офлайн;
+   данные едут в резервную копию вместе с профилем.
+============================================================ */
+const EXERCISE_CATALOG = {
+  'Грудь': ['жим штанги лёжа', 'жим гантелей лёжа', 'жим на наклонной', 'разводка гантелей', 'отжимания от пола'],
+  'Спина': ['подтягивания', 'тяга штанги в наклоне', 'тяга верхнего блока', 'тяга гантели к поясу', 'становая тяга'],
+  'Ноги': ['приседания со штангой', 'жим ногами', 'выпады', 'румынская тяга', 'подъём на носки'],
+  'Плечи': ['жим штанги стоя', 'жим гантелей сидя', 'махи гантелями в стороны', 'тяга к подбородку'],
+  'Руки': ['подъём штанги на бицепс', 'подъём гантелей на бицепс', 'жим узким хватом', 'французский жим', 'разгибания на блоке'],
+  'Пресс': ['скручивания', 'планка', 'подъём ног в висе', 'велосипед'],
+  'Кардио': ['беговая дорожка', 'велотренажёр', 'эллиптический тренажёр', 'гребной тренажёр', 'скакалка']
+};
+const STRENGTH_GROUPS = Object.keys(EXERCISE_CATALOG);
+
+/* Тоннаж набора подходов: Σ (вес × повторы). */
+function computeSetTonnage(sets) {
+  return (Array.isArray(sets) ? sets : []).reduce((sum, s) => {
+    const w = Number(s && s.weight) || 0;
+    const r = Number(s && s.reps) || 0;
+    return sum + (w > 0 && r > 0 ? w * r : 0);
+  }, 0);
+}
+
+/* 1RM по двум формулам (Эпли и Бржицки), берём среднее — устойчивее к крайностям. */
+function estimate1RM(weight, reps) {
+  const w = Number(weight) || 0;
+  const r = Number(reps) || 0;
+  if (w <= 0 || r <= 0) return 0;
+  if (r <= 1) return Math.round(w);
+  const epley = w * (1 + r / 30);
+  const brzycki = r < 37 ? w * (36 / (37 - r)) : epley;
+  return Math.round((epley + brzycki) / 2);
+}
+
+/* 1RM упражнения — максимум оценки по его подходам (лёгкий многоповторный и
+   тяжёлый малоповторный дают честную оценку каждый по-своему). */
+function computeExercise1RM(sets) {
+  const list = (Array.isArray(sets) ? sets : [])
+    .filter((s) => Number(s && s.weight) > 0 && Number(s && s.reps) > 0);
+  if (!list.length) return 0;
+  return Math.max(...list.map((s) => estimate1RM(s.weight, s.reps)));
+}
+
+function computeSessionTonnage(session) {
+  const exercises = (session && Array.isArray(session.exercises)) ? session.exercises : [];
+  return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets), 0);
+}
+
+/* Нормализация сохранённых силовых (после загрузки/импорта/порчи). */
+function normalizeStrengthSessions() {
+  const list = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
+  state.strengthSessions = list
+    .filter((s) => s && typeof s === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(s.date))
+    .map((s) => {
+      const exercises = (Array.isArray(s.exercises) ? s.exercises : [])
+        .map((ex) => {
+          const name = String((ex && ex.name) || '').trim().slice(0, 80);
+          if (!name) return null;
+          const sets = (Array.isArray(ex && ex.sets) ? ex.sets : [])
+            .map((set) => ({
+              weight: Math.max(0, Math.min(2000, Math.round(Number(set && set.weight) || 0))),
+              reps: Math.max(0, Math.min(1000, Math.round(Number(set && set.reps) || 0)))
+            }))
+            .filter((set) => set.weight > 0 || set.reps > 0)
+            .slice(0, 40);
+          return { name, sets };
+        })
+        .filter(Boolean)
+        .slice(0, 30);
+      return {
+        id: String(s.id || uid()),
+        date: s.date,
+        title: normalizeActivityName(s.title) || null,
+        exercises,
+        createdAt: Number(s.createdAt) || Date.now()
+      };
+    })
+    .filter((s) => s.exercises.length > 0)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/* Черновик (в памяти, до сохранения) и текущая группа в выборе упражнения. */
+let strengthDraft = { title: '', exercises: [] };
+let strengthPickerGroup = STRENGTH_GROUPS[0];
+
+function openStrengthExercisePicker() {
+  if (!STRENGTH_GROUPS.includes(strengthPickerGroup)) strengthPickerGroup = STRENGTH_GROUPS[0];
+  renderStrengthPicker();
+  $('#strength-exercise-dialog').hidden = false;
+}
+function closeStrengthExercisePicker() {
+  $('#strength-exercise-dialog').hidden = true;
+  const input = $('#strength-custom-name');
+  if (input) input.value = '';
+}
+function renderStrengthPicker() {
+  const groupsEl = $('#strength-groups');
+  const listEl = $('#strength-exercise-list');
+  if (!groupsEl || !listEl) return;
+  groupsEl.innerHTML = STRENGTH_GROUPS.map((g) =>
+    `<button type="button" class="chip chip-sm ${g === strengthPickerGroup ? 'active' : ''}" data-s-group="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join('');
+  const exes = EXERCISE_CATALOG[strengthPickerGroup] || [];
+  listEl.innerHTML = exes.map((name) =>
+    `<button type="button" class="strength-exercise-btn" data-s-pick="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('');
+}
+function addStrengthExercise(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return;
+  if (strengthDraft.exercises.some((ex) => ex.name.toLowerCase() === clean.toLowerCase())) {
+    toast('Упражнение уже в тренировке');
+    return;
+  }
+  strengthDraft.exercises.push({ name: clean, sets: [{ weight: '', reps: '' }] });
+}
+function removeStrengthExercise(idx) {
+  strengthDraft.exercises.splice(idx, 1);
+  renderStrengthDiary();
+}
+function addStrengthSet(idx) {
+  const ex = strengthDraft.exercises[idx];
+  if (ex && ex.sets.length < 40) ex.sets.push({ weight: '', reps: '' });
+  renderStrengthDiary();
+}
+function removeStrengthSet(idx, setIdx) {
+  const ex = strengthDraft.exercises[idx];
+  if (ex && ex.sets[setIdx]) ex.sets.splice(setIdx, 1);
+  renderStrengthDiary();
+}
+function updateStrengthSummary(idx) {
+  const el = document.querySelector(`[data-s-summary="${idx}"]`);
+  if (!el) return;
+  const ex = strengthDraft.exercises[idx];
+  if (!ex) return;
+  const valid = ex.sets.filter((s) => Number(s.weight) > 0 && Number(s.reps) > 0);
+  const tonnage = computeSetTonnage(valid);
+  const rm = computeExercise1RM(valid);
+  el.textContent = valid.length
+    ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг`
+    : 'укажите вес и повторы';
+}
+
+function renderStrengthDiary() {
+  if (typeof document === 'undefined') return;
+  const box = $('#strength-diary');
+  if (!box) return;
+  const today = todayKey();
+  const sessions = (state.strengthSessions || []).filter((s) => s.date === today);
+
+  let html = '';
+  html += `<label class="strength-title-field"><span>Название (необязательно)</span><input type="text" class="form-input" maxlength="60" placeholder="Например, День ног" value="${escapeHtml(strengthDraft.title)}" data-s-title></label>`;
+  if (strengthDraft.exercises.length) {
+    html += '<div class="strength-exercises">';
+    strengthDraft.exercises.forEach((ex, idx) => {
+      const setsHtml = ex.sets.map((set, si) => `
+        <div class="strength-set">
+          <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Вес, кг" value="${escapeHtml(set.weight)}" data-s-field="weight" data-s-ex="${idx}" data-s-set="${si}" aria-label="Вес в килограммах">
+          <span class="strength-set-x">×</span>
+          <input type="number" inputmode="numeric" min="0" step="1" placeholder="Повторы" value="${escapeHtml(set.reps)}" data-s-field="reps" data-s-ex="${idx}" data-s-set="${si}" aria-label="Количество повторов">
+          <button class="strength-set-remove" type="button" data-s-remove-set="${idx}" data-s-set="${si}" aria-label="Удалить подход">×</button>
+        </div>`).join('');
+      const valid = ex.sets.filter((s) => Number(s.weight) > 0 && Number(s.reps) > 0);
+      const tonnage = computeSetTonnage(valid);
+      const rm = computeExercise1RM(valid);
+      const summary = valid.length ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг` : 'укажите вес и повторы';
+      html += `
+        <div class="strength-exercise">
+          <div class="strength-exercise-head">
+            <strong>${escapeHtml(ex.name)}</strong>
+            <span class="strength-exercise-summary" data-s-summary="${idx}">${summary}</span>
+            <button class="strength-exercise-remove" type="button" data-s-remove-exercise="${idx}" aria-label="Удалить упражнение">×</button>
+          </div>
+          ${setsHtml}
+          <button class="strength-set-add" type="button" data-s-add-set="${idx}">＋ подход</button>
+        </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<p class="strength-empty">Добавьте упражнение и подходы — приложение посчитает тоннаж и расчётный 1RM.</p>';
+  }
+  html += '<button class="btn btn-secondary" type="button" data-s-add-exercise>＋ Добавить упражнение</button>';
+  html += '<button class="btn btn-primary training-add-btn" type="button" data-s-save>Сохранить силовую</button>';
+
+  if (sessions.length) {
+    html += '<div class="strength-saved"><p class="strength-saved-hint">Сегодня сохранено:</p>';
+    sessions.forEach((s) => {
+      html += `<div class="strength-saved-row"><span>🏋️ ${escapeHtml(s.title || 'Силовая тренировка')}</span><span>${s.exercises.length} упр. · ${fmt(computeSessionTonnage(s))} кг</span></div>`;
+    });
+    html += '</div>';
+  }
+  box.innerHTML = html;
+}
+
+function saveStrengthSession() {
+  const title = String(strengthDraft.title || '').trim();
+  const exercises = strengthDraft.exercises
+    .map((ex) => ({
+      name: ex.name,
+      sets: ex.sets
+        .map((s) => ({ weight: Math.round(Number(s.weight) || 0), reps: Math.round(Number(s.reps) || 0) }))
+        .filter((s) => s.weight > 0 && s.reps > 0)
+    }))
+    .filter((ex) => ex.sets.length > 0);
+  if (!exercises.length) {
+    toast('Добавьте хотя бы один подход: вес (кг) × повторы');
+    return;
+  }
+  state.strengthSessions.unshift({
+    id: uid(),
+    date: todayKey(),
+    title: normalizeActivityName(title) || null,
+    exercises,
+    createdAt: Date.now()
+  });
+  normalizeStrengthSessions();
+  const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets), 0);
+  strengthDraft = { title: '', exercises: [] };
+  saveState();
+  renderStrengthDiary();
+  toast(`✓ Силовая сохранена: ${exercises.length} упр. · тоннаж ${fmt(totalTonnage)} кг`);
+}
+
+if (typeof window !== 'undefined') {
+  window.openStrengthExercisePicker = openStrengthExercisePicker;
+  window.closeStrengthExercisePicker = closeStrengthExercisePicker;
+}
+
 function renderTraining() {
   if (typeof document === 'undefined') return;
   const list = $('#training-list');
@@ -8322,6 +8558,7 @@ function renderTraining() {
   renderActivityTemplates();
   renderDayChecklist();
   renderWatchWorkoutsSuggest(); // 0.8.0: подсказка «нашли тренировку с часов»
+  renderStrengthDiary(); // 0.8.4: дневник силовых
 }
 
 async function syncTrainingReminderForToday() {
@@ -11409,6 +11646,48 @@ function init() {
     const ignoreBtn = e.target.closest('[data-watch-ignore]');
     if (ignoreBtn) dismissWatchWorkout(ignoreBtn.dataset.watchIgnore);
   });
+  // 0.8.4: дневник силовых — клики (добавить упражнение/подход, удалить, сохранить)
+  $('#strength-diary').addEventListener('click', (e) => {
+    const addEx = e.target.closest('[data-s-add-exercise]');
+    if (addEx) return openStrengthExercisePicker();
+    const remEx = e.target.closest('[data-s-remove-exercise]');
+    if (remEx) return removeStrengthExercise(Number(remEx.dataset.sRemoveExercise));
+    const addSet = e.target.closest('[data-s-add-set]');
+    if (addSet) return addStrengthSet(Number(addSet.dataset.sAddSet));
+    const remSet = e.target.closest('[data-s-remove-set]');
+    if (remSet) return removeStrengthSet(Number(remSet.dataset.sRemoveSet), Number(remSet.dataset.sSet));
+    const save = e.target.closest('[data-s-save]');
+    if (save) return saveStrengthSession();
+  });
+  $('#strength-diary').addEventListener('input', (e) => {
+    if (e.target.hasAttribute && e.target.hasAttribute('data-s-title')) {
+      strengthDraft.title = e.target.value;
+      return;
+    }
+    const field = e.target.dataset && e.target.dataset.sField;
+    if (field === 'weight' || field === 'reps') {
+      const exIdx = Number(e.target.dataset.sEx);
+      const setIdx = Number(e.target.dataset.sSet);
+      const ex = strengthDraft.exercises[exIdx];
+      if (ex && ex.sets[setIdx]) {
+        ex.sets[setIdx][field] = e.target.value;
+        updateStrengthSummary(exIdx);
+      }
+    }
+  });
+  // 0.8.4: выбор упражнения (группа + список + своё)
+  $('#strength-exercise-dialog').addEventListener('click', (e) => {
+    const groupBtn = e.target.closest('[data-s-group]');
+    if (groupBtn) { strengthPickerGroup = groupBtn.dataset.sGroup; renderStrengthPicker(); return; }
+    const pick = e.target.closest('[data-s-pick]');
+    if (pick) { addStrengthExercise(pick.dataset.sPick); closeStrengthExercisePicker(); renderStrengthDiary(); return; }
+  });
+  bindEvent('#strength-exercise-cancel', 'click', closeStrengthExercisePicker);
+  bindEvent('#strength-custom-add', 'click', () => {
+    addStrengthExercise($('#strength-custom-name').value);
+    closeStrengthExercisePicker();
+    renderStrengthDiary();
+  });
   $('#activity-save-template').addEventListener('change', (e) => {
     $('#activity-template-inline').classList.toggle('is-open', e.target.checked);
     if (e.target.checked) $('#activity-template-name').focus();
@@ -13839,6 +14118,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
-    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure
+    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
+    EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions
   };
 }

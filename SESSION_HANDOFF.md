@@ -23,6 +23,11 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.4** (дневник силовых: сеты, тоннаж, 1RM):
+  - 🏋️ `state.strengthSessions` (schemaVersion 3, миграция + normalizeStrengthSessions), каталог `EXERCISE_CATALOG`, расчёты `computeSetTonnage`/`estimate1RM`/`computeExercise1RM`/`computeSessionTonnage`.
+  - 🧾 UI: блок `#strength-diary` в Активности + диалог `#strength-exercise-dialog`.
+  - ✅ Только JS/HTML/CSS — нативный мост не менялся.
+  - 🔢 **Синхронизация версии**: `0.8.4` во всех файлах.
 - Версия приложения: **0.8.3** (фикс подсветки быстрого перехода и иконки весов):
   - 🧭 `updateHomeQuickNavActive` по визуальному порядку карточек (`chipById` + DOM-порядок `#home-cards`), порог +8.
   - ⚖️ Диалог веса: убран `width:auto`, SVG 26×26.

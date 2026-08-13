@@ -523,6 +523,17 @@
       <!-- ===== 0.8.0: подсказка «нашли тренировки с часов» ===== -->
       <div class="watch-workouts-suggest" id="watch-workouts-suggest" hidden></div>
 
+      <!-- ===== 0.8.4: дневник силовых тренировок (вес × повторы) ===== -->
+      <section class="collapsible-block strength-diary-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-diary-content" aria-expanded="false">
+          <span>🏋️ Силовая: вес × повторы</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-diary-content"><div>
+          <p class="training-hint">Детальный дневник зала: сеты, тоннаж и расчётный 1RM. Учитывается отдельно от минут активности — если хотите зачесть время в недельную цель, добавьте «Силовую» обычной формой выше.</p>
+          <div class="strength-diary" id="strength-diary"></div>
+        </div></div>
+      </section>
+
       <form id="training-form" class="training-form" autocomplete="off">
         <section class="collapsible-block activity-templates-section">
           <button class="collapsible-toggle" type="button" data-collapse-target="activity-templates-content" aria-expanded="false">
@@ -1158,7 +1169,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.3 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.4 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1254,6 +1265,24 @@
       <p class="app-dialog-text" id="help-text"></p>
       <div class="app-dialog-actions">
         <button class="btn btn-primary" id="help-ok" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== 0.8.4: выбор упражнения для силовой ===== -->
+  <div class="app-dialog-backdrop" id="strength-exercise-dialog" role="dialog" aria-modal="true" aria-labelledby="strength-exercise-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏋️</div>
+      <h2 id="strength-exercise-title">Выберите упражнение</h2>
+      <div class="strength-groups" id="strength-groups"></div>
+      <div class="strength-exercise-list" id="strength-exercise-list"></div>
+      <label class="strength-custom">
+        <span>Своё упражнение</span>
+        <input type="text" class="form-input" id="strength-custom-name" maxlength="60" placeholder="Например, болгарские выпады">
+      </label>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="strength-exercise-cancel" type="button">Отмена</button>
+        <button class="btn btn-primary" id="strength-custom-add" type="button">Добавить своё</button>
       </div>
     </section>
   </div>

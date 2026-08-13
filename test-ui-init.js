@@ -979,7 +979,7 @@ for (const id of ids) {
   // ===================== 0.5.0 =====================
   const appR = fs.readFileSync('app.js', 'utf8');
   const cssR = fs.readFileSync('style.css', 'utf8');
-  const okSchema = appR.includes('const STATE_SCHEMA_VERSION = 2;') && appR.includes('migrateStateSchema();')
+  const okSchema = appR.includes('const STATE_SCHEMA_VERSION = ') && appR.includes('migrateStateSchema();')
     && appR.includes('stateSchema: STATE_SCHEMA_VERSION') && appR.includes('schemaVersion: STATE_SCHEMA_VERSION');
   if (!okSchema) failed++;
   console.log(`${okSchema ? '✓' : '✗'} 0.5.0 основа: schemaVersion состояния + миграции, номер в резервной копии`);
@@ -1756,6 +1756,42 @@ for (const id of ids) {
   const okVer083 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVer083) failed++;
   console.log(`${okVer083 ? '✓' : '✗'} 0.8.3 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.8.4 (дневник силовых тренировок) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // JS: каталог, расчёты, черновик, сохранение
+  const okJs = appR.includes('const EXERCISE_CATALOG = {')
+    && appR.includes('function computeSetTonnage')
+    && appR.includes('function estimate1RM')
+    && appR.includes('function saveStrengthSession')
+    && appR.includes('function renderStrengthDiary')
+    && appR.includes('strengthSessions: []')
+    && appR.includes('normalizeStrengthSessions()');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.8.4 JS: каталог упражнений, тоннаж/1RM, черновик и сохранение силовой`);
+
+  // HTML: блок в Активности + диалог выбора упражнения
+  const okHtml = html.includes('id="strength-diary"')
+    && html.includes('data-collapse-target="strength-diary-content"')
+    && html.includes('id="strength-exercise-dialog"')
+    && html.includes('id="strength-exercise-list"')
+    && html.includes('id="strength-custom-name"');
+  if (!okHtml) failed++;
+  console.log(`${okHtml ? '✓' : '✗'} 0.8.4 HTML: блок силовых и диалог выбора упражнения`);
+
+  // CSS
+  const okCss = css.includes('.strength-diary') && css.includes('.strength-exercise-list') && css.includes('.strength-set input');
+  if (!okCss) failed++;
+  console.log(`${okCss ? '✓' : '✗'} 0.8.4 CSS: стили дневника силовых`);
+
+  const okVer084 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer084) failed++;
+  console.log(`${okVer084 ? '✓' : '✗'} 0.8.4 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
