@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.11';
+const FITFLOW_VERSION = '0.8.12';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6555,10 +6555,10 @@ function resolveHealthSteps(priority, hcSteps, phoneSteps, watchLastTs, now) {
     return { steps: phone, source: 'шагомер телефона' };
   }
   if (priority === 'health_connect_only') {
-    return { steps: watch, source: watch > 0 ? 'Zepp / Health Connect' : 'часы / Health Connect (нет данных)' };
+    return { steps: watch, source: watch > 0 ? 'часы / Health Connect' : 'часы / Health Connect (нет данных)' };
   }
   // auto: часы → телефон
-  if (watch > 0) return { steps: watch, source: 'Zepp / Health Connect' };
+  if (watch > 0) return { steps: watch, source: 'часы / Health Connect' };
   if (phone > 0) return { steps: phone, source: 'шагомер телефона' };
   return { steps: 0, source: 'нет данных' };
 }
@@ -6999,7 +6999,7 @@ function renderHealthDiagnosticsContent() {
   const hcSleepMin = sleepEntry ? (sleepEntry.durationMinutes || sleepEntry.durationMin || 0) : 0;
   const isSleepFromHC = sleepEntry && sleepEntry.source && sleepEntry.source.includes('Health Connect');
   const sleepStr = hcSleepMin > 0
-    ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'}) [${isSleepFromHC ? 'Zepp / Health Connect' : 'Ручной чек-ин'}]`
+    ? `${Math.floor(hcSleepMin / 60)} ч ${hcSleepMin % 60 ? (hcSleepMin % 60 + ' мин') : ''} (${sleepEntry.bedTime || '23:48'} – ${sleepEntry.wakeTime || '06:08'}) [${isSleepFromHC ? 'часы / Health Connect' : 'Ручной чек-ин'}]`
     : 'нет данных за сегодня';
 
   const reportLines = [
@@ -7011,8 +7011,8 @@ function renderHealthDiagnosticsContent() {
     `Системный сервис Health Connect: ${hcApp}`,
     `Шагов насчитано телефоном: ${phoneStepsToday}`,
     `Шагов в Health Connect (все источники): ${hcTotalToday}`,
-    `Шагов с часов (Zepp и др.): ${hcWatchToday}`,
-    `Сон из Health Connect (Zepp): ${sleepStr}`,
+    `Шагов с часов: ${hcWatchToday}`,
+    `Сон из Health Connect: ${sleepStr}`,
     `Последний синк: ${lastSyncStr}`,
     `Статус Health Connect: ${hcLastError || 'нет данных'}`,
     `Активный приоритет в FitFlow: ${state.healthSync.priority}`,
@@ -7029,9 +7029,9 @@ function renderHealthDiagnosticsContent() {
     <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
     <div style="margin-bottom:6px"><strong>📊 Шагов телефоном за сегодня:</strong> ${fmt(phoneStepsToday)}</div>
     <div style="margin-bottom:6px"><strong>⌚ Шагов в Health Connect (все источники):</strong> ${fmt(hcTotalToday)}</div>
-    <div style="margin-bottom:6px"><strong>⌚ Шагов с часов (Zepp и др.):</strong> ${fmt(hcWatchToday)}</div>
+    <div style="margin-bottom:6px"><strong>⌚ Шагов с часов:</strong> ${fmt(hcWatchToday)}</div>
     ${unknownWatchSource ? '<div style="margin-bottom:8px; padding:8px; background:rgba(230,150,20,0.12); border-radius:6px; font-size:12px;"><strong>⚠️ Источник часов не распознан:</strong> в Health Connect есть шаги, но браслет/часы не из известного списка. Посмотрите «источники» в статусе выше и сообщите пакет приложения — добавим его в поддерживаемые.</div>' : ''}
-    <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect / Zepp):</strong> ${sleepStr}</div>
+    <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect):</strong> ${sleepStr}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
     ${hcLastError && !String(hcLastError).toLowerCase().startsWith('ok') ? '<div style="margin-bottom:8px; padding:8px; background:rgba(220,50,50,0.1); border-radius:6px; font-size:12px;"><strong>⚠️ Health Connect статус:</strong> ' + escapeHtml(hcLastError) + '</div>' : ''}
     <div style="margin-bottom:8px; display:flex; flex-direction:column; gap:6px;">
@@ -7039,12 +7039,11 @@ function renderHealthDiagnosticsContent() {
       <button class="btn btn-ghost" type="button" onclick="openHCSettingsSystem()" style="font-size:12px; padding:6px 12px">⚙️ Открыть Health Connect в системе</button>
     </div>
     <div style="margin-top:10px; padding:10px; background:rgba(0,105,107,0.08); border-radius:8px; font-size:12px; line-height:1.45;">
-      <strong>📌 Как передать шаги и сон из Zepp (Amazfit):</strong><br>
-      1. Откройте приложение <strong>Zepp</strong> на телефоне.<br>
-      2. Перейдите: <em>Профиль → Добавить учётные записи → Health Connect</em>.<br>
-      3. Включите переключатели синхронизации шагов и сна.<br>
-      4. Стяните экран вниз на Главной в Zepp (синхронизация с часами).<br>
-      5. В FitFlow нажмите «🔄 Загрузить данные из Health Connect».
+      <strong>📌 Как передать шаги и сон с часов или браслета:</strong><br>
+      1. Откройте официальное приложение ваших часов (Huawei Health, Zepp, Samsung Health, Mi Fitness и др.).<br>
+      2. В его настройках найдите пункт передачи данных в <strong>Health Connect</strong> (часто: Профиль → Аккаунты/Доступ → Health Connect) и включите шаги и сон.<br>
+      3. Синхронизируйте часы с этим приложением (обычно — свайп вниз на главном экране приложения).<br>
+      4. Вернитесь в FitFlow — данные подхватятся сами, или нажмите «🔄 Загрузить данные из Health Connect».
     </div>
   `;
 }
@@ -7223,7 +7222,7 @@ if (typeof window !== 'undefined') {
         durationMin: receivedSleepMin,
         bedTime: bedTime || existing.bedTime || '23:48',
         wakeTime: wakeTime || existing.wakeTime || '06:08',
-        source: 'Zepp / Health Connect',
+        source: 'часы / Health Connect',
         rating: existing.rating || 4
       };
 
@@ -10740,7 +10739,7 @@ const HELP_TOPICS = {
   },
   'sleep-checkin': {
     title: 'Чек-ин сна',
-    text: '• Контроль восстановления:\nУтренняя оценка качества сна, учёт времени отбоя/подъёма и объективные данные с часов (Zepp / Amazfit).\n\n• Регулярность:\nСоблюдение графика сна сильнее всего влияет на самочувствие и восстановление.'
+    text: '• Контроль восстановления:\nУтренняя оценка качества сна, учёт времени отбоя/подъёма и объективные данные с часов или браслета (любого производителя).\n\n• Регулярность:\nСоблюдение графика сна сильнее всего влияет на самочувствие и восстановление.'
   }
 };
 
@@ -10773,12 +10772,12 @@ function closeHelpTopicDialog() {
    и ответ). Не требует сети, ключей и регистрации.
 ============================================================ */
 const FAQ_ITEMS = [
-  { q: 'Как FitFlow получает шаги с часов?', a: 'Через системный Android Health Connect — это «мост» между приложениями. Часы/браслет (Zepp, Amazfit, Huawei, Honor, Xiaomi, Samsung, Garmin и др.) пишут шаги и сон в Health Connect, а FitFlow оттуда их читает. Напрямую с часов приложение данные не берёт.' },
-  { q: 'Почему шаги с часов появляются только после открытия Zepp?', a: 'Android запрещает одному приложению принудительно синхронизировать другое. Момент, когда Zepp выгружает данные часов в Health Connect, решает сам Zepp — обычно при открытии приложения или его фоновой синхронизации.\nКак ускорить: откройте Zepp и стяните главный экран вниз (синхронизация), затем вернитесь в FitFlow — данные подхватятся сами.' },
-  { q: 'На часах 170 шагов, а FitFlow показывает меньше. Почему?', a: 'FitFlow показывает то, что уже попало в Health Connect. Если Zepp ещё не синхронизировался, свежие шаги часов в Health Connect отсутствуют — это задержка Zepp, а не ошибка FitFlow. Мы не выдумываем цифры.' },
-  { q: 'Как настроить Health Connect и часы?', a: '1) В Zepp (или приложении ваших часов): Профиль → Добавить аккаунты → Health Connect, включите передачу шагов и сна.\n2) В FitFlow: Настройки → Шаги и синхронизация → «⚙️ Системные разрешения Health Connect» и разрешите чтение.\n3) Синхронизируйте часы в их приложении — и данные появятся в FitFlow.' },
+  { q: 'Как FitFlow получает шаги с часов?', a: 'Через системный Android Health Connect — это «мост» между приложениями. Часы или браслет (любого производителя) пишут шаги и сон в Health Connect, а FitFlow оттуда их читает. Напрямую с часов приложение данные не берёт.' },
+  { q: 'Почему шаги с часов появляются не сразу?', a: 'Android запрещает одному приложению принудительно синхронизировать другое. Момент, когда приложение часов выгружает данные в Health Connect, решает оно само — обычно при открытии или фоновой синхронизации.\nКак ускорить: откройте приложение ваших часов и синхронизируйте их (часто — свайп вниз на главном экране), затем вернитесь в FitFlow — данные подхватятся сами.' },
+  { q: 'На часах больше шагов, чем показывает FitFlow. Почему?', a: 'FitFlow показывает то, что уже попало в Health Connect. Если приложение часов ещё не синхронизировалось, свежие шаги в Health Connect отсутствуют — это задержка приложения часов, а не ошибка FitFlow. Мы не выдумываем цифры.' },
+  { q: 'Как настроить Health Connect и часы?', a: '1) В приложении ваших часов (Huawei Health, Zepp, Samsung Health, Mi Fitness и др.): найдите передачу данных в Health Connect и включите шаги и сон.\n2) В FitFlow: Настройки → Шаги и синхронизация → «⚙️ Системные разрешения Health Connect» и разрешите чтение.\n3) Синхронизируйте часы в их приложении — и данные появятся в FitFlow.' },
   { q: 'Что значит «Авто / Только телефон / Только часы»?', a: '«Авто» — часы в приоритете: если за сегодня есть шаги с часов, показываются они, иначе шагомер телефона.\n«Только часы» — только данные часов из Health Connect.\n«Только телефон» — только аппаратный шагомер телефона. Источники никогда не суммируются.' },
-  { q: 'Сон с часов — как это работает?', a: 'Если часы пишут сон в Health Connect, FitFlow подтянет длительность и время отбоя/подъёма автоматически (помечается источником «Zepp / Health Connect»). Вручную сон тоже можно отметить в чек-листе дня.' },
+  { q: 'Сон с часов — как это работает?', a: 'Если часы пишут сон в Health Connect, FitFlow подтянет длительность и время отбоя/подъёма автоматически (помечается источником «часы / Health Connect»). Вручную сон тоже можно отметить в чек-листе дня.' },
   { q: 'Что такое «Помощник FitFlow» и встроенный анализ?', a: 'Кнопка ✨ в шапке. «Встроенный анализ» мгновенно считает рецепты, КБЖУ и отчёты по вашей статистике на базе 960+ продуктов — полностью офлайн, без сети. «Спросить» отвечает на вопросы о питании.' },
   { q: 'Как подключить нейросеть на устройстве (офлайн)?', a: 'Скачайте файл модели Gemma в формате .litertlm (около 1–2 ГБ), в Настройках → Помощник FitFlow выберите «📁 Файл модели» и укажите его. Дальше нейросеть отвечает без интернета, ключей и регистрации. Модель в APK не входит и хранится на вашем устройстве.' },
   { q: 'Нужен ли интернет для работы приложения?', a: 'Нет. Вода, питание, активность, статистика, напоминания, виджет и встроенный анализ работают полностью офлайн. Сеть используется только если вы сами включите облачный ИИ (BYOK) — и только для текста текущего вопроса.' },

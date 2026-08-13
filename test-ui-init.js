@@ -1474,7 +1474,7 @@ for (const id of ids) {
   const okJs = appR.includes('function resolveHealthSteps')
     && appR.includes("resolveHealthSteps(state.healthSync.priority")
     && appR.includes('hcTotalStepsToday')
-    && appR.includes('Шагов с часов (Zepp и др.)');
+    && appR.includes('Шагов с часов:');
   if (!okJs) failed++;
   console.log(`${okJs ? '✓' : '✗'} 0.7.10 JS: приоритет источника решает resolveHealthSteps, диагностика разделяет часы и все источники`);
 

@@ -23,6 +23,10 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.12** (инструкции без привязки к конкретным часам):
+  - 🌐 FAQ/справка/диагностика/метка источника обобщены: «часы / Health Connect» вместо «Zepp / Health Connect».
+  - ⌚ Нативный пакет 0.8.11 применён (workflow заменён владельцем): backfill шагов (P28) + экспорт тренировок в HC.
+  - 🔢 **Синхронизация версии**: `0.8.12` во всех файлах.
 - Версия приложения: **0.8.11** (нативный пакет: backfill шагов + экспорт в Health Connect):
   - 📊 Kotlin `readStepsHistory` + мост `syncHealthStepsHistory` + JS `mergeStepsBackfill` (P28, раз в сутки).
   - ⤴ Kotlin `insertWorkoutSession` + мост `exportWorkoutToHealthConnect` + кнопка ⤴ у записи; манифест `WRITE_EXERCISE`.

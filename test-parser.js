@@ -1357,7 +1357,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const now = 1753000000000;
   // Часы есть за сегодня (неважно, как давно синхронизировались) → часы
   const watchAny = resolveHealthSteps('auto', W, P, now - 3 * 60 * 60 * 1000, now);
-  if (!(watchAny.steps === W && watchAny.source === 'Zepp / Health Connect')) bad++;
+  if (!(watchAny.steps === W && watchAny.source === 'часы / Health Connect')) bad++;
   // Часов за сегодня нет (сняты на весь день) → телефон
   const noWatch = resolveHealthSteps('auto', 0, P, now, now);
   if (!(noWatch.steps === P && noWatch.source === 'шагомер телефона')) bad++;
