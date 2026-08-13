@@ -1499,13 +1499,14 @@ for (const id of ids) {
   const html = fs.readFileSync('index.html', 'utf8');
   const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
 
-  // JS: свежесть часов в «Авто» + честная подсказка о нераспознанном источнике
-  const okJs = appR.includes('WATCH_FRESH_MS')
+  // JS: «Авто» = часы приоритет, авто-обновление при входе, честная подсказка о возрасте данных часов
+  const okJs = appR.includes('function resolveHealthSteps')
+    && appR.includes('refreshHealthDataOnResume')
     && appR.includes('watchLastTs')
-    && appR.includes('часы неактивны')
+    && appR.includes('последние шаги часов в')
     && appR.includes('unknownWatchSource');
   if (!okJs) failed++;
-  console.log(`${okJs ? '✓' : '✗'} 0.7.11 JS: свежесть часов в «Авто» + подсказка о нераспознанном источнике`);
+  console.log(`${okJs ? '✓' : '✗'} 0.7.11 JS: часы приоритет в «Авто», авто-обновление при входе, подсказка о возрасте данных часов`);
 
   // Натив: расширенный список производителей часов + метка свежести + авто-номер сборки + страховка зеркала
   const okNative = mirror.includes('com.huawei.health')

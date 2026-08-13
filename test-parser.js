@@ -1347,27 +1347,27 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok15 ? '✓' : '✗'} 0.7.10 шаги: приоритет авто/телефон/часы не складывает источники (часы 8354 ≠ сумма 15755)`);
 }
 
-// ===== 0.7.11: свежесть данных часов в «Авто» (снятые часы не «замораживают» счётчик) =====
+// ===== 0.7.12: «Авто» = часы приоритет; возраст данных не переключает источник =====
 {
   let bad = 0;
   const W = 8354;
   const P = 7401;
   const now = 1753000000000;
-  // Часы «свежие» (10 минут назад) → авто выбирает часы
-  const fresh = resolveHealthSteps('auto', W, P, now - 10 * 60 * 1000, now);
-  if (!(fresh.steps === W && fresh.source === 'Zepp / Health Connect')) bad++;
-  // Часы «сняты» (3 часа назад), человек ходит с телефоном → авто берёт телефон
-  const stale = resolveHealthSteps('auto', W, P, now - 3 * 60 * 60 * 1000, now);
-  if (!(stale.steps === P && stale.source.includes('часы неактивны'))) bad++;
-  // Явный «Только часы» не зависит от свежести — показываем данные часов как есть
-  const watchOnlyStale = resolveHealthSteps('health_connect_only', W, P, now - 3 * 60 * 60 * 1000, now);
-  if (!(watchOnlyStale.steps === W)) bad++;
-  // Метки времени нет (старый натив) → считаем часы свежими (совместимость)
-  const noTs = resolveHealthSteps('auto', W, P, 0, now);
-  if (!(noTs.steps === W)) bad++;
+  // Часы есть за сегодня (неважно, как давно синхронизировались) → часы
+  const watchAny = resolveHealthSteps('auto', W, P, now - 3 * 60 * 60 * 1000, now);
+  if (!(watchAny.steps === W && watchAny.source === 'Zepp / Health Connect')) bad++;
+  // Часов за сегодня нет (сняты на весь день) → телефон
+  const noWatch = resolveHealthSteps('auto', 0, P, now, now);
+  if (!(noWatch.steps === P && noWatch.source === 'шагомер телефона')) bad++;
+  // Явный «Только телефон» — всегда телефон, даже если часы есть
+  const phoneOnly = resolveHealthSteps('phone_only', W, P, 0, now);
+  if (!(phoneOnly.steps === P)) bad++;
+  // «Только часы» без данных часов → честный 0
+  const watchNone = resolveHealthSteps('health_connect_only', 0, P, 0, now);
+  if (!(watchNone.steps === 0 && watchNone.source.includes('нет данных'))) bad++;
   const ok16 = bad === 0;
   if (!ok16) failed++;
-  console.log(`${ok16 ? '✓' : '✗'} 0.7.11 шаги: «Авто» отдаёт приоритет свежим часам, снятые часы → телефон (без заморозки)`);
+  console.log(`${ok16 ? '✓' : '✗'} 0.7.12 шаги: «Авто» = часы приоритет (Zepp-лаг не считается «снятыми часами»), без часов → телефон`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
