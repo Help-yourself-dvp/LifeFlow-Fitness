@@ -1,6 +1,6 @@
 {
   "name": "fitflow",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "description": "FitFlow — офлайн-фитнес-трекер (Capacitor/WebView, Material 3, светлая/тёмная тема)",
   "private": true,
   "main": "index.html",

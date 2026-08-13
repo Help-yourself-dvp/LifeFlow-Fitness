@@ -23,6 +23,10 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.9** (план тренировок по дням недели):
+  - 📅 `state.strengthPlan` (schemaVersion 5) + `normalizeStrengthPlanList`/`togglePlanDay`/`renderStrengthPlan`/`isPlanDoneToday`; блок `#strength-plan`.
+  - ✅ Только JS/HTML/CSS — нативный мост не менялся.
+  - 🔢 **Синхронизация версии**: `0.8.9` во всех файлах.
 - Версия приложения: **0.8.8** (шаблоны силовых тренировок):
   - ⭐ `state.strengthTemplates` (schemaVersion 4) + `normalizeStrengthTemplatesList`/`saveStrengthTemplate`/`startStrengthFromTemplate`/`deleteStrengthTemplate`.
   - ✅ Только JS/CSS — нативный мост не менялся.

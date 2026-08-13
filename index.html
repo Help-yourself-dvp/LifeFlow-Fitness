@@ -553,6 +553,17 @@
         </div></div>
       </section>
 
+      <!-- ===== 0.8.9: план тренировок по дням недели ===== -->
+      <section class="collapsible-block strength-plan-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-plan-content" aria-expanded="false">
+          <span>📅 План тренировок</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-plan-content"><div>
+          <p class="training-hint">Назначьте шаблоны дням недели — приложение подскажет «что сегодня» и отметит выполненное (тренировка с именем шаблона, сохранённая сегодня).</p>
+          <div class="strength-plan" id="strength-plan"></div>
+        </div></div>
+      </section>
+
       <form id="training-form" class="training-form" autocomplete="off">
         <section class="collapsible-block activity-templates-section">
           <button class="collapsible-toggle" type="button" data-collapse-target="activity-templates-content" aria-expanded="false">
@@ -1188,7 +1199,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.8 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.9 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

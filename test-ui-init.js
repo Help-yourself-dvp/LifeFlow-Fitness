@@ -1893,5 +1893,28 @@ for (const id of ids) {
   console.log(`${okVer088 ? '✓' : '✗'} 0.8.8 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.9 (план тренировок по дням недели) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okPlan = appR.includes('strengthPlan: []')
+    && appR.includes('function normalizeStrengthPlanList')
+    && appR.includes('function togglePlanDay')
+    && appR.includes('function renderStrengthPlan')
+    && appR.includes('function isPlanDoneToday')
+    && appR.includes('STRENGTH_PLAN_DAYS')
+    && html.includes('id="strength-plan"')
+    && html.includes('data-collapse-target="strength-plan-content"')
+    && css.includes('.strength-plan-day');
+  if (!okPlan) failed++;
+  console.log(`${okPlan ? '✓' : '✗'} 0.8.9 план тренировок: дни недели + «выполнить» + отметка выполненного`);
+
+  const okVer089 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer089) failed++;
+  console.log(`${okVer089 ? '✓' : '✗'} 0.8.9 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2657,16 +2657,17 @@ const DEFAULTS = {
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
   strengthSessions: [], // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
-  strengthTemplates: [] // 0.8.8: шаблоны силовых («День груди», «Фулбоди»…)
+  strengthTemplates: [], // 0.8.8: шаблоны силовых («День груди», «Фулбоди»…)
+  strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.8';
+const FITFLOW_VERSION = '0.8.9';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
 // сюда при каждом изменении формата (v < N → преобразование).
-const STATE_SCHEMA_VERSION = 4;
+const STATE_SCHEMA_VERSION = 5;
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2906,7 +2907,8 @@ const state = {
   customMealTypes: [],
   theme: null,
   strengthSessions: [], // 0.8.4
-  strengthTemplates: [] // 0.8.8
+  strengthTemplates: [], // 0.8.8
+  strengthPlan: [] // 0.8.9
 };
 
 function isValidReminderTime(time) {
@@ -4292,6 +4294,10 @@ function migrateStateSchema() {
   if ((state.schemaVersion || 0) < 4 && !Array.isArray(state.strengthTemplates)) {
     state.strengthTemplates = [];
   }
+  // 0.8.9: план тренировок.
+  if ((state.schemaVersion || 0) < 5 && !Array.isArray(state.strengthPlan)) {
+    state.strengthPlan = [];
+  }
   state.schemaVersion = STATE_SCHEMA_VERSION;
 }
 
@@ -4330,6 +4336,7 @@ function loadState() {
   normalizeWorkouts();
   normalizeStrengthSessions();
   normalizeStrengthTemplates();
+  normalizeStrengthPlan();
   normalizeActivityTemplates();
   normalizeWaterReminders();
   normalizeDayChecklist();
@@ -8571,8 +8578,115 @@ function startStrengthFromTemplate(id) {
 function deleteStrengthTemplate(id) {
   normalizeStrengthTemplates();
   state.strengthTemplates = state.strengthTemplates.filter((t) => t.id !== id);
+  // 0.8.9: убираем из плана записи удалённого шаблона.
+  normalizeStrengthPlan();
+  state.strengthPlan = state.strengthPlan.filter((p) => p.templateId !== id);
   saveState();
   renderStrengthDiary();
+  renderStrengthPlan();
+}
+
+/* ============================================================
+   📅 План тренировок (0.8.9): шаблоны по дням недели.
+   Минимально: назначаете шаблон дням — приложение подсказывает
+   «что сегодня» и отмечает выполненное (сессия с именем шаблона
+   сохранена сегодня). Ссылка на шаблон, не копия упражнений.
+============================================================ */
+const STRENGTH_PLAN_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+function strengthTodayDow() {
+  return (new Date().getDay() + 6) % 7; // 0=Пн … 6=Вс
+}
+
+function normalizeStrengthPlanList(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter((p) => p && typeof p === 'object' && typeof p.templateId === 'string' && p.templateId)
+    .map((p) => {
+      const days = Array.from(new Set((Array.isArray(p.days) ? p.days : [])
+        .map(Number)
+        .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))).sort((a, b) => a - b);
+      return { id: String(p.id || uid()), templateId: p.templateId, days };
+    })
+    .filter((p) => p.days.length > 0 && !seen.has(p.templateId) && seen.add(p.templateId))
+    .slice(0, 24);
+}
+
+function normalizeStrengthPlan() {
+  state.strengthPlan = normalizeStrengthPlanList(state.strengthPlan);
+}
+
+function togglePlanDay(templateId, day) {
+  normalizeStrengthPlan();
+  const entry = state.strengthPlan.find((p) => p.templateId === templateId);
+  if (!entry) {
+    if (day == null) return;
+    state.strengthPlan.push({ id: uid(), templateId, days: [day] });
+  } else {
+    const idx = entry.days.indexOf(day);
+    if (idx >= 0) entry.days.splice(idx, 1);
+    else if (day != null) entry.days.push(day);
+    if (!entry.days.length) state.strengthPlan = state.strengthPlan.filter((p) => p.templateId !== templateId);
+  }
+  normalizeStrengthPlan();
+  saveState();
+  renderStrengthPlan();
+}
+
+/* Выполнена ли тренировка по шаблону сегодня (сессия с тем же именем). */
+function isPlanDoneToday(templateId) {
+  const t = (state.strengthTemplates || []).find((x) => x.id === templateId);
+  if (!t) return false;
+  const name = t.name.toLowerCase();
+  return (state.strengthSessions || []).some((s) => s.date === todayKey() && String(s.title || '').toLowerCase() === name);
+}
+
+function renderStrengthPlan() {
+  if (typeof document === 'undefined') return;
+  const box = $('#strength-plan');
+  if (!box) return;
+  const templates = state.strengthTemplates || [];
+  const plan = normalizeStrengthPlanList(state.strengthPlan);
+  const dow = strengthTodayDow();
+
+  let html = '';
+  if (!templates.length) {
+    box.innerHTML = '<p class="strength-empty">Сначала сохраните шаблон тренировки — затем назначьте его дням недели.</p>';
+    return;
+  }
+
+  // «Сегодня по плану»
+  const todayPlan = plan.filter((p) => p.days.includes(dow))
+    .map((p) => templates.find((t) => t.id === p.templateId)).filter(Boolean);
+  html += '<p class="strength-plan-today">Сегодня · ' + STRENGTH_PLAN_DAYS[dow] + '</p>';
+  if (todayPlan.length) {
+    html += '<div class="strength-plan-today-list">';
+    todayPlan.forEach((t) => {
+      const done = isPlanDoneToday(t.id);
+      html += `<div class="strength-plan-today-row">
+        <span class="strength-plan-name">${done ? '✅' : '⬜'} ${escapeHtml(t.name)}</span>
+        ${done ? '<span class="strength-plan-done">выполнено</span>'
+          : `<button class="watch-btn watch-btn-add" type="button" data-s-plan-start="${escapeHtml(t.id)}">Выполнить</button>`}
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<p class="strength-empty">На сегодня ничего не назначено — отметьте дни ниже.</p>';
+  }
+
+  // Сетка: шаблон × дни недели
+  html += '<div class="strength-plan-grid">';
+  html += '<div class="strength-plan-head"><span>Шаблон</span>' + STRENGTH_PLAN_DAYS.map((d) => `<span>${d}</span>`).join('') + '</div>';
+  templates.forEach((t) => {
+    const entry = plan.find((p) => p.templateId === t.id) || { days: [] };
+    html += `<div class="strength-plan-row"><span class="strength-plan-name">${escapeHtml(t.name)}</span>`
+      + STRENGTH_PLAN_DAYS.map((d, i) =>
+        `<button type="button" class="strength-plan-day${entry.days.includes(i) ? ' on' : ''}" data-s-plan-day="${escapeHtml(t.id)}" data-s-plan-dow="${i}" aria-pressed="${entry.days.includes(i)}" aria-label="${escapeHtml(t.name)} — ${d}">${d}</button>`).join('')
+      + '</div>';
+  });
+  html += '</div>';
+
+  box.innerHTML = html;
 }
 
 /* Черновик (в памяти, до сохранения) и текущая группа в выборе упражнения. */
@@ -8900,6 +9014,7 @@ function renderTraining() {
   renderWatchWorkoutsSuggest(); // 0.8.0: подсказка «нашли тренировку с часов»
   renderStrengthDiary(); // 0.8.4: дневник силовых
   renderStrengthHistory(); // 0.8.5: рекорды и история силовых
+  renderStrengthPlan(); // 0.8.9: план тренировок по дням недели
 }
 
 async function syncTrainingReminderForToday() {
@@ -12006,6 +12121,13 @@ function init() {
     const delTpl = e.target.closest('[data-s-del-template]');
     if (delTpl) return deleteStrengthTemplate(delTpl.dataset.sDelTemplate);
   });
+  // 0.8.9: план тренировок — назначить день / выполнить сегодня
+  $('#strength-plan').addEventListener('click', (e) => {
+    const dayBtn = e.target.closest('[data-s-plan-day]');
+    if (dayBtn) return togglePlanDay(dayBtn.dataset.sPlanDay, Number(dayBtn.dataset.sPlanDow));
+    const startBtn = e.target.closest('[data-s-plan-start]');
+    if (startBtn) return startStrengthFromTemplate(startBtn.dataset.sPlanStart);
+  });
   $('#strength-diary').addEventListener('input', (e) => {
     if (e.target.hasAttribute && e.target.hasAttribute('data-s-title')) {
       strengthDraft.title = e.target.value;
@@ -14471,6 +14593,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow
   };
 }

@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1558,6 +1558,28 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok21 = bad === 0;
   if (!ok21) failed++;
   console.log(`${ok21 ? '✓' : '✗'} 0.8.8 шаблоны силовых: дедуп по имени, пустые/мусор отсеяны`);
+}
+
+// ===== 0.8.9: план тренировок — нормализация по дням недели =====
+{
+  let bad = 0;
+  const plan = normalizeStrengthPlanList([
+    { id: 'a', templateId: 't1', days: [0, 2, 4, 2] },       // дубль дня убирается
+    { id: 'b', templateId: 't1', days: [1] },                // дубль templateId отсеян
+    { id: 'c', templateId: 't2', days: [7, -1, 3] },         // вне 0..6 отсеяны
+    { id: 'd', templateId: 't3', days: [] },                 // пустые дни отсеяны
+    { id: 'e', templateId: '', days: [1] },                  // пустой templateId
+    null
+  ]);
+  if (!(plan.length === 2)) bad++;
+  const t1 = plan.find((p) => p.templateId === 't1');
+  const t2 = plan.find((p) => p.templateId === 't2');
+  if (!(t1 && t1.days.length === 3 && t1.days[0] === 0 && t1.days[2] === 4)) bad++;
+  if (!(t2 && t2.days.length === 1 && t2.days[0] === 3)) bad++;
+  if (normalizeStrengthPlanList(undefined).length !== 0) bad++;
+  const ok22 = bad === 0;
+  if (!ok22) failed++;
+  console.log(`${ok22 ? '✓' : '✗'} 0.8.9 план тренировок: дедуп шаблона/дня, отсев мусора, дни 0..6`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

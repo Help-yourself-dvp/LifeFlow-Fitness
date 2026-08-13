@@ -2482,6 +2482,38 @@ html[data-theme="dark"] .segmented button.active {
 .strength-template-info strong { font-size: 0.8rem; }
 .strength-template-info span { font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-template-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+/* План тренировок (0.8.9) */
+.strength-plan-section { text-align: left; }
+.strength-plan { display: grid; gap: 10px; text-align: left; }
+.strength-plan-today { margin: 0; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-primary); }
+.strength-plan-today-list { display: grid; gap: 4px; }
+.strength-plan-today-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.strength-plan-name { font-size: 0.78rem; min-width: 0; }
+.strength-plan-done { font-size: 0.72rem; color: var(--md-sys-color-primary); font-weight: 600; }
+.strength-plan-grid { display: grid; gap: 4px; }
+.strength-plan-head, .strength-plan-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1.3fr) repeat(7, 1fr);
+  gap: 3px;
+  align-items: center;
+}
+.strength-plan-head span { font-size: 0.66rem; color: var(--md-sys-color-on-surface-variant); text-align: center; }
+.strength-plan-head span:first-child { text-align: left; }
+.strength-plan-day {
+  padding: 5px 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-align: center;
+}
+.strength-plan-day.on {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-color: transparent;
+}
 .strength-history-list { display: grid; gap: 4px; }
 .strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 
