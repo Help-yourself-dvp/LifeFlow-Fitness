@@ -329,8 +329,10 @@ html[data-theme="dark"] .icon-sun { display: none; }
   color: var(--md-sys-color-on-primary-container);
   border-color: transparent;
 }
-/* Цели перехода не должны прятаться под шапкой и панелью */
-#home-cards > * { scroll-margin-top: calc(var(--quicknav-top, 64px) + 52px); }
+/* Цели перехода не должны прятаться под шапкой и панелью.
+   0.8.14: единый оффсет (--quicknav-offset задаёт syncQuickNavTop) — тот же,
+   что и порог подсветки. */
+#home-cards > * { scroll-margin-top: var(--quicknav-offset, 116px); }
 
 .greeting-title {
   font-size: 1.55rem;

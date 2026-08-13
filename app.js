@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.13';
+const FITFLOW_VERSION = '0.8.14';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6322,7 +6322,19 @@ function renderHomeQuickNav() {
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
+  syncQuickNavTop(); // 0.8.14: держим оффсет актуальным (высота панели могла измениться)
   updateHomeQuickNavActive();
+}
+
+/* Единый оффсет прилипающей зоны: низ шапки + панель быстрого перехода + зазор.
+   Один и тот же для ПРОКРУТКИ по клику и для ПОРОГА подсветки — иначе они
+   разъезжаются и нажатый чип не подсвечивается (0.8.3). */
+function quicknavStickyOffset() {
+  if (typeof document === 'undefined') return 64;
+  const topbarH = (document.querySelector('.topbar') || {}).offsetHeight || 0;
+  const nav = $('#home-quicknav');
+  const navH = nav && nav.offsetHeight ? nav.offsetHeight : 44;
+  return topbarH + navH + 6;
 }
 
 /* Активный чип — последний раздел, чья карточка прошла верхнюю зону экрана.
@@ -6340,9 +6352,8 @@ function updateHomeQuickNavActive() {
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
   if (!chips.length) return;
   // 0.8.3: подсветку ведём по ВИЗУАЛЬНОМУ порядку карточек (как они стоят на
-  // экране), а не по фиксированному порядку чипов — иначе при пользовательской
-  // перестановке (напр. «Вес» выше «Воды») подсветка «съезжала». Карточки без
-  // чипа (например, «Шаги») просто пропускаются.
+  // экране), а не по фиксированному порядку чипов. Карточки без чипа («Шаги»)
+  // пропускаются.
   const cardsEl = $('#home-cards');
   const cards = cardsEl ? Array.from(cardsEl.children).filter((el) => el && !el.hidden) : [];
   const chipById = new Map(chips.map((c) => [c.dataset.jump, c]));
@@ -6350,7 +6361,8 @@ function updateHomeQuickNavActive() {
 
   let activeId = null;
   const doc = document.documentElement;
-  const atBottom = (window.innerHeight + (window.scrollY || doc.scrollTop || 0)) >= (doc.scrollHeight - 8);
+  const scrollTop = window.scrollY || doc.scrollTop || 0;
+  const atBottom = (window.innerHeight + scrollTop) >= (doc.scrollHeight - 8);
   if (atBottom) {
     // Внизу страницы активна последняя видимая карточка, у которой есть чип.
     for (let i = chippedCards.length - 1; i >= 0; i--) {
@@ -6358,12 +6370,13 @@ function updateHomeQuickNavActive() {
       break;
     }
   } else {
-    const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
-    // Порог — низ прилипающей панели + небольшой запас.
-    const threshold = topbarH + nav.offsetHeight + 8;
+    const threshold = quicknavStickyOffset();
     for (const card of chippedCards) {
       if (card.getBoundingClientRect().top <= threshold) activeId = card.id;
     }
+    // Выше первого раздела (приветствие видно, карточки ещё ниже) — подсвечиваем
+    // первый чип: он указывает, куда поедет экран при нажатии.
+    if (!activeId && chippedCards.length) activeId = chippedCards[0].id;
   }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
 }
@@ -6383,6 +6396,8 @@ function syncQuickNavTop() {
   if (typeof document === 'undefined') return;
   const topbar = document.querySelector('.topbar');
   if (topbar) document.documentElement.style.setProperty('--quicknav-top', `${topbar.offsetHeight}px`);
+  // 0.8.14: единый оффсет — и для scroll-margin, и для порога подсветки.
+  document.documentElement.style.setProperty('--quicknav-offset', `${quicknavStickyOffset()}px`);
 }
 
 function renderHomeLayoutSettings() {
@@ -12596,15 +12611,21 @@ function init() {
       }
     });
   });
-  // Быстрый переход по разделам Главной: плавная прокрутка к карточке
+  // Быстрый переход по разделам Главной: плавная прокрутка к карточке.
+  // 0.8.14: прокрутка через window.scrollTo с ЕДИНЫМ оффсетом (а не
+  // scrollIntoView + scroll-margin) — позиция приземления всегда совпадает
+  // с порогом подсветки, нажатый чип подсвечивается верно.
   $('#home-quicknav')?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-jump]');
     if (!chip) return;
     const target = document.getElementById(chip.dataset.jump);
     if (!target) return;
-    // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка
+    const offset = quicknavStickyOffset();
+    const current = window.scrollY || document.documentElement.scrollTop || 0;
+    const y = target.getBoundingClientRect().top + current - offset;
+    // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка.
     $$('#home-quicknav [data-jump]').forEach((c) => c.classList.toggle('active', c === chip));
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
   });
   syncQuickNavTop();
   window.addEventListener('resize', syncQuickNavTop);

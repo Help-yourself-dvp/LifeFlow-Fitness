@@ -1995,5 +1995,25 @@ for (const id of ids) {
   console.log(`${okVer0813 ? '✓' : '✗'} 0.8.13 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.14 (единый оффсет быстрого перехода) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // Прокрутка и порог подсветки используют ОДИН оффсет (иначе разъезжаются)
+  const okOffset = appR.includes('function quicknavStickyOffset')
+    && appR.includes('const threshold = quicknavStickyOffset();')
+    && appR.includes("window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })")
+    && appR.includes("document.documentElement.style.setProperty('--quicknav-offset'")
+    && css.includes('scroll-margin-top: var(--quicknav-offset, 116px)');
+  if (!okOffset) failed++;
+  console.log(`${okOffset ? '✓' : '✗'} 0.8.14 быстрый переход: прокрутка и подсветка — единый оффсет`);
+
+  const okVer0814 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0814) failed++;
+  console.log(`${okVer0814 ? '✓' : '✗'} 0.8.14 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
