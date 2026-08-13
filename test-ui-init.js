@@ -1735,5 +1735,28 @@ for (const id of ids) {
   console.log(`${okVer082 ? '✓' : '✗'} 0.8.2 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.3 (подсветка по визуальному порядку + фикс иконки весов) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Подсветка по визуальному порядку карточек, а не по фиксированному порядку чипов
+  const okNav = appR.includes("const chipById = new Map(chips.map((c) => [c.dataset.jump, c]))")
+    && appR.includes("chippedCards = cards.filter")
+    && appR.includes("const cardsEl = $('#home-cards')");
+  if (!okNav) failed++;
+  console.log(`${okNav ? '✓' : '✗'} 0.8.3 быстрый переход: подсветка по визуальному порядку карточек`);
+
+  // Иконка весов в диалоге не растягивается на весь экран (нет width:auto)
+  const okIcon = !html.includes('app-dialog-icon" aria-hidden="true" style="width:auto"')
+    && html.includes('width="26" height="26" viewBox="0 0 24 24"');
+  if (!okIcon) failed++;
+  console.log(`${okIcon ? '✓' : '✗'} 0.8.3 диалог веса: иконка весов фиксированного размера`);
+
+  const okVer083 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer083) failed++;
+  console.log(`${okVer083 ? '✓' : '✗'} 0.8.3 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2658,7 +2658,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.8.2';
+const FITFLOW_VERSION = '0.8.3';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6288,28 +6288,36 @@ function updateHomeQuickNavActive() {
   if (!nav || nav.hidden) return;
   // 0.8.1: не считаем подсветку, пока Главная скрыта — у скрытых карточек
   // getBoundingClientRect() отдаёт 0, и «активным» ошибочно становился
-  // последний чип («Вес») при переключении на другой экран и обратно.
+  // последний чип при переключении на другой экран и обратно.
   const homeView = $('#home-view');
   if (homeView && homeView.hidden) return;
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
   if (!chips.length) return;
+  // 0.8.3: подсветку ведём по ВИЗУАЛЬНОМУ порядку карточек (как они стоят на
+  // экране), а не по фиксированному порядку чипов — иначе при пользовательской
+  // перестановке (напр. «Вес» выше «Воды») подсветка «съезжала». Карточки без
+  // чипа (например, «Шаги») просто пропускаются.
+  const cardsEl = $('#home-cards');
+  const cards = cardsEl ? Array.from(cardsEl.children).filter((el) => el && !el.hidden) : [];
+  const chipById = new Map(chips.map((c) => [c.dataset.jump, c]));
+  const chippedCards = cards.filter((card) => chipById.has(card.id));
+
   let activeId = null;
-  // Находимся в самом низу страницы? Тогда активен последний видимый чип
-  // (иначе «Вес» в конце Главной не подсвечивается никогда).
   const doc = document.documentElement;
   const atBottom = (window.innerHeight + (window.scrollY || doc.scrollTop || 0)) >= (doc.scrollHeight - 8);
   if (atBottom) {
-    for (let i = chips.length - 1; i >= 0; i--) {
-      const el = document.getElementById(chips[i].dataset.jump);
-      if (el && !el.hidden) { activeId = chips[i].dataset.jump; break; }
+    // Внизу страницы активна последняя видимая карточка, у которой есть чип.
+    for (let i = chippedCards.length - 1; i >= 0; i--) {
+      activeId = chippedCards[i].id;
+      break;
     }
   } else {
     const topbarH = document.querySelector('.topbar')?.offsetHeight || 0;
-    const threshold = topbarH + nav.offsetHeight + 64;
-    chips.forEach((chip) => {
-      const el = document.getElementById(chip.dataset.jump);
-      if (el && !el.hidden && el.getBoundingClientRect().top <= threshold) activeId = chip.dataset.jump;
-    });
+    // Порог — низ прилипающей панели + небольшой запас.
+    const threshold = topbarH + nav.offsetHeight + 8;
+    for (const card of chippedCards) {
+      if (card.getBoundingClientRect().top <= threshold) activeId = card.id;
+    }
   }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
 }
