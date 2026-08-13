@@ -1561,5 +1561,25 @@ for (const id of ids) {
   console.log(`${okVer0713 ? '✓' : '✗'} 0.7.13 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.7.14 (полировка по прогону «трёх персонажей»: карточка шагов + a11y) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Карточка шагов при выключенной синхронизации не выглядит «мёртвой» (подсказка включить)
+  const okOffHint = appR.includes('Синхронизация выключена — включите в Настройках → Шаги');
+  if (!okOffHint) failed++;
+  console.log(`${okOffHint ? '✓' : '✗'} 0.7.14 карточка шагов: подсказка при выключенной синхронизации`);
+
+  // a11y: кликабельная метрика шагов имеет aria-label для скринридеров
+  const okA11y = html.includes('aria-label="Подробный расчёт шагов"');
+  if (!okA11y) failed++;
+  console.log(`${okA11y ? '✓' : '✗'} 0.7.14 a11y: aria-label у метрики шагов`);
+
+  const okVer0714 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0714) failed++;
+  console.log(`${okVer0714 ? '✓' : '✗'} 0.7.14 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

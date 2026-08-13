@@ -6,7 +6,7 @@
 > Репозиторий объединяет два будущих приложения: **FitFlow** (фитнес-трекер) и **LifeOps** (универсальный помощник).
 > Сейчас в разработке — **FitFlow**.
 
-Актуальная версия: **0.5.7** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
+Актуальная версия: **0.7.14** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
 
 ## Текущий этап
 
@@ -35,7 +35,8 @@
 - [x] Этап 0.5.5: рыба/икра и составные закуски в базе, PRO-код в бэкапе, пауза напоминаний воды, честный виджет и «⚙️» у воды (нативный пакет в зеркале), компактная недельная цель, LICENSE — см. [CHANGELOG.md](CHANGELOG.md)
 - [x] Этап 0.5.6: единое описание приложения APP_DESCRIPTION.md, авто-пауза напоминания воды (без переключателя), тихая вода извне, живые значки 🍽/✍️, самочувствие в 2 строки, лицензия полным окном и в условиях первого входа — см. [CHANGELOG.md](CHANGELOG.md)
 - [x] Этап 0.5.7: «Быстрый ввод» — кнопка «Разобрать» всегда на виду (полевой баг), уведомление воды — короткий текст «Сегодня: X из Y мл» — см. [CHANGELOG.md](CHANGELOG.md)
-- [ ] Перенос накопленных данных с localStorage на SQLite (отдельная версия с миграцией без потери данных)
+- [x] Этап 0.6.0 SQLite: sql.js WebAssembly + IndexedDB, Dual-Write с localStorage, авто-снимок перед миграцией и откат при ошибке — см. [CHANGELOG.md](CHANGELOG.md)
+- [x] Этап 0.7.x: шаги с часов через Android Health Connect (Zepp/Amazfit/Garmin/Xiaomi/Huawei/Honor/Samsung) + аппаратный шагомер телефона, приоритет источников, сон с часов, фоновое обновление виджета — см. [CHANGELOG.md](CHANGELOG.md)
 - [x] Сборка Android через GitHub Actions (Capacitor 5, постоянный debug.keystore, app-debug.apk)
 - [x] Компактный Android-виджет: вода, питание и активность за сегодня
 - [ ] Приложение LifeOps (напоминания, погода OpenWeatherMap, система хранения вещей)
@@ -103,7 +104,7 @@ node test-food-db.js   # аудит базы продуктов (согласо�
 
 - Чистые HTML/CSS/JS (без фреймворков — минимум зависимостей, быстро и надёжно в WebView)
 - Material 3 (цветовые токены `--md-sys-color-*`)
-- localStorage для хранения (позже — SQLite через Capacitor)
+- localStorage + SQLite (sql.js WebAssembly в IndexedDB, Dual-Write) — локально, без сервера
 - Парсер текстового ввода еды с локальной базой 960+ продуктов (ккал на 100 г / на штуку)
 - Нативный плагин `fitflow-local-ai` (LiteRT-LM) для нейросети Gemma на устройстве
 - Источники и лицензии пищевых данных: [DATA_SOURCES.md](DATA_SOURCES.md)

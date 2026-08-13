@@ -2606,7 +2606,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.13';
+const FITFLOW_VERSION = '0.7.14';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6465,15 +6465,22 @@ function renderStepsCard() {
   // показываем время последних шагов с часов, чтобы число не выглядело «застрявшим».
   if (hintEl) {
     const clock = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    const parts = [];
-    const ts = (state.healthSync && state.healthSync.lastSyncTs) || 0;
-    if (ts) parts.push('обновлено ' + clock(ts));
-    const watchTs = (state.healthSync && state.healthSync.watchLastTs) || 0;
-    if (watchTs > 0 && src.includes('Health Connect') && (Date.now() - watchTs) > 3600000) {
-      parts.push('часы: ' + clock(watchTs));
+    let text = '';
+    if (!state.healthSync.enabled) {
+      // 0.7.14: карточка не должна выглядеть «мёртвой», когда синхронизация выключена
+      text = 'Синхронизация выключена — включите в Настройках → Шаги';
+    } else {
+      const parts = [];
+      const ts = (state.healthSync && state.healthSync.lastSyncTs) || 0;
+      if (ts) parts.push('обновлено ' + clock(ts));
+      const watchTs = (state.healthSync && state.healthSync.watchLastTs) || 0;
+      if (watchTs > 0 && src.includes('Health Connect') && (Date.now() - watchTs) > 3600000) {
+        parts.push('часы: ' + clock(watchTs));
+      }
+      text = parts.join(' · ');
     }
-    hintEl.textContent = parts.join(' · ');
-    hintEl.hidden = parts.length === 0;
+    hintEl.textContent = text;
+    hintEl.hidden = !text;
   }
 
   if (barEl) {
