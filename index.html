@@ -1155,7 +1155,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.7.16 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.7.18 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1169,6 +1169,7 @@
             <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия (RU / EN / Библиотеки)</button>
             <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
             <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
+            <button class="btn btn-secondary" id="faq-open" type="button">❓ Частые вопросы (FAQ)</button>
             <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO · Как поддержать</button>
             <button class="btn btn-secondary" id="about-charity-open" type="button">🤝 Добрые дела · Отчёты</button>
           </div>
@@ -1250,6 +1251,19 @@
       <p class="app-dialog-text" id="help-text"></p>
       <div class="app-dialog-actions">
         <button class="btn btn-primary" id="help-ok" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== FAQ: частые вопросы с поиском (0.7.18, полностью офлайн) ===== -->
+  <div class="app-dialog-backdrop" id="faq-dialog" role="dialog" aria-modal="true" aria-labelledby="faq-title" hidden>
+    <section class="app-dialog faq-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">❓</div>
+      <h2 id="faq-title">Частые вопросы</h2>
+      <input type="search" class="form-input faq-search" id="faq-search" placeholder="Поиск по вопросам…" aria-label="Поиск по частым вопросам">
+      <div class="faq-list" id="faq-list"></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="faq-close" type="button">Понятно</button>
       </div>
     </section>
   </div>

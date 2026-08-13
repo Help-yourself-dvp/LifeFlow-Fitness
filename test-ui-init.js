@@ -1621,5 +1621,33 @@ for (const id of ids) {
   console.log(`${okVer0716 ? '✓' : '✗'} 0.7.16 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.7.18 (FAQ с поиском, офлайн) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okFaq = appR.includes('const FAQ_ITEMS = [')
+    && appR.includes('function renderFaqList')
+    && appR.includes('function openFaqDialog')
+    && appR.includes('FAQ_ITEMS.filter')
+    && html.includes('id="faq-dialog"')
+    && html.includes('id="faq-search"')
+    && html.includes('id="faq-open"')
+    && css.includes('.faq-list')
+    && css.includes('.faq-item');
+  if (!okFaq) failed++;
+  console.log(`${okFaq ? '✓' : '✗'} 0.7.18 FAQ: диалог с поиском (офлайн), кнопка в «О приложении»`);
+
+  // Троттлинг авто-синка снижен до 30 с (возврат из Zepp подхватывает данные)
+  const okThrottle = appR.includes('HEALTH_AUTO_READ_MIN_INTERVAL = 30 * 1000');
+  if (!okThrottle) failed++;
+  console.log(`${okThrottle ? '✓' : '✗'} 0.7.17: авто-синк при возврате — дебаунс 30 с вместо 5 минут`);
+
+  const okVer0718 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0718) failed++;
+  console.log(`${okVer0718 ? '✓' : '✗'} 0.7.18 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

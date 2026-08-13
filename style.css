@@ -2168,6 +2168,46 @@ html[data-theme="dark"] .segmented button.active {
   color: var(--md-sys-color-on-secondary-container);
 }
 
+/* ---------- FAQ с поиском (0.7.18) ---------- */
+.faq-dialog { text-align: left; }
+.faq-dialog h2 { text-align: center; }
+.faq-search { margin: 10px 0 12px; }
+.faq-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(52dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 4px;
+  text-align: left;
+}
+.faq-item {
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+}
+.faq-item strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--md-sys-color-primary);
+}
+.faq-item p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--md-sys-color-on-surface-variant);
+  white-space: pre-line;
+}
+.faq-empty {
+  padding: 16px 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.8;
+}
+
 .combo-list {
   display: flex;
   flex-direction: column;
