@@ -1514,6 +1514,7 @@ for (const id of ids) {
     && mirror.includes('com.sec.android.app.shealth')
     && mirror.includes('lastWatchEndMs')
     && mirror.includes('hc_watch_last_ts')
+    && mirror.includes('pageToken = stepsResponse.pageToken')
     && mirror.includes('Inject build number')
     && mirror.includes('активный workflow совпадает с зеркалом');
   if (!okNative) failed++;

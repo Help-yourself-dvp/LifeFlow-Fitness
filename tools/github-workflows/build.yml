@@ -1540,22 +1540,33 @@ jobs:
 
                       // 1. ШАГИ: читаем сырые записи и разделяем по источнику (часы vs телефон),
                       // чтобы приложение не складывало шаги телефона и часов.
-                      val stepsReq = ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
-                      val stepsResponse = runBlocking { client.readRecords(stepsReq) }
+                      // Читаем ПОСТРАНИЧНО: readRecords возвращает до 1000 записей за
+                      // страницу (pageSize по умолчанию) и pageToken при продолжении —
+                      // без цикла часть шагов за день могла бы молча потеряться.
                       var totalSteps = 0L
                       var watchSteps = 0L
                       var watchLastEndMs = 0L
                       val origins = mutableMapOf<String, Long>()
-                      for (record in stepsResponse.records) {
-                          val pkg = record.metadata.dataOrigin?.packageName ?: ""
-                          val endMs = record.endTime.toEpochMilli()
-                          totalSteps += record.count
-                          origins[pkg] = (origins[pkg] ?: 0L) + record.count
-                          if (WEARABLE_PACKAGES.contains(pkg)) {
-                              watchSteps += record.count
-                              if (endMs > watchLastEndMs) watchLastEndMs = endMs
+                      var pageToken: String? = null
+                      do {
+                          val stepsReq = ReadRecordsRequest(
+                              recordType = StepsRecord::class,
+                              timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay),
+                              pageToken = pageToken
+                          )
+                          val stepsResponse = runBlocking { client.readRecords(stepsReq) }
+                          for (record in stepsResponse.records) {
+                              val pkg = record.metadata.dataOrigin?.packageName ?: ""
+                              val endMs = record.endTime.toEpochMilli()
+                              totalSteps += record.count
+                              origins[pkg] = (origins[pkg] ?: 0L) + record.count
+                              if (WEARABLE_PACKAGES.contains(pkg)) {
+                                  watchSteps += record.count
+                                  if (endMs > watchLastEndMs) watchLastEndMs = endMs
+                              }
                           }
-                      }
+                          pageToken = stepsResponse.pageToken
+                      } while (pageToken != null)
                       lastWatchEndMs = watchLastEndMs
 
                       // 2. СОН: ночная сессия пересекает полночь, поэтому окно с 18:00
