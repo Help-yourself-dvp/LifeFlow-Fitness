@@ -1996,19 +1996,18 @@ for (const id of ids) {
 }
 
 {
-  // ===================== 0.8.14 (единый оффсет быстрого перехода) =====================
+  // ===================== 0.8.15 (быстрый переход: порог и прокрутка по фактическому низу панели) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('style.css', 'utf8');
 
-  // Прокрутка и порог подсветки используют ОДИН оффсет (иначе разъезжаются)
-  const okOffset = appR.includes('function quicknavStickyOffset')
-    && appR.includes('const threshold = quicknavStickyOffset();')
-    && appR.includes("window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })")
-    && appR.includes("document.documentElement.style.setProperty('--quicknav-offset'")
-    && css.includes('scroll-margin-top: var(--quicknav-offset, 116px)');
+  // Порог подсветки и цель прокрутки = фактический низ панели (getBoundingClientRect)
+  const okOffset = appR.includes("const threshold = nav.getBoundingClientRect().bottom + 2;")
+    && appR.includes("const navBottom = quicknavEl.getBoundingClientRect().bottom;")
+    && appR.includes("const y = targetTop + current - navBottom;")
+    && appR.includes('quicknavEl._settleTimer = setTimeout(updateHomeQuickNavActive, 700);');
   if (!okOffset) failed++;
-  console.log(`${okOffset ? '✓' : '✗'} 0.8.14 быстрый переход: прокрутка и подсветка — единый оффсет`);
+  console.log(`${okOffset ? '✓' : '✗'} 0.8.15 быстрый переход: порог и прокрутка по фактическому низу панели`);
 
   const okVer0814 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVer0814) failed++;

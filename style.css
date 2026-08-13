@@ -330,9 +330,9 @@ html[data-theme="dark"] .icon-sun { display: none; }
   border-color: transparent;
 }
 /* Цели перехода не должны прятаться под шапкой и панелью.
-   0.8.14: единый оффсет (--quicknav-offset задаёт syncQuickNavTop) — тот же,
-   что и порог подсветки. */
-#home-cards > * { scroll-margin-top: var(--quicknav-offset, 116px); }
+   (Используется, если где-то сработает scrollIntoView; переход по клику
+   скроллит через window.scrollTo по фактическому положению панели.) */
+#home-cards > * { scroll-margin-top: calc(var(--quicknav-top, 64px) + 52px); }
 
 .greeting-title {
   font-size: 1.55rem;

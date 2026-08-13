@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.14';
+const FITFLOW_VERSION = '0.8.15';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6326,17 +6326,6 @@ function renderHomeQuickNav() {
   updateHomeQuickNavActive();
 }
 
-/* Единый оффсет прилипающей зоны: низ шапки + панель быстрого перехода + зазор.
-   Один и тот же для ПРОКРУТКИ по клику и для ПОРОГА подсветки — иначе они
-   разъезжаются и нажатый чип не подсвечивается (0.8.3). */
-function quicknavStickyOffset() {
-  if (typeof document === 'undefined') return 64;
-  const topbarH = (document.querySelector('.topbar') || {}).offsetHeight || 0;
-  const nav = $('#home-quicknav');
-  const navH = nav && nav.offsetHeight ? nav.offsetHeight : 44;
-  return topbarH + navH + 6;
-}
-
 /* Активный чип — последний раздел, чья карточка прошла верхнюю зону экрана.
    Особый случай — самый низ страницы: карточка может физически не добраться
    до порога (последний экран), тогда активен последний видимый раздел. */
@@ -6370,7 +6359,11 @@ function updateHomeQuickNavActive() {
       break;
     }
   } else {
-    const threshold = quicknavStickyOffset();
+    // 0.8.15: порог — ФАКТИЧЕСКИЙ низ прилипающей панели (getBoundingClientRect),
+    // а не расчётный оффсет: на устройствах с safe-area (вырез/капля) высота
+    // шапки из offsetHeight расходилась с реальным положением панели, и подсветка
+    // «плавала». +2px — запас от пиксельного округления.
+    const threshold = nav.getBoundingClientRect().bottom + 2;
     for (const card of chippedCards) {
       if (card.getBoundingClientRect().top <= threshold) activeId = card.id;
     }
@@ -6396,8 +6389,6 @@ function syncQuickNavTop() {
   if (typeof document === 'undefined') return;
   const topbar = document.querySelector('.topbar');
   if (topbar) document.documentElement.style.setProperty('--quicknav-top', `${topbar.offsetHeight}px`);
-  // 0.8.14: единый оффсет — и для scroll-margin, и для порога подсветки.
-  document.documentElement.style.setProperty('--quicknav-offset', `${quicknavStickyOffset()}px`);
 }
 
 function renderHomeLayoutSettings() {
@@ -12612,20 +12603,24 @@ function init() {
     });
   });
   // Быстрый переход по разделам Главной: плавная прокрутка к карточке.
-  // 0.8.14: прокрутка через window.scrollTo с ЕДИНЫМ оффсетом (а не
-  // scrollIntoView + scroll-margin) — позиция приземления всегда совпадает
-  // с порогом подсветки, нажатый чип подсвечивается верно.
-  $('#home-quicknav')?.addEventListener('click', (e) => {
+  // 0.8.15: цель прокрутки — фактический низ панели (getBoundingClientRect),
+  // тот же, что и порог подсветки; после плавной прокрутки дополнительно
+  // пересинхронизируем подсветку (страховка от пропущенного последнего scroll).
+  const quicknavEl = $('#home-quicknav');
+  quicknavEl?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-jump]');
     if (!chip) return;
     const target = document.getElementById(chip.dataset.jump);
     if (!target) return;
-    const offset = quicknavStickyOffset();
+    const navBottom = quicknavEl.getBoundingClientRect().bottom;
+    const targetTop = target.getBoundingClientRect().top;
     const current = window.scrollY || document.documentElement.scrollTop || 0;
-    const y = target.getBoundingClientRect().top + current - offset;
+    const y = targetTop + current - navBottom;
     // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка.
     $$('#home-quicknav [data-jump]').forEach((c) => c.classList.toggle('active', c === chip));
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    clearTimeout(quicknavEl._settleTimer);
+    quicknavEl._settleTimer = setTimeout(updateHomeQuickNavActive, 700);
   });
   syncQuickNavTop();
   window.addEventListener('resize', syncQuickNavTop);
