@@ -1850,5 +1850,27 @@ for (const id of ids) {
   console.log(`${okVer086 ? '✓' : '✗'} 0.8.6 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.7 (шаги в статистике, P28) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // История шагов: накопление снапшотов + раздел в статистике
+  const okSteps = appR.includes('stepsHistory: []')
+    && appR.includes('function normalizeStepsHistory')
+    && appR.includes('function recordStepsSnapshot')
+    && appR.includes('recordStepsSnapshot(resolved.steps, resolved.source)')
+    && appR.includes("const stepsSection = $('#stats-steps-section')")
+    && html.includes('id="stats-steps-section"')
+    && html.includes('id="stats-steps-bars"')
+    && html.includes('id="stats-steps-total"');
+  if (!okSteps) failed++;
+  console.log(`${okSteps ? '✓' : '✗'} 0.8.7 шаги в статистике: снапшоты по дням + раздел «Шаги»`);
+
+  const okVer087 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer087) failed++;
+  console.log(`${okVer087 ? '✓' : '✗'} 0.8.7 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

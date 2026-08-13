@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1514,6 +1514,28 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok19 = bad === 0;
   if (!ok19) failed++;
   console.log(`${ok19 ? '✓' : '✗'} 0.8.6 уровни силовых: жим 40→45(+5), 100→101(+1), присед 60→70, generic-база 20`);
+}
+
+// ===== 0.8.7: история шагов (P28) — нормализация снапшотов по дням =====
+{
+  let bad = 0;
+  // Дедуп по дате (поздняя запись побеждает), сортировка по возрастанию, мусор отсеян
+  const hist = normalizeStepsHistory([
+    { date: '2026-08-10', steps: 5000, source: 'шагомер телефона' },
+    { date: '2026-08-09', steps: 3000 },
+    { date: '2026-08-10', steps: 5200 }, // дубль — побеждает
+    { date: 'bad-date', steps: 100 },    // мусор
+    { date: '2026-08-11', steps: -5 },   // отрицательное → 0
+    null
+  ]);
+  if (!(hist.length === 3)) bad++;
+  if (!(hist[0].date === '2026-08-09' && hist[0].steps === 3000)) bad++;
+  if (!(hist[1].date === '2026-08-10' && hist[1].steps === 5200)) bad++;
+  if (!(hist[2].date === '2026-08-11' && hist[2].steps === 0)) bad++;
+  if (!(normalizeStepsHistory(undefined).length === 0 && normalizeStepsHistory('x').length === 0)) bad++;
+  const ok20 = bad === 0;
+  if (!ok20) failed++;
+  console.log(`${ok20 ? '✓' : '✗'} 0.8.7 история шагов: дедуп по дате, сортировка, мусор/отрицательные отсеяны`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

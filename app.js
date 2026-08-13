@@ -2653,13 +2653,13 @@ const DEFAULTS = {
   onlineFeatures: { barcodeLookup: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
-  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [] },
+  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [], stepsHistory: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
   strengthSessions: [] // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
 };
 
-const FITFLOW_VERSION = '0.8.6';
+const FITFLOW_VERSION = '0.8.7';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6478,8 +6478,41 @@ function normalizeHealthSync() {
     lastKcal: Math.max(0, Number(source.lastKcal) || 0),
     lastSource: typeof source.lastSource === 'string' ? source.lastSource : null,
     watchLastTs: Math.max(0, Number(source.watchLastTs) || 0),
-    watchWorkouts: normalizeWatchWorkouts(source.watchWorkouts)
+    watchWorkouts: normalizeWatchWorkouts(source.watchWorkouts),
+    stepsHistory: normalizeStepsHistory(source.stepsHistory)
   };
+}
+
+/* 0.8.7 (P28): история шагов по дням — снапшот «сколько шагов за день» при
+   каждом разрешении данных. Для статистики 7/30 дней. Заполняется вперёд
+   (день пишется, пока он «сегодня»); обратная заливка прошлых дней из
+   Health Connect — отдельная нативная задача (вне этого JS-пакета). */
+function normalizeStepsHistory(list) {
+  if (!Array.isArray(list)) return [];
+  const byDate = new Map();
+  list.forEach((e) => {
+    if (!e || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return;
+    byDate.set(e.date, { // поздняя запись дня побеждает (шаги за день только растут)
+      date: e.date,
+      steps: Math.max(0, Math.round(Number(e.steps) || 0)),
+      source: typeof e.source === 'string' ? e.source : ''
+    });
+  });
+  return Array.from(byDate.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-730); // держим до 2 лет
+}
+
+function recordStepsSnapshot(steps, source) {
+  const value = Math.max(0, Math.round(Number(steps) || 0));
+  if (!value) return; // нули в историю не пишем — «нет данных» ≠ «0»
+  normalizeHealthSync();
+  const list = normalizeStepsHistory(state.healthSync.stepsHistory);
+  const today = todayKey();
+  const idx = list.findIndex((e) => e.date === today);
+  const entry = { date: today, steps: value, source: String(source || '') };
+  if (idx >= 0) list[idx] = entry; else list.push(entry);
+  state.healthSync.stepsHistory = normalizeStepsHistory(list);
 }
 
 function getPhoneSteps() {
@@ -7089,6 +7122,7 @@ if (typeof window !== 'undefined') {
     state.healthSync.lastSource = resolved.source;
     state.healthSync.lastSyncTs = Date.now();
     state.healthSync.watchLastTs = Math.max(0, Number(watchLastTs) || 0);
+    recordStepsSnapshot(resolved.steps, resolved.source); // 0.8.7: история шагов (P28)
 
     // Сон: сохранение объективных данных из Health Connect (Zepp)
     if (receivedSleepMin > 0) {
@@ -7169,6 +7203,7 @@ function syncHealthDataNow() {
           state.healthSync.lastKcal = Math.round(resolved.steps * 0.04);
           state.healthSync.lastSyncTs = snap.lastSync || Date.now();
           state.healthSync.watchLastTs = watchLastTs;
+          recordStepsSnapshot(resolved.steps, resolved.source); // 0.8.7: история шагов (P28)
           saveState();
           renderHealthSyncSettings();
           renderFood();
@@ -7185,6 +7220,7 @@ function syncHealthDataNow() {
     state.healthSync.lastSteps = resolved.steps;
     state.healthSync.lastSource = resolved.source;
     state.healthSync.lastSyncTs = Date.now();
+    recordStepsSnapshot(resolved.steps, resolved.source); // 0.8.7: история шагов (P28)
     saveState();
     renderHealthSyncSettings();
     renderFood();
@@ -7502,6 +7538,40 @@ function renderStats() {
     if (sleepBarsEl) {
       renderStatsBars(sleepBarsEl, sleepDays, 'durationMinutes', 600, period, formatSleepDurationShort);
     }
+  }
+
+  // 👟 Шаги в статистике (0.8.7, P28): история шагов по дням
+  const stepsSection = $('#stats-steps-section');
+  if (stepsSection) {
+    const stepsGoal = (state.healthSync && state.healthSync.dailyGoal) || 8000;
+    const histMap = new Map((state.healthSync.stepsHistory || []).map((e) => [e.date, e]));
+    const stepsDays = days.map((day) => ({
+      date: day.date,
+      steps: day.date === todayKey()
+        ? ((state.healthSync.lastSteps) || (histMap.get(day.date) || {}).steps || 0)
+        : (histMap.get(day.date) || {}).steps || 0
+    }));
+    const stepsWithData = stepsDays.filter((d) => d.steps > 0);
+    const stepsTotal = stepsDays.reduce((sum, d) => sum + d.steps, 0);
+    const stepsAvg = stepsWithData.length ? Math.round(stepsTotal / stepsWithData.length) : 0;
+    const stepsMax = Math.max(stepsGoal, ...stepsDays.map((d) => d.steps), 1);
+    const stepsTotalEl = $('#stats-steps-total');
+    const stepsHintEl = $('#stats-steps-hint');
+    if (stepsTotalEl) {
+      if (isDay) {
+        stepsTotalEl.textContent = fmt(stepsDays[stepsDays.length - 1].steps);
+      } else {
+        stepsTotalEl.textContent = stepsWithData.length ? `≈ ${fmt(stepsAvg)} в день` : '—';
+      }
+    }
+    if (stepsHintEl) {
+      stepsHintEl.textContent = stepsWithData.length
+        ? (isDay
+          ? `цель ${fmt(stepsGoal)} шагов · источник: ${state.healthSync.lastSource || '—'}`
+          : `всего ${fmt(stepsTotal)} шагов · ${stepsWithData.length} из ${days.length} дн. с записями`)
+        : (isDay ? `цель ${fmt(stepsGoal)} шагов · пока нет данных` : 'История шагов появится после дней с синхронизацией');
+    }
+    renderStatsBars($('#stats-steps-bars'), stepsDays, 'steps', stepsMax, period);
   }
 
   $$('#stats-periods button').forEach((button) =>
@@ -14294,6 +14364,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory
   };
 }
