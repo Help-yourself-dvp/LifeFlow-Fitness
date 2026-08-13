@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.10';
+const FITFLOW_VERSION = '0.8.11';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6727,10 +6727,67 @@ function renderWatchWorkoutsSuggest() {
   box.innerHTML = '<p class="watch-workout-hint">⌚ Нашли тренировки с часов — добавить в дневник?</p>' + rows;
 }
 
+/* 0.8.11: обратная заливка истории шагов (P28) — нативный мост вернул JSON
+   [{date, steps}]. Сливаем только ПРОШЛЫЕ дни, которых ещё нет в истории
+   (вперёд-снапшоты честнее — они записаны в тот день). */
+/* Чистое слияние backfill с текущей историей (тестируется node-прогоном):
+   добавляются только прошлые дни, которых ещё нет; вперёд-снапшоты не перезаписываются. */
+function mergeStepsBackfill(existing, incoming, today) {
+  const byDate = new Map(normalizeStepsHistory(existing).map((e) => [e.date, e]));
+  for (const row of (Array.isArray(incoming) ? incoming : [])) {
+    const date = String(row && row.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date >= today) continue;
+    const steps = Math.max(0, Math.round(Number(row.steps) || 0));
+    if (!steps || byDate.has(date)) continue;
+    byDate.set(date, { date, steps, source: 'Health Connect' });
+  }
+  return normalizeStepsHistory(Array.from(byDate.values()));
+}
+
+function onHealthStepsHistoryReceived(json) {
+  let list = [];
+  try { list = JSON.parse(json) || []; } catch (e) { return; }
+  if (!Array.isArray(list) || !list.length) return;
+  normalizeHealthSync();
+  const merged = mergeStepsBackfill(state.healthSync.stepsHistory, list, todayKey());
+  state.healthSync.stepsHistory = merged;
+  saveState();
+  if (typeof document !== 'undefined') renderStats();
+}
+
+/* 0.8.11: экспорт тренировки в Health Connect (нативный мост). */
+function exportWorkoutToHealthConnect(workoutId) {
+  const w = (Array.isArray(state.workouts) ? state.workouts : []).find((x) => x.id === workoutId);
+  if (!w) return;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.exportWorkoutToHealthConnect === 'function') {
+      const end = Date.now();
+      const start = end - (Number(w.durationMinutes) || 0) * 60000;
+      window.FitFlowExport.exportWorkoutToHealthConnect(JSON.stringify({
+        title: w.title || (ACTIVITY_TYPES[w.type] || ACTIVITY_TYPES.other).label,
+        type: w.type,
+        start,
+        end
+      }));
+      toast('⤴ Экспорт в Health Connect запущен…');
+      return;
+    }
+  } catch (e) { }
+  toast('Экспорт в Health Connect доступен в Android-сборке');
+}
+
+function onWorkoutExported(ok, message) {
+  if (ok) toast('✓ Тренировка записана в Health Connect');
+  else toast('⚠️ Health Connect: ' + String(message || 'не удалось записать'));
+}
+
 if (typeof window !== 'undefined') {
   window.onHealthWorkoutsReceived = onHealthWorkoutsReceived;
   window.importWatchWorkout = importWatchWorkout;
   window.dismissWatchWorkout = dismissWatchWorkout;
+  window.onHealthStepsHistoryReceived = onHealthStepsHistoryReceived;
+  window.exportWorkoutToHealthConnect = exportWorkoutToHealthConnect;
+  window.onWorkoutExported = onWorkoutExported;
 }
 
 function openHealthConnectSettings() {
@@ -7107,6 +7164,21 @@ function refreshHealthDataOnResume() {
     }
   } catch (e) { pendingAutoHealthSync = false; }
   requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
+  requestStepsHistorySync(); // 0.8.11: обратная заливка истории шагов (P28)
+}
+
+/* 0.8.11: обратная заливка истории шагов — редко (раз в сутки), HC читаем
+   за 30 дней, поэтому не дёргаем на каждый вход. */
+let lastStepsHistorySyncAt = 0;
+function requestStepsHistorySync() {
+  const now = Date.now();
+  if (now - lastStepsHistorySyncAt < 24 * 60 * 60 * 1000) return;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthStepsHistory === 'function') {
+      lastStepsHistorySyncAt = now;
+      window.FitFlowExport.syncHealthStepsHistory();
+    }
+  } catch (e) { }
 }
 
 /* 0.7.15: тихая анимированная галочка в блоке «Шаги» вместо всплывающего toast. */
@@ -9064,6 +9136,9 @@ function renderTraining() {
             <span>${formatWorkoutDuration(workout.durationMinutes)}${estimateActivityKcal(workout) != null ? ` · <span class="energy-estimate">~${estimateActivityKcal(workout)} ккал</span>` : ''}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
           </div>
           <button class="workout-item-edit" data-edit-workout="${workout.id}" type="button" aria-label="Изменить активность «${escapeHtml(title)}»" title="Изменить">✏️</button>
+          <button class="workout-item-export" data-export-workout="${workout.id}" type="button" aria-label="Записать в Health Connect" title="Записать тренировку в Health Connect">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 16v4h16v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <button class="workout-item-remove" data-remove-workout="${workout.id}" type="button" aria-label="Удалить активность «${escapeHtml(title)}»">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -12190,6 +12265,8 @@ function init() {
   $('#training-list').addEventListener('click', (e) => {
     const editBtn = e.target.closest('[data-edit-workout]');
     if (editBtn) return openWorkoutEditDialog(editBtn.dataset.editWorkout);
+    const exportBtn = e.target.closest('[data-export-workout]');
+    if (exportBtn) return exportWorkoutToHealthConnect(exportBtn.dataset.exportWorkout);
     const btn = e.target.closest('[data-remove-workout]');
     if (btn) removeWorkout(btn.dataset.removeWorkout);
   });
@@ -14698,6 +14775,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill
   };
 }

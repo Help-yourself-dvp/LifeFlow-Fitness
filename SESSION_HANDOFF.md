@@ -23,6 +23,11 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.11** (нативный пакет: backfill шагов + экспорт в Health Connect):
+  - 📊 Kotlin `readStepsHistory` + мост `syncHealthStepsHistory` + JS `mergeStepsBackfill` (P28, раз в сутки).
+  - ⤴ Kotlin `insertWorkoutSession` + мост `exportWorkoutToHealthConnect` + кнопка ⤴ у записи; манифест `WRITE_EXERCISE`.
+  - ⚙️ Натив в зеркале — ждёт замены workflow; JS собирается обычным релизом.
+  - 🔢 **Синхронизация версии**: `0.8.11` во всех файлах.
 - Версия приложения: **0.8.10** (таймер отдыха + баланс нагрузки):
   - ⏱ Таймер отдыха (пресеты 30/60/90/120 с, вибрация); ⚖️ баланс нагрузки за 7 дней (`computeLoadBalance` + `#weekly-load-balance`).
   - ✅ Только JS/HTML/CSS — нативный мост не менялся.

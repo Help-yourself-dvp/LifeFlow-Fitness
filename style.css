@@ -1717,6 +1717,22 @@ textarea.form-input.ai-textarea {
   height: 19px;
 }
 
+/* 0.8.11: кнопка экспорта тренировки в Health Connect */
+.workout-item-export {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: 50%;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.workout-item-export:active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.workout-item-export svg { width: 18px; height: 18px; }
+
 /* ---------- Вечернее напоминание ---------- */
 .settings-label-row {
   display: flex;

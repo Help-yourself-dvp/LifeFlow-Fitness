@@ -1945,5 +1945,36 @@ for (const id of ids) {
   console.log(`${okVer0810 ? '✓' : '✗'} 0.8.10 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.11 (backfill шагов + экспорт тренировок в HC — нативный пакет) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  // JS: приём backfill + экспорт тренировки
+  const okJs = appR.includes('function mergeStepsBackfill')
+    && appR.includes('function onHealthStepsHistoryReceived')
+    && appR.includes('function exportWorkoutToHealthConnect')
+    && appR.includes('function onWorkoutExported')
+    && appR.includes('requestStepsHistorySync()')
+    && appR.includes('data-export-workout');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.8.11 JS: backfill шагов + экспорт тренировки в Health Connect`);
+
+  // Натив: чтение истории шагов + запись ExerciseSessionRecord + WRITE_EXERCISE
+  const okNative = mirror.includes('readStepsHistory')
+    && mirror.includes('insertWorkoutSession')
+    && mirror.includes('mapWorkoutTypeToHC')
+    && mirror.includes('syncHealthStepsHistory')
+    && mirror.includes('exportWorkoutToHealthConnect')
+    && mirror.includes('android.permission.health.WRITE_EXERCISE')
+    && mirror.includes('Metadata.manualEntry()');
+  if (!okNative) failed++;
+  console.log(`${okNative ? '✓' : '✗'} 0.8.11 зеркало build.yml: backfill шагов + запись тренировки + WRITE_EXERCISE`);
+
+  const okVer0811 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0811) failed++;
+  console.log(`${okVer0811 ? '✓' : '✗'} 0.8.11 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

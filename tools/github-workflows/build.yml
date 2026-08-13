@@ -656,6 +656,69 @@ jobs:
                       }).start();
                   }
 
+                  /* 0.8.11: обратная заливка истории шагов (P28) → JS */
+                  @JavascriptInterface
+                  public void syncHealthStepsHistory() {
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  final String json = HealthConnectHelper.readStepsHistory(getApplicationContext(), 30);
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) {
+                                                  wv.evaluateJavascript(
+                                                      "window.onHealthStepsHistoryReceived && window.onHealthStepsHistoryReceived(" + JSONObject.quote(json) + ");", null);
+                                              }
+                                          } catch (Exception e) {}
+                                      }
+                                  });
+                              } catch (Exception e) {}
+                          }
+                      }).start();
+                  }
+
+                  /* 0.8.11: записать тренировку в Health Connect → JS-колбэк */
+                  @JavascriptInterface
+                  public void exportWorkoutToHealthConnect(final String json) {
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  JSONObject data = new JSONObject(json == null ? "{}" : json);
+                                  final String title = data.optString("title", "Тренировка");
+                                  final String type = data.optString("type", "other");
+                                  final long start = data.optLong("start", System.currentTimeMillis() - 3600000L);
+                                  final long end = data.optLong("end", System.currentTimeMillis());
+                                  final String result = HealthConnectHelper.insertWorkoutSession(getApplicationContext(), title, type, start, end);
+                                  final boolean ok = "OK".equals(result);
+                                  SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
+                                  prefs.edit().putString("hc_export_last", ok ? "OK" : result).apply();
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) {
+                                                  wv.evaluateJavascript(
+                                                      "window.onWorkoutExported && window.onWorkoutExported(" + ok + ", " + JSONObject.quote(ok ? "OK" : result) + ");", null);
+                                              }
+                                          } catch (Exception e) {}
+                                      }
+                                  });
+                              } catch (Exception e) {
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) wv.evaluateJavascript("window.onWorkoutExported && window.onWorkoutExported(false, \"JSON error\");", null);
+                                          } catch (Exception e2) {}
+                                      }
+                                  });
+                              }
+                          }
+                      }).start();
+                  }
+
                   /* Запросить рантайм-разрешения Health Connect на Android 14+ */
                   @JavascriptInterface
                   public void requestHealthConnectPermissions() {
@@ -1572,6 +1635,7 @@ jobs:
           import androidx.health.connect.client.records.StepsRecord
           import androidx.health.connect.client.records.SleepSessionRecord
           import androidx.health.connect.client.records.ExerciseSessionRecord
+          import androidx.health.connect.client.records.metadata.Metadata
           import androidx.health.connect.client.request.ReadRecordsRequest
           import androidx.health.connect.client.time.TimeRangeFilter
           import kotlinx.coroutines.runBlocking
@@ -1741,6 +1805,69 @@ jobs:
                   ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT -> "other"
                   else -> ""
               }
+
+              /* 0.8.11: история шагов за последние N дней — обратная заливка (P28).
+                 Группируем StepsRecord по локальной дате (сумма всех источников). */
+              @JvmStatic
+              fun readStepsHistory(context: Context, days: Int): String {
+                  return try {
+                      val n = if (days in 1..90) days else 30
+                      val client = HealthConnectClient.getOrCreate(context)
+                      val today = LocalDate.now()
+                      val zone = ZoneId.systemDefault()
+                      val start = today.minusDays((n - 1).toLong()).atStartOfDay(zone).toInstant()
+                      val end = today.plusDays(1).atStartOfDay(zone).toInstant()
+                      val req = ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(start, end))
+                      val resp = runBlocking { client.readRecords(req) }
+                      val byDate = sortedMapOf<String, Long>()
+                      for (rec in resp.records) {
+                          val date = rec.startTime.atZone(zone).toLocalDate().toString()
+                          byDate[date] = (byDate[date] ?: 0L) + rec.count
+                      }
+                      val arr = JSONArray()
+                      for ((date, steps) in byDate) {
+                          val obj = JSONObject()
+                          obj.put("date", date)
+                          obj.put("steps", steps)
+                          arr.put(obj)
+                      }
+                      arr.toString()
+                  } catch (e: Exception) {
+                      "[]"
+                  }
+              }
+
+              /* 0.8.11: записать завершённую тренировку в Health Connect
+                 (ExerciseSessionRecord). Возвращает "OK" или текст ошибки. */
+              @JvmStatic
+              fun insertWorkoutSession(context: Context, title: String, typeKey: String, startMillis: Long, endMillis: Long): String {
+                  return try {
+                      val client = HealthConnectClient.getOrCreate(context)
+                      val start = Instant.ofEpochMilli(startMillis)
+                      val end = Instant.ofEpochMilli(endMillis)
+                      val offset = ZoneId.systemDefault().rules.getOffset(start)
+                      val rec = ExerciseSessionRecord(
+                          startTime = start,
+                          startZoneOffset = offset,
+                          endTime = end,
+                          endZoneOffset = offset,
+                          exerciseType = mapWorkoutTypeToHC(typeKey),
+                          title = title,
+                          metadata = Metadata.manualEntry()
+                      )
+                      runBlocking { client.insertRecords(listOf(rec)) }
+                      "OK"
+                  } catch (e: Exception) {
+                      e.javaClass.simpleName + ": " + (e.message ?: "ошибка записи")
+                  }
+              }
+
+              private fun mapWorkoutTypeToHC(t: String): Int = when (t) {
+                  "cardio" -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+                  "bike" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+                  "walk" -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
+                  else -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+              }
           }
           KOTLIN_EOF
 
@@ -1767,6 +1894,7 @@ jobs:
               'android.permission.health.READ_TOTAL_CALORIES_BURNED',
               'android.permission.health.READ_EXERCISE',
               'android.permission.health.READ_SLEEP',
+              'android.permission.health.WRITE_EXERCISE',
           ]
           for p in perms:
               tag = f'    <uses-permission android:name="{p}" />\n'

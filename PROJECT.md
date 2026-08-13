@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.8.10**
+Текущая версия: **0.8.11**
 
 ---
 
@@ -492,6 +492,12 @@ node test-parser.js
 ---
 
 # 14. История версий
+
+## 0.8.11 — Обратная заливка шагов + экспорт тренировок в Health Connect (13.08.2026)
+
+- **📊 Обратная заливка шагов (P28, нативный пакет).** Kotlin `readStepsHistory(context, days)` читает `StepsRecord` за N дней и группирует по локальной дате (сумма всех источников) → JSON `[{date, steps}]`. Мост `syncHealthStepsHistory()` → `window.onHealthStepsHistoryReceived(json)`. JS `mergeStepsBackfill(existing, incoming, today)` (чистая функция, node-тест): добавляет только прошлые дни без снапшота; вперёд-записи и «сегодня» не перезаписываются. Триггер `requestStepsHistorySync()` — раз в сутки, вместе с `refreshHealthDataOnResume`.
+- **⤴ Экспорт тренировки в HC (0.8.0 п.5).** Kotlin `insertWorkoutSession(context, title, typeKey, start, end)` строит `ExerciseSessionRecord` (Metadata.manualEntry) и пишет через `insertRecords`. Тип: cardio→RUNNING, bike→BIKING, walk→HIKING, остальное→OTHER_WORKOUT. Мост `exportWorkoutToHealthConnect(json)` → `window.onWorkoutExported(ok, message)`. JS: кнопка ⤴ (`[data-export-workout]`) у записи активности; время окна — `now − длительность → now` (приближение, честно помечено). Манифест: `android.permission.health.WRITE_EXERCISE`.
+- **Совместимость:** JS собирается обычным релизом; натив в зеркале — применится заменой workflow.
 
 ## 0.8.10 — Таймер отдыха и баланс нагрузки (13.08.2026)
 

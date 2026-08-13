@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1607,6 +1607,29 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok23 = bad === 0;
   if (!ok23) failed++;
   console.log(`${ok23 ? '✓' : '✗'} 0.8.10 баланс нагрузки: Сила 60 · Кардио 70 · Растяжка 20 · Другое 30 мин, силовая 350 ккал`);
+}
+
+// ===== 0.8.11: обратная заливка истории шагов (P28, merge) =====
+{
+  let bad = 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const merged = mergeStepsBackfill(
+    [{ date: '2026-08-10', steps: 5000, source: 'шагомер телефона' }], // вперёд-снапшот
+    [
+      { date: '2026-08-09', steps: 7000 },
+      { date: '2026-08-10', steps: 9999 }, // не перезаписываем существующий
+      { date: today, steps: 12345 },        // сегодня не трогаем (backfill только прошлые)
+      { date: 'bad', steps: 100 }
+    ],
+    today
+  );
+  const byDate = Object.fromEntries(merged.map((e) => [e.date, e]));
+  if (!(byDate['2026-08-09'] && byDate['2026-08-09'].steps === 7000 && byDate['2026-08-09'].source === 'Health Connect')) bad++;
+  if (!(byDate['2026-08-10'] && byDate['2026-08-10'].steps === 5000 && byDate['2026-08-10'].source === 'шагомер телефона')) bad++; // вперёд-снапшот сохранён
+  if (byDate[today]) bad++; // сегодня не добавился
+  const ok24 = bad === 0;
+  if (!ok24) failed++;
+  console.log(`${ok24 ? '✓' : '✗'} 0.8.11 backfill шагов: прошлые дни добавляются, вперёд-снапшоты и сегодня не перезаписываются`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
