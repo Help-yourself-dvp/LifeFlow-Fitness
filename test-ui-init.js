@@ -1706,5 +1706,34 @@ for (const id of ids) {
   console.log(`${okVer081 ? '✓' : '✗'} 0.8.1 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.2 (бюджет калорий без двойного счёта + баннер тренировок) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // Баланс: тренировки по MET + шаги, минус пересечение (P31)
+  const okBudget = appR.includes('computeFoodBudgetAdjustmentPure')
+    && appR.includes('STEP_KCAL_PER_STEP')
+    && appR.includes('overlapKcal')
+    && appR.includes('computeFoodBudgetAdjustment()')
+    && html.includes('не считаются дважды');
+  if (!okBudget) failed++;
+  console.log(`${okBudget ? '✓' : '✗'} 0.8.2 бюджет: тренировки MET + шаги − пересечение (без двойного счёта)`);
+
+  // Баннер: компактные кнопки (не глобальный .btn), чистый двухстрочный вид
+  const okBanner = appR.includes('watch-btn-add')
+    && appR.includes('watch-btn-ghost')
+    && appR.includes('тип можно изменить после добавления')
+    && css.includes('.watch-btn')
+    && css.includes('.watch-workout-actions {');
+  if (!okBanner) failed++;
+  console.log(`${okBanner ? '✓' : '✗'} 0.8.2 баннер тренировок: компактные кнопки, тип меняется после добавления`);
+
+  const okVer082 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer082) failed++;
+  console.log(`${okVer082 ? '✓' : '✗'} 0.8.2 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

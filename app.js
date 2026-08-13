@@ -2658,7 +2658,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.8.1';
+const FITFLOW_VERSION = '0.8.2';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6512,11 +6512,15 @@ function normalizeWatchWorkouts(list) {
 function mapWatchWorkoutType(typeStr, title) {
   const t = (String(typeStr || '') + ' ' + String(title || '')).toLowerCase();
   if (/плаван|swim|pool|open[-\s]?water/iu.test(t)) return 'swim';
-  if (/велосипед|вело|cycl|bike|bicycl/iu.test(t)) return 'bike';
-  if (/бег|пробеж|jog|run(ning)?/iu.test(t)) return 'cardio';
-  if (/ходьб|прогулк|walk|hik|треккинг|поход/iu.test(t)) return 'walk';
-  if (/силов|тренаж|strength|weight|гир|штанга|lift/iu.test(t)) return 'strength';
-  if (/йог|растяж|пилатес|yoga|stretch|pilates/iu.test(t)) return 'stretch';
+  if (/велосипед|вело|cycl|bike|bicycl|сайклинг/iu.test(t)) return 'bike';
+  if (/бег|пробеж|jog|run|кардио|cardio|бегов/iu.test(t)) return 'cardio';
+  if (/ходьб|прогулк|walk|hik|треккинг|поход|trek/iu.test(t)) return 'walk';
+  if (/йог|растяж|пилатес|yoga|stretch|pilates|стретчинг/iu.test(t)) return 'stretch';
+  // 0.8.2: силовая — широкий словарь + generic «тренировка/workout» (трекеры часто
+  // пишут OTHER_WORKOUT с заголовком «Workout»/«Тренировка» — это обычно зал).
+  if (/силов|тренаж|зал|фитнес|кроссфит|функциональн|тренинг|тренировк|strength|weight|гир|штанга|lift|barbell|dumbbell|power|gym|workout|training|crossfit/iu.test(t)) return 'strength';
+  // OTHER_WORKOUT без внятного заголовка — по умолчанию зал (силовая).
+  if (String(typeStr || '').toLowerCase() === 'other') return 'strength';
   return 'other';
 }
 
@@ -6619,15 +6623,17 @@ function renderWatchWorkoutsSuggest() {
     const title = s.title || label.label;
     const clock = s.start ? new Date(s.start).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
     return `
-      <div class="watch-workout-row">
-        <span class="watch-workout-emoji" aria-hidden="true">${label.emoji}</span>
-        <div class="watch-workout-info">
-          <strong>${escapeHtml(title)}</strong>
-          <span>${formatWorkoutDuration(s.minutes)}${clock ? ' · ' + clock : ''} · с часов</span>
+      <div class="watch-workout">
+        <div class="watch-workout-row">
+          <span class="watch-workout-emoji" aria-hidden="true">${label.emoji}</span>
+          <div class="watch-workout-info">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${formatWorkoutDuration(s.minutes)}${clock ? ' · ' + clock : ''} · с часов · тип можно изменить после добавления</span>
+          </div>
         </div>
         <div class="watch-workout-actions">
-          <button class="btn btn-secondary btn-sm" type="button" data-watch-import="${escapeHtml(s.recordId)}">Добавить</button>
-          <button class="btn btn-ghost btn-sm" type="button" data-watch-ignore="${escapeHtml(s.recordId)}">Игнорировать</button>
+          <button class="watch-btn watch-btn-add" type="button" data-watch-import="${escapeHtml(s.recordId)}">Добавить</button>
+          <button class="watch-btn watch-btn-ghost" type="button" data-watch-ignore="${escapeHtml(s.recordId)}">Игнорировать</button>
         </div>
       </div>`;
   }).join('');
@@ -7145,6 +7151,48 @@ function syncHealthDataNow() {
   }
 }
 
+/* ============================================================
+   🍽 Баланс питания с учётом активности (0.8.2, P31)
+   Раньше калории тренировок в бюджете не считались (workout.kcal не
+   хранился) и при этом шаги суммировались с тренировками — при беге
+   шаги учитывались бы дважды. Теперь: тренировки по MET + шаги,
+   минус шаги, пришедшиеся на «шагающие» тренировки (без двойного счёта).
+============================================================ */
+const STEP_KCAL_PER_STEP = 0.04;
+
+/* Чистая функция бюджета активности (тестируется node-прогоном): тренировки по
+   MET + шаги × 0,04, минус шаги, пришедшиеся на «шагающие» тренировки
+   (бег 160 / ходьба 120 шагов в минуту) — без двойного счёта (P31). */
+function computeFoodBudgetAdjustmentPure(workouts, steps, weightKg) {
+  const weight = Number(weightKg) || 70;
+  const list = (Array.isArray(workouts) ? workouts : []).filter((w) => w.date === todayKey());
+  let workoutKcal = 0;
+  let overlapSteps = 0;
+  list.forEach((w) => {
+    const met = (ACTIVITY_MET[w.type] || ACTIVITY_MET.other)[w.intensity || 'medium'];
+    workoutKcal += Math.round(met * weight * ((Number(w.durationMinutes) || 0) / 60));
+    const cad = w.type === 'cardio' ? 160 : (w.type === 'walk' ? 120 : 0);
+    overlapSteps += cad * (Number(w.durationMinutes) || 0);
+  });
+  const stepsCount = Math.max(0, Number(steps) || 0);
+  const stepsKcal = Math.round(stepsCount * STEP_KCAL_PER_STEP);
+  const overlapKcal = Math.min(stepsKcal, Math.round(overlapSteps * STEP_KCAL_PER_STEP));
+  return {
+    workoutKcal,
+    stepsKcal,
+    overlapKcal,
+    total: Math.max(0, workoutKcal + stepsKcal - overlapKcal)
+  };
+}
+
+function computeFoodBudgetAdjustment() {
+  return computeFoodBudgetAdjustmentPure(
+    state.workouts,
+    (state.healthSync && state.healthSync.lastSteps) || 0,
+    (state.profileSettings && state.profileSettings.weightKg) || null
+  );
+}
+
 function renderFood() {
   const { items, goal } = state.food;
   const total = items.reduce((s, it) => s + it.kcal, 0);
@@ -7153,12 +7201,10 @@ function renderFood() {
   const totalC = items.reduce((s, it) => s + (it.c || 0), 0);
 
   let effectiveGoal = goal;
+  let budgetAdj = null;
   if (state.healthSync && state.healthSync.enabled && state.healthSync.includeInDailyBudget) {
-    const workoutKcal = (Array.isArray(state.workouts) ? state.workouts : [])
-      .filter((w) => w.date === todayKey())
-      .reduce((sum, w) => sum + (Number(w.kcal) || 0), 0);
-    const stepsKcal = Math.round((state.healthSync.lastSteps || 0) * 0.04);
-    effectiveGoal = goal + workoutKcal + stepsKcal;
+    budgetAdj = computeFoodBudgetAdjustment();
+    effectiveGoal = goal + budgetAdj.total;
   }
 
   const pct = Math.min(1, effectiveGoal > 0 ? total / effectiveGoal : 0);
@@ -7166,6 +7212,12 @@ function renderFood() {
   $('#food-total').textContent = fmt(total);
   $('#food-goal-label').textContent = fmt(effectiveGoal);
   $('#food-goal').textContent = `${fmt(goal)} ккал`;
+  if (budgetAdj && budgetAdj.total > 0) {
+    $('#food-goal-label').setAttribute('title',
+      `Активность +${fmt(budgetAdj.total)} ккал: тренировки ≈${fmt(budgetAdj.workoutKcal)} + шаги ≈${fmt(budgetAdj.stepsKcal)} − пересечение ≈${fmt(budgetAdj.overlapKcal)} (без двойного счёта)`);
+  } else {
+    $('#food-goal-label').removeAttribute('title');
+  }
   $('#food-progress-fill').style.width = `${pct * 100}%`;
   $('#food-progress').setAttribute('aria-valuenow', String(total));
   $('#food-progress').setAttribute('aria-valuemax', String(goal));
@@ -7174,13 +7226,18 @@ function renderFood() {
   card.classList.toggle('over-goal', total > goal);
 
   const status = $('#food-status');
+  let statusText = '';
   if (total === 0) {
-    status.textContent = 'Добавьте приём пищи, чтобы начать';
+    statusText = 'Добавьте приём пищи, чтобы начать';
   } else if (total > goal) {
-    status.textContent = `На ${fmt(total - goal)} ккал больше цели. Всё в порядке — вы заслужили!`;
+    statusText = `На ${fmt(total - goal)} ккал больше цели. Всё в порядке — вы заслужили!`;
   } else {
-    status.textContent = `Осталось ${fmt(goal - total)} ккал до цели`;
+    statusText = `Осталось ${fmt(goal - total)} ккал до цели`;
   }
+  if (budgetAdj && budgetAdj.total > 0) {
+    statusText += ` · активность +${fmt(budgetAdj.total)} ккал`;
+  }
+  status.textContent = statusText;
 
   // БЖУ — полоска макронутриентов
   const macrosEl = $('#food-macros');
@@ -13774,6 +13831,6 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
-    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived
+    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure
   };
 }

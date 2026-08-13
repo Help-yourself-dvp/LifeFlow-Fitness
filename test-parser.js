@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1396,6 +1396,50 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok16 = bad === 0;
   if (!ok16) failed++;
   console.log(`${ok16 ? '✓' : '✗'} 0.7.16 ISSUES: тарелка гречки=варёная, пюре+тушёнка, тарталетка с чёрной икрой, опечатки, выпечка`);
+}
+
+// ===== 0.8.2: тип тренировки с часов + баланс калорий без двойного счёта (P31) =====
+{
+  let bad = 0;
+  // Тип сессии часов
+  if (mapWatchWorkoutType('run', 'Outdoor Running') !== 'cardio') bad++;
+  if (mapWatchWorkoutType('bike', '') !== 'bike') bad++;
+  if (mapWatchWorkoutType('walk', '') !== 'walk') bad++;
+  if (mapWatchWorkoutType('other', 'Силовая тренировка') !== 'strength') bad++;
+  if (mapWatchWorkoutType('other', 'Workout') !== 'strength') bad++;
+  if (mapWatchWorkoutType('other', '') !== 'strength') bad++; // generic-тренировка → зал по умолчанию
+  if (mapWatchWorkoutType('', 'Плавание в бассейне') !== 'swim') bad++;
+  if (mapWatchWorkoutType('', 'Йога') !== 'stretch') bad++;
+
+  // Баланс калорий: бег 30 мин при 10 000 шагах не должен суммировать шаги дважды
+  const today = new Date().toISOString().slice(0, 10);
+  const adj = computeFoodBudgetAdjustmentPure(
+    [{ date: today, type: 'cardio', intensity: 'medium', durationMinutes: 30 }],
+    10000, 70
+  );
+  // workoutKcal: MET cardio medium = 8 × 70 × 0,5 = 280
+  if (adj.workoutKcal !== 280) bad++;
+  // stepsKcal: 10000 × 0,04 = 400
+  if (adj.stepsKcal !== 400) bad++;
+  // overlap: 30 мин × 160 шагов = 4800 шагов × 0,04 = 192
+  if (adj.overlapKcal !== 192) bad++;
+  // итог: 280 + 400 − 192 = 488 (без вычитания было бы 680 — двойной счёт бега)
+  if (adj.total !== 488) bad++;
+  // Силовая/велосипед/плавание не создают пересечения с шагами
+  const adjStr = computeFoodBudgetAdjustmentPure(
+    [{ date: today, type: 'strength', intensity: 'medium', durationMinutes: 40 }],
+    10000, 70
+  );
+  if (adjStr.overlapKcal !== 0) bad++; // силовая: 0 шагов
+  // overlap не может превысить шаговые ккал
+  const adjCap = computeFoodBudgetAdjustmentPure(
+    [{ date: today, type: 'cardio', intensity: 'medium', durationMinutes: 300 }],
+    1000, 70
+  );
+  if (adjCap.overlapKcal > adjCap.stepsKcal) bad++;
+  const ok17 = bad === 0;
+  if (!ok17) failed++;
+  console.log(`${ok17 ? '✓' : '✗'} 0.8.2: тип тренировки с часов + баланс калорий без двойного счёта (бег 30 мин / 10 000 шагов → 488, не 680)`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
