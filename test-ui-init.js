@@ -1967,7 +1967,7 @@ for (const id of ids) {
     && mirror.includes('syncHealthStepsHistory')
     && mirror.includes('exportWorkoutToHealthConnect')
     && mirror.includes('android.permission.health.WRITE_EXERCISE')
-    && mirror.includes('Metadata.manualEntry()');
+    && mirror.includes('exerciseType = mapWorkoutTypeToHC(typeKey)');
   if (!okNative) failed++;
   console.log(`${okNative ? '✓' : '✗'} 0.8.11 зеркало build.yml: backfill шагов + запись тренировки + WRITE_EXERCISE`);
 

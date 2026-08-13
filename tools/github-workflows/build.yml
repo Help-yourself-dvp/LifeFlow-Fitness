@@ -1635,7 +1635,6 @@ jobs:
           import androidx.health.connect.client.records.StepsRecord
           import androidx.health.connect.client.records.SleepSessionRecord
           import androidx.health.connect.client.records.ExerciseSessionRecord
-          import androidx.health.connect.client.records.metadata.Metadata
           import androidx.health.connect.client.request.ReadRecordsRequest
           import androidx.health.connect.client.time.TimeRangeFilter
           import kotlinx.coroutines.runBlocking
@@ -1852,8 +1851,7 @@ jobs:
                           endTime = end,
                           endZoneOffset = offset,
                           exerciseType = mapWorkoutTypeToHC(typeKey),
-                          title = title,
-                          metadata = Metadata.manualEntry()
+                          title = title
                       )
                       runBlocking { client.insertRecords(listOf(rec)) }
                       "OK"
