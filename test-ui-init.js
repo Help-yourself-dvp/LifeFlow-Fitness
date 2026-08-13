@@ -1976,5 +1976,24 @@ for (const id of ids) {
   console.log(`${okVer0811 ? '✓' : '✗'} 0.8.11 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.13 (адаптив силовых блоков — без вылезания за край) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // Сетки и флекс-элементы силовых — сжимаемые (min-width: 0), без фиксированных минимумов
+  const okAdaptive = css.includes('.strength-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);')
+    && css.includes('grid-template-columns: minmax(0, 1.4fr) repeat(7, minmax(0, 1fr));')
+    && css.includes('.strength-exercise-summary { font-size: 0.72rem; color: var(--md-sys-color-primary); min-width: 0; text-align: right; }')
+    && css.includes('.strength-meta { grid-template-columns: minmax(0, 1fr); }');
+  if (!okAdaptive) failed++;
+  console.log(`${okAdaptive ? '✓' : '✗'} 0.8.13 адаптив силовых: сжимаемые сетки/флекс, стек полей на узких экранах`);
+
+  const okVer0813 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0813) failed++;
+  console.log(`${okVer0813 ? '✓' : '✗'} 0.8.13 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

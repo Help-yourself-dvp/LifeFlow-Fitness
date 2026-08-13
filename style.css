@@ -2457,16 +2457,16 @@ html[data-theme="dark"] .segmented button.active {
 
 /* ---------- Дневник силовых тренировок (0.8.4) ---------- */
 .strength-diary-section { text-align: left; }
-.strength-diary { display: grid; gap: 10px; text-align: left; }
-.strength-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.strength-title-field { display: grid; gap: 5px; }
+.strength-diary { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
+.strength-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.strength-title-field { display: grid; gap: 5px; min-width: 0; }
 .strength-title-field span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-empty { margin: 0; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); }
-.strength-exercises { display: grid; gap: 8px; }
-.strength-exercise { padding: 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; }
-.strength-exercise-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.strength-exercise-head strong { font-size: 0.85rem; flex: 1; min-width: 0; }
-.strength-exercise-summary { font-size: 0.72rem; color: var(--md-sys-color-primary); white-space: nowrap; }
+.strength-exercises { display: grid; gap: 8px; min-width: 0; }
+.strength-exercise { padding: 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; min-width: 0; max-width: 100%; }
+.strength-exercise-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.strength-exercise-head strong { font-size: 0.85rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.strength-exercise-summary { font-size: 0.72rem; color: var(--md-sys-color-primary); min-width: 0; text-align: right; }
 .strength-exercise-remove { border: none; background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
 .strength-set { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .strength-set input { width: 0; flex: 1 1 0; min-width: 0; padding: 7px 9px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.8rem; }
@@ -2477,44 +2477,44 @@ html[data-theme="dark"] .segmented button.active {
 .strength-saved-hint { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin: 0; }
 .strength-saved-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; justify-content: center; }
-.strength-exercise-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 10px; text-align: left; }
-.strength-exercise-btn { text-align: left; padding: 9px 11px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.strength-exercise-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 10px; text-align: left; }
+.strength-exercise-btn { text-align: left; padding: 9px 11px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.78rem; cursor: pointer; min-width: 0; overflow-wrap: anywhere; }
 .strength-custom { display: grid; gap: 5px; margin-bottom: 4px; text-align: left; }
 .strength-custom span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
 /* Прогресс силовых (0.8.5) */
 .strength-history-section { text-align: left; }
-.strength-history { display: grid; gap: 10px; text-align: left; }
+.strength-history { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
 .strength-history-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
-.strength-records { display: grid; gap: 4px; }
-.strength-record { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; }
-.strength-record strong { font-size: 0.8rem; }
+.strength-records { display: grid; gap: 4px; min-width: 0; }
+.strength-record { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; min-width: 0; }
+.strength-record strong { font-size: 0.8rem; overflow-wrap: anywhere; }
 .strength-record span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-record-goal { color: var(--md-sys-color-primary); font-weight: 600; }
 /* Шаблоны силовых (0.8.8) */
-.strength-templates { display: grid; gap: 6px; }
+.strength-templates { display: grid; gap: 6px; min-width: 0; }
 .strength-templates-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
 .strength-template-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 .strength-template-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.strength-template-info strong { font-size: 0.8rem; }
+.strength-template-info strong { font-size: 0.8rem; overflow-wrap: anywhere; }
 .strength-template-info span { font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-template-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 /* План тренировок (0.8.9) */
 .strength-plan-section { text-align: left; }
-.strength-plan { display: grid; gap: 10px; text-align: left; }
+.strength-plan { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
 .strength-plan-today { margin: 0; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-primary); }
-.strength-plan-today-list { display: grid; gap: 4px; }
+.strength-plan-today-list { display: grid; gap: 4px; min-width: 0; }
 .strength-plan-today-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
-.strength-plan-name { font-size: 0.78rem; min-width: 0; }
+.strength-plan-name { font-size: 0.78rem; min-width: 0; overflow-wrap: anywhere; }
 .strength-plan-done { font-size: 0.72rem; color: var(--md-sys-color-primary); font-weight: 600; }
-.strength-plan-grid { display: grid; gap: 4px; }
+.strength-plan-grid { display: grid; gap: 4px; min-width: 0; }
 .strength-plan-head, .strength-plan-row {
   display: grid;
-  grid-template-columns: minmax(90px, 1.3fr) repeat(7, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) repeat(7, minmax(0, 1fr));
   gap: 3px;
   align-items: center;
 }
 .strength-plan-head span { font-size: 0.66rem; color: var(--md-sys-color-on-surface-variant); text-align: center; }
-.strength-plan-head span:first-child { text-align: left; }
+.strength-plan-head span:first-child { text-align: left; overflow-wrap: anywhere; }
 .strength-plan-day {
   padding: 5px 0;
   border: 1px solid var(--md-sys-color-outline-variant);
@@ -2524,6 +2524,7 @@ html[data-theme="dark"] .segmented button.active {
   font-size: 0.7rem;
   cursor: pointer;
   text-align: center;
+  min-width: 0;
 }
 .strength-plan-day.on {
   background: var(--md-sys-color-primary);
@@ -2531,12 +2532,13 @@ html[data-theme="dark"] .segmented button.active {
   border-color: transparent;
 }
 /* Таймер отдыха (0.8.10) */
-.strength-rest-timer { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.strength-rest-timer { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; min-width: 0; }
 .strength-rest-label { font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-primary); }
-.strength-rest-presets { display: flex; gap: 4px; }
+.strength-rest-presets { display: flex; gap: 4px; flex-wrap: wrap; }
 .strength-rest-presets button {
   padding: 4px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px;
   background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 0.72rem; cursor: pointer;
+  white-space: nowrap;
 }
 .strength-rest-presets button.on { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); border-color: transparent; }
 .strength-rest-count { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--md-sys-color-primary); min-width: 42px; text-align: center; }
@@ -4305,4 +4307,12 @@ html[data-palette="berry"] .ai-icon-btn {
   border: 1.2px solid color-mix(in srgb, var(--grad-b) 30%, transparent);
   color: var(--grad-a);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--grad-a) 20%, transparent);
+}
+
+/* ---------- Адаптив силовых (0.8.13): на узких экранах — в одну колонку ---------- */
+@media (max-width: 420px) {
+  .strength-meta { grid-template-columns: minmax(0, 1fr); }
+  .strength-exercise-head { flex-wrap: wrap; }
+  .strength-exercise-summary { width: 100%; text-align: left; }
+  .strength-plan-day { font-size: 0.62rem; padding: 5px 0; }
 }
