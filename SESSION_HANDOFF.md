@@ -23,6 +23,10 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.8** (шаблоны силовых тренировок):
+  - ⭐ `state.strengthTemplates` (schemaVersion 4) + `normalizeStrengthTemplatesList`/`saveStrengthTemplate`/`startStrengthFromTemplate`/`deleteStrengthTemplate`.
+  - ✅ Только JS/CSS — нативный мост не менялся.
+  - 🔢 **Синхронизация версии**: `0.8.8` во всех файлах.
 - Версия приложения: **0.8.7** (шаги в статистике, P28):
   - 👟 Раздел «Шаги» в Статистике (среднее/всего/график), `#stats-steps-section`.
   - 📊 `state.healthSync.stepsHistory` + `normalizeStepsHistory`/`recordStepsSnapshot` (накопление вперёд; обратная заливка — отдельная нативная задача).

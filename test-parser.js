@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1537,6 +1537,30 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!ok20) failed++;
   console.log(`${ok20 ? '✓' : '✗'} 0.8.7 история шагов: дедуп по дате, сортировка, мусор/отрицательные отсеяны`);
 }
+
+// ===== 0.8.8: шаблоны силовых — нормализация списка =====
+{
+  let bad = 0;
+  const tpls = normalizeStrengthTemplatesList([
+    { id: 'a', name: 'День груди', exercises: [{ name: 'Жим лёжа', sets: [{ weight: 60, reps: 8 }, { weight: 0, reps: 0 }] }, { name: '', sets: [] }], createdAt: 2 },
+    { id: 'b', name: 'день груди', exercises: [{ name: 'Жим', sets: [{ weight: 50, reps: 5 }] }], createdAt: 1 }, // дубль имени
+    { id: 'c', name: 'Фулбоди', exercises: [], createdAt: 3 },
+    { id: 'd', name: '', exercises: [] },
+    null
+  ]);
+  if (!(tpls.length === 2)) bad++;
+  // Дубль имени отсеян (остаётся первый по порядку), пустые упражнения/имена — тоже
+  if (!(tpls.some((t) => t.name === 'День груди') && tpls.some((t) => t.name === 'Фулбоди'))) bad++;
+  // Пустые подходы отсеяны; отрицательный вес → 0
+  const chest = tpls.find((t) => t.name === 'День груди');
+  if (!(chest && chest.exercises.length === 1 && chest.exercises[0].sets.length === 1 && chest.exercises[0].sets[0].weight === 60)) bad++;
+  if (normalizeStrengthTemplatesList(undefined).length !== 0) bad++;
+  const ok21 = bad === 0;
+  if (!ok21) failed++;
+  console.log(`${ok21 ? '✓' : '✗'} 0.8.8 шаблоны силовых: дедуп по имени, пустые/мусор отсеяны`);
+}
+
+console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

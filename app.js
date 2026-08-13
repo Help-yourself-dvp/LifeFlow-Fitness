@@ -2656,16 +2656,17 @@ const DEFAULTS = {
   healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [], stepsHistory: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
-  strengthSessions: [] // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
+  strengthSessions: [], // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
+  strengthTemplates: [] // 0.8.8: шаблоны силовых («День груди», «Фулбоди»…)
 };
 
-const FITFLOW_VERSION = '0.8.7';
+const FITFLOW_VERSION = '0.8.8';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
 // сюда при каждом изменении формата (v < N → преобразование).
-const STATE_SCHEMA_VERSION = 3;
+const STATE_SCHEMA_VERSION = 4;
 
 const MEAL_REMINDER_TYPES = [
   { id: 'breakfast', label: 'Завтрак', time: '08:00' },
@@ -2904,7 +2905,8 @@ const state = {
   dayMood: { ...DEFAULTS.dayMood },
   customMealTypes: [],
   theme: null,
-  strengthSessions: [] // 0.8.4
+  strengthSessions: [], // 0.8.4
+  strengthTemplates: [] // 0.8.8
 };
 
 function isValidReminderTime(time) {
@@ -4286,6 +4288,10 @@ function migrateStateSchema() {
   if ((state.schemaVersion || 0) < 3 && !Array.isArray(state.strengthSessions)) {
     state.strengthSessions = [];
   }
+  // 0.8.8: шаблоны силовых.
+  if ((state.schemaVersion || 0) < 4 && !Array.isArray(state.strengthTemplates)) {
+    state.strengthTemplates = [];
+  }
   state.schemaVersion = STATE_SCHEMA_VERSION;
 }
 
@@ -4323,6 +4329,7 @@ function loadState() {
   normalizeCourses();
   normalizeWorkouts();
   normalizeStrengthSessions();
+  normalizeStrengthTemplates();
   normalizeActivityTemplates();
   normalizeWaterReminders();
   normalizeDayChecklist();
@@ -8492,6 +8499,82 @@ function normalizeStrengthSessions() {
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/* 0.8.8: шаблоны силовых — сохранённая структура тренировки (упражнения с
+   рабочими весами), из которой можно начать новую сессию одним тапом. */
+function normalizeStrengthTemplatesList(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter((t) => t && typeof t === 'object')
+    .map((t) => {
+      const name = String((t.name || '').trim()).slice(0, 60);
+      if (!name) return null;
+      const exercises = (Array.isArray(t.exercises) ? t.exercises : [])
+        .map((ex) => {
+          const ename = String((ex && ex.name) || '').trim().slice(0, 80);
+          if (!ename) return null;
+          const sets = (Array.isArray(ex && ex.sets) ? ex.sets : [])
+            .map((set) => ({
+              weight: Math.max(0, Math.min(2000, Math.round(Number(set && set.weight) || 0))),
+              reps: Math.max(0, Math.min(1000, Math.round(Number(set && set.reps) || 0)))
+            }))
+            .filter((set) => set.weight > 0 || set.reps > 0)
+            .slice(0, 40);
+          return { name: ename, sets };
+        })
+        .filter(Boolean)
+        .slice(0, 30);
+      return { id: String(t.id || uid()), name, exercises, createdAt: Number(t.createdAt) || Date.now() };
+    })
+    .filter((t) => t && !seen.has(t.name.toLowerCase()) && seen.add(t.name.toLowerCase()))
+    .slice(0, 24)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+function normalizeStrengthTemplates() {
+  state.strengthTemplates = normalizeStrengthTemplatesList(state.strengthTemplates);
+}
+
+function saveStrengthTemplate() {
+  const name = String(strengthDraft.title || '').trim();
+  if (!name) { toast('Дайте шаблону название (поле «Название»)'); return; }
+  const exercises = strengthDraft.exercises
+    .map((ex) => ({
+      name: ex.name,
+      sets: ex.sets.map((s) => ({ weight: Math.round(Number(s.weight) || 0), reps: Math.round(Number(s.reps) || 0) }))
+    }))
+    .filter((ex) => ex.sets.length > 0);
+  if (!exercises.length) { toast('Добавьте хотя бы один подход'); return; }
+  normalizeStrengthTemplates();
+  if (state.strengthTemplates.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+    toast('Шаблон с таким названием уже есть — переименуйте');
+    return;
+  }
+  state.strengthTemplates.push({ id: uid(), name, exercises, createdAt: Date.now() });
+  normalizeStrengthTemplates();
+  saveState();
+  renderStrengthDiary();
+  toast('✓ Шаблон «' + name + '» сохранён');
+}
+
+function startStrengthFromTemplate(id) {
+  const t = (state.strengthTemplates || []).find((x) => x.id === id);
+  if (!t) return;
+  strengthDraft = {
+    title: t.name,
+    durationMinutes: '',
+    exercises: t.exercises.map((ex) => ({ name: ex.name, sets: ex.sets.map((s) => ({ weight: s.weight, reps: s.reps })) }))
+  };
+  renderStrengthDiary();
+  toast('Шаблон «' + t.name + '» подставлен — поправьте веса и сохраните');
+}
+
+function deleteStrengthTemplate(id) {
+  normalizeStrengthTemplates();
+  state.strengthTemplates = state.strengthTemplates.filter((t) => t.id !== id);
+  saveState();
+  renderStrengthDiary();
+}
+
 /* Черновик (в памяти, до сохранения) и текущая группа в выборе упражнения. */
 let strengthDraft = { title: '', durationMinutes: '', exercises: [] };
 let strengthPickerGroup = STRENGTH_GROUPS[0];
@@ -8595,6 +8678,24 @@ function renderStrengthDiary() {
   }
   html += '<button class="btn btn-secondary" type="button" data-s-add-exercise>＋ Добавить упражнение</button>';
   html += '<button class="btn btn-primary training-add-btn" type="button" data-s-save>Сохранить силовую</button>';
+  html += `<button class="btn btn-ghost" type="button" data-s-save-template>⭐ Сохранить как шаблон</button>`;
+
+  // Шаблоны: начать одним тапом
+  const templates = state.strengthTemplates || [];
+  if (templates.length) {
+    html += '<div class="strength-templates"><p class="strength-templates-hint">Шаблоны</p>';
+    templates.forEach((t) => {
+      const first = (t.exercises[0] || {}).name || '';
+      html += `<div class="strength-template-row">
+        <div class="strength-template-info"><strong>${escapeHtml(t.name)}</strong><span>${t.exercises.length} упр.${first ? ' · ' + escapeHtml(first) : ''}</span></div>
+        <div class="strength-template-actions">
+          <button class="watch-btn watch-btn-add" type="button" data-s-start-template="${escapeHtml(t.id)}">Начать</button>
+          <button class="watch-btn watch-btn-ghost" type="button" data-s-del-template="${escapeHtml(t.id)}" aria-label="Удалить шаблон">×</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
 
   if (sessions.length) {
     html += '<div class="strength-saved"><p class="strength-saved-hint">Сегодня сохранено:</p>';
@@ -11898,6 +11999,12 @@ function init() {
     if (remSet) return removeStrengthSet(Number(remSet.dataset.sRemoveSet), Number(remSet.dataset.sSet));
     const save = e.target.closest('[data-s-save]');
     if (save) return saveStrengthSession();
+    const saveTpl = e.target.closest('[data-s-save-template]');
+    if (saveTpl) return saveStrengthTemplate();
+    const startTpl = e.target.closest('[data-s-start-template]');
+    if (startTpl) return startStrengthFromTemplate(startTpl.dataset.sStartTemplate);
+    const delTpl = e.target.closest('[data-s-del-template]');
+    if (delTpl) return deleteStrengthTemplate(delTpl.dataset.sDelTemplate);
   });
   $('#strength-diary').addEventListener('input', (e) => {
     if (e.target.hasAttribute && e.target.hasAttribute('data-s-title')) {
@@ -14364,6 +14471,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList
   };
 }
