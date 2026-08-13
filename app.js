@@ -188,6 +188,8 @@ const FOOD_DB = {
   'слойка с вишней': { kcal: 310, p: 4, f: 15, c: 40 }, 'слойка с ветчиной и сыром': { kcal: 320, p: 9, f: 18, c: 30 },
   'сочник с творогом': { kcal: 275, p: 9, f: 11, c: 35 }, 'сочень с творогом': { kcal: 275, p: 9, f: 11, c: 35 },
   'ватрушка с творогом': { kcal: 260, p: 9, f: 7, c: 40 }, 'ватрушка': { kcal: 260, p: 9, f: 7, c: 40 },
+  // 0.7.16: обобщённая сдобная выпечка (средняя оценка — булочки/слойки/пирожки в среднем)
+  'выпечка': { kcal: 300, p: 6, f: 12, c: 42 },
   'пирожок с картошкой': { kcal: 210, p: 5, f: 8, c: 30 }, 'пирожок с капустой': { kcal: 190, p: 5, f: 7, c: 27 },
   'пирожок с мясом': { kcal: 260, p: 10, f: 12, c: 28 }, 'пирожок с яблоком': { kcal: 215, p: 4, f: 7, c: 34 },
   'гречка с курицей': { kcal: 145, p: 10, f: 3, c: 20 }, 'рис с курицей': { kcal: 155, p: 9, f: 3, c: 23 },
@@ -638,6 +640,8 @@ const FOOD_DB = {
   'тарталетка с красной икрой': { kcal: 80, p: 4, f: 4, c: 6.6, per: 'шт', pieceG: 22 },
   'тарталетка с творожным сыром': { kcal: 85, p: 3.5, f: 4.5, c: 7, per: 'шт', pieceG: 24 },
   'тарталетка с красной икрой и творожным сыром': { kcal: 100, p: 5.5, f: 6.5, c: 7, per: 'шт', pieceG: 30 },
+  'тарталетка с черной икрой': { kcal: 80, p: 4, f: 4, c: 6.6, per: 'шт', pieceG: 22 },
+  'тарталетка с черной икрой и творожным сыром': { kcal: 100, p: 5.5, f: 6.5, c: 7, per: 'шт', pieceG: 30 },
 
   // ===== Расширение: рыба и морепродукты детальнее =====
   'лосось запеченный': { kcal: 180, p: 20, f: 10, c: 0 },
@@ -767,8 +771,19 @@ function canonicalUnit(unitRaw) {
    нераспознанные слова тихо пропадали — щи из «щи со свининой»).
    Отвечаем честностью: всё, что не распознано, показывается явной
    пометкой «⚠️ Не разобрал» — гарантия «ничего не теряется молча». */
+/* 0.7.16: частые опечатки еды (свайп-клавиатура/голос). Правка однозначна в
+   домене продуктов, поэтому молчалива: итог виден в превью и правится руками.
+   «ира сельди» → «икра сельди», «бетрброд» → «бутерброд». */
+function fixCommonTypos(text) {
+  let t = String(text || '');
+  t = t.replace(/бетрброд/giu, 'бутерброд').replace(/бутрброд/giu, 'бутерброд');
+  t = t.replace(/ира\s+сельди/giu, 'икра сельди');
+  return t;
+}
+
 function parseMealTextDetailed(raw) {
   if (!raw || !raw.trim()) return { items: [], missed: [] };
+  raw = fixCommonTypos(raw);
   // Разделители: запятая/точка с запятой перед буквой, «и» между словами,
   // тире/дефисы. \b не используем — в JS он не понимает кириллицу.
   const splitParts = raw
@@ -880,7 +895,14 @@ function splitWithCompanion(part) {
   if (!combo) return [part];
   if ((combo[2] || '').split(/\s+/).length > 2) return [part]; // «с X и Y» — не наш случай
   const whole = lookupProduct(part);
-  if (whole && whole.key.indexOf(' ') !== -1) return [part]; // кураторская пара есть
+  if (whole && whole.key.indexOf(' ') !== -1) {
+    // Кураторский ключ — только если покрывает И компаньона («кофе с молоком»,
+    // «гречка с курицей»). Если ключ — лишь левая часть («картофельное пюре»
+    // в «картофельное пюре с тушёнкой»), делим дальше: тушёнка не должна
+    // молча пропадать (0.7.16, кейс владельца).
+    const rightWord = combo[2].trim().toLowerCase();
+    if (whole.key.indexOf(rightWord) !== -1) return [part];
+  }
   if (!lookupProduct(combo[1])) return [part];
   const right = lookupProduct(combo[2]);
   if (!right) return [part];
@@ -907,12 +929,32 @@ const COMPANION_GRAMS = {
    «рис вареный»), берём его: сухая крупа (гречка 313 ккал/100 г) в готовом
    блюде была бы враньём (0.3.30, правдивость расчётов — приоритет №1). */
 const COMPANION_COOKED_VARIANTS = [' вареная', ' вареный', ' варёная', ' варёный', ' отварные', ' на пару'];
+
+/* 0.7.16: сухая крупа → готовый (варёный) ключ базы. Применяется в двух местах:
+   (1) левая часть пары через «с» (cookedCompanionLeft), (2) готовая порция в
+   тарелке/порции (parseItem). «Тарелка гречки» = варёная гречка (110), а не
+   сухая крупа (313) — иначе «тарелка гречки» давала 783 ккал вместо ~275. */
+const DRY_TO_COOKED = {
+  'гречка': 'гречка вареная',
+  'гречки': 'гречка вареная',
+  'рис': 'рис вареный'
+};
+/* Ёмкости, которые по смыслу означают ГОТОВУЮ порцию (не сырой вес). */
+const MEAL_CONTAINER_UNITS = new Set(['тарелка', 'порция', 'миска', 'пиала']);
+
 function cookedCompanionLeft(left) {
   const text = String(left || '').trim();
   if (/варен|варён|отварн|жарен|тушён|тушен|запеч|печён|копч|пар/iu.test(text)) return text;
+  // Ведущая ёмкость/порция («тарелка гречки») не мешает — чиним сам гарнир.
+  const m = text.match(/^(тарелк[а-яё]*|порци[а-яё]*|миск[а-яё]*|пиал[а-яё]*|стакан[а-яё]*|чашк[а-яё]*|кружк[а-яё]*)\s+(.+)$/iu);
+  const lead = m ? m[1] + ' ' : '';
+  const base = m ? m[2] : text;
   for (const variant of COMPANION_COOKED_VARIANTS) {
-    if (lookupProduct(text + variant)) return text + variant;
+    if (lookupProduct(base + variant)) return lead + base + variant;
   }
+  // Сухая крупа → готовый ключ по карте («гречки» → «гречка вареная»).
+  const cooked = DRY_TO_COOKED[base.toLowerCase()];
+  if (cooked) return lead + cooked;
   return text;
 }
 
@@ -1954,7 +1996,10 @@ function parseSandwichItem(rawName, amount, unit, genericProduct) {
   // Название: одна начинка — КЛЮЧ базы («вареной колбасой» → «вареная
   // колбаса»: уточнение отражено ключом, форма единообразна), несколько —
   // как в исходной фразе («сыром и маслом» читается естественно).
-  const nameFill = fillingParts.length === 1 ? known[0].product.key : fillingParts.join(' и ');
+  // Одна начинка — творительный падеж исходной фразы («вареной колбасой»),
+  // чтобы имя звучало по-русски: «бутерброд с вареной колбасой», а не
+  // «с вареная колбаса» (0.7.16, косметика).
+  const nameFill = fillingParts.length === 1 ? fillingParts[0].trim() : fillingParts.join(' и ');
   let note = 'по составу: хлеб ' + SANDWICH_BREAD.g + ' г + '
     + parts.map((f) => f.name + ' ' + f.g + ' г').join(' + ') + ' на шт';
   if (unknown.length) note += '; без учёта: ' + unknown.join(', ');
@@ -2195,6 +2240,13 @@ function parseItem(text) {
   }
 
   if (!product) return null;
+
+  // 0.7.16: сухая крупа в готовой порции («тарелка гречки», «порция риса») —
+  // это варёный гарнир, а не сухое зерно (иначе 783 ккал вместо ~275).
+  if (!product.per && unit && MEAL_CONTAINER_UNITS.has(String(unit).toLowerCase()) && DRY_TO_COOKED[product.key]) {
+    const cooked = lookupProduct(DRY_TO_COOKED[product.key]);
+    if (cooked) product = cooked;
+  }
 
   // 4) Подсчёт ккал и БЖУ
   const nutrition = calcNutrition(product, amount, unit);
@@ -2606,7 +2658,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.15';
+const FITFLOW_VERSION = '0.7.16';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.

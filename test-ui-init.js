@@ -801,7 +801,7 @@ for (const id of ids) {
 
   const okWings = appP.includes("'жареные куриные крылья': { kcal: 254") && appP.includes("'куриные крылья': { kcal: 203");
   const okSand = appP.includes("fillingParts[0].trim().split(/\\s+/).length === 1")
-    && appP.includes("fillingParts.length === 1 ? known[0].product.key : fillingParts.join(' и ')");
+    && appP.includes("fillingParts.length === 1 ? fillingParts[0].trim() : fillingParts.join(' и ')");
   const okAll = okWings && okSand;
   if (!okAll) failed++;
   console.log(`${okAll ? '✓' : '✗'} база крыльев + кураторский ключ только для голой начинки (условие одного слова), имя одной начинки — ключ базы`);
@@ -1599,6 +1599,26 @@ for (const id of ids) {
   const okVer0715 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVer0715) failed++;
   console.log(`${okVer0715 ? '✓' : '✗'} 0.7.15 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.7.16 (правдивость парсера: ISSUES.md) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  // Сухая крупа → варёная в готовой порции; пюре/тушёнка; чёрная икра; опечатки; выпечка
+  const okParser = appR.includes('DRY_TO_COOKED')
+    && appR.includes('MEAL_CONTAINER_UNITS')
+    && appR.includes('rightWord = combo[2].trim()')
+    && appR.includes('тарталетка с черной икрой')
+    && appR.includes('function fixCommonTypos')
+    && appR.includes("'выпечка': { kcal: 300");
+  if (!okParser) failed++;
+  console.log(`${okParser ? '✓' : '✗'} 0.7.16 парсер: варёная крупа, пюре+тушёнка, чёрная икра, опечатки, выпечка`);
+
+  const okVer0716 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0716) failed++;
+  console.log(`${okVer0716 ? '✓' : '✗'} 0.7.16 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

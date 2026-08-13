@@ -181,7 +181,7 @@ if (!smartOk) failed++;
 console.log(`${smartOk ? '✓' : '✗'} быстрый ввод: плавание, банан и 2 стакана воды`);
 
 const smartMulti = parseSmartEntry('побегал 15 минут поплавала в бассейне 20 минут съел банан выпил два стакана воды съел тарелку гречки');
-const smartMultiOk = smartMulti.waterMl === 500 && smartMulti.activities.length === 2 && smartMulti.activities[0].type === 'cardio' && smartMulti.activities[1].type === 'swim' && smartMulti.food.length === 2 && smartMulti.food.some((item) => item.name === 'гречки');
+const smartMultiOk = smartMulti.waterMl === 500 && smartMulti.activities.length === 2 && smartMulti.activities[0].type === 'cardio' && smartMulti.activities[1].type === 'swim' && smartMulti.food.length === 2 && smartMulti.food.some((item) => item.name === 'гречка вареная'); // 0.7.16: тарелка гречки = варёная, не сухая крупа
 if (!smartMultiOk) failed++;
 console.log(`${smartMultiOk ? '✓' : '✗'} быстрый ввод: бег, плавание, банан, гречка и 2 стакана воды`);
 
@@ -458,7 +458,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 {
   const truth = [
     // [фраза, имя, amount, grams, kcal, approx?]
-    ['4 бутерброда с сырокопченой колбасой', ['бутерброд с сырокопченая колбаса', 4, 180, 602, true]],
+    ['4 бутерброда с сырокопченой колбасой', ['бутерброд с сырокопченой колбасой', 4, 180, 602, true]],
     ['бутерброд с сыром', ['бутерброд с сыром', null, 45, 110, false]], // кураторский ключ важнее композиции
     ['бутерброд с маслом', ['бутерброд', null, 45, 130, false]],
     ['суп из курицы', ['суп из курица', null, 100, 91, true]],
@@ -491,7 +491,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 {
   const r = parseSmartEntry('четыре бутерброда сорокопчёной колбасой, два бутерброда с сыром и маслом, рагу из свинины, стакан сока яблочного');
   const [sw1, sw2, stew, juice] = r.food;
-  const ok1 = sw1 && sw1.name === 'бутерброд с сырокопченая колбаса' && sw1.amount === 4 && sw1.kcal === 602 && sw1.approx;
+  const ok1 = sw1 && sw1.name === 'бутерброд с сырокопчёной колбасой' && sw1.amount === 4 && sw1.kcal === 602 && sw1.approx;
   if (!ok1) failed++;
   console.log(`${ok1 ? '✓' : '✗'} «четыре бутерброда сорокопчёной колбасой» → ${sw1 && sw1.name} ${sw1 && sw1.kcal} ккал ≈`);
   const ok2 = sw2 && sw2.name === 'бутерброд с сыром и маслом' && sw2.amount === 2 && sw2.kcal === 380 && sw2.approx
@@ -1187,7 +1187,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const twoFill = parseSmartEntry('бутерброд с маслом и сыром').food;
   const okTwo = twoFill.length === 1 && twoFill[0].kcal === 190 && /сыр 15 г/.test(twoFill[0].note || '');
   const crab = parseSmartEntry('бутерброд с крабовыми палочками').food;
-  const okCrab = crab.length === 1 && /крабовые палочки/.test(crab[0].name);
+  const okCrab = crab.length === 1 && /крабовыми палочками/.test(crab[0].name); // 0.7.16: творительный падеж начинки
   const ham = parseSmartEntry('два бутерброда с ветчиной сыром').food;
   const okHam = ham.length === 1 && /ветчина 15 г \+ сыр 15 г/.test(ham[0].note || '') && ham[0].amount === 2;
   const okAll = okFull && okCommas && okCoffee && okTwo && okCrab && okHam;
@@ -1240,7 +1240,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const okPlain = plain.food.length === 1 && plain.food[0].kcal === 284 && plain.unparsed.length === 0;
   const boiled = parseSmartEntry('бутерброд с вареной колбасой');
   const bItem = boiled.food.length === 1 ? boiled.food[0] : null;
-  const okBoiled = !!bItem && bItem.name === 'бутерброд с вареная колбаса'
+  const okBoiled = !!bItem && bItem.name === 'бутерброд с вареной колбасой'
     && /вареная колбаса 15 г/.test(bItem.note || '') && bItem.kcal === 119 && bItem.approx === true;
   const curated = parseSmartEntry('бутерброд с колбасой');
   const okCurated = curated.food.length === 1 && curated.food[0].kcal === 125
@@ -1368,6 +1368,34 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok16 = bad === 0;
   if (!ok16) failed++;
   console.log(`${ok16 ? '✓' : '✗'} 0.7.12 шаги: «Авто» = часы приоритет (Zepp-лаг не считается «снятыми часами»), без часов → телефон`);
+}
+
+// ===== 0.7.16: правдивость готовых гарниров, спутников и опечаток (ISSUES.md 16–29) =====
+{
+  let bad = 0;
+  // Сухая крупа в готовой порции → варёная («тарелка гречки» 275, не 783)
+  const plate = parseSmartEntry('тарелка гречки');
+  if (!(plate.food.length === 1 && plate.food[0].name === 'гречка вареная' && Math.round(plate.food[0].kcal) === 275)) bad++;
+  // «тарелка гречки с тушёнкой» — обе позиции, гречка варёная
+  const plateCombo = parseSmartEntry('тарелка гречки с тушёнкой');
+  if (!(plateCombo.food.some((i) => i.name === 'гречка вареная') && plateCombo.food.some((i) => i.name === 'тушенка'))) bad++;
+  // «пюре с тушёнкой» — тушёнка больше не пропадает
+  const puree = parseSmartEntry('картофельное пюре с тушёнкой');
+  if (!(puree.food.some((i) => i.name === 'картофельное пюре') && puree.food.some((i) => i.name === 'тушенка'))) bad++;
+  // Тарталетка с ЧЁРНОЙ икрой — отдельный ключ (не «с творожным сыром» без икры)
+  const tart = parseSmartEntry('тарталетка с черной икрой и творожным сыром');
+  if (!(tart.food.length === 1 && tart.food[0].name === 'тарталетка с черной икрой и творожным сыром' && tart.food[0].kcal === 100)) bad++;
+  // Опечатки: «ира сельди» → икра сельди, «бетрброд» → бутерброд
+  const typo1 = parseSmartEntry('ира сельди 30 гр');
+  if (!(typo1.food.length === 1 && typo1.food[0].name === 'икра сельди')) bad++;
+  const typo2 = parseSmartEntry('бетрброд с маслом');
+  if (!(typo2.food.length === 1 && typo2.food[0].kcal === 130 && typo2.unparsed.length === 0)) bad++;
+  // Обобщённая выпечка из базы
+  const pastry = parseSmartEntry('выпечка 1 шт');
+  if (!(pastry.food.length === 1 && pastry.food[0].name === 'выпечка')) bad++;
+  const ok16 = bad === 0;
+  if (!ok16) failed++;
+  console.log(`${ok16 ? '✓' : '✗'} 0.7.16 ISSUES: тарелка гречки=варёная, пюре+тушёнка, тарталетка с чёрной икрой, опечатки, выпечка`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
