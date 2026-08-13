@@ -2606,8 +2606,8 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.9';
-const FITFLOW_BUILD = 'build 287';
+const FITFLOW_VERSION = '0.7.10';
+const FITFLOW_BUILD = 'build 288';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
 // Совместимость форматов давали и дают нормализаторы; шаги миграций добавляем
@@ -6391,6 +6391,24 @@ function getPhoneSteps() {
   return 0;
 }
 
+/* 0.7.10: единый распознаватель источника шагов по приоритету.
+   hcSteps — шаги С ЧАСОВ (из Health Connect, отфильтрованы по источнику),
+   phoneSteps — шаги аппаратного шагомера телефона. Чистая функция:
+   не читает state, чтобы её можно было проверять node-тестом. */
+function resolveHealthSteps(priority, hcSteps, phoneSteps) {
+  const watch = Math.max(0, Number(hcSteps) || 0);
+  const phone = Math.max(0, Number(phoneSteps) || 0);
+  if (priority === 'phone_only') {
+    return { steps: phone, source: 'шагомер телефона' };
+  }
+  if (priority === 'health_connect_only') {
+    return { steps: watch, source: watch > 0 ? 'Zepp / Health Connect' : 'часы / Health Connect (нет данных)' };
+  }
+  // auto: часы → телефон
+  if (watch > 0) return { steps: watch, source: 'Zepp / Health Connect' };
+  return { steps: phone, source: 'шагомер телефона' };
+}
+
 function openHealthConnectSettings() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.openHealthConnectSettings === 'function') {
@@ -6550,7 +6568,11 @@ function renderHealthDiagnosticsContent() {
   const stepSensor = rawDiag ? (rawDiag.hasStepCounterSensor ? '✓ Найден (аппаратный сопроцессор)' : '⚠️ Нет аппаратного датчика') : 'Не доступен';
   const hcApp = isAndroid14Plus ? '✓ Встроен в систему (Android 14+)' : (rawDiag ? (rawDiag.hasHealthConnectApp ? '✓ Доступен в системе' : '⚠️ Не найден') : 'Только в APK');
   const phoneStepsToday = rawDiag ? (rawDiag.phoneStepsToday || phoneSteps || 0) : phoneSteps;
-  const hcStepsToday = rawDiag ? (rawDiag.hcStepsToday || 0) : (state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect') ? state.healthSync.lastSteps : 0);
+  // 0.7.10: честно показываем отдельно «все источники Health Connect» и «только часы».
+  // Новые сборки отдают hcTotalStepsToday (все) + hcWatchStepsToday (часы);
+  // старые — только hcStepsToday (сумму всех источников, часы отдельно не выделялись).
+  const hcTotalToday = rawDiag ? (rawDiag.hcTotalStepsToday || rawDiag.hcStepsToday || 0) : (state.healthSync.lastSource && state.healthSync.lastSource.includes('Health Connect') ? state.healthSync.lastSteps : 0);
+  const hcWatchToday = rawDiag ? (rawDiag.hcWatchStepsToday !== undefined ? rawDiag.hcWatchStepsToday : (rawDiag.hcStepsToday || 0)) : 0;
   // Health Connect error state from Kotlin helper
   let hcLastError = '';
   try {
@@ -6577,7 +6599,8 @@ function renderHealthDiagnosticsContent() {
     `Аппаратный шагомер телефона: ${stepSensor}`,
     `Системный сервис Health Connect: ${hcApp}`,
     `Шагов насчитано телефоном: ${phoneStepsToday}`,
-    `Шагов получено от Health Connect: ${hcStepsToday}`,
+    `Шагов в Health Connect (все источники): ${hcTotalToday}`,
+    `Шагов с часов (Zepp и др.): ${hcWatchToday}`,
     `Сон из Health Connect (Zepp): ${sleepStr}`,
     `Последний синк: ${lastSyncStr}`,
     `Статус Health Connect: ${hcLastError || 'нет данных'}`,
@@ -6593,10 +6616,11 @@ function renderHealthDiagnosticsContent() {
     <div style="margin-bottom:8px"><strong>⌚ Health Connect:</strong> ${hcApp}</div>
     <hr style="border:none; border-top:1px solid rgba(0,0,0,0.1); margin:8px 0;" />
     <div style="margin-bottom:6px"><strong>📊 Шагов телефоном за сегодня:</strong> ${fmt(phoneStepsToday)}</div>
-    <div style="margin-bottom:6px"><strong>⌚ Шагов из Health Connect:</strong> ${fmt(hcStepsToday)}</div>
+    <div style="margin-bottom:6px"><strong>⌚ Шагов в Health Connect (все источники):</strong> ${fmt(hcTotalToday)}</div>
+    <div style="margin-bottom:6px"><strong>⌚ Шагов с часов (Zepp и др.):</strong> ${fmt(hcWatchToday)}</div>
     <div style="margin-bottom:6px"><strong>🌙 Сон (Health Connect / Zepp):</strong> ${sleepStr}</div>
     <div style="margin-bottom:6px"><strong>⏱ Время последнего синка:</strong> ${lastSyncStr}</div>
-    ${hcLastError && !hcLastError.startsWith('ok') ? '<div style="margin-bottom:8px; padding:8px; background:rgba(220,50,50,0.1); border-radius:6px; font-size:12px;"><strong>⚠️ Health Connect статус:</strong> ' + escapeHtml(hcLastError) + '</div>' : ''}
+    ${hcLastError && !String(hcLastError).toLowerCase().startsWith('ok') ? '<div style="margin-bottom:8px; padding:8px; background:rgba(220,50,50,0.1); border-radius:6px; font-size:12px;"><strong>⚠️ Health Connect статус:</strong> ' + escapeHtml(hcLastError) + '</div>' : ''}
     <div style="margin-bottom:8px; display:flex; flex-direction:column; gap:6px;">
       <button class="btn btn-secondary" type="button" onclick="requestHCPermissions()" style="font-size:12px; padding:6px 12px">🔓 Разрешить в Health Connect (FitFlow)</button>
       <button class="btn btn-ghost" type="button" onclick="openHCSettingsSystem()" style="font-size:12px; padding:6px 12px">⚙️ Открыть Health Connect в системе</button>
@@ -6703,23 +6727,16 @@ if (typeof window !== 'undefined') {
   window.onHealthConnectDataReceived = function(steps, kcal, sleepMin, bedTime, wakeTime) {
     normalizeHealthSync();
     const receivedSteps = Math.max(0, Number(steps) || 0);
-    const receivedKcal = Math.max(0, Number(kcal) || 0);
     const receivedSleepMin = Math.max(0, Number(sleepMin) || 0);
 
-    if (receivedSteps > 0 || receivedKcal > 0) {
-      state.healthSync.lastSteps = receivedSteps;
-      state.healthSync.lastKcal = receivedKcal;
-      state.healthSync.lastSource = 'Zepp / Health Connect';
-      state.healthSync.lastSyncTs = Date.now();
-    } else {
-      const phoneSteps = getPhoneSteps();
-      if (phoneSteps > 0) {
-        state.healthSync.lastSteps = phoneSteps;
-        state.healthSync.lastSource = 'шагомер телефона';
-      }
-      state.healthSync.lastSyncTs = Date.now();
-    }
-    
+    // 0.7.10: приоритет источника решается здесь же — нативный мост отдаёт шаги С ЧАСОВ,
+    // а телефон берём из аппаратного шагомера (не из суммы всех источников Health Connect).
+    const resolved = resolveHealthSteps(state.healthSync.priority, receivedSteps, getPhoneSteps());
+    state.healthSync.lastSteps = resolved.steps;
+    state.healthSync.lastKcal = Math.round(resolved.steps * 0.04);
+    state.healthSync.lastSource = resolved.source;
+    state.healthSync.lastSyncTs = Date.now();
+
     // Сон: сохранение объективных данных из Health Connect (Zepp)
     if (receivedSleepMin > 0) {
       if (!state.sleepCheckin) state.sleepCheckin = { enabled: true, history: {}, log: [] };
@@ -6763,17 +6780,10 @@ if (typeof window !== 'undefined') {
     renderFood();
     renderStepsCard();
 
-    if (receivedSteps > 0 || receivedKcal > 0 || receivedSleepMin > 0) {
-      const parts = [];
-      if (receivedSteps > 0) parts.push(`${fmt(receivedSteps)} шагов`);
-      if (receivedKcal > 0) parts.push(`${fmt(Math.round(receivedKcal))} ккал`);
-      if (receivedSleepMin > 0) parts.push(`сон ${Math.floor(receivedSleepMin/60)} ч ${receivedSleepMin%60} мин`);
-      toast(`✓ Данные получены: ${parts.join(', ')}`);
-    } else {
-      syncHealthDataNow();
-      const curSteps = state.healthSync.lastSteps || getPhoneSteps() || 0;
-      toast(curSteps > 0 ? `✓ Шагов сегодня: ${fmt(curSteps)}` : 'Синхронизировано (шагов за сегодня пока нет)');
-    }
+    const parts = [];
+    if (resolved.steps > 0) parts.push(`${fmt(resolved.steps)} шагов (${resolved.source})`);
+    if (receivedSleepMin > 0) parts.push(`сон ${Math.floor(receivedSleepMin/60)} ч ${receivedSleepMin%60} мин`);
+    toast(parts.length > 0 ? `✓ Данные получены: ${parts.join(', ')}` : 'Синхронизировано (данных за сегодня пока нет)');
   };
 }
 
@@ -6788,27 +6798,14 @@ function syncHealthDataNow() {
       if (raw && raw.length > 2) {
         const snap = JSON.parse(raw);
         if (snap && snap.date === todayKey()) {
-          const hcSteps = Math.max(0, Number(snap.hcSteps) || 0);
+          // 0.7.10: hcSteps — это шаги С ЧАСОВ (отфильтрованы нативно по источнику);
+          // watchSteps — явное имя для новых сборок, hcSteps — совместимость со старыми.
+          const hcSteps = Math.max(0, Number(snap.watchSteps !== undefined ? snap.watchSteps : snap.hcSteps) || 0);
           const phoneSteps = Math.max(0, Number(snap.phoneSteps) || 0);
-          const hcKcal = Math.max(0, Number(snap.hcKcal) || 0);
-          
-          if (state.healthSync.priority === 'health_connect_only') {
-            state.healthSync.lastSteps = hcSteps;
-            state.healthSync.lastSource = 'Zepp / Health Connect';
-          } else if (state.healthSync.priority === 'phone_only') {
-            state.healthSync.lastSteps = phoneSteps;
-            state.healthSync.lastSource = 'шагомер телефона';
-          } else {
-            // Автоприоритет: часы через Health Connect при наличии, иначе шагомер телефона
-            if (hcSteps > 0) {
-              state.healthSync.lastSteps = hcSteps;
-              state.healthSync.lastSource = 'Zepp / Health Connect';
-            } else if (phoneSteps > 0) {
-              state.healthSync.lastSteps = phoneSteps;
-              state.healthSync.lastSource = 'шагомер телефона';
-            }
-          }
-          if (hcKcal > 0) state.healthSync.lastKcal = hcKcal;
+          const resolved = resolveHealthSteps(state.healthSync.priority, hcSteps, phoneSteps);
+          state.healthSync.lastSteps = resolved.steps;
+          state.healthSync.lastSource = resolved.source;
+          state.healthSync.lastKcal = Math.round(resolved.steps * 0.04);
           state.healthSync.lastSyncTs = snap.lastSync || Date.now();
           saveState();
           renderHealthSyncSettings();
@@ -6819,11 +6816,12 @@ function syncHealthDataNow() {
     }
   } catch (e) { }
 
-  // 2. Прямой опрос телефонного датчика
+  // 2. Прямой опрос телефонного датчика (приоритет решает тот же распознаватель)
   const phoneSteps = getPhoneSteps();
   if (phoneSteps > 0) {
-    state.healthSync.lastSteps = phoneSteps;
-    state.healthSync.lastSource = 'шагомер телефона';
+    const resolved = resolveHealthSteps(state.healthSync.priority, 0, phoneSteps);
+    state.healthSync.lastSteps = resolved.steps;
+    state.healthSync.lastSource = resolved.source;
     state.healthSync.lastSyncTs = Date.now();
     saveState();
     renderHealthSyncSettings();
@@ -13371,6 +13369,6 @@ if (typeof module !== 'undefined' && module.exports) {
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT,
-    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS
+    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps
   };
 }

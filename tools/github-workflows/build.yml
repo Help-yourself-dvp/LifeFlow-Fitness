@@ -442,13 +442,14 @@ jobs:
                           String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
                           String savedDate = prefs.getString("steps_date", "");
                           if (today.equals(savedDate)) {
-                              int hcSteps = prefs.getInt("hc_steps_today", 0);
+                              int hcSteps = prefs.getInt("hc_steps_today", 0);   // шаги с часов
+                              int hcTotalSteps = prefs.getInt("hc_total_steps_today", hcSteps); // всего в HC
                               float hcKcal = prefs.getFloat("hc_kcal_today", 0.0f);
                               int phoneSteps = prefs.getInt("steps_today", 0);
                               long lastSync = prefs.getLong("hc_last_sync_ts", 0);
                               return String.format(java.util.Locale.US,
-                                  "{\"date\":\"%s\",\"hcSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"lastSync\":%d}",
-                                  today, hcSteps, hcKcal, phoneSteps, lastSync
+                                  "{\"date\":\"%s\",\"hcSteps\":%d,\"watchSteps\":%d,\"hcTotalSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"lastSync\":%d}",
+                                  today, hcSteps, hcSteps, hcTotalSteps, hcKcal, phoneSteps, lastSync
                               );
                           }
                       } catch (Exception e) { }
@@ -479,6 +480,7 @@ jobs:
                           int stepsToday = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
                           int baseSteps = prefs.getInt("steps_base", -1);
                           int hcSteps = today.equals(savedDate) ? prefs.getInt("hc_steps_today", 0) : 0;
+                          int hcTotalSteps = today.equals(savedDate) ? prefs.getInt("hc_total_steps_today", hcSteps) : 0;
                           float hcKcal = today.equals(savedDate) ? prefs.getFloat("hc_kcal_today", 0.0f) : 0.0f;
                           long lastSync = prefs.getLong("hc_last_sync_ts", 0);
 
@@ -487,7 +489,12 @@ jobs:
                           diag.put("phoneStepsToday", stepsToday);
                           diag.put("phoneBaseSteps", baseSteps);
                           diag.put("hcStepsToday", hcSteps);
+                          diag.put("hcWatchStepsToday", hcSteps);
+                          diag.put("hcTotalStepsToday", hcTotalSteps);
                           diag.put("hcKcalToday", (double) hcKcal);
+                          diag.put("hcSleepMin", prefs.getInt("hc_sleep_min", 0));
+                          diag.put("hcSleepBedTime", prefs.getString("hc_sleep_bed", ""));
+                          diag.put("hcSleepWakeTime", prefs.getString("hc_sleep_wake", ""));
                           diag.put("lastSyncTs", lastSync);
 
                           boolean hasHcIntent = false;
@@ -551,15 +558,19 @@ jobs:
                           public void run() {
                               try {
                                   SharedPreferences prefs = getSharedPreferences("fitflow_sensor_prefs", MODE_PRIVATE);
-                                  String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
-                                  String savedDate = prefs.getString("steps_date", "");
-                                  final int phoneSteps = today.equals(savedDate) ? prefs.getInt("steps_today", 0) : 0;
                                   final int[] result = HealthConnectHelper.syncNow(getApplicationContext());
-                                  final double kcal = result[0] * 0.04;
+                                  // result = [шаги с часов, всего в HC, сон мин]
+                                  final int watchSteps = result[0];
+                                  final int totalSteps = result[1];
+                                  final int sleepMin = result[2];
+                                  final double kcal = watchSteps * 0.04;
                                   prefs.edit()
-                                      .putInt("hc_steps_today", result[0])
+                                      .putInt("hc_steps_today", watchSteps)
+                                      .putInt("hc_total_steps_today", totalSteps)
                                       .putFloat("hc_kcal_today", (float) kcal)
-                                      .putInt("hc_sleep_min", result[1])
+                                      .putInt("hc_sleep_min", sleepMin)
+                                      .putString("hc_sleep_bed", HealthConnectHelper.getLastBedTime())
+                                      .putString("hc_sleep_wake", HealthConnectHelper.getLastWakeTime())
                                       .putLong("hc_last_sync_ts", System.currentTimeMillis())
                                       .putString("hc_last_error", HealthConnectHelper.getLastError())
                                       .apply();
@@ -569,8 +580,9 @@ jobs:
                                               WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                               if (wv != null) {
                                                   String js = String.format(java.util.Locale.US,
-                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '', '');",
-                                                      result[0], (float) kcal, result[1]);
+                                                      "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s');",
+                                                      watchSteps, (float) kcal, sleepMin,
+                                                      HealthConnectHelper.getLastBedTime(), HealthConnectHelper.getLastWakeTime());
                                                   wv.evaluateJavascript(js, null);
                                               }
                                           } catch (Exception e) {}
@@ -1421,6 +1433,8 @@ jobs:
                               .putString("steps_date", today)
                               .putInt("steps_today", 0)
                               .putInt("hc_steps_today", 0)
+                              .putInt("hc_total_steps_today", 0)
+                              .putInt("hc_sleep_min", 0)
                               .putFloat("hc_kcal_today", 0.0f)
                               .putLong("hc_last_sync_ts", System.currentTimeMillis())
                               .apply();
@@ -1454,36 +1468,88 @@ jobs:
           import androidx.health.connect.client.request.ReadRecordsRequest
           import androidx.health.connect.client.time.TimeRangeFilter
           import kotlinx.coroutines.runBlocking
+          import java.time.Instant
           import java.time.LocalDate
           import java.time.ZoneId
+          import java.time.format.DateTimeFormatter
           object HealthConnectHelper {
               @JvmStatic
               var lastError: String = ""
+
+              @JvmStatic
+              var lastBedTime: String = ""
+
+              @JvmStatic
+              var lastWakeTime: String = ""
+
+              // Приложения-спутники носимых устройств (часы/браслеты), которые пишут
+              // в Health Connect данные именно с устройства, а не с телефона.
+              private val WEARABLE_PACKAGES = setOf(
+                  "com.huami.watch.hmwatchmanager",         // Zepp / Amazfit
+                  "com.garmin.android.apps.connectmobile",  // Garmin Connect
+                  "fi.polar.polarflow",                     // Polar Flow
+                  "com.suunto.sports",                      // Suunto
+                  "com.coros.health"                        // COROS
+              )
 
               @JvmStatic
               fun syncNow(context: Context): IntArray {
                   return try {
                       val client = HealthConnectClient.getOrCreate(context)
                       val today = LocalDate.now()
-                      val startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant()
-                      val endOfDay = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
-                      val timeRange = TimeRangeFilter.between(startOfDay, endOfDay)
-                      val stepsReq = ReadRecordsRequest(StepsRecord::class, timeRange)
+                      val zone = ZoneId.systemDefault()
+                      val startOfDay = today.atStartOfDay(zone).toInstant()
+                      val endOfDay = today.plusDays(1).atStartOfDay(zone).toInstant()
+
+                      // 1. ШАГИ: читаем сырые записи и разделяем по источнику (часы vs телефон),
+                      // чтобы приложение не складывало шаги телефона и часов.
+                      val stepsReq = ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
                       val stepsResponse = runBlocking { client.readRecords(stepsReq) }
                       var totalSteps = 0L
-                      for (record in stepsResponse.records) { totalSteps += record.count }
+                      var watchSteps = 0L
+                      val origins = mutableMapOf<String, Long>()
+                      for (record in stepsResponse.records) {
+                          val pkg = record.metadata.dataOrigin?.packageName ?: ""
+                          totalSteps += record.count
+                          origins[pkg] = (origins[pkg] ?: 0L) + record.count
+                          if (WEARABLE_PACKAGES.contains(pkg)) watchSteps += record.count
+                      }
+
+                      // 2. СОН: ночная сессия пересекает полночь, поэтому окно с 18:00
+                      // вчерашнего дня до 18:00 сегодняшнего накрывает её целиком.
                       var sleepMin = 0
                       try {
-                          val sleepReq = ReadRecordsRequest(SleepSessionRecord::class, timeRange)
+                          val sleepStart = today.minusDays(1).atTime(18, 0).atZone(zone).toInstant()
+                          val sleepEnd = today.atTime(18, 0).atZone(zone).toInstant()
+                          val sleepReq = ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(sleepStart, sleepEnd))
                           val sleepResponse = runBlocking { client.readRecords(sleepReq) }
                           var totalMs = 0L
+                          var bestMs = 0L
+                          var bestStart: Instant? = null
+                          var bestEnd: Instant? = null
                           for (record in sleepResponse.records) {
-                              totalMs += record.endTime.toEpochMilli() - record.startTime.toEpochMilli()
+                              val ms = record.endTime.toEpochMilli() - record.startTime.toEpochMilli()
+                              if (ms > 0) {
+                                  totalMs += ms
+                                  if (ms > bestMs) {
+                                      bestMs = ms
+                                      bestStart = record.startTime
+                                      bestEnd = record.endTime
+                                  }
+                              }
                           }
                           sleepMin = (totalMs / 60000).toInt()
-                      } catch (_: Exception) {}
-                      lastError = "OK (шаги: " + totalSteps + ", сон: " + sleepMin + "м)"
-                      intArrayOf(totalSteps.toInt(), sleepMin)
+                          val fmt = DateTimeFormatter.ofPattern("HH:mm")
+                          lastBedTime = if (bestStart != null) fmt.format(bestStart.atZone(zone)) else ""
+                          lastWakeTime = if (bestEnd != null) fmt.format(bestEnd.atZone(zone)) else ""
+                      } catch (_: Exception) {
+                          lastBedTime = ""
+                          lastWakeTime = ""
+                      }
+
+                      val originsDesc = origins.entries.joinToString(", ") { it.key + ": " + it.value }
+                      lastError = "OK (часы: " + watchSteps + ", всего в HC: " + totalSteps + ", сон: " + sleepMin + "м, источники: " + (if (originsDesc.isEmpty()) "нет" else originsDesc) + ")"
+                      intArrayOf(watchSteps.toInt(), totalSteps.toInt(), sleepMin)
                   } catch (e: Exception) {
                       var grantedStr = ""
                       try {
@@ -1492,7 +1558,7 @@ jobs:
                           grantedStr = " (выдано в ОС: " + granted.size + ")"
                       } catch (_: Exception) {}
                       lastError = e.javaClass.simpleName + ": " + (e.message ?: "ошибка доступа") + grantedStr
-                      intArrayOf(0, 0)
+                      intArrayOf(0, 0, 0)
                   }
               }
           }

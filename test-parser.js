@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1319,6 +1319,32 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok14 = bad === 0;
   if (!ok14) failed++;
   console.log(`${ok14 ? '✓' : '✗'} 0.4.14 комбо: нормализация (фильтр/дедуп/лимит/авто-имя), перепарсинг текста актуальным парсером`);
+}
+
+// ===== 0.7.10: источник шагов по приоритету (часы ≠ телефон, без суммы) =====
+{
+  let bad = 0;
+  const W = 8354; // шаги с часов
+  const P = 7401; // шаги аппаратного шагомера телефона
+  // auto: часы при наличии, иначе телефон
+  const autoWatch = resolveHealthSteps('auto', W, P);
+  if (!(autoWatch.steps === W && autoWatch.source.includes('Health Connect'))) bad++;
+  const autoPhone = resolveHealthSteps('auto', 0, P);
+  if (!(autoPhone.steps === P && autoPhone.source === 'шагомер телефона')) bad++;
+  // phone_only: всегда телефон, даже если часы есть
+  const phoneOnly = resolveHealthSteps('phone_only', W, P);
+  if (!(phoneOnly.steps === P && phoneOnly.source === 'шагомер телефона')) bad++;
+  // health_connect_only: только часы, при их отсутствии — честный 0, а не телефон
+  const watchOnly = resolveHealthSteps('health_connect_only', W, P);
+  if (!(watchOnly.steps === W)) bad++;
+  const watchNone = resolveHealthSteps('health_connect_only', 0, P);
+  if (!(watchNone.steps === 0 && watchNone.source.includes('нет данных'))) bad++;
+  // Отрицательный/мусорный ввод не даёт отрицательных шагов
+  if (!(resolveHealthSteps('auto', -5, -3).steps === 0)) bad++;
+  if (!(resolveHealthSteps('auto', '8300', '7400').steps === 8300)) bad++;
+  const ok15 = bad === 0;
+  if (!ok15) failed++;
+  console.log(`${ok15 ? '✓' : '✗'} 0.7.10 шаги: приоритет авто/телефон/часы не складывает источники (часы 8354 ≠ сумма 15755)`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
