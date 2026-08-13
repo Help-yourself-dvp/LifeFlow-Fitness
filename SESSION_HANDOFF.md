@@ -23,6 +23,11 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.0** (импорт тренировок с часов, шаг 1):
+  - ⌚ Натив: `HealthConnectHelper.readTodayWorkouts` (ExerciseSessionRecord) + мост `syncHealthWorkoutsNow`.
+  - JS: `state.healthSync.watchWorkouts` + баннер `#watch-workouts-suggest` («Добавить»/«Игнорировать»), дедуп по recordId, маппинг типа `mapWatchWorkoutType`.
+  - ⚙️ Нативная часть в зеркале — ждёт замены workflow; JS собирается обычным релизом.
+  - 🔢 **Синхронизация версии**: `0.8.0` во всех файлах.
 - Версия приложения: **0.7.18** (офлайн-FAQ с поиском):
   - ❓ FAQ-диалог `#faq-dialog` с поиском (15 вопросов), кнопка `#faq-open` в «О приложении». Полностью офлайн (P30 закрыт).
   - 🔄 `HEALTH_AUTO_READ_MIN_INTERVAL` = 30 с (0.7.17): возврат из Zepp/Health Connect подхватывает шаги без ручной кнопки «sync».

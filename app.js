@@ -2653,12 +2653,12 @@ const DEFAULTS = {
   onlineFeatures: { barcodeLookup: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
-  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null },
+  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.18';
+const FITFLOW_VERSION = '0.8.0';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6432,7 +6432,8 @@ function normalizeHealthSync() {
     lastSteps: Math.max(0, Number(source.lastSteps) || 0),
     lastKcal: Math.max(0, Number(source.lastKcal) || 0),
     lastSource: typeof source.lastSource === 'string' ? source.lastSource : null,
-    watchLastTs: Math.max(0, Number(source.watchLastTs) || 0)
+    watchLastTs: Math.max(0, Number(source.watchLastTs) || 0),
+    watchWorkouts: normalizeWatchWorkouts(source.watchWorkouts)
   };
 }
 
@@ -6468,6 +6469,170 @@ function resolveHealthSteps(priority, hcSteps, phoneSteps, watchLastTs, now) {
   if (watch > 0) return { steps: watch, source: 'Zepp / Health Connect' };
   if (phone > 0) return { steps: phone, source: 'шагомер телефона' };
   return { steps: 0, source: 'нет данных' };
+}
+
+/* ============================================================
+   ⌚ Импорт тренировок с часов (0.8.0, шаг 1)
+   Нативный мост читает ExerciseSessionRecord из Health Connect,
+   JS показывает честную подсказку «нашли тренировку — добавить?»
+   с подтверждением (правдивость: конкретные упражнения ненадёжны,
+   а факт и длительность сессии — надёжны).
+============================================================ */
+/* Приводим сессию часов к каноничному виду. */
+function normalizeWatchWorkouts(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const s of list) {
+    if (!s || !s.recordId) continue;
+    const id = String(s.recordId).slice(0, 120);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      recordId: id,
+      type: typeof s.type === 'string' ? s.type : '',
+      title: typeof s.title === 'string' ? s.title.slice(0, 120) : '',
+      start: Number(s.start) || 0,
+      end: Number(s.end) || 0,
+      minutes: Math.max(0, Math.min(1440, Math.round(Number(s.minutes) || 0))),
+      date: typeof s.date === 'string' ? s.date : todayKey(),
+      imported: s.imported === true,
+      ignored: s.ignored === true
+    });
+  }
+  return out;
+}
+
+/* Тип сессии часов → наш тип активности (по строке типа из натива + по заголовку). */
+function mapWatchWorkoutType(typeStr, title) {
+  const t = (String(typeStr || '') + ' ' + String(title || '')).toLowerCase();
+  if (/плаван|swim|pool|open[-\s]?water/iu.test(t)) return 'swim';
+  if (/велосипед|вело|cycl|bike|bicycl/iu.test(t)) return 'bike';
+  if (/бег|пробеж|jog|run(ning)?/iu.test(t)) return 'cardio';
+  if (/ходьб|прогулк|walk|hik|треккинг|поход/iu.test(t)) return 'walk';
+  if (/силов|тренаж|strength|weight|гир|штанга|lift/iu.test(t)) return 'strength';
+  if (/йог|растяж|пилатес|yoga|stretch|pilates/iu.test(t)) return 'stretch';
+  return 'other';
+}
+
+/* Запрос сессий часов у нативного моста (если он есть). */
+function requestWatchWorkoutsSync() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthWorkoutsNow === 'function') {
+      window.FitFlowExport.syncHealthWorkoutsNow();
+    }
+  } catch (e) { }
+}
+
+/* Нативный мост вернул JSON со списком сессий. Сливаем с известными (дедуп по recordId). */
+function onHealthWorkoutsReceived(json) {
+  let list = [];
+  try { list = JSON.parse(json) || []; } catch (e) { return; }
+  if (!Array.isArray(list) || !list.length) return;
+  normalizeHealthSync();
+  const today = todayKey();
+  const existing = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
+  const byId = new Map(existing.map((s) => [s.recordId, s]));
+  let changed = false;
+  for (const raw of list) {
+    const recId = String((raw && raw.recordId) || (raw && raw.id) || '');
+    if (!recId) continue;
+    const minutes = Math.max(0, Math.round(Number(raw.minutes) || 0));
+    if (minutes < 5) continue; // шум/нажатия — не тренировка
+    if (byId.has(recId)) continue; // уже знаем (в т.ч. импортированные/игнорированные)
+    existing.unshift({
+      recordId: recId,
+      type: String(raw.type || ''),
+      title: String(raw.title || '').slice(0,120),
+      start: Number(raw.start) || 0,
+      end: Number(raw.end) || 0,
+      minutes: Math.min(1440, minutes),
+      date: today,
+      imported: false,
+      ignored: false
+    });
+    changed = true;
+  }
+  if (!changed) return;
+  state.healthSync.watchWorkouts = normalizeWatchWorkouts(existing);
+  saveState();
+  renderWatchWorkoutsSuggest();
+}
+
+/* Добавить сессию часов в дневник тренировок. */
+function importWatchWorkout(recordId) {
+  normalizeHealthSync();
+  const list = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
+  const s = list.find((x) => x.recordId === recordId && !x.imported && !x.ignored);
+  if (!s) return;
+  const type = mapWatchWorkoutType(s.type, s.title);
+  const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
+  const title = s.title || label.label;
+  state.workouts.unshift({
+    id: uid(),
+    date: s.date || todayKey(),
+    type,
+    title,
+    note: 'с часов (импорт)',
+    intensity: 'medium',
+    durationMinutes: s.minutes,
+    createdAt: Date.now()
+  });
+  s.imported = true;
+  state.healthSync.watchWorkouts = list;
+  saveState();
+  renderTraining();
+  renderWatchWorkoutsSuggest();
+  updateNativeWidget();
+  toast('✓ Добавлено с часов: ' + title + ' · ' + formatWorkoutDuration(s.minutes));
+}
+
+/* Пропустить подсказку по сессии (без записи в дневник). */
+function dismissWatchWorkout(recordId) {
+  normalizeHealthSync();
+  const list = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
+  const s = list.find((x) => x.recordId === recordId);
+  if (s) { s.ignored = true; s.imported = false; state.healthSync.watchWorkouts = list; }
+  saveState();
+  renderWatchWorkoutsSuggest();
+}
+
+/* Баннер «нашли тренировки с часов» в разделе Активность. */
+function renderWatchWorkoutsSuggest() {
+  if (typeof document === 'undefined') return;
+  const box = $('#watch-workouts-suggest');
+  if (!box) return;
+  normalizeHealthSync();
+  const today = todayKey();
+  const pending = (state.healthSync.watchWorkouts || [])
+    .filter((s) => !s.imported && !s.ignored && s.date === today);
+  if (!pending.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  const rows = pending.map((s) => {
+    const type = mapWatchWorkoutType(s.type, s.title);
+    const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
+    const title = s.title || label.label;
+    const clock = s.start ? new Date(s.start).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+    return `
+      <div class="watch-workout-row">
+        <span class="watch-workout-emoji" aria-hidden="true">${label.emoji}</span>
+        <div class="watch-workout-info">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${formatWorkoutDuration(s.minutes)}${clock ? ' · ' + clock : ''} · с часов</span>
+        </div>
+        <div class="watch-workout-actions">
+          <button class="btn btn-secondary btn-sm" type="button" data-watch-import="${escapeHtml(s.recordId)}">Добавить</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-watch-ignore="${escapeHtml(s.recordId)}">Игнорировать</button>
+        </div>
+      </div>`;
+  }).join('');
+  box.innerHTML = '<p class="watch-workout-hint">⌚ Нашли тренировки с часов — добавить в дневник?</p>' + rows;
+}
+
+if (typeof window !== 'undefined') {
+  window.onHealthWorkoutsReceived = onHealthWorkoutsReceived;
+  window.importWatchWorkout = importWatchWorkout;
+  window.dismissWatchWorkout = dismissWatchWorkout;
 }
 
 function openHealthConnectSettings() {
@@ -6622,6 +6787,7 @@ function openHealthDiagnostics() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
       window.FitFlowExport.syncHealthConnectNow();
+      requestWatchWorkoutsSync(); // 0.8.0: сессии тренировок тоже
       setTimeout(() => {
         if (!dialog.hidden) renderHealthDiagnosticsContent();
       }, 1500);
@@ -6804,6 +6970,7 @@ function requestHealthSyncNow() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
       window.FitFlowExport.syncHealthConnectNow();
+      requestWatchWorkoutsSync(); // 0.8.0: сессии тренировок тоже
       toast('Запрос к Health Connect и датчикам отправлен...');
       return;
     }
@@ -6841,6 +7008,7 @@ function refreshHealthDataOnResume() {
       window.FitFlowExport.syncHealthConnectNow();
     }
   } catch (e) { pendingAutoHealthSync = false; }
+  requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
 }
 
 /* 0.7.15: тихая анимированная галочка в блоке «Шаги» вместо всплывающего toast. */
@@ -8083,6 +8251,7 @@ function renderTraining() {
   renderActivityTypeSelection();
   renderActivityTemplates();
   renderDayChecklist();
+  renderWatchWorkoutsSuggest(); // 0.8.0: подсказка «нашли тренировку с часов»
 }
 
 async function syncTrainingReminderForToday() {
@@ -9682,6 +9851,7 @@ const FAQ_ITEMS = [
   { q: 'Что такое «Мои комбо» и «Мои блюда»?', a: '«Мои блюда» — ваши шаблоны с точными КБЖУ (с упаковки), добавляются в один тап.\n«Мои комбо» — сохранённые фразы («овсянка 150 г, кофе с молоком»): при записи они заново пересчитываются актуальной базой.' },
   { q: 'Как исправить или удалить запись?', a: 'Еда/активность/вес: значок ✏️ у записи или удаление с кнопкой «Отменить» (6,5 с). Прошлые дни: Статистика → «✏️ Поправить день…». Сегодняшний день правится в своих разделах.' },
   { q: 'Что значит «не записано» в журнале распознаваний?', a: 'Журнал фиксирует каждый разбор умного ввода и фото. «записано ✓» — разбор внесён в дневник; «не записано» — разбор только показан в превью, но не сохранён. Это не потеря данных, а честная пометка.' },
+  { q: 'Тренировку с часов нужно добавлять вручную?', a: 'Нет. Когда часы синхронизируются с Health Connect, FitFlow сам покажет в разделе «Активность» подсказку «Нашли тренировки с часов» (бег, велосипед и др.) — один тап «Добавить», и тренировка в дневнике. Шаги во время бега при этом входят в общий счётчик шагов: шаги и тренировки — два разных показателя, это нормально.' },
   { q: 'Приложение заменяет врача?', a: 'Нет. Расчёты и подсказки носят справочный информационный характер и не заменяют консультацию квалифицированного специалиста, диагностику или лечение.' }
 ];
 
@@ -11154,6 +11324,13 @@ function init() {
     if (editBtn) return openWorkoutEditDialog(editBtn.dataset.editWorkout);
     const btn = e.target.closest('[data-remove-workout]');
     if (btn) removeWorkout(btn.dataset.removeWorkout);
+  });
+  // 0.8.0: подсказка «нашли тренировку с часов» — добавить / игнорировать
+  $('#watch-workouts-suggest').addEventListener('click', (e) => {
+    const addBtn = e.target.closest('[data-watch-import]');
+    if (addBtn) return importWatchWorkout(addBtn.dataset.watchImport);
+    const ignoreBtn = e.target.closest('[data-watch-ignore]');
+    if (ignoreBtn) dismissWatchWorkout(ignoreBtn.dataset.watchIgnore);
   });
   $('#activity-save-template').addEventListener('change', (e) => {
     $('#activity-template-inline').classList.toggle('is-open', e.target.checked);
@@ -13584,6 +13761,7 @@ if (typeof module !== 'undefined' && module.exports) {
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT,
-    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps
+    initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
+    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived
   };
 }

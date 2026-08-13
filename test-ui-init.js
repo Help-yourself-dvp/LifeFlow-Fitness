@@ -1649,5 +1649,39 @@ for (const id of ids) {
   console.log(`${okVer0718 ? '✓' : '✗'} 0.7.18 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.0 (импорт тренировок с часов, шаг 1) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  // JS: приём сессий, дедуп по recordId, маппинг типа, импорт/игнор, баннер
+  const okJs = appR.includes('function onHealthWorkoutsReceived')
+    && appR.includes('function mapWatchWorkoutType')
+    && appR.includes('function importWatchWorkout')
+    && appR.includes('function dismissWatchWorkout')
+    && appR.includes('function renderWatchWorkoutsSuggest')
+    && appR.includes('requestWatchWorkoutsSync()')
+    && html.includes('id="watch-workouts-suggest"')
+    && appR.includes('data-watch-import') // кнопки баннера генерируются в JS
+    && css.includes('.watch-workouts-suggest');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.8.0 JS/HTML/CSS: приём сессий часов + баннер «добавить в дневник»`);
+
+  // Натив: чтение ExerciseSessionRecord + мост syncHealthWorkoutsNow
+  const okNative = mirror.includes('ExerciseSessionRecord')
+    && mirror.includes('readTodayWorkouts')
+    && mirror.includes('mapExerciseType')
+    && mirror.includes('syncHealthWorkoutsNow')
+    && mirror.includes('onHealthWorkoutsReceived');
+  if (!okNative) failed++;
+  console.log(`${okNative ? '✓' : '✗'} 0.8.0 зеркало build.yml: чтение сессий тренировок из Health Connect`);
+
+  const okVer080 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer080) failed++;
+  console.log(`${okVer080 ? '✓' : '✗'} 0.8.0 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

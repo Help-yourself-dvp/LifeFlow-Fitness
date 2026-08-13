@@ -633,6 +633,29 @@ jobs:
                       return prefs.getString("hc_last_error", "");
                   }
 
+                  /* 0.8.0: сессии тренировок с часов из Health Connect → JS-подсказка */
+                  @JavascriptInterface
+                  public void syncHealthWorkoutsNow() {
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  final String json = HealthConnectHelper.readTodayWorkouts(getApplicationContext());
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) {
+                                                  wv.evaluateJavascript(
+                                                      "window.onHealthWorkoutsReceived && window.onHealthWorkoutsReceived(" + JSONObject.quote(json) + ");", null);
+                                              }
+                                          } catch (Exception e) {}
+                                      }
+                                  });
+                              } catch (Exception e) {}
+                          }
+                      }).start();
+                  }
+
                   /* Запросить рантайм-разрешения Health Connect на Android 14+ */
                   @JavascriptInterface
                   public void requestHealthConnectPermissions() {
@@ -1548,9 +1571,12 @@ jobs:
           import androidx.health.connect.client.HealthConnectClient
           import androidx.health.connect.client.records.StepsRecord
           import androidx.health.connect.client.records.SleepSessionRecord
+          import androidx.health.connect.client.records.ExerciseSessionRecord
           import androidx.health.connect.client.request.ReadRecordsRequest
           import androidx.health.connect.client.time.TimeRangeFilter
           import kotlinx.coroutines.runBlocking
+          import org.json.JSONArray
+          import org.json.JSONObject
           import java.time.Instant
           import java.time.LocalDate
           import java.time.ZoneId
@@ -1674,6 +1700,46 @@ jobs:
                       lastError = e.javaClass.simpleName + ": " + (e.message ?: "ошибка доступа") + grantedStr
                       intArrayOf(0, 0, 0)
                   }
+              }
+
+              /* 0.8.0: сессии тренировок за сегодня из Health Connect (ExerciseSessionRecord).
+                 Возвращает JSON-массив: [{recordId, type, title, start, end, minutes}].
+                 Тип мапится по надёжным константам; остальное JS доопределяет по заголовку. */
+              @JvmStatic
+              fun readTodayWorkouts(context: Context): String {
+                  return try {
+                      val client = HealthConnectClient.getOrCreate(context)
+                      val today = LocalDate.now()
+                      val zone = ZoneId.systemDefault()
+                      val startOfDay = today.atStartOfDay(zone).toInstant()
+                      val endOfDay = today.plusDays(1).atStartOfDay(zone).toInstant()
+                      val req = ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
+                      val resp = runBlocking { client.readRecords(req) }
+                      val arr = JSONArray()
+                      for (rec in resp.records) {
+                          val minutes = ((rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()) / 60000L).toInt()
+                          if (minutes < 5) continue
+                          val obj = JSONObject()
+                          obj.put("recordId", rec.metadata.id)
+                          obj.put("type", mapExerciseType(rec.exerciseType))
+                          obj.put("title", rec.title ?: "")
+                          obj.put("start", rec.startTime.toEpochMilli())
+                          obj.put("end", rec.endTime.toEpochMilli())
+                          obj.put("minutes", minutes)
+                          arr.put(obj)
+                      }
+                      arr.toString()
+                  } catch (e: Exception) {
+                      "[]"
+                  }
+              }
+
+              private fun mapExerciseType(t: Int): String = when (t) {
+                  ExerciseSessionRecord.EXERCISE_TYPE_RUNNING -> "run"
+                  ExerciseSessionRecord.EXERCISE_TYPE_BIKING -> "bike"
+                  ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "walk"
+                  ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT -> "other"
+                  else -> ""
               }
           }
           KOTLIN_EOF
