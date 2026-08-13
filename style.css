@@ -2386,6 +2386,35 @@ html[data-theme="dark"] .segmented button.active {
 }
 .steps-sync-btn:active { opacity: 0.6; }
 .steps-sync-btn svg { width: 14px; height: 14px; }
+/* 0.7.15: тихая галочка успешной фоновой синхронизации */
+.steps-sub-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.steps-sync-check {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--md-sys-color-primary);
+  transform: scale(0);
+}
+.steps-sync-check.pop {
+  animation: stepsTick 2.2s ease forwards;
+}
+@keyframes stepsTick {
+  0%   { transform: scale(0); }
+  18%  { transform: scale(1.25); }
+  30%  { transform: scale(1); }
+  75%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
 .steps-sync-hint {
   margin: 6px 0 0;
   font-size: 0.68rem;

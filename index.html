@@ -90,12 +90,15 @@
       <div class="progress-track"><div class="progress-fill" id="steps-card-progress"></div></div>
       <div class="steps-sub-info">
         <span id="steps-card-kcal">🔥 0 ккал</span>
-        <button class="steps-sync-btn" id="steps-card-sync-btn" type="button" aria-label="Синхронизировать шаги" title="Синхронизировать шаги">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.6 5.7L4 15.5M4 20v-4.5h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>sync</span>
-        </button>
+        <span class="steps-sub-right">
+          <span class="steps-sync-check" id="steps-sync-check" hidden aria-hidden="true">✓</span>
+          <button class="steps-sync-btn" id="steps-card-sync-btn" type="button" aria-label="Синхронизировать шаги" title="Синхронизировать шаги">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.6 5.7L4 15.5M4 20v-4.5h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>sync</span>
+          </button>
+        </span>
       </div>
       <p class="steps-sync-hint" id="steps-card-sync-hint" hidden>обновлено …</p>
     </section>
@@ -1152,7 +1155,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.7.14 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.7.15 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

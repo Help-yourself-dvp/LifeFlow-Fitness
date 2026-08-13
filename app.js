@@ -2606,7 +2606,7 @@ const DEFAULTS = {
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } }
 };
 
-const FITFLOW_VERSION = '0.7.14';
+const FITFLOW_VERSION = '0.7.15';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6769,6 +6769,9 @@ function requestHealthSyncNow() {
    (у него есть квоты) на каждый возврат. */
 let lastHealthAutoReadAt = 0;
 const HEALTH_AUTO_READ_MIN_INTERVAL = 5 * 60 * 1000;
+// 0.7.15: флаг «синк запущен авто» — чтобы колбэк показывал тихую галочку,
+// а не всплывающий toast при каждом входе в приложение.
+let pendingAutoHealthSync = false;
 
 function refreshHealthDataOnResume() {
   normalizeHealthSync();
@@ -6780,9 +6783,22 @@ function refreshHealthDataOnResume() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthConnectNow === 'function') {
       lastHealthAutoReadAt = now;
+      pendingAutoHealthSync = true;
       window.FitFlowExport.syncHealthConnectNow();
     }
-  } catch (e) { }
+  } catch (e) { pendingAutoHealthSync = false; }
+}
+
+/* 0.7.15: тихая анимированная галочка в блоке «Шаги» вместо всплывающего toast. */
+function showStepsSyncTick() {
+  const el = $('#steps-sync-check');
+  if (!el) return;
+  el.hidden = false;
+  el.classList.remove('pop');
+  void el.offsetWidth; // перезапуск CSS-анимации
+  el.classList.add('pop');
+  clearTimeout(el._tickTimer);
+  el._tickTimer = setTimeout(() => { el.hidden = true; }, 2200);
 }
 
 if (typeof window !== 'undefined') {
@@ -6844,10 +6860,17 @@ if (typeof window !== 'undefined') {
     renderFood();
     renderStepsCard();
 
-    const parts = [];
-    if (resolved.steps > 0) parts.push(`${fmt(resolved.steps)} шагов (${resolved.source})`);
-    if (receivedSleepMin > 0) parts.push(`сон ${Math.floor(receivedSleepMin/60)} ч ${receivedSleepMin%60} мин`);
-    toast(parts.length > 0 ? `✓ Данные получены: ${parts.join(', ')}` : 'Синхронизировано (данных за сегодня пока нет)');
+    // 0.7.15: авто-синк — тихая галочка в блоке «Шаги»; ручной синк — обычный toast.
+    const wasAuto = pendingAutoHealthSync;
+    pendingAutoHealthSync = false;
+    if (wasAuto) {
+      showStepsSyncTick();
+    } else {
+      const parts = [];
+      if (resolved.steps > 0) parts.push(`${fmt(resolved.steps)} шагов (${resolved.source})`);
+      if (receivedSleepMin > 0) parts.push(`сон ${Math.floor(receivedSleepMin/60)} ч ${receivedSleepMin%60} мин`);
+      toast(parts.length > 0 ? `✓ Данные получены: ${parts.join(', ')}` : 'Синхронизировано (данных за сегодня пока нет)');
+    }
   };
 }
 

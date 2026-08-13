@@ -1581,5 +1581,25 @@ for (const id of ids) {
   console.log(`${okVer0714 ? '✓' : '✗'} 0.7.14 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.7.15 (тихая галочка вместо toast при авто-синке шагов) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okTick = appR.includes('pendingAutoHealthSync')
+    && appR.includes('function showStepsSyncTick')
+    && appR.includes('showStepsSyncTick()')
+    && html.includes('id="steps-sync-check"')
+    && css.includes('.steps-sync-check')
+    && css.includes('@keyframes stepsTick');
+  if (!okTick) failed++;
+  console.log(`${okTick ? '✓' : '✗'} 0.7.15: авто-синк показывает тихую галочку в блоке «Шаги» вместо toast`);
+
+  const okVer0715 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0715) failed++;
+  console.log(`${okVer0715 ? '✓' : '✗'} 0.7.15 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
