@@ -2743,6 +2743,7 @@ const DEFAULTS = {
   water: { goal: 2500 },
   food: { goal: 2000 },
   reminders: { enabled: false, time: '20:00' },
+  dayMoodReminder: { enabled: false, time: '21:00' },
   morningMotivation: { enabled: false, time: '08:00', theme: 'mixed', message: '' },
   activitySettings: { weeklyGoalMinutes: 150 },
   profileSettings: { weightKg: null, weightHistory: [], sex: null, ageYears: null, heightCm: null, activityLevel: null },
@@ -2768,7 +2769,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.23';
+const FITFLOW_VERSION = '0.8.24';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3032,6 +3033,16 @@ function normalizeReminderSettings() {
   };
 }
 
+/* P13: вечерний пуш «Оцени день» (самочувствие) — собственный переключатель
+   и время, по умолчанию выключен (не докучаем без явного согласия). */
+function normalizeDayMoodReminder() {
+  const r = state.dayMoodReminder || {};
+  state.dayMoodReminder = {
+    enabled: r.enabled === true,
+    time: isValidReminderTime(r.time) ? r.time : DEFAULTS.dayMoodReminder.time
+  };
+}
+
 function normalizeCustomMealTypes() {
   const ids = new Set();
   state.customMealTypes = (Array.isArray(state.customMealTypes) ? state.customMealTypes : [])
@@ -3253,6 +3264,7 @@ function normalizeAiSettings() {
     mode: ['litert', 'expert', 'cloud'].includes(ai.mode) ? ai.mode : 'expert',
     modelPath: typeof ai.modelPath === 'string' ? ai.modelPath : '',
     modelName: typeof ai.modelName === 'string' ? ai.modelName : '',
+    downloadUrl: typeof ai.downloadUrl === 'string' ? ai.downloadUrl : '',
     cloudProvider: Object.prototype.hasOwnProperty.call(CLOUD_PROVIDERS, ai.cloudProvider) ? ai.cloudProvider : 'gemini',
     cloudKey: typeof ai.cloudKey === 'string' ? ai.cloudKey : '',
     cloudModel: typeof ai.cloudModel === 'string' ? ai.cloudModel : '',
@@ -4449,6 +4461,7 @@ function loadState() {
   }
   normalizeDailyHistory();
   normalizeReminderSettings();
+  normalizeDayMoodReminder();
   normalizeCustomMealTypes();
   normalizeMealReminders();
   normalizeMorningMotivation();
@@ -5087,6 +5100,7 @@ function renderAll() {
   renderActivityIntensity();
   renderDurationUnit();
   renderReminderSettings(); renderNotificationBudget();
+  renderMoodReminderSettings(); renderNotificationBudget();
   renderMealRemindersSettings(); renderNotificationBudget();
   renderMorningMotivationSettings(); renderNotificationBudget();
   renderWaterReminderSettings(); renderNotificationBudget();
@@ -9675,6 +9689,7 @@ function computeTodayNotificationBudget() {
     ? state.mealReminders.meals.filter((m) => m && m.enabled !== false).length : 0;
   if (meals) { total += meals; parts.push('питание — ' + meals); }
   if (state.reminders && state.reminders.enabled) { total += 1; parts.push('вечерняя активность — 1'); }
+  if (state.dayMoodReminder && state.dayMoodReminder.enabled) { total += 1; parts.push('оценка дня — 1'); }
   if (state.waterReminders && state.waterReminders.enabled) {
     const from = String(state.waterReminders.windowStart || '08:00').split(':').map(Number);
     const till = String(state.waterReminders.windowEnd || '22:00').split(':').map(Number);
@@ -9862,6 +9877,158 @@ async function refreshTrainingReminderOnLaunch() {
   await scheduleTrainingReminder({ skipToday: hasWorkoutToday(), requestPermission: false });
 }
 
+/* ============================================================
+   P13 — вечерний пуш «Оцени день» (самочувствие 1–5)
+   ------------------------------------------------------------
+   По аналогии с вечерней активностью: один вопрос в день, тихий
+   канал, кнопка «⚙️ Настроить» ведёт в свой раздел. Чистый JS на
+   Capacitor LocalNotifications — правок workflow не требует.
+   ============================================================ */
+const MOOD_REMINDER_CHANNEL = 'fitflow_day_mood';
+const MOOD_REMINDER_BASE_ID = 72000;
+const MOOD_REMINDER_SCHEDULE_DAYS = 14;
+
+function moodReminderId(dateKey) {
+  let hash = 2166136261;
+  for (let i = 0; i < dateKey.length; i++) { hash ^= dateKey.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+  return MOOD_REMINDER_BASE_ID + ((hash >>> 0) % 900000);
+}
+
+function moodReminderIds() {
+  const ids = [];
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  for (let offset = 0; offset <= MOOD_REMINDER_SCHEDULE_DAYS; offset++) {
+    const day = new Date(base.getTime()); day.setDate(day.getDate() + offset);
+    const date = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+    ids.push(moodReminderId(date));
+  }
+  return ids;
+}
+
+async function ensureMoodReminderChannel(localNotifications) {
+  if (typeof localNotifications.createChannel !== 'function') return;
+  await localNotifications.createChannel({
+    id: MOOD_REMINDER_CHANNEL,
+    name: 'FitFlow: итоги дня',
+    description: 'Вечерний вопрос «Как прошёл день?» — оценка самочувствия от 1 до 5',
+    importance: 4,
+    visibility: 1,
+    sound: 'default',
+    vibrates: true
+  });
+}
+
+async function removeDeliveredMoodReminder(localNotifications = getLocalNotifications(), id = null) {
+  if (!localNotifications || typeof localNotifications.removeDeliveredNotifications !== 'function') return false;
+  try {
+    await localNotifications.removeDeliveredNotifications({ notifications: [{ id: id || moodReminderId(todayKey()) }] });
+    return true;
+  } catch (e) { return false; }
+}
+
+async function cancelMoodReminder(localNotifications = getLocalNotifications()) {
+  if (!localNotifications) return false;
+  try {
+    await localNotifications.cancel({ notifications: moodReminderIds().map((id) => ({ id })) });
+    return true;
+  } catch (e) { return false; }
+}
+
+async function scheduleMoodReminder({ skipToday = false, requestPermission = true } = {}) {
+  const localNotifications = getLocalNotifications();
+  if (!localNotifications) return { ok: false, message: 'Напоминания работают в Android-приложении, а не в браузере.' };
+  let allowed = false;
+  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы включить напоминание.' };
+  try {
+    await ensureMoodReminderChannel(localNotifications);
+    await cancelMoodReminder(localNotifications);
+    const firstAt = nextReminderDate(state.dayMoodReminder.time, skipToday);
+    const notifications = [];
+    for (let dayIndex = 0; dayIndex < MOOD_REMINDER_SCHEDULE_DAYS; dayIndex++) {
+      const at = new Date(firstAt.getTime()); at.setDate(at.getDate() + dayIndex);
+      const date = `${at.getFullYear()}-${String(at.getMonth()+1).padStart(2,'0')}-${String(at.getDate()).padStart(2,'0')}`;
+      if (date === todayKey() && getTodayMood()) continue; // уже оценено — не спрашиваем
+      notifications.push({
+        id: moodReminderId(date),
+        title: 'Как прошёл день? 🌗',
+        body: 'Откройте FitFlow и отметьте самочувствие от 1 до 5 — это займёт пару секунд.',
+        schedule: { at, allowWhileIdle: true },
+        channelId: MOOD_REMINDER_CHANNEL,
+        smallIcon: 'ic_stat_icon', iconColor: '#8E6FBF', autoCancel: true,
+        actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
+        extra: { source: 'fitflow-day-mood', notifSettings: 'mood' }
+      });
+    }
+    if (notifications.length) await localNotifications.schedule({ notifications });
+    return { ok: true };
+  } catch (e) {
+    console.warn('Не удалось запланировать вечерний вопрос о самочувствии:', e);
+    return { ok: false, message: 'Не удалось запланировать напоминание. Проверьте разрешения Android.' };
+  }
+}
+
+async function refreshMoodReminderOnLaunch() {
+  if (!state.dayMoodReminder.enabled || !getLocalNotifications()) return;
+  await scheduleMoodReminder({ skipToday: !!getTodayMood(), requestPermission: false });
+}
+
+function renderMoodReminderSettings() {
+  if (typeof document === 'undefined') return;
+  const toggle = $('#day-mood-reminder-toggle');
+  const timeInput = $('#day-mood-reminder-time');
+  const status = $('#day-mood-reminder-status');
+  if (!toggle || !timeInput || !status) return;
+  toggle.checked = state.dayMoodReminder.enabled;
+  const opts = $('#day-mood-reminder-options');
+  if (opts) opts.hidden = !state.dayMoodReminder.enabled;
+  timeInput.value = state.dayMoodReminder.time;
+  status.textContent = state.dayMoodReminder.enabled
+    ? `Каждый вечер в ${state.dayMoodReminder.time}, если оценка ещё не поставлена.`
+    : 'Напоминание выключено.';
+}
+
+async function updateMoodReminderEnabled(enabled) {
+  state.dayMoodReminder.enabled = enabled;
+  saveState();
+  renderMoodReminderSettings(); renderNotificationBudget();
+
+  if (!enabled) {
+    await cancelMoodReminder();
+    toast('Вечерний вопрос «Как прошёл день?» выключен');
+    return;
+  }
+
+  const result = await scheduleMoodReminder({ skipToday: !!getTodayMood() });
+  if (!result.ok) {
+    state.dayMoodReminder.enabled = false;
+    saveState();
+    renderMoodReminderSettings(); renderNotificationBudget();
+    toast(result.message);
+    return;
+  }
+  toast(`Вечером в ${state.dayMoodReminder.time} спрошу «Как прошёл день?» — отметить самочувствие можно одним тапом.`);
+}
+
+async function updateMoodReminderTime(time) {
+  if (!isValidReminderTime(time)) {
+    renderMoodReminderSettings(); renderNotificationBudget();
+    toast('Укажите время в формате ЧЧ:ММ');
+    return;
+  }
+  state.dayMoodReminder.time = time;
+  saveState();
+  renderMoodReminderSettings(); renderNotificationBudget();
+
+  if (!state.dayMoodReminder.enabled) {
+    toast(`Время вопроса: ${time}`);
+    return;
+  }
+  const result = await scheduleMoodReminder({ skipToday: !!getTodayMood() });
+  toast(result.ok ? `Вопрос перенесён на ${time}` : result.message);
+}
+
 function openMorningThemeDialog() {
   const dialog = $('#morning-theme-dialog');
   if (dialog) dialog.hidden = false;
@@ -9904,6 +10071,7 @@ const NOTIF_SETTINGS_TARGETS = {
   meals: { view: 'settings-notifications', anchor: 'meal-reminders-toggle' },
   morning: { view: 'settings-notifications', anchor: 'morning-motivation-toggle' },
   evening: { view: 'settings-notifications', anchor: 'workout-reminder-toggle' },
+  mood: { view: 'settings-notifications', anchor: 'day-mood-reminder-toggle' },
   course: { view: 'settings-courses', anchor: 'course-list' }
 };
 
@@ -9966,6 +10134,25 @@ function installActivityNotificationListener() {
         await removeDeliveredTrainingReminder(localNotifications, notification.id);
         switchView('training');
         toast('Была сегодня активность? Выберите вид и добавьте запись.');
+        return;
+      }
+      if (extra.source === 'fitflow-day-mood') {
+        await removeDeliveredMoodReminder(localNotifications, notification.id);
+        switchView('home');
+        setTimeout(() => {
+          const card = $('#day-mood-card');
+          if (!card) return;
+          try { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+          catch (e) { try { card.scrollIntoView(true); } catch (e2) { } }
+          const box = card.querySelector('.mood-card');
+          if (box) {
+            box.classList.remove('mood-card-flash');
+            void box.offsetWidth; // перезапуск вспышки при повторном переходе
+            box.classList.add('mood-card-flash');
+            setTimeout(() => box.classList.remove('mood-card-flash'), 4000);
+          }
+        }, 250);
+        toast('Как прошёл день? Отметьте самочувствие от 1 до 5.');
         return;
       }
       if (extra.source === 'fitflow-meal-reminder') {
@@ -11636,6 +11823,11 @@ function importData(file) {
         normalizeReminderSettings();
       }
 
+      if (data.dayMoodReminder && typeof data.dayMoodReminder === 'object') {
+        state.dayMoodReminder = { ...data.dayMoodReminder };
+        normalizeDayMoodReminder();
+      }
+
       saveState();
       renderAll();
 
@@ -12239,6 +12431,7 @@ function init() {
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
   refreshTrainingReminderOnLaunch();
+  refreshMoodReminderOnLaunch();
   refreshWaterRemindersOnLaunch();
   refreshCourseRemindersOnLaunch();
   checkWeighInReminder();
@@ -13099,6 +13292,8 @@ function init() {
   $$('#ai-mode-choices button').forEach((btn) => btn.addEventListener('click', () => setAiMode(btn.dataset.aiMode)));
   bindEvent('#ai-select-btn', 'click', selectLocalModelFile);
   bindEvent('#ai-download-btn', 'click', downloadAiModelAutomatically);
+  bindEvent('#ai-download-start', 'click', startAiModelDownload);
+  bindEvent('#ai-download-cancel', 'click', cancelAiModelDownload);
   // Облачный ИИ (BYOK)
   $$('#ai-cloud-provider button').forEach((btn) => btn.addEventListener('click', () => setCloudProvider(btn.dataset.cloudProvider)));
   $('#ai-cloud-key')?.addEventListener('change', (e) => {
@@ -13165,6 +13360,10 @@ function init() {
     updateTrainingReminderEnabled(e.target.checked));
   $('#workout-reminder-time').addEventListener('change', (e) =>
     updateTrainingReminderTime(e.target.value));
+  $('#day-mood-reminder-toggle').addEventListener('change', (e) =>
+    updateMoodReminderEnabled(e.target.checked));
+  $('#day-mood-reminder-time').addEventListener('change', (e) =>
+    updateMoodReminderTime(e.target.value));
   $('#water-reminders-toggle').addEventListener('change', (e) => updateWaterRemindersEnabled(e.target.checked));
   $$('#water-interval-choices button').forEach((btn) =>
     btn.addEventListener('click', () => updateWaterReminderInterval(Number(btn.dataset.waterInterval))));
@@ -13297,6 +13496,16 @@ function renderAiSettings() {
     }
   }
 
+  // P14 + идея владельца: честная подсказка, потянет ли телефон модель.
+  const deviceHint = $('#ai-device-hint');
+  if (deviceHint) {
+    if (state.aiSettings.mode === 'litert' && getLocalAiPlugin() && !hasRealLocalModel()) {
+      renderAiDeviceHint();
+    } else {
+      deviceHint.hidden = true;
+    }
+  }
+
   // Облачный блок: провайдер, поле модели (только для совместимых с OpenAI),
   // подсказка по ключу. Поля не перезаписываем, пока в них печатают.
   const def = getCloudProviderDef();
@@ -13417,15 +13626,198 @@ function formatBytes(bytes) {
   return Math.round(mb) + ' МБ';
 }
 
+/* P14 — скачивание модели по кнопке через системный DownloadManager:
+   крупный файл, прогресс, докачка после обрыва связи. Лицензию Gemma
+   пользователь принимает на Hugging Face сам — прямую ссылку вставляет
+   в поле; FitFlow ничего не перепродаёт (честность и офлайн-принцип). */
+let aiDownload = { id: null, timer: null, filename: '', total: -1, path: '' };
+let aiDeviceInfoCache = null;
+
+function openAiDownloadPanel() {
+  const panel = $('#ai-download-panel');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) {
+    const urlInput = $('#ai-download-url');
+    if (urlInput && !urlInput.value) urlInput.value = state.aiSettings.downloadUrl || '';
+    try { panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { }
+  }
+}
+
 function downloadAiModelAutomatically() {
-  // 0.3.31: здесь был ИМИТАТОР прогресса загрузки (полоса на 10% и «качается»,
-  // файл не качался) — признано ложным аффордансом и убрано. Честная
-  // инструкция: модель берётся файлом вручную (у моделей Gemma на Hugging
-  // Face лицензия принимается руками — автоматикой это обходить нельзя).
-  const statusEl = $('#ai-model-status');
-  const hint = 'Где взять модель: файл .litertlm из репозиториев litert-community/*-litert-lm на Hugging Face (например, Gemma 3 1B ≈ 0.7 ГБ или Gemma 4 E2B ≈ 2.3 ГБ). Скачайте через браузер после принятия условий Gemma, затем нажмите «📁 Выбрать файл модели» — уже скачанный файл подхватится. GGUF (llama.cpp) НЕ подходит — другой формат.';
-  if (statusEl) statusEl.textContent = hint;
-  toast('Инструкция выведена в строку статуса — файл добавляется вручную, это честно');
+  // Качать без прямой ссылки нечестно: модель распространяется по лицензии,
+  // ссылку пользователь получает сам после принятия условий на Hugging Face.
+  openAiDownloadPanel();
+  toast('Вставьте прямую ссылку на .litertlm — её даёт Hugging Face после принятия условий Gemma');
+}
+
+function guessFilenameFromUrl(url) {
+  try {
+    const clean = url.split('?')[0].split('#')[0];
+    const base = clean.split('/').filter(Boolean).pop() || '';
+    const decoded = decodeURIComponent(base);
+    if (/\.(litertlm|task)$/i.test(decoded)) return decoded;
+  } catch (e) { }
+  return 'model.litertlm';
+}
+
+/* Честная подсказка: тянет ли телефон офлайн-модель (идея владельца). */
+function renderAiDeviceHint() {
+  const el = $('#ai-device-hint');
+  if (!el) return;
+  if (aiDeviceInfoCache) { paintAiDeviceHint(aiDeviceInfoCache); return; }
+  const plugin = getLocalAiPlugin();
+  if (!plugin || typeof plugin.deviceInfo !== 'function') { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '⏳ Читаю характеристики телефона…';
+  el.className = 'settings-hint ai-device-hint ai-device-unknown';
+  plugin.deviceInfo().then((info) => {
+    aiDeviceInfoCache = info;
+    paintAiDeviceHint(info);
+  }).catch(() => {
+    aiDeviceInfoCache = { error: true };
+    el.hidden = true;
+  });
+}
+
+function paintAiDeviceHint(info) {
+  const el = $('#ai-device-hint');
+  if (!el) return;
+  const ramMb = Number(info.totalRamMb) || (typeof navigator !== 'undefined' && navigator.deviceMemory ? navigator.deviceMemory * 1024 : 0);
+  const cores = Number(info.cores) || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 0);
+  const ramGb = ramMb >= 1024 ? Math.round(ramMb / 1024) : (ramMb ? Math.round(ramMb / 1024 * 10) / 10 : null);
+  const specs = [ramGb ? `ОЗУ ${ramGb} ГБ` : '', cores ? `${cores} ядер` : '', info.sdkInt ? `Android ${info.sdkInt}` : ''].filter(Boolean).join(' · ');
+  let verdict; let cls;
+  if (!ramMb && !cores) {
+    verdict = 'Характеристики не определились — начните с модели поменьше (Gemma 3 1B ≈ 0,7 ГБ).';
+    cls = 'ai-device-unknown';
+  } else if (ramMb >= 6144 && cores >= 6) {
+    verdict = '✅ Телефон поддерживает работу модели — можно скачивать и Gemma 4 E2B (~2,3 ГБ).';
+    cls = 'ai-device-ok';
+  } else if (ramMb >= 4096 && cores >= 4) {
+    verdict = '⚠️ Модель будет работать, но может заметно замедлить телефон. Лучше взять Gemma 3 1B (~0,7 ГБ).';
+    cls = 'ai-device-warn';
+  } else {
+    verdict = '🟠 Телефон слабый для нейросети: работа будет медленной или некорректной. Попробуйте только маленькую Gemma 3 1B (~0,7 ГБ) и закройте лишние приложения.';
+    cls = 'ai-device-bad';
+  }
+  el.textContent = (specs ? specs + '. ' : '') + verdict;
+  el.className = 'settings-hint ai-device-hint ' + cls;
+  el.hidden = false;
+}
+
+function setAiDownloadProgress(status, bytesSoFar, totalBytes) {
+  const wrap = $('#ai-progress-wrap');
+  const fill = $('#ai-progress-fill');
+  const text = $('#ai-progress-text');
+  if (!wrap || !fill || !text) return;
+  wrap.hidden = false;
+  let pct = 0;
+  if (totalBytes && totalBytes > 0) pct = Math.min(100, Math.round(bytesSoFar * 100 / totalBytes));
+  fill.style.width = pct + '%';
+  const soFar = bytesSoFar > 0 ? formatBytes(bytesSoFar) : '0 МБ';
+  const total = totalBytes > 0 ? formatBytes(totalBytes) : '?';
+  text.textContent = status === 'готово'
+    ? 'Модель скачана: ' + soFar
+    : (status === 'ошибка' ? 'Скачивание прервано — проверьте ссылку и интернет.' : `Загрузка модели: ${pct}% · ${soFar} из ${total}`);
+  const cancelBtn = $('#ai-download-cancel');
+  if (cancelBtn) cancelBtn.hidden = (status === 'готово' || status === 'ошибка');
+}
+
+async function startAiModelDownload() {
+  const plugin = getLocalAiPlugin();
+  const urlInput = $('#ai-download-url');
+  if (!plugin || typeof plugin.startModelDownload !== 'function') {
+    toast('Скачивание появится в новой Android-сборке — пока выберите файл вручную.');
+    return;
+  }
+  const url = String(urlInput && urlInput.value || '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    toast('Вставьте прямую ссылку на файл .litertlm (начинается с https://)');
+    if (urlInput) urlInput.focus();
+    return;
+  }
+  const filename = guessFilenameFromUrl(url);
+  try {
+    const res = await plugin.startModelDownload({ url, filename });
+    state.aiSettings.downloadUrl = url;
+    saveState();
+    aiDownload = { id: res.downloadId, timer: null, filename: res.name || filename, total: -1, path: res.path || '' };
+    if (urlInput) urlInput.value = url;
+    const startBtn = $('#ai-download-start');
+    if (startBtn) startBtn.hidden = true;
+    const cancelBtn = $('#ai-download-cancel');
+    if (cancelBtn) cancelBtn.hidden = false;
+    setAiDownloadProgress('качается', 0, -1);
+    toast('Скачивание началось — прогресс ниже и в системном уведомлении');
+    aiDownload.timer = setInterval(pollAiModelDownload, 1000);
+  } catch (e) {
+    toast(String((e && e.message) || 'Не удалось начать скачивание'));
+  }
+}
+
+async function pollAiModelDownload() {
+  const plugin = getLocalAiPlugin();
+  if (!plugin || typeof plugin.modelDownloadStatus !== 'function' || aiDownload.id == null) return;
+  try {
+    const st = await plugin.modelDownloadStatus({ downloadId: aiDownload.id });
+    const status = Number(st.status);
+    if (Number(st.totalBytes) > 0) aiDownload.total = Number(st.totalBytes);
+    if (status === 8) { // STATUS_SUCCESSFUL
+      if (aiDownload.timer) { clearInterval(aiDownload.timer); aiDownload.timer = null; }
+      setAiDownloadProgress('готово', st.bytesSoFar, st.totalBytes);
+      finishAiModelDownload();
+      return;
+    }
+    if (status === 16) { // STATUS_FAILED
+      if (aiDownload.timer) { clearInterval(aiDownload.timer); aiDownload.timer = null; }
+      setAiDownloadProgress('ошибка', st.bytesSoFar, st.totalBytes);
+      resetAiDownloadControls();
+      return;
+    }
+    setAiDownloadProgress('качается', st.bytesSoFar, st.totalBytes);
+  } catch (e) {
+    // Разовый сбой опроса — следующий тик повторит.
+  }
+}
+
+async function finishAiModelDownload() {
+  const path = aiDownload.path;
+  if (!path) {
+    toast('Файл скачан, но путь не определился — выберите его через «📁 Выбрать файл модели»');
+    resetAiDownloadControls();
+    return;
+  }
+  state.aiSettings.connected = true;
+  state.aiSettings.modelName = aiDownload.filename || 'model.litertlm';
+  state.aiSettings.modelPath = path;
+  state.aiSettings.modelSize = aiDownload.total > 0 ? aiDownload.total : 0;
+  saveState();
+  renderAiSettings();
+  resetAiDownloadControls();
+  const panel = $('#ai-download-panel');
+  if (panel) panel.hidden = true;
+  await loadLocalLlmModel();
+}
+
+function resetAiDownloadControls() {
+  const startBtn = $('#ai-download-start');
+  const cancelBtn = $('#ai-download-cancel');
+  if (startBtn) startBtn.hidden = false;
+  if (cancelBtn) cancelBtn.hidden = true;
+  aiDownload.id = null;
+}
+
+async function cancelAiModelDownload() {
+  const plugin = getLocalAiPlugin();
+  if (aiDownload.id == null) return;
+  if (plugin && typeof plugin.cancelModelDownload === 'function') {
+    try { await plugin.cancelModelDownload({ downloadId: aiDownload.id }); } catch (e) { }
+  }
+  if (aiDownload.timer) { clearInterval(aiDownload.timer); aiDownload.timer = null; }
+  setAiDownloadProgress('ошибка', 0, -1);
+  resetAiDownloadControls();
+  toast('Скачивание остановлено');
 }
 
 /* Пользовательский «тест эффективности» убран как дев-инструмент (P9, 0.4.14). */

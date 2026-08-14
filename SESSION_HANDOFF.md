@@ -16,15 +16,19 @@
 Ссылки всегда давать КЛИКАБЕЛЬНЫМИ, а активный файл — сразу в режиме редактирования:
 
 1. Скопировать зеркало целиком:
-   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/019ff6d3-lifeflow-fitness/tools/github-workflows/build.yml
+   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/019ff972-lifeflow-fitness/tools/github-workflows/build.yml
 2. Открыть активный workflow в режиме редактирования и заменить всё содержимое:
-   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/019ff6d3-lifeflow-fitness/.github/workflows/build.yml
+   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/019ff972-lifeflow-fitness/.github/workflows/build.yml
 3. Commit changes → вкладка «Actions» → дождаться сборки → APK в Releases.
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.24** (P13 вечерний пуш «Оцени день» + P14 скачивание модели + подсказка совместимости телефона + микродвижения):
+  - 🌗 P13: `dayMoodReminder` + `scheduleMoodReminder`/`refreshMoodReminderOnLaunch` + канал `fitflow_day_mood` + подсветка карточки самочувствия.
+  - 📥 P14: натив `startModelDownload`/`modelDownloadStatus`/`cancelModelDownload`/`deviceInfo` в `FitFlowLocalAiPlugin.kt` (скачивание через DownloadManager, прогресс/докачка) + JS `startAiModelDownload`/`pollAiModelDownload` + панель `#ai-download-panel`.
+  - 📱 Подсказка `renderAiDeviceHint` (ОЗУ/ядра/Android → зелёный/жёлтый/оранжевый).
 - Версия приложения: **0.8.23** (умные весы — вес/рост из Health Connect, P34):
-  - ⚖️ Натив `readBodyMetrics` (Weight/Height) + мост `syncHealthBodyMetrics` + READ_WEIGHT/READ_HEIGHT (в зеркале, ждёт замены workflow).
+  - ⚖️ Натив `readBodyMetrics` (Weight/Height) + мост `syncHealthBodyMetrics` + READ_WEIGHT/READ_HEIGHT — сборка v0.8.23-build328 собрана и выпущена.
   - JS `mergeWeightsFromMetrics`/`onHealthBodyMetricsReceived` + триггер раз в сутки.
 - Версия приложения: **0.8.22** («Повторить вчера» + CSV + поиск по базе):
   - ↺ P24: `repeatYesterdayMeal()` + кнопка «↺ Вчера»; сводка дня хранит `items`.

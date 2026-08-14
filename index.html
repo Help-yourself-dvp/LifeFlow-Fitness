@@ -935,7 +935,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="bell">🔔</span></div>
         <div class="card-title-wrap">
           <h2>Уведомления</h2>
-          <p>Утренняя мотивация, приёмы пищи, вода и вечерняя активность</p>
+          <p>Утренняя мотивация, приёмы пищи, вода, вечерняя активность и оценка дня</p>
         </div>
       </div>
 
@@ -1002,6 +1002,24 @@
           </div>
         </div>
         <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Вечерняя оценка дня</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="day-mood-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="day-mood-reminder-toggle">
+            <input id="day-mood-reminder-toggle" type="checkbox" role="switch" aria-describedby="day-mood-reminder-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить вечерний вопрос о самочувствии</span>
+          </label>
+        </div>
+        <div id="day-mood-reminder-options" hidden>
+          <div class="reminder-time-row">
+            <label for="day-mood-reminder-time">Спрашивать каждый день в</label>
+            <input id="day-mood-reminder-time" class="time-input" type="time" value="21:00" aria-label="Время вечернего вопроса о самочувствии">
+          </div>
+        </div>
+        <p class="settings-hint" id="day-mood-reminder-status">Напоминание выключено.</p>
       </div>
       <div class="settings-group">
         <p class="settings-label">Напоминания о воде</p>
@@ -1133,10 +1151,22 @@
           </div>
           <div id="ai-litert-box" class="ai-model-box" hidden>
             <p class="settings-hint" id="ai-model-status">○ Модель не выбрана: укажите файл Gemma (.litertlm) с телефона или скачайте автоматически.</p>
+            <p class="settings-hint ai-device-hint" id="ai-device-hint" hidden></p>
             <div class="settings-row" style="margin-top:8px">
               <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать файл модели (.litertlm)</button>
               <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
               <input type="file" id="ai-model-file-input" accept=".litertlm,.task" hidden>
+            </div>
+            <div id="ai-download-panel" hidden>
+              <div class="profile-basics-row">
+                <label for="ai-download-url">Прямая ссылка на файл .litertlm</label>
+                <input id="ai-download-url" class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="https://…/gemma.litertlm?download=true">
+              </div>
+              <p class="settings-hint" id="ai-download-hint">💡 Где взять ссылку: откройте страницу модели в репозиториях litert-community/*-litert-lm на Hugging Face, примите условия Gemma и скопируйте прямую ссылку на файл .litertlm (кнопка «Download», затем «Copy link»). GGUF (llama.cpp) не подходит. Для слабых телефонов берите модель поменьше — Gemma 3 1B (~0,7 ГБ).</p>
+              <div class="settings-row">
+                <button class="btn btn-primary" id="ai-download-start" type="button">Начать скачивание</button>
+                <button class="btn btn-secondary" id="ai-download-cancel" type="button" hidden>Остановить</button>
+              </div>
             </div>
             <div id="ai-progress-wrap" class="ai-progress-wrap" hidden>
               <div class="ai-progress-bar"><div id="ai-progress-fill" class="ai-progress-fill" style="width:0%"></div></div>
@@ -1216,7 +1246,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.23 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.24 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

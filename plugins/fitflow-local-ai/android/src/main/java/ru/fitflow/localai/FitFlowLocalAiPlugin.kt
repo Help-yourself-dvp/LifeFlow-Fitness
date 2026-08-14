@@ -1,5 +1,8 @@
 package ru.fitflow.localai
 
+import android.app.ActivityManager
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -120,6 +123,129 @@ class FitFlowLocalAiPlugin : Plugin() {
             } catch (e: Exception) {
                 call.reject("import_failed", "Не удалось скопировать модель: ${e.message}", e)
             }
+        }
+    }
+
+    /** Папка для скачанных моделей: приватная внешняя папка приложения
+        (не требует разрешений на хранилище и не видна другим приложениям). */
+    private fun modelsDir(): File {
+        return File(context.getExternalFilesDir(null), "models").apply { mkdirs() }
+    }
+
+    /** Характеристики телефона для честной подсказки о совместимости с моделью:
+        ядра, ОЗУ, версия Android, модель/производитель, флаг нехватки памяти. */
+    @PluginMethod
+    fun deviceInfo(call: PluginCall) {
+        val ret = JSObject()
+        try {
+            val cores = Runtime.getRuntime().availableProcessors()
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val mem = ActivityManager.MemoryInfo()
+            am.getMemoryInfo(mem)
+            ret.put("cores", cores)
+            ret.put("totalRamMb", mem.totalMem / (1024L * 1024L))
+            ret.put("availRamMb", mem.availMem / (1024L * 1024L))
+            ret.put("lowMemory", mem.lowMemory)
+            ret.put("sdkInt", Build.VERSION.SDK_INT)
+            ret.put("model", Build.MODEL ?: "")
+            ret.put("manufacturer", Build.MANUFACTURER ?: "")
+            call.resolve(ret)
+        } catch (e: Exception) {
+            call.reject("device_info_failed", "Не удалось прочитать характеристики: ${e.message}", e)
+        }
+    }
+
+    /** Скачивание модели через системный DownloadManager: крупный файл,
+        прогресс, докачка после обрыва связи и уведомление о завершении. */
+    @PluginMethod
+    fun startModelDownload(call: PluginCall) {
+        val url = call.getString("url")
+        if (url.isNullOrBlank()) {
+            call.reject("bad_url", "Укажите прямую ссылку на файл .litertlm.")
+            return
+        }
+        val filename = call.getString("filename") ?: "model.litertlm"
+        val lower = filename.lowercase()
+        if (!lower.endsWith(".litertlm") && !lower.endsWith(".task")) {
+            call.reject("bad_ext", "Имя файла должно заканчиваться на .litertlm или .task.")
+            return
+        }
+        val target = File(modelsDir(), filename)
+        val request = DownloadManager.Request(Uri.parse(url))
+            .setTitle("FitFlow: скачивание модели")
+            .setDescription(filename)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            // Официальный способ писать в приватную внешнюю папку приложения —
+            // без file:// URI (надёжнее на Android 10+ со scoped storage).
+            .setDestinationInExternalFilesDir(context, "models", filename)
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(true)
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        try {
+            val id = dm.enqueue(request)
+            val ret = JSObject()
+            ret.put("downloadId", id)
+            ret.put("path", target.absolutePath)
+            ret.put("name", filename)
+            call.resolve(ret)
+        } catch (e: Exception) {
+            call.reject("download_start_failed", "Не удалось начать скачивание: ${e.message}", e)
+        }
+    }
+
+    /** Статус загрузки: статус, сколько скачано, всего, причина остановки. */
+    @PluginMethod
+    fun modelDownloadStatus(call: PluginCall) {
+        val id = call.getInt("downloadId")
+        val ret = JSObject()
+        if (id == null) {
+            ret.put("status", "error")
+            ret.put("reason", -1)
+            call.resolve(ret)
+            return
+        }
+        try {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val cursor = dm.query(DownloadManager.Query().setFilterById(id.toLong()))
+            if (cursor == null || !cursor.moveToFirst()) {
+                ret.put("status", "unknown")
+                ret.put("bytesSoFar", 0L)
+                ret.put("totalBytes", -1L)
+                ret.put("reason", 0)
+                call.resolve(ret)
+                return
+            }
+            val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
+            val bytes = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+            val total = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+            val reason = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+            cursor.close()
+            ret.put("status", status)
+            ret.put("bytesSoFar", bytes)
+            ret.put("totalBytes", total)
+            ret.put("reason", reason)
+            call.resolve(ret)
+        } catch (e: Exception) {
+            ret.put("status", "error")
+            ret.put("reason", -1)
+            call.resolve(ret)
+        }
+    }
+
+    /** Отмена активной загрузки модели. */
+    @PluginMethod
+    fun cancelModelDownload(call: PluginCall) {
+        val id = call.getInt("downloadId")
+        if (id == null) {
+            call.reject("no_id", "Нет идентификатора загрузки.")
+            return
+        }
+        try {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.remove(id.toLong())
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("cancel_failed", "Не удалось отменить загрузку: ${e.message}", e)
         }
     }
 

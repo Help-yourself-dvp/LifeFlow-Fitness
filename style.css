@@ -3130,6 +3130,33 @@ button.food-group-header:active { filter: brightness(0.97); }
   height: 100%;
   transition: width 0.3s ease;
 }
+/* P14: честная подсказка о совместимости телефона с офлайн-моделью
+   (зелёная — тянет, жёлтая — медленно, оранжевая — слабое устройство) */
+.ai-device-hint {
+  margin-top: 6px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.ai-device-ok {
+  background: color-mix(in srgb, #2E7D32 12%, transparent);
+  border-color: color-mix(in srgb, #2E7D32 45%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+.ai-device-warn {
+  background: color-mix(in srgb, #F9A825 14%, transparent);
+  border-color: color-mix(in srgb, #F9A825 50%, transparent);
+}
+.ai-device-bad {
+  background: color-mix(in srgb, #EF6C00 14%, transparent);
+  border-color: color-mix(in srgb, #EF6C00 50%, transparent);
+}
+.ai-device-unknown {
+  background: var(--surface-variant);
+  border-color: var(--outline-variant);
+}
 .ai-result-box {
   background: var(--surface-variant);
   border: 1.5px solid color-mix(in srgb, var(--primary) 40%, transparent);
@@ -4352,4 +4379,43 @@ html[data-palette="berry"] .ai-icon-btn {
   .strength-exercise-head { flex-wrap: wrap; }
   .strength-exercise-summary { width: 100%; text-align: left; }
   .strength-plan-day { font-size: 0.62rem; padding: 5px 0; }
+}
+
+/* ============================================================
+   0.8.24 — P13 (оценка дня) + деликатные микродвижения
+   ------------------------------------------------------------
+   Принцип: приятно глазу, но не надоедает. Всё уважает
+   prefers-reduced-motion (глобальное правило выше гасит
+   анимации и переходы). Никаких «прыжков» интерфейса.
+   ============================================================ */
+
+/* Мягкая вспышка карточки самочувствия при переходе из вечернего пуша */
+@keyframes moodCardFlash {
+  0% { box-shadow: 0 0 0 0 rgb(142 111 191 / 0); }
+  25% { box-shadow: 0 0 0 5px rgb(142 111 191 / 0.30); }
+  100% { box-shadow: 0 0 0 0 rgb(142 111 191 / 0); }
+}
+.mood-card-flash { animation: moodCardFlash 1.4s ease 2; border-radius: 14px; }
+
+/* Оценка самочувствия: выбранный смайл мягко «подпрыгивает» — отклик без шума */
+.mood-inline-btn {
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.mood-inline-btn:active { transform: scale(1.12); }
+.mood-inline-btn.active { transform: scale(1.06); }
+
+/* Карточки на мышке: лёгкий подъём при наведении (на телефоне не виден —
+   hover-медиа включает эффект только для устройств с курсором) */
+@media (hover: hover) and (pointer: fine) {
+  .card {
+    transition: translate 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+  }
+  .card:hover {
+    translate: 0 -2px;
+  }
+  .ai-model-box:hover,
+  .settings-group:hover {
+    translate: 0 -1px;
+    transition: translate 0.2s ease;
+  }
 }
