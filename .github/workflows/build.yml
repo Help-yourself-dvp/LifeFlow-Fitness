@@ -679,6 +679,29 @@ jobs:
                       }).start();
                   }
 
+                  /* 0.8.23: показатели тела (вес/рост с умных весов) → JS */
+                  @JavascriptInterface
+                  public void syncHealthBodyMetrics() {
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  final String json = HealthConnectHelper.readBodyMetrics(getApplicationContext(), 30);
+                                  runOnUiThread(new Runnable() {
+                                      @Override public void run() {
+                                          try {
+                                              WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                              if (wv != null) {
+                                                  wv.evaluateJavascript(
+                                                      "window.onHealthBodyMetricsReceived && window.onHealthBodyMetricsReceived(" + JSONObject.quote(json) + ");", null);
+                                              }
+                                          } catch (Exception e) {}
+                                      }
+                                  });
+                              } catch (Exception e) {}
+                          }
+                      }).start();
+                  }
+
                   /* 0.8.11: записать тренировку в Health Connect → JS-колбэк */
                   @JavascriptInterface
                   public void exportWorkoutToHealthConnect(final String json) {
@@ -1635,6 +1658,8 @@ jobs:
           import androidx.health.connect.client.records.StepsRecord
           import androidx.health.connect.client.records.SleepSessionRecord
           import androidx.health.connect.client.records.ExerciseSessionRecord
+          import androidx.health.connect.client.records.WeightRecord
+          import androidx.health.connect.client.records.HeightRecord
           import androidx.health.connect.client.request.ReadRecordsRequest
           import androidx.health.connect.client.time.TimeRangeFilter
           import kotlinx.coroutines.runBlocking
@@ -1866,6 +1891,54 @@ jobs:
                   "walk" -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
                   else -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
               }
+
+              /* 0.8.23: показатели тела с умных весов (любой производитель через
+                 Health Connect): вес по дням + последний рост. WeightRecord/HeightRecord
+                 существуют с ранних alpha connect-client — стабильно. BodyFatRecord
+                 добавлен только в 1.1.0 stable — НЕ используем (alpha07 может не знать). */
+              @JvmStatic
+              fun readBodyMetrics(context: Context, days: Int): String {
+                  return try {
+                      val n = if (days in 1..90) days else 30
+                      val client = HealthConnectClient.getOrCreate(context)
+                      val today = LocalDate.now()
+                      val zone = ZoneId.systemDefault()
+                      val start = today.minusDays((n - 1).toLong()).atStartOfDay(zone).toInstant()
+                      val end = today.plusDays(1).atStartOfDay(zone).toInstant()
+                      val timeRange = TimeRangeFilter.between(start, end)
+
+                      val weights = JSONArray()
+                      try {
+                          val resp = runBlocking { client.readRecords(ReadRecordsRequest(WeightRecord::class, timeRange)) }
+                          val byDate = sortedMapOf<String, Double>()
+                          for (rec in resp.records) {
+                              val date = rec.time.atZone(zone).toLocalDate().toString()
+                              byDate[date] = rec.weight.inKilograms
+                          }
+                          for ((date, kg) in byDate) {
+                              val o = JSONObject()
+                              o.put("date", date)
+                              o.put("kg", Math.round(kg * 10) / 10.0)
+                              weights.put(o)
+                          }
+                      } catch (_: Exception) {}
+
+                      var heightM = 0.0
+                      try {
+                          val resp = runBlocking { client.readRecords(ReadRecordsRequest(HeightRecord::class, timeRange)) }
+                          if (resp.records.isNotEmpty()) {
+                              heightM = resp.records.last().height.inMeters
+                          }
+                      } catch (_: Exception) {}
+
+                      val out = JSONObject()
+                      out.put("weights", weights)
+                      out.put("heightM", heightM)
+                      out.toString()
+                  } catch (e: Exception) {
+                      "{}"
+                  }
+              }
           }
           KOTLIN_EOF
 
@@ -1893,6 +1966,8 @@ jobs:
               'android.permission.health.READ_EXERCISE',
               'android.permission.health.READ_SLEEP',
               'android.permission.health.WRITE_EXERCISE',
+              'android.permission.health.READ_WEIGHT',
+              'android.permission.health.READ_HEIGHT',
           ]
           for p in perms:
               tag = f'    <uses-permission android:name="{p}" />\n'
