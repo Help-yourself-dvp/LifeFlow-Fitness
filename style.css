@@ -2552,6 +2552,32 @@ html[data-theme="dark"] .segmented button.active {
 .strength-history-list { display: grid; gap: 4px; }
 .strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 
+/* ---------- Поиск по базе продуктов (0.8.20) ---------- */
+.product-search-dialog { text-align: left; }
+.product-search-dialog h2 { text-align: center; }
+.product-search-input { margin: 10px 0 12px; }
+.product-search-list {
+  display: grid;
+  gap: 4px;
+  max-height: min(52dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 4px;
+  text-align: left;
+}
+.product-search-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 10px;
+}
+.product-search-row strong { font-size: 0.8rem; }
+.product-search-row span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+.product-search-custom { font-size: 0.66rem; color: var(--md-sys-color-primary); font-weight: 600; }
+.product-search-hint { padding: 10px 4px; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); text-align: center; }
+
 /* ---------- Карточка: Шаги на Главной (0.7.0) ---------- */
 .steps-card .steps-progress-row {
   display: flex;

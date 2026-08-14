@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1631,6 +1631,30 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!ok24) failed++;
   console.log(`${ok24 ? '✓' : '✗'} 0.8.11 backfill шагов: прошлые дни добавляются, вперёд-снапшоты и сегодня не перезаписываются`);
 }
+
+// ===== 0.8.20: поиск по базе продуктов (P15) =====
+{
+  let bad = 0;
+  // Подстрока, ё/е не различаем, лимит
+  const grech = searchFoodDb('греч', 30);
+  if (!(grech.length > 0 && grech.some((r) => r.name.includes('греч')))) bad++;
+  // «кефир» находится (ё/е: кефир)
+  const kef = searchFoodDb('кефир', 10);
+  if (!(kef.some((r) => r.name === 'кефир'))) bad++;
+  // Пустой запрос → пустой список
+  if (searchFoodDb('', 10).length !== 0) bad++;
+  if (searchFoodDb('   ', 10).length !== 0) bad++;
+  // Лимит соблюдается
+  if (searchFoodDb('а', 5).length > 5) bad++;
+  // У результата есть ккал и БЖУ
+  const first = searchFoodDb('гречка', 1)[0];
+  if (!(first && Number.isFinite(Number(first.kcal)) && first.p != null)) bad++;
+  const ok25 = bad === 0;
+  if (!ok25) failed++;
+  console.log(`${ok25 ? '✓' : '✗'} 0.8.20 поиск по базе: подстрока, ё/е, лимит, КБЖУ у результата`);
+}
+
+console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 

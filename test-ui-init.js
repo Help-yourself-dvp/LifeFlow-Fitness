@@ -2060,5 +2060,26 @@ for (const id of ids) {
   console.log(`${okVer0818 ? '✓' : '✗'} 0.8.18 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.20 (поиск по базе продуктов, P15) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okSearch = appR.includes('function searchFoodDb')
+    && appR.includes('function openProductSearchDialog')
+    && appR.includes('function renderProductSearch')
+    && html.includes('id="product-search-dialog"')
+    && html.includes('id="product-search-input"')
+    && html.includes('id="product-search-open"')
+    && css.includes('.product-search-list');
+  if (!okSearch) failed++;
+  console.log(`${okSearch ? '✓' : '✗'} 0.8.20 поиск по базе: диалог «Что в базе» + кнопка 🔍 на карточке питания`);
+
+  const okVer0820 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0820) failed++;
+  console.log(`${okVer0820 ? '✓' : '✗'} 0.8.20 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

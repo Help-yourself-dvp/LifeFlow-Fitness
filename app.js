@@ -2322,6 +2322,76 @@ function lookupProduct(name) {
     || lookupProductIn(FOOD_DB, FOOD_KEYS_BY_LENGTH, name);
 }
 
+/* 0.8.20: поиск по базе продуктов («Что в базе», P15) — чистая функция.
+   Возвращает до `limit` продуктов, чьё имя содержит запрос (ё/е не различаем),
+   от личных продуктов к общей базе. */
+function searchFoodDb(query, limit) {
+  const q = String(query || '').toLowerCase().trim().replace(/ё/g, 'е');
+  const max = Math.max(1, Number(limit) || 30);
+  if (!q) return [];
+  const results = [];
+  const seen = new Set();
+  const push = (name, entry, custom) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    results.push({ name, kcal: entry.kcal, p: entry.p, f: entry.f, c: entry.c, pieceG: entry.pieceG, per: entry.per, custom });
+  };
+  const customDb = getCustomFoodDb();
+  Object.keys(customDb).forEach((name) => {
+    if (name.replace(/ё/g, 'е').includes(q)) push(name, customDb[name], true);
+  });
+  if (results.length < max) {
+    for (const name of FOOD_KEYS_BY_LENGTH) {
+      if (results.length >= max) break;
+      if (name.replace(/ё/g, 'е').includes(q)) push(name, FOOD_DB[name], false);
+    }
+  }
+  return results.slice(0, max);
+}
+
+function openProductSearchDialog() {
+  const dialog = $('#product-search-dialog');
+  if (!dialog) return;
+  dialog.hidden = false;
+  const input = $('#product-search-input');
+  if (input) input.value = '';
+  renderProductSearch('');
+  if (input) setTimeout(() => input.focus(), 80);
+}
+function closeProductSearchDialog() {
+  const dialog = $('#product-search-dialog');
+  if (dialog) dialog.hidden = true;
+}
+function renderProductSearch(query) {
+  const list = $('#product-search-list');
+  if (!list) return;
+  const q = String(query || '');
+  if (!q.trim()) {
+    list.innerHTML = '<p class="product-search-hint">Введите название — покажем КБЖУ и порцию. Помогает понять, почему парсер понял (или не понял) фразу.</p>';
+    return;
+  }
+  const results = searchFoodDb(q, 30);
+  if (!results.length) {
+    list.innerHTML = '<p class="product-search-hint">Ничего не найдено. Попробуйте короче («греч», «сыр») — или добавьте продукт в «Мои продукты».</p>';
+    return;
+  }
+  list.innerHTML = results.map((r) => {
+    const basis = r.per === 'шт'
+      ? 'на 1 шт'
+      : (r.pieceG ? `1 шт ≈ ${fmt(r.pieceG)} г` : 'на 100 г');
+    const macros = `Б ${r.p != null ? fmt(r.p) : '—'} · Ж ${r.f != null ? fmt(r.f) : '—'} · У ${r.c != null ? fmt(r.c) : '—'}`;
+    return `<div class="product-search-row">
+      <strong>${escapeHtml(r.name)}${r.custom ? ' <span class="product-search-custom">моё</span>' : ''}</strong>
+      <span>${fmt(r.kcal)} ккал ${basis} · ${macros}</span>
+    </div>`;
+  }).join('');
+}
+
+if (typeof window !== 'undefined') {
+  window.openProductSearchDialog = openProductSearchDialog;
+  window.closeProductSearchDialog = closeProductSearchDialog;
+}
+
 /* 0.4.13 (полевой баг: «бедро без кожи» съедалось как «безе» 305 ккал —
    стем «без» прицепился к предлогу). Стем-совпадение на служебном слове —
    не продукт: такие ключи пропускаем, поиск продолжается по более коротким.
@@ -2661,7 +2731,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.19';
+const FITFLOW_VERSION = '0.8.20';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -12662,6 +12732,10 @@ function init() {
   bindEvent('#faq-open', 'click', () => openFaqDialog(''));
   bindEvent('#faq-close', 'click', closeFaqDialog);
   bindEvent('#faq-search', 'input', (e) => renderFaqList(e.target.value));
+  // 0.8.20: поиск по базе продуктов
+  bindEvent('#product-search-open', 'click', openProductSearchDialog);
+  bindEvent('#product-search-close', 'click', closeProductSearchDialog);
+  bindEvent('#product-search-input', 'input', (e) => renderProductSearch(e.target.value));
   $('#privacy-dialog-ok').addEventListener('click', closePrivacyDialog);
   $('#sources-open').addEventListener('click', openSourcesDialog);
   // 0.5.6: лицензия отдельным окном; кнопка есть и в окне условий при первом входе
@@ -14810,6 +14884,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb
   };
 }

@@ -201,6 +201,9 @@
         <button class="card-menu icon-btn" id="custom-food-open" type="button" aria-label="Мои продукты" title="Мои продукты — точные значения с упаковки">
           <span aria-hidden="true" style="font-size:1.05rem">🏷️</span>
         </button>
+        <button class="card-menu icon-btn" id="product-search-open" type="button" aria-label="Поиск по базе продуктов" title="Поиск по базе продуктов — КБЖУ и порции">
+          <span aria-hidden="true" style="font-size:1.05rem">🔍</span>
+        </button>
         <button class="card-menu icon-btn mic-header-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Надиктовать еду голосом">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
@@ -1211,7 +1214,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.19 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.20 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1355,6 +1358,19 @@
       <div class="faq-list" id="faq-list"></div>
       <div class="app-dialog-actions">
         <button class="btn btn-primary" id="faq-close" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== 0.8.20: поиск по базе продуктов («Что в базе») ===== -->
+  <div class="app-dialog-backdrop" id="product-search-dialog" role="dialog" aria-modal="true" aria-labelledby="product-search-title" hidden>
+    <section class="app-dialog product-search-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🔍</div>
+      <h2 id="product-search-title">Что в базе</h2>
+      <input type="search" class="form-input product-search-input" id="product-search-input" placeholder="Начните вводить продукт…" aria-label="Поиск продукта в базе">
+      <div class="product-search-list" id="product-search-list"></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="product-search-close" type="button">Закрыть</button>
       </div>
     </section>
   </div>
