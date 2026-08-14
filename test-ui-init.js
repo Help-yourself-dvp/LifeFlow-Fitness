@@ -2116,5 +2116,36 @@ for (const id of ids) {
   console.log(`${okVer0822 ? '✓' : '✗'} 0.8.22 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.23 (умные весы: вес/рост из Health Connect, P34) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  const okJs = appR.includes('function mergeWeightsFromMetrics')
+    && appR.includes('function onHealthBodyMetricsReceived')
+    && appR.includes('function requestBodyMetricsSync')
+    && appR.includes('requestBodyMetricsSync();');
+  if (!okJs) failed++;
+  console.log(`${okJs ? '✓' : '✗'} 0.8.23 JS: слияние веса + обработчик + триггер раз в сутки`);
+
+  const okNative = mirror.includes('readBodyMetrics')
+    && mirror.includes('WeightRecord')
+    && mirror.includes('HeightRecord')
+    && mirror.includes('rec.weight.inKilograms')
+    && mirror.includes('.height.inMeters')
+    && mirror.includes('syncHealthBodyMetrics')
+    && mirror.includes('android.permission.health.READ_WEIGHT')
+    && mirror.includes('android.permission.health.READ_HEIGHT');
+  if (!okNative) failed++;
+  console.log(`${okNative ? '✓' : '✗'} 0.8.23 зеркало build.yml: чтение Weight/Height + мост + разрешения`);
+
+  const okVer0823 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0823) failed++;
+  console.log(`${okVer0823 ? '✓' : '✗'} 0.8.23 версия в коде и «О приложении»`);
+}
+
+console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
+process.exit(failed === 0 ? 0 : 1);
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2768,7 +2768,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.22';
+const FITFLOW_VERSION = '0.8.23';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6875,6 +6875,61 @@ function mergeStepsBackfill(existing, incoming, today) {
   return normalizeStepsHistory(Array.from(byDate.values()));
 }
 
+/* 0.8.23: слияние веса с умных весов с историей. Чистая функция (тестируется):
+   добавляются только даты, которых ещё нет (не перезаписываем ручной ввод),
+   сортировка по возрастанию. */
+function mergeWeightsFromMetrics(history, weights) {
+  const byDate = new Map(normalizeWeightHistory(history).map((e) => [e.date, e]));
+  (Array.isArray(weights) ? weights : []).forEach((w) => {
+    const date = String(w && w.date || '');
+    const kg = Number(w && w.kg);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayKey()) return;
+    if (!Number.isFinite(kg) || kg < 25 || kg > 300) return;
+    if (byDate.has(date)) return;
+    byDate.set(date, { date, weightKg: Math.round(kg * 10) / 10, updatedAt: Date.now() });
+  });
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function onHealthBodyMetricsReceived(json) {
+  let data = {};
+  try { data = JSON.parse(json) || {}; } catch (e) { return; }
+  const weights = Array.isArray(data.weights) ? data.weights : [];
+  const heightM = Number(data.heightM) || 0;
+  let changed = false;
+  let addedWeight = 0;
+  let addedHeight = false;
+
+  if (weights.length) {
+    const merged = mergeWeightsFromMetrics(state.profileSettings.weightHistory, weights);
+    const before = normalizeWeightHistory(state.profileSettings.weightHistory).length;
+    if (merged.length !== before) {
+      state.profileSettings.weightHistory = merged;
+      addedWeight = merged.length - before;
+      changed = true;
+      // Если текущего веса нет — берём последний по дате.
+      if (!state.profileSettings.weightKg && merged.length) {
+        state.profileSettings.weightKg = merged[merged.length - 1].weightKg;
+      }
+    }
+  }
+  if (heightM > 0 && !state.profileSettings.heightCm) {
+    state.profileSettings.heightCm = Math.round(heightM * 100);
+    addedHeight = true;
+    changed = true;
+  }
+  if (!changed) return;
+  saveState();
+  if (typeof document !== 'undefined') {
+    renderWeightOverview();
+    renderProfileBasics();
+    const bits = [];
+    if (addedWeight) bits.push(`вес с весов: +${addedWeight} зап.`);
+    if (addedHeight) bits.push('рост подставлен');
+    toast('⚖️ ' + bits.join(', '));
+  }
+}
+
 function onHealthStepsHistoryReceived(json) {
   let list = [];
   try { list = JSON.parse(json) || []; } catch (e) { return; }
@@ -7295,6 +7350,7 @@ function refreshHealthDataOnResume() {
   } catch (e) { pendingAutoHealthSync = false; }
   requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
   requestStepsHistorySync(); // 0.8.11: обратная заливка истории шагов (P28)
+  requestBodyMetricsSync(); // 0.8.23: вес/рост с умных весов (P34)
 }
 
 /* 0.8.11: обратная заливка истории шагов — редко (раз в сутки), HC читаем
@@ -7307,6 +7363,19 @@ function requestStepsHistorySync() {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthStepsHistory === 'function') {
       lastStepsHistorySyncAt = now;
       window.FitFlowExport.syncHealthStepsHistory();
+    }
+  } catch (e) { }
+}
+
+/* 0.8.23: показатели тела (вес/рост с умных весов) — тоже раз в сутки. */
+let lastBodyMetricsSyncAt = 0;
+function requestBodyMetricsSync() {
+  const now = Date.now();
+  if (now - lastBodyMetricsSyncAt < 24 * 60 * 60 * 1000) return;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthBodyMetrics === 'function') {
+      lastBodyMetricsSyncAt = now;
+      window.FitFlowExport.syncHealthBodyMetrics();
     }
   } catch (e) { }
 }
@@ -10918,6 +10987,7 @@ const FAQ_ITEMS = [
   { q: 'Как исправить или удалить запись?', a: 'Еда/активность/вес: значок ✏️ у записи или удаление с кнопкой «Отменить» (6,5 с). Прошлые дни: Статистика → «✏️ Поправить день…». Сегодняшний день правится в своих разделах.' },
   { q: 'Что значит «не записано» в журнале распознаваний?', a: 'Журнал фиксирует каждый разбор умного ввода и фото. «записано ✓» — разбор внесён в дневник; «не записано» — разбор только показан в превью, но не сохранён. Это не потеря данных, а честная пометка.' },
   { q: 'Тренировку с часов нужно добавлять вручную?', a: 'Нет. Когда часы синхронизируются с Health Connect, FitFlow сам покажет в разделе «Активность» подсказку «Нашли тренировки с часов» (бег, велосипед и др.) — один тап «Добавить», и тренировка в дневнике. Шаги во время бега при этом входят в общий счётчик шагов: шаги и тренировки — два разных показателя, это нормально.' },
+  { q: 'Как подключить умные весы?', a: 'Если весы пишут вес в приложение производителя, а оно — в Android Health Connect, FitFlow сам подтянет вес раз в сутки (разрешите чтение веса в «Системных разрешениях Health Connect»). Рост тоже подставится в профиль, если его нет. Записи, которые вы ввели вручную, не перезаписываются.' },
   { q: 'Приложение заменяет врача?', a: 'Нет. Расчёты и подсказки носят справочный информационный характер и не заменяют консультацию квалифицированного специалиста, диагностику или лечение.' }
 ];
 
@@ -14995,6 +15065,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };
 }

@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.8.22**
+Текущая версия: **0.8.23**
 
 ---
 
@@ -492,6 +492,12 @@ node test-parser.js
 ---
 
 # 14. История версий
+
+## 0.8.23 — Умные весы: вес и рост из Health Connect (13.08.2026)
+
+- **⚖️ P34 (нативный пакет).** Kotlin `readBodyMetrics(context, days)` читает `WeightRecord` (сумма/последний по дате, `weight.inKilograms`) и `HeightRecord` (`.height.inMeters`) за N дней → JSON `{weights:[{date,kg}], heightM}`. Мост `syncHealthBodyMetrics()` → `window.onHealthBodyMetricsReceived`. Манифест: `READ_WEIGHT`, `READ_HEIGHT`. `BodyFatRecord` НЕ используем (добавлен только в 1.1.0 stable — наша alpha07 может его не знать; риск сорванной сборки).
+- **JS:** `mergeWeightsFromMetrics(history, weights)` (чистая, node-тест) — добавляет только даты, которых нет (ручной ввод не перезаписывается), диапазон 25–300 кг, сортировка. `onHealthBodyMetricsReceived` пишет в `weightHistory`, при отсутствии `weightKg` берёт последний по дате, рост — в `heightCm`, если пусто. Триггер `requestBodyMetricsSync()` раз в сутки. FAQ-пункт «Как подключить умные весы?».
+- **Совместимость:** JS собирается обычным релизом; натив в зеркале — замена workflow.
 
 ## 0.8.22 — «Повторить вчерашний приём пищи» (13.08.2026)
 

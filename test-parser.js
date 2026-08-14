@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1692,6 +1692,29 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!ok27) failed++;
   console.log(`${ok27 ? '✓' : '✗'} 0.8.22 компактные позиции еды: мусор отсеян, name/kcal/mealType/perPiece сохранены`);
 }
+
+// ===== 0.8.23: слияние веса с умных весов (P34) =====
+{
+  let bad = 0;
+  const merged = mergeWeightsFromMetrics(
+    [{ date: '2026-08-09', weightKg: 79.5, updatedAt: 1 }],
+    [
+      { date: '2026-08-09', kg: 80 },  // уже есть — не перезаписываем
+      { date: '2026-08-10', kg: 79.2 }, // новая
+      { date: '2026-08-11', kg: 20 },   // вне диапазона (25–300)
+      { date: 'bad', kg: 80 }
+    ]
+  );
+  const byDate = Object.fromEntries(merged.map((e) => [e.date, e.weightKg]));
+  if (!(merged.length === 2)) bad++;
+  if (!(byDate['2026-08-09'] === 79.5)) bad++; // ручной/существующий не перезаписан
+  if (!(byDate['2026-08-10'] === 79.2)) bad++;
+  const ok28 = bad === 0;
+  if (!ok28) failed++;
+  console.log(`${ok28 ? '✓' : '✗'} 0.8.23 вес с весов: новые даты добавляются, существующие/мусор не трогаются`);
+}
+
+console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 

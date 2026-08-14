@@ -23,6 +23,9 @@
 
 ## Текущее состояние
 
+- Версия приложения: **0.8.23** (умные весы — вес/рост из Health Connect, P34):
+  - ⚖️ Натив `readBodyMetrics` (Weight/Height) + мост `syncHealthBodyMetrics` + READ_WEIGHT/READ_HEIGHT (в зеркале, ждёт замены workflow).
+  - JS `mergeWeightsFromMetrics`/`onHealthBodyMetricsReceived` + триггер раз в сутки.
 - Версия приложения: **0.8.22** («Повторить вчера» + CSV + поиск по базе):
   - ↺ P24: `repeatYesterdayMeal()` + кнопка «↺ Вчера»; сводка дня хранит `items`.
   - 📄 P16: `buildCsvExport`/`exportCsvData` + кнопка CSV в «Данные».
