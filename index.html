@@ -834,7 +834,7 @@
       <div class="settings-group">
         <p class="settings-label">Первый запуск</p>
         <div class="settings-row">
-          <button class="btn btn-secondary" id="setup-wizard-open" type="button">⚙️ Быстрая настройка (5 вопросов)</button>
+          <button class="btn btn-secondary" id="setup-wizard-open" type="button">⚙️ Быстрая настройка (6 вопросов)</button>
         </div>
         <p class="settings-hint">Пять коротких вопросов включают нужное: напоминания о воде и приёмах пищи, утреннюю мотивацию, «План дня», игровой режим. Все ответы потом меняются прямо здесь, в Настройках.</p>
       </div>
@@ -1211,7 +1211,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.17 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.18 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1973,7 +1973,7 @@
   </div>
 
   <!-- 0.5.3: второй уровень первого запуска — «Быстрая настройка» (идея владельца:
-       5 вопросов вместо ручного обхода всех настроек; пропуск = текущие значения
+       6 вопросов вместо ручного обхода всех настроек; пропуск = текущие значения
        по умолчанию, повтор — из Настройки → Общее). -->
   <div class="app-dialog-backdrop" id="setup-wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="setup-wizard-title" hidden>
     <section class="app-dialog">
@@ -1981,6 +1981,10 @@
       <h2 id="setup-wizard-title">Быстрая настройка</h2>
       <p id="setup-wizard-text"></p>
       <p class="settings-hint" id="setup-wizard-progress" role="status"></p>
+      <label class="weight-field setup-wizard-steps-row" id="setup-wizard-steps-row" hidden>
+        <span>Цель шагов в день</span>
+        <input type="number" id="setup-wizard-steps" min="1000" max="50000" step="500" inputmode="numeric" placeholder="8000" aria-label="Цель шагов в день">
+      </label>
       <div class="app-dialog-actions" id="setup-wizard-actions">
         <button class="btn btn-secondary" id="setup-wizard-no" type="button">Нет</button>
         <button class="btn btn-primary" id="setup-wizard-yes" type="button">Да</button>

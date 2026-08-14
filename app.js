@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.17';
+const FITFLOW_VERSION = '0.8.18';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -11600,7 +11600,18 @@ const SETUP_WIZARD_STEPS = [
     apply: (yes) => { updateDayChecklistEnabled(yes); } },
   { emoji: '🏅', title: 'Игровой режим с медалями?',
     text: 'Простые задания дня и медали за серии. Без давления: задания отмечаются сами по записям.',
-    apply: (yes) => { updateGameModeEnabled(yes); } }
+    apply: (yes) => { updateGameModeEnabled(yes); } },
+  { emoji: '👟', title: 'Цель шагов в день?', kind: 'steps',
+    text: 'Сколько шагов вы хотите проходить в день? Стандарт — 8 000 (распространённая рекомендация). Это влияет на карточку «Шаги» на Главной; меняется потом в Настройках → Шаги.',
+    apply: (value) => {
+      const v = Math.round(Number(value));
+      if (Number.isFinite(v) && v >= 1000) {
+        state.healthSync.dailyGoal = Math.min(50000, Math.round(v / 500) * 500);
+        saveState();
+        renderStepsCard();
+        renderHealthSyncSettings();
+      }
+    } }
 ];
 let setupWizardStep = -1; // -1 — вступление; 0..N-1 — вопросы; N — финал
 
@@ -11625,12 +11636,14 @@ function renderSetupWizardStep() {
   if (setupWizardStep === -1) {
     if (emoji) emoji.textContent = '⚙️';
     title.textContent = 'Быстрая настройка';
-    if (text) text.textContent = 'В FitFlow много функций и настроек. Чтобы сэкономить ваше время, ответьте на 5 коротких вопросов — и приложение сразу настроится под вас. Можно пропустить: останутся стандартные значения (напоминания выключены), и всё это меняется потом в Настройках.';
+    if (text) text.textContent = 'В FitFlow много функций и настроек. Чтобы сэкономить ваше время, ответьте на 6 коротких вопросов — и приложение сразу настроится под вас. Можно пропустить: останутся стандартные значения (напоминания выключены), и всё это меняется потом в Настройках.';
     if (progress) progress.textContent = 'Займёт около минуты';
     actions.hidden = false;
     finish.hidden = true;
     if (yesBtn) yesBtn.textContent = 'Начать';
-    if (noBtn) noBtn.textContent = 'Пропустить';
+    if (noBtn) { noBtn.textContent = 'Пропустить'; noBtn.hidden = false; }
+    const stepsRow = $('#setup-wizard-steps-row');
+    if (stepsRow) stepsRow.hidden = true;
     return;
   }
   if (setupWizardStep < total) {
@@ -11641,8 +11654,13 @@ function renderSetupWizardStep() {
     if (progress) progress.textContent = `Вопрос ${setupWizardStep + 1} из ${total}`;
     actions.hidden = false;
     finish.hidden = true;
-    if (yesBtn) yesBtn.textContent = 'Да';
-    if (noBtn) noBtn.textContent = 'Нет';
+    const stepsRow = $('#setup-wizard-steps-row');
+    const stepsInput = $('#setup-wizard-steps');
+    const isNumberStep = step.kind === 'steps';
+    if (stepsRow) stepsRow.hidden = !isNumberStep;
+    if (stepsInput && isNumberStep && !stepsInput.value) stepsInput.value = (state.healthSync && state.healthSync.dailyGoal) || 8000;
+    if (yesBtn) yesBtn.textContent = isNumberStep ? 'Сохранить' : 'Да';
+    if (noBtn) noBtn.hidden = isNumberStep;
     return;
   }
   // Финал
@@ -11680,7 +11698,14 @@ function answerSetupWizard(yes) {
     return;
   }
   const step = SETUP_WIZARD_STEPS[setupWizardStep];
-  if (step) step.apply(yes);
+  if (step) {
+    if (step.kind === 'steps') {
+      const input = $('#setup-wizard-steps');
+      step.apply(input ? input.value : '');
+    } else {
+      step.apply(yes);
+    }
+  }
   setupWizardStep += 1;
   renderSetupWizardStep();
 }

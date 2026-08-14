@@ -2040,5 +2040,25 @@ for (const id of ids) {
   console.log(`${okVer0817 ? '✓' : '✗'} 0.8.17 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.18 (цель шагов в мастере «Быстрая настройка») =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okWizard = appR.includes("kind: 'steps'")
+    && appR.includes("step.kind === 'steps'")
+    && appR.includes('state.healthSync.dailyGoal = Math.min(50000, Math.round(v / 500) * 500)')
+    && html.includes('id="setup-wizard-steps"')
+    && html.includes('Быстрая настройка (6 вопросов)')
+    && css.includes('.setup-wizard-steps-row');
+  if (!okWizard) failed++;
+  console.log(`${okWizard ? '✓' : '✗'} 0.8.18 мастер: вопрос «Цель шагов в день» с числовым полем`);
+
+  const okVer0818 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0818) failed++;
+  console.log(`${okVer0818 ? '✓' : '✗'} 0.8.18 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -4106,6 +4106,9 @@ select:focus-visible, textarea:focus-visible, .chip:focus-visible {
    ============================================================ */
 /* Прогресс мастера — тонкая строка-подпись под текстом */
 #setup-wizard-progress { margin: 10px 0 0; }
+/* 0.8.18: поле цели шагов в мастере */
+.setup-wizard-steps-row { margin-top: 12px; }
+.setup-wizard-steps-row input { text-align: center; }
 
 /* Кнопки диалогов мастера и поддержки делят строку поровну */
 #setup-wizard-dialog .app-dialog-actions button,
