@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.18';
+const FITFLOW_VERSION = '0.8.19';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -9137,7 +9137,7 @@ function renderTraining() {
           <span class="workout-item-emoji" aria-hidden="true">${type.emoji}</span>
           <div class="workout-item-info">
             <p>${escapeHtml(title)}</p>
-            <span>${formatWorkoutDuration(workout.durationMinutes)}${estimateActivityKcal(workout) != null ? ` · <span class="energy-estimate">~${estimateActivityKcal(workout)} ккал</span>` : ''}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
+            <span>${formatWorkoutDuration(workout.durationMinutes)}${estimateActivityKcal(workout) != null ? ` · <span class="energy-estimate">≈ ${estimateActivityKcal(workout)} ккал</span>` : ''}${workout.note ? ` · ${escapeHtml(workout.note)}` : ''}</span>
           </div>
           <button class="workout-item-edit" data-edit-workout="${workout.id}" type="button" aria-label="Изменить активность «${escapeHtml(title)}»" title="Изменить">✏️</button>
           <button class="workout-item-export" data-export-workout="${workout.id}" type="button" aria-label="Записать в Health Connect" title="Записать тренировку в Health Connect">
