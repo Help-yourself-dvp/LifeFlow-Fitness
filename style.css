@@ -2285,6 +2285,8 @@ html[data-theme="dark"] .segmented button.active {
 /* О приложении: одинаковые кнопки-ссылки столбиком */
 .about-links { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .about-links .btn { width: 100%; justify-content: center; text-align: center; }
+/* 0.8.22: кнопка «↺ Вчера» рядом с «Добавить» */
+.food-form-actions .btn-ghost { flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; }
 /* 0.8.17: «О приложении» — сгруппированные подразделы, компактнее */
 .about-group { margin-top: 14px; }
 .about-group .settings-label { margin-bottom: 0; }

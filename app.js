@@ -2322,6 +2322,43 @@ function lookupProduct(name) {
     || lookupProductIn(FOOD_DB, FOOD_KEYS_BY_LENGTH, name);
 }
 
+/* 0.8.22 (P24): повторить вчерашний приём пищи — копия позиций из сводки
+   вчерашнего дня в сегодняшний дневник (точная копия, без перепарсинга). */
+function repeatYesterdayMeal() {
+  const yesterday = statsDateKey(1);
+  const summary = (Array.isArray(state.dailyHistory) ? state.dailyHistory : [])
+    .find((d) => d && d.date === yesterday);
+  const items = summary && Array.isArray(summary.items) ? summary.items : [];
+  if (!items.length) {
+    toast('За вчера нет записей еды — нечего повторить');
+    return;
+  }
+  let added = 0;
+  items.forEach((src) => {
+    if (!src || !src.name) return;
+    state.food.items.push({
+      id: uid(),
+      name: src.name,
+      raw: src.name,
+      amount: src.amount,
+      unit: src.unit || 'г',
+      kcal: src.kcal,
+      p: src.p != null ? src.p : undefined,
+      f: src.f != null ? src.f : undefined,
+      c: src.c != null ? src.c : undefined,
+      mealType: src.mealType || null,
+      perPiece: !!src.perPiece,
+      createdAt: Date.now()
+    });
+    added++;
+  });
+  if (!added) { toast('Не удалось повторить — записи пустые'); return; }
+  saveState();
+  renderFood();
+  renderDayChecklist();
+  toast(`↺ Повторено из вчерашнего: ${added} позиций`);
+}
+
 /* 0.8.20: поиск по базе продуктов («Что в базе», P15) — чистая функция.
    Возвращает до `limit` продуктов, чьё имя содержит запрос (ё/е не различаем),
    от личных продуктов к общей базе. */
@@ -2731,7 +2768,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.20';
+const FITFLOW_VERSION = '0.8.22';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -4134,6 +4171,8 @@ function normalizeDailyHistoryList(list) {
       activityMinutes: Math.max(0, Math.round(Number(day.activityMinutes) || 0)),
       mood: (function(m){ const v = Number(m); return (v >= 1 && v <= 5 && Number.isInteger(v)) ? v : undefined; })(day.mood)
     };
+    // 0.8.22 (P24): сохраняем компактные позиции еды дня.
+    if (Array.isArray(day.items) && day.items.length) normalized.items = compactFoodItemsForHistory(day.items);
     byDate.set(normalized.date, normalized);
   });
   return [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
@@ -4153,6 +4192,21 @@ function activityMinutesForDate(date) {
     .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
 }
 
+/* 0.8.22 (P24): компактная копия позиций еды для истории дня. */
+function compactFoodItemsForHistory(items) {
+  return (Array.isArray(items) ? items : []).slice(0, 100).map((f) => ({
+    name: String(f && (f.name || f.raw) || '').slice(0, 120),
+    amount: f && f.amount != null ? Number(f.amount) : null,
+    unit: f && f.unit ? String(f.unit) : 'г',
+    kcal: Math.round(Number(f && f.kcal) || 0),
+    p: f && f.p != null ? Number(f.p) : null,
+    f: f && f.f != null ? Number(f.f) : null,
+    c: f && f.c != null ? Number(f.c) : null,
+    mealType: f && f.mealType ? String(f.mealType) : null,
+    perPiece: !!(f && f.perPiece)
+  })).filter((x) => x.name && x.kcal >= 0);
+}
+
 function recordDailySummary(date) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
   const foodItems = state.food && state.food.date === date && Array.isArray(state.food.items) ? state.food.items : [];
@@ -4168,6 +4222,8 @@ function recordDailySummary(date) {
   // Не создаём пустые дни, если пользователь в этот день ничего не отмечал.
   if (waterTotal <= 0 && foodTotal <= 0 && activityMinutes <= 0) return;
   const summary = { date, waterTotal, waterGoal, foodTotal, foodGoal, foodP, foodF, foodC, activityMinutes };
+  // 0.8.22 (P24): компактные позиции еды дня — для «Повторить вчерашний приём».
+  if (foodItems.length) summary.items = compactFoodItemsForHistory(foodItems);
   if (date === todayKey() && getTodayMood()) summary.mood = getTodayMood();
   const history = Array.isArray(state.dailyHistory) ? state.dailyHistory : [];
   const index = history.findIndex((day) => day.date === date);
@@ -11189,6 +11245,59 @@ function exportData() {
   toast(`Сохранена копия всех профилей: ${backup.profiles.length}`);
 }
 
+/* 0.8.21 (P16): CSV-выгрузка дневника. Чистая функция — тестируется node-прогоном.
+   Разделитель «;» (дружелюбен к русскому Excel). Вес берётся из истории взвешиваний
+   по дате (последняя запись дня). */
+function buildCsvExport(dailyHistory, weightHistory, includeHeader) {
+  const rows = [];
+  const header = 'Дата;Вода (мл);Цель воды (мл);Ккал;Цель ккал;Активность (мин);Вес (кг)';
+  if (includeHeader !== false) rows.push(header);
+  const weightByDate = new Map();
+  (Array.isArray(weightHistory) ? weightHistory : []).forEach((w) => {
+    if (w && w.date) weightByDate.set(w.date, w.weightKg);
+  });
+  const days = (Array.isArray(dailyHistory) ? dailyHistory : [])
+    .filter((d) => d && d.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  days.forEach((d) => {
+    const w = weightByDate.get(d.date);
+    rows.push([
+      d.date,
+      Math.round(Number(d.waterTotal) || 0),
+      Math.round(Number(d.waterGoal) || 0),
+      Math.round(Number(d.foodTotal) || 0),
+      Math.round(Number(d.foodGoal) || 0),
+      Math.round(Number(d.activityMinutes) || 0),
+      w != null ? String(Number(w).toLocaleString('ru-RU')) : ''
+    ].join(';'));
+  });
+  return rows.join('\r\n');
+}
+
+function exportCsvData() {
+  const csv = buildCsvExport(state.dailyHistory, (state.profileSettings && state.profileSettings.weightHistory) || []);
+  const fileName = `fitflow-export-${todayKey()}.csv`;
+  // Android: SAF-мост (сохранит текст в файл; расширение .csv — Excel откроет по нему).
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.saveBackup === 'function') {
+      toast('Выберите папку для CSV: вода, калории, активность и вес по дням');
+      window.FitFlowExport.saveBackup(csv, fileName);
+      return;
+    }
+  } catch (e) { console.warn('CSV native export error:', e); }
+  // Браузер: скачивание
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('✓ CSV сохранён (откройте в Excel / таблицах)');
+}
+
 let pendingAllProfilesBackup = null;
 
 function requestAllProfilesImport(data) {
@@ -12151,6 +12260,7 @@ function init() {
   });
 
   // Еда: форма
+  bindEvent('#food-repeat-yesterday', 'click', repeatYesterdayMeal);
   $('#food-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#food-input');
@@ -13002,6 +13112,7 @@ function init() {
     e.target.value = '';
   });
   bindEvent('#reset-btn', 'click', requestResetAll);
+  bindEvent('#export-csv-btn', 'click', exportCsvData);
   $('#reset-dialog-cancel').addEventListener('click', closeResetDialog);
   $('#reset-dialog-confirm').addEventListener('click', resetAll);
 
@@ -14884,6 +14995,6 @@ if (typeof module !== 'undefined' && module.exports) {
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory
   };
 }

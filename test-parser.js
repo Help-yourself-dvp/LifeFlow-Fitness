@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1653,6 +1653,49 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!ok25) failed++;
   console.log(`${ok25 ? '✓' : '✗'} 0.8.20 поиск по базе: подстрока, ё/е, лимит, КБЖУ у результата`);
 }
+
+// ===== 0.8.21: CSV-выгрузка (P16) — разделитель «;», вес по дате =====
+{
+  let bad = 0;
+  const csv = buildCsvExport(
+    [{ date: '2026-08-10', waterTotal: 2000, waterGoal: 2500, foodTotal: 1800, foodGoal: 2000, activityMinutes: 45 }],
+    [{ date: '2026-08-10', weightKg: 80.5 }]
+  );
+  const lines = csv.split('\r\n');
+  if (!(lines[0].includes('Дата') && lines[0].includes('Вода (мл)') && lines[0].includes('Вес (кг)'))) bad++;
+  if (!(lines.length === 2)) bad++;
+  if (!(lines[1] === '2026-08-10;2000;2500;1800;2000;45;80,5')) bad++;
+  // Пустая история → только заголовок
+  const empty = buildCsvExport([], []);
+  if (!(empty.split('\r\n').length === 1 && empty.includes('Дата'))) bad++;
+  // Без веса в дате — пустая ячейка
+  const noWeight = buildCsvExport([{ date: '2026-08-11', waterTotal: 0, waterGoal: 2500, foodTotal: 0, foodGoal: 2000, activityMinutes: 0 }], []);
+  if (!(noWeight.split('\r\n')[1] === '2026-08-11;0;2500;0;2000;0;')) bad++;
+  const ok26 = bad === 0;
+  if (!ok26) failed++;
+  console.log(`${ok26 ? '✓' : '✗'} 0.8.21 CSV: заголовок, строка дня, вес по дате (80,5), пустая ячейка без веса`);
+}
+
+// ===== 0.8.22: компактные позиции еды для «Повторить вчера» (P24) =====
+{
+  let bad = 0;
+  const compact = compactFoodItemsForHistory([
+    { name: 'гречка', amount: 100, unit: 'г', kcal: 110, p: 4.5, f: 1.2, c: 21, mealType: 'lunch', perPiece: false },
+    { name: '', amount: null, kcal: 0 }, // мусор
+    null,
+    { raw: 'котлета', kcal: 210, p: 12, f: 15, c: 5, perPiece: true }
+  ]);
+  if (!(compact.length === 2)) bad++;
+  if (!(compact[0].name === 'гречка' && compact[0].kcal === 110 && compact[0].mealType === 'lunch')) bad++;
+  if (!(compact[1].name === 'котлета' && compact[1].perPiece === true)) bad++;
+  const ok27 = bad === 0;
+  if (!ok27) failed++;
+  console.log(`${ok27 ? '✓' : '✗'} 0.8.22 компактные позиции еды: мусор отсеян, name/kcal/mealType/perPiece сохранены`);
+}
+
+console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
+
+console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 

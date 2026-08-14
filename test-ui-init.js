@@ -2081,5 +2081,40 @@ for (const id of ids) {
   console.log(`${okVer0820 ? '✓' : '✗'} 0.8.20 версия в коде и «О приложении»`);
 }
 
+{
+  // ===================== 0.8.21 (экспорт CSV, P16) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  const okCsv = appR.includes('function buildCsvExport')
+    && appR.includes('function exportCsvData')
+    && appR.includes("blob = new Blob(['\\ufeff' + csv]")
+    && html.includes('id="export-csv-btn"');
+  if (!okCsv) failed++;
+  console.log(`${okCsv ? '✓' : '✗'} 0.8.21 CSV: кнопка экспорта в «Данные» + buildCsvExport/exportCsvData`);
+
+  const okVer0821 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0821) failed++;
+  console.log(`${okVer0821 ? '✓' : '✗'} 0.8.21 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.8.22 («Повторить вчерашний приём пищи», P24) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+
+  const okRepeat = appR.includes('function compactFoodItemsForHistory')
+    && appR.includes('function repeatYesterdayMeal')
+    && appR.includes("summary.items = compactFoodItemsForHistory(foodItems)")
+    && appR.includes('normalized.items = compactFoodItemsForHistory(day.items)')
+    && html.includes('id="food-repeat-yesterday"');
+  if (!okRepeat) failed++;
+  console.log(`${okRepeat ? '✓' : '✗'} 0.8.22 «Повторить вчера»: хранение позиций дня + кнопка «↺ Вчера»`);
+
+  const okVer0822 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0822) failed++;
+  console.log(`${okVer0822 ? '✓' : '✗'} 0.8.22 версия в коде и «О приложении»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

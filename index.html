@@ -240,6 +240,7 @@
         <!-- 0.5.1 (п.3 владельца): кнопки отдельной строкой — поле ввода во всю ширину -->
         <div class="food-form-actions">
           <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+          <button class="btn btn-ghost" id="food-repeat-yesterday" type="button" title="Повторить вчерашний приём пищи">↺ Вчера</button>
         </div>
       </form>
 
@@ -1201,6 +1202,7 @@
 
       <div class="settings-group">
         <p class="settings-label">Данные</p>
+        <button class="btn btn-secondary" id="export-csv-btn" type="button">📄 Экспорт в CSV (для Excel)</button>
         <button class="btn btn-danger" id="reset-btn" type="button">Сбросить все данные</button>
       </div>
 
@@ -1214,7 +1216,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.20 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.22 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
