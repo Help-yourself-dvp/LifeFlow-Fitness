@@ -330,9 +330,9 @@ html[data-theme="dark"] .icon-sun { display: none; }
   border-color: transparent;
 }
 /* Цели перехода не должны прятаться под шапкой и панелью.
-   (Используется, если где-то сработает scrollIntoView; переход по клику
-   скроллит через window.scrollTo по фактическому положению панели.) */
-#home-cards > * { scroll-margin-top: calc(var(--quicknav-top, 64px) + 52px); }
+   --quicknav-scroll-margin задаёт syncQuickNavTop: это низ прилипающей панели,
+   тот же, что и порог подсветки (минус запас). */
+#home-cards > * { scroll-margin-top: var(--quicknav-scroll-margin, 116px); }
 
 .greeting-title {
   font-size: 1.55rem;
@@ -2285,6 +2285,9 @@ html[data-theme="dark"] .segmented button.active {
 /* О приложении: одинаковые кнопки-ссылки столбиком */
 .about-links { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .about-links .btn { width: 100%; justify-content: center; text-align: center; }
+/* 0.8.17: «О приложении» — сгруппированные подразделы, компактнее */
+.about-group { margin-top: 14px; }
+.about-group .settings-label { margin-bottom: 0; }
 
 /* ---------- Статистика ---------- */
 .stats-icon {
@@ -2388,6 +2391,7 @@ html[data-theme="dark"] .segmented button.active {
 .stats-food .stats-bar { background: var(--calorie-accent); }
 .stats-activity .stats-bar { background: var(--md-sys-color-primary); }
 .stats-sleep .stats-bar { background: #5C6BC0; }
+.stats-steps .stats-bar { background: var(--grad-b); }
 
 .stats-bar-label {
   flex: 0 0 auto;

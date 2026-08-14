@@ -1741,8 +1741,8 @@ for (const id of ids) {
   const html = fs.readFileSync('index.html', 'utf8');
 
   // Подсветка по визуальному порядку карточек, а не по фиксированному порядку чипов
-  const okNav = appR.includes("const chipById = new Map(chips.map((c) => [c.dataset.jump, c]))")
-    && appR.includes("chippedCards = cards.filter")
+  const okNav = appR.includes("Array.from(cardsEl.children).filter((el) => el && !el.hidden")
+    && appR.includes('function quicknavStuckBottom')
     && appR.includes("const cardsEl = $('#home-cards')");
   if (!okNav) failed++;
   console.log(`${okNav ? '✓' : '✗'} 0.8.3 быстрый переход: подсветка по визуальному порядку карточек`);
@@ -1996,22 +1996,48 @@ for (const id of ids) {
 }
 
 {
-  // ===================== 0.8.15 (быстрый переход: порог и прокрутка по фактическому низу панели) =====================
+  // ===================== 0.8.16 (быстрый переход из видимых карточек + цвет столбцов шагов) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('style.css', 'utf8');
 
-  // Порог подсветки и цель прокрутки = фактический низ панели (getBoundingClientRect)
-  const okOffset = appR.includes("const threshold = nav.getBoundingClientRect().bottom + 2;")
-    && appR.includes("const navBottom = quicknavEl.getBoundingClientRect().bottom;")
-    && appR.includes("const y = targetTop + current - navBottom;")
-    && appR.includes('quicknavEl._settleTimer = setTimeout(updateHomeQuickNavActive, 700);');
-  if (!okOffset) failed++;
-  console.log(`${okOffset ? '✓' : '✗'} 0.8.15 быстрый переход: порог и прокрутка по фактическому низу панели`);
+  // Чипы из видимых карточек (Самочувствие и Шаги учтены), единый низ панели для порога и прокрутки
+  const okNav = appR.includes("const QUICKNAV_LABELS = {")
+    && appR.includes("'steps': 'Шаги'")
+    && appR.includes('function quicknavStuckBottom')
+    && appR.includes("const threshold = quicknavStuckBottom() + 2;")
+    && appR.includes("target.scrollIntoView({ behavior: 'smooth', block: 'start' })")
+    && appR.includes("--quicknav-scroll-margin")
+    && css.includes('scroll-margin-top: var(--quicknav-scroll-margin, 116px)');
+  if (!okNav) failed++;
+  console.log(`${okNav ? '✓' : '✗'} 0.8.16 быстрый переход: чипы из видимых карточек, единый низ панели для порога и прокрутки`);
 
-  const okVer0814 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
-  if (!okVer0814) failed++;
-  console.log(`${okVer0814 ? '✓' : '✗'} 0.8.14 версия в коде и «О приложении»`);
+  // Столбцы «Шаги» в статистике получили цвет (были прозрачными)
+  const okStepsBars = css.includes('.stats-steps .stats-bar { background: var(--grad-b); }');
+  if (!okStepsBars) failed++;
+  console.log(`${okStepsBars ? '✓' : '✗'} 0.8.16 статистика: столбцы «Шаги» окрашены`);
+
+  const okVer0816 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0816) failed++;
+  console.log(`${okVer0816 ? '✓' : '✗'} 0.8.16 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.8.17 (компактное «О приложении»: сгруппированные подразделы) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  const okAbout = html.includes('class="about-group"')
+    && html.includes('Правовое и данные')
+    && html.includes('Поддержка проекта')
+    && css.includes('.about-group { margin-top: 14px; }');
+  if (!okAbout) failed++;
+  console.log(`${okAbout ? '✓' : '✗'} 0.8.17 «О приложении»: сгруппированные подразделы (Справка / Правовое / Поддержка)`);
+
+  const okVer0817 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0817) failed++;
+  console.log(`${okVer0817 ? '✓' : '✗'} 0.8.17 версия в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

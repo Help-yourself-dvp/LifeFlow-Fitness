@@ -2661,7 +2661,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.15';
+const FITFLOW_VERSION = '0.8.17';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6284,46 +6284,49 @@ function applyHomeLayout() {
 }
 
 /* ===== Быстрый переход по разделам Главной (прилипающие чипы) ===== */
-const HOME_QUICKNAV_ITEMS = [
-  {
-    ids: ['day-plan-card', 'day-mood-card'],
-    label: 'День',
-    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6.4 7.3 7.7 9.9 5M6 12.4 7.3 13.7 9.9 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.5 6.5h6M12.5 12.5h6M5.5 18.5h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-  },
-  {
-    ids: ['water-card'],
-    label: 'Вода',
-    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.2c3.4 3.7 5.7 6.8 5.7 9.5a5.7 5.7 0 1 1-11.4 0c0-2.7 2.3-5.8 5.7-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
-  },
-  {
-    ids: ['food-card'],
-    label: 'Питание',
-    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.5 12h15a7.5 7.5 0 0 1-15 0Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 8.5c1-1.8 3.5-2.4 5.4-1.4M12 6.5V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-  },
-  {
-    ids: ['weight-card'],
-    label: 'Вес',
-    icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4.5" y="5.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 13l2-2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-  }
-];
+/* Короткие подписи чипов быстрого перехода (по карточкам Главной). */
+const QUICKNAV_LABELS = {
+  'day-plan': 'День',
+  'day-mood': 'Самочувствие',
+  'steps': 'Шаги',
+  'water': 'Вода',
+  'food': 'Питание',
+  'weight': 'Вес'
+};
 
+/* 0.8.16: чипы строятся из РЕАЛЬНО видимых карточек (в их DOM-порядке) —
+   «Шаги» и «Самочувствие» учтены, плотность экрана (свёрнуто/обычно/полно)
+   учитывается сама: скрытые карточки просто не попадают в панель. */
 function renderHomeQuickNav() {
   if (typeof document === 'undefined') return;
   const nav = $('#home-quicknav');
   if (!nav) return;
+  const cardsEl = $('#home-cards');
+  const cards = cardsEl
+    ? Array.from(cardsEl.children).filter((el) => el && !el.hidden && HOME_CARDS.some((h) => h.id === el.id))
+    : [];
   let html = '';
-  HOME_QUICKNAV_ITEMS.forEach((item) => {
-    const targetId = item.ids.find((id) => {
-      const el = document.getElementById(id);
-      return el && !el.hidden;
-    });
-    if (!targetId) return;
-    html += `<button type="button" class="quicknav-chip" data-jump="${targetId}" aria-label="Перейти к разделу «${item.label}»">${homeCardIcon(item.id)}${item.label}</button>`;
+  cards.forEach((card) => {
+    const meta = HOME_CARDS.find((h) => h.id === card.id);
+    const label = QUICKNAV_LABELS[card.id] || (meta ? meta.label : '');
+    html += `<button type="button" class="quicknav-chip" data-jump="${card.id}" aria-label="Перейти к разделу «${escapeHtml(label)}»">${homeCardIcon(card.id)}${escapeHtml(label)}</button>`;
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
-  syncQuickNavTop(); // 0.8.14: держим оффсет актуальным (высота панели могла измениться)
+  syncQuickNavTop(); // держим оффсеты актуальными (высота шапки/панели могла измениться)
   updateHomeQuickNavActive();
+}
+
+/* Низ прилипающей панели в «прилипшем» состоянии = шапка + высота панели.
+   ЕДИНАЯ константа и для порога подсветки, и для прокрутки по клику — иначе
+   они разъезжаются (история 0.8.3–0.8.15). */
+function quicknavStuckBottom() {
+  if (typeof document === 'undefined') return 120;
+  const topbar = document.querySelector('.topbar');
+  const nav = $('#home-quicknav');
+  const topbarH = topbar ? topbar.offsetHeight : 0;
+  const navH = nav ? nav.offsetHeight : 44;
+  return topbarH + navH;
 }
 
 /* Активный чип — последний раздел, чья карточка прошла верхнюю зону экрана.
@@ -6340,36 +6343,29 @@ function updateHomeQuickNavActive() {
   if (homeView && homeView.hidden) return;
   const chips = Array.from(nav.querySelectorAll('[data-jump]'));
   if (!chips.length) return;
-  // 0.8.3: подсветку ведём по ВИЗУАЛЬНОМУ порядку карточек (как они стоят на
-  // экране), а не по фиксированному порядку чипов. Карточки без чипа («Шаги»)
-  // пропускаются.
+  // Карточки в их фактическом порядке на экране; чипы строятся из тех же
+  // карточек (renderHomeQuickNav), поэтому соответствие 1:1.
   const cardsEl = $('#home-cards');
   const cards = cardsEl ? Array.from(cardsEl.children).filter((el) => el && !el.hidden) : [];
-  const chipById = new Map(chips.map((c) => [c.dataset.jump, c]));
-  const chippedCards = cards.filter((card) => chipById.has(card.id));
+  if (!cards.length) return;
 
   let activeId = null;
   const doc = document.documentElement;
   const scrollTop = window.scrollY || doc.scrollTop || 0;
   const atBottom = (window.innerHeight + scrollTop) >= (doc.scrollHeight - 8);
   if (atBottom) {
-    // Внизу страницы активна последняя видимая карточка, у которой есть чип.
-    for (let i = chippedCards.length - 1; i >= 0; i--) {
-      activeId = chippedCards[i].id;
+    // Внизу страницы активна последняя видимая карточка.
+    for (let i = cards.length - 1; i >= 0; i--) {
+      activeId = cards[i].id;
       break;
     }
   } else {
-    // 0.8.15: порог — ФАКТИЧЕСКИЙ низ прилипающей панели (getBoundingClientRect),
-    // а не расчётный оффсет: на устройствах с safe-area (вырез/капля) высота
-    // шапки из offsetHeight расходилась с реальным положением панели, и подсветка
-    // «плавала». +2px — запас от пиксельного округления.
-    const threshold = nav.getBoundingClientRect().bottom + 2;
-    for (const card of chippedCards) {
+    const threshold = quicknavStuckBottom() + 2;
+    for (const card of cards) {
       if (card.getBoundingClientRect().top <= threshold) activeId = card.id;
     }
-    // Выше первого раздела (приветствие видно, карточки ещё ниже) — подсвечиваем
-    // первый чип: он указывает, куда поедет экран при нажатии.
-    if (!activeId && chippedCards.length) activeId = chippedCards[0].id;
+    // Выше первого раздела (приветствие видно) — подсвечиваем первый чип.
+    if (!activeId && cards.length) activeId = cards[0].id;
   }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
 }
@@ -6389,6 +6385,9 @@ function syncQuickNavTop() {
   if (typeof document === 'undefined') return;
   const topbar = document.querySelector('.topbar');
   if (topbar) document.documentElement.style.setProperty('--quicknav-top', `${topbar.offsetHeight}px`);
+  // 0.8.16: scroll-margin для прокрутки по клику — тот же низ панели, что и
+  // порог подсветки (минус небольшой запас, чтобы карточка точно подсветилась).
+  document.documentElement.style.setProperty('--quicknav-scroll-margin', `${Math.max(0, quicknavStuckBottom() - 4)}px`);
 }
 
 function renderHomeLayoutSettings() {
@@ -12603,22 +12602,18 @@ function init() {
     });
   });
   // Быстрый переход по разделам Главной: плавная прокрутка к карточке.
-  // 0.8.15: цель прокрутки — фактический низ панели (getBoundingClientRect),
-  // тот же, что и порог подсветки; после плавной прокрутки дополнительно
-  // пересинхронизируем подсветку (страховка от пропущенного последнего scroll).
+  // 0.8.16: scrollIntoView + scroll-margin-top (задан в CSS через
+  // --quicknav-scroll-margin, значение = quicknavStuckBottom − 4) — карточка
+  // приземляется чуть ВЫШЕ порога подсветки, поэтому нажатый чип подсвечивается.
   const quicknavEl = $('#home-quicknav');
   quicknavEl?.addEventListener('click', (e) => {
     const chip = e.target.closest('[data-jump]');
     if (!chip) return;
     const target = document.getElementById(chip.dataset.jump);
     if (!target) return;
-    const navBottom = quicknavEl.getBoundingClientRect().bottom;
-    const targetTop = target.getBoundingClientRect().top;
-    const current = window.scrollY || document.documentElement.scrollTop || 0;
-    const y = targetTop + current - navBottom;
     // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка.
     $$('#home-quicknav [data-jump]').forEach((c) => c.classList.toggle('active', c === chip));
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     clearTimeout(quicknavEl._settleTimer);
     quicknavEl._settleTimer = setTimeout(updateHomeQuickNavActive, 700);
   });

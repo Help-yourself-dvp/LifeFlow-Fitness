@@ -1211,24 +1211,41 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.15 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.17 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
       <div class="settings-group">
         <div class="settings-about-content">
           <p class="settings-hint">Все данные хранятся только на вашем устройстве, регистрация не требуется.</p>
-          <div class="about-links">
-            <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
-            <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
-            <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
-            <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия (RU / EN / Библиотеки)</button>
-            <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
-            <button class="btn btn-secondary" id="privacy-help" type="button">🔒 О приватности и офлайн-работе</button>
-            <button class="btn btn-secondary" id="faq-open" type="button">❓ Частые вопросы (FAQ)</button>
-            <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO · Как поддержать</button>
-            <button class="btn btn-secondary" id="about-charity-open" type="button">🤝 Добрые дела · Отчёты</button>
+
+          <div class="about-group">
+            <p class="settings-label">Справка</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="faq-open" type="button">❓ Частые вопросы (FAQ)</button>
+              <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
+              <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
+            </div>
           </div>
+
+          <div class="about-group">
+            <p class="settings-label">Правовое и данные</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="privacy-help" type="button">🔒 Приватность и офлайн-работа</button>
+              <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
+              <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия и сторонние компоненты</button>
+              <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
+            </div>
+          </div>
+
+          <div class="about-group">
+            <p class="settings-label">Поддержка проекта</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO · Как поддержать</button>
+              <button class="btn btn-secondary" id="about-charity-open" type="button">🤝 Добрые дела · Отчёты</button>
+            </div>
+          </div>
+
           <div class="charity-block" id="about-support-block" hidden></div>
           <div class="charity-block" id="charity-block" hidden><div id="charity-list"></div></div>
           <p class="settings-hint" id="terms-status" style="margin-top:10px">Условия использования приняты.</p>
