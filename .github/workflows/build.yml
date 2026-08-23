@@ -1790,16 +1790,22 @@ jobs:
                   }
               }
 
-              /* 0.8.0: сессии тренировок за сегодня из Health Connect (ExerciseSessionRecord).
+              /* 0.8.0: сессии тренировок из Health Connect (ExerciseSessionRecord).
                  Возвращает JSON-массив: [{recordId, type, title, start, end, minutes}].
-                 Тип мапится по надёжным константам; остальное JS доопределяет по заголовку. */
+                 Тип мапится по надёжным константам; остальное JS доопределяет по заголовку.
+                 0.8.25: окно расширено с «сегодня» до последних WORKOUTS_LOOKBACK_DAYS суток —
+                 если владелец не открывал приложение пару дней, тренировки с часов за эти дни
+                 всё равно подхватятся (JS сам решает: сегодняшние ждут подтверждения,
+                 прошлые добавляются автоматически с возможностью отмены). */
+              private const val WORKOUTS_LOOKBACK_DAYS = 3L
+
               @JvmStatic
               fun readTodayWorkouts(context: Context): String {
                   return try {
                       val client = HealthConnectClient.getOrCreate(context)
                       val today = LocalDate.now()
                       val zone = ZoneId.systemDefault()
-                      val startOfDay = today.atStartOfDay(zone).toInstant()
+                      val startOfDay = today.minusDays(WORKOUTS_LOOKBACK_DAYS).atStartOfDay(zone).toInstant()
                       val endOfDay = today.plusDays(1).atStartOfDay(zone).toInstant()
                       val req = ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
                       val resp = runBlocking { client.readRecords(req) }
