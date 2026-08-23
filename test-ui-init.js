@@ -4,6 +4,16 @@ const fs = require('fs');
 const app = fs.readFileSync('app.js', 'utf8');
 const VERSION = fs.readFileSync('version.txt', 'utf8').trim(); // единый источник версии (0.7.10)
 const html = fs.readFileSync('index.html', 'utf8');
+// 0.8.27: нативные исходники вынесены из build.yml в android-native/*.
+// Проверки «зеркала» читают workflow ВМЕСТЕ с нативными файлами — так они
+// продолжают ловить регресс независимо от того, где физически лежит код.
+function readBuildBundle() {
+  let out = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  for (const f of fs.readdirSync('android-native').sort()) {
+    out += '\n' + fs.readFileSync('android-native/' + f, 'utf8');
+  }
+  return out;
+}
 
 const functions = [
   'openMorningThemeDialog', 'closeMorningThemeDialog',
@@ -422,7 +432,7 @@ for (const id of ids) {
     && css9.includes('Дополнительная линия УБРАНА');
   if (!okOneBar) failed++;
   console.log(`${okOneBar ? '✓' : '✗'} ИИ-настройки: одна стандартная акцентная линия карточки (вторая полоса убрана)`);
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
   const okMirror = mirror.includes('npm install ./plugins/fitflow-local-ai')
     && /minSdkVersion = (24|26)/.test(mirror)
     && mirror.includes('EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L')
@@ -441,7 +451,7 @@ for (const id of ids) {
     && gradleB.includes('androidx.activity:activity:1.7.0');
   if (!okImports) failed++;
   console.log(`${okImports ? '✓' : '✗'} починка компиляции: ActivityResult — androidx.activity.result (в Capacitor 5 класса com.getcapacitor.ActivityResult НЕТ), зависимость activity:1.7.0`);
-  const mirrorB = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirrorB = readBuildBundle();
   const okR8 = mirrorB.includes("classpath 'com.android.tools:r8:8.5.35'")
     && mirrorB.includes('major version 65');
   if (!okR8) failed++;
@@ -590,7 +600,7 @@ for (const id of ids) {
 // якоря; «Пакет с…» занижал штуки; листья салата взвешивались блюдом-салатом.
 {
   const appH = fs.readFileSync('app.js', 'utf8');
-  const wfH = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const wfH = readBuildBundle();
   const okCam = wfH.includes('android.permission.CAMERA') && wfH.includes('android.hardware.camera.any')
     && wfH.includes('CAMERA_CHOOSER_PATCH');
   if (!okCam) failed++;
@@ -764,7 +774,7 @@ for (const id of ids) {
 {
   const cssN = fs.readFileSync('style.css', 'utf8');
   const appN = fs.readFileSync('app.js', 'utf8');
-  const wfN = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const wfN = readBuildBundle();
   const okFaces = cssN.includes('font-family: "Manrope"') && cssN.includes('assets/fonts/manrope.ttf')
     && cssN.includes('font-family: "Russo One"') && cssN.includes('assets/fonts/russoone.ttf')
     && cssN.includes('font-family: "PT Serif Custom"') && cssN.includes('ptserif-regular.ttf') && cssN.includes('ptserif-bold.ttf')
@@ -792,7 +802,7 @@ for (const id of ids) {
 // 0.4.12: виджет/уведомление — дата-стражи (вчерашние цифры утром), база
 // крыльев, бутерброд с уточнением начинки («с вареной колбасой» честнее базовой).
 {
-  const wfP = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const wfP = readBuildBundle();
   const appP = fs.readFileSync('app.js', 'utf8');
   const dateGuardCount = (wfP.match(/savedDate\.equals\(today\)|!savedDate\.equals\(today\)/g) || []).length;
   const okDate = dateGuardCount >= 3 && wfP.includes('0.4.12') && wfP.includes('new java.text.SimpleDateFormat("yyyy-MM-dd")');
@@ -810,7 +820,7 @@ for (const id of ids) {
 // 0.4.13: уведомления — обновление без повторного звука, смахивание = 45 мин
 // тишины; журнал распознаваний (полевой контур честности: ввод→разбор→записано).
 {
-  const wfQ = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const wfQ = readBuildBundle();
   const appQ = fs.readFileSync('app.js', 'utf8');
   const okNotif = wfQ.includes('.setOnlyAlertOnce(true)') && wfQ.includes('WATER_REMINDER_DISMISSED')
     && wfQ.includes('DISMISS_MUTE_MS') && wfQ.includes('KEY_MUTE_UNTIL');
@@ -1228,7 +1238,7 @@ for (const id of ids) {
   console.log(`${okWater055 ? '✓' : '✗'} 0.5.5 вода: надёжная доставка с виджета (JS-сторона)`);
 
   // Нативный пакет в зеркале: полночь виджета, skip после записи, «⚙️» у воды
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
   const okMirror055 = mirror.includes('WIDGET_MIDNIGHT_REFRESH')
     && mirror.includes('notif_settings_water')
     && mirror.includes('__fitflowReady === true');
@@ -1286,7 +1296,7 @@ for (const id of ids) {
   console.log(`${okMood065 ? '✓' : '✗'} 0.5.6 самочувствие: компактные две строки`);
 
   // Зеркало: автопропуск по интервалу сетки (ждёт замены workflow владельцем)
-  const mirror065 = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror065 = readBuildBundle();
   const okMirror065 = mirror065.includes('scheduleIntervalMs') && !mirror065.includes('waterSkipGapMin');
   if (!okMirror065) failed++;
   console.log(`${okMirror065 ? '✓' : '✗'} 0.5.6 зеркало: пропуск по интервалу сетки (ждёт замены workflow)`);
@@ -1317,7 +1327,7 @@ for (const id of ids) {
   console.log(`${okSmart057 ? '✓' : '✗'} 0.5.7 быстрый ввод: «Разобрать» всегда на виду`);
 
   // Уведомление воды: короткий текст целиком виден в свёрнутом виде (нативно + JS-фолбэк)
-  const mirror057 = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror057 = readBuildBundle();
   const okWaterText057 = !mirror057.includes('записывать можно прямо здесь')
     && mirror057.includes('"Сегодня: " + total + " из " + goal + " мл."')
     && !appR.includes('Не забудьте добавить воду в FitFlow');
@@ -1460,7 +1470,7 @@ for (const id of ids) {
   console.log(`${okHealthJS ? '✓' : '✗'} 0.7.0 Health Connect JS: трёхуровневая система приоритетов без задвоения`);
 
   // Mirror build.yml Health Connect permissions
-  const mirror070 = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror070 = readBuildBundle();
   const okMirrorHealth = mirror070.includes('android.permission.ACTIVITY_RECOGNITION')
     && mirror070.includes('android.permission.health.READ_STEPS')
     && mirror070.includes('openHealthConnectSettings')
@@ -1477,7 +1487,7 @@ for (const id of ids) {
   // ===================== 0.7.10 (шаги: часы ≠ сумма телефона и часов; сон через полночь) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   // JS: единый распознаватель источника + честная диагностика (отдельно часы и всё HC)
   const okJs = appR.includes('function resolveHealthSteps')
@@ -1506,7 +1516,7 @@ for (const id of ids) {
   // ===================== 0.7.11 (свежесть часов в «Авто», больше производителей, авто-номер сборки) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   // JS: «Авто» = часы приоритет, авто-обновление при входе, честная подсказка о возрасте данных часов
   const okJs = appR.includes('function resolveHealthSteps')
@@ -1545,7 +1555,7 @@ for (const id of ids) {
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('style.css', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   // JS: приоритет едет в виджет + карточка шагов с подсказкой обновления
   const okJs = appR.includes("priority: (state.healthSync && state.healthSync.priority) || 'auto'")
@@ -1663,7 +1673,7 @@ for (const id of ids) {
   const appR = fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('style.css', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   // JS: приём сессий, дедуп по recordId, маппинг типа, импорт/игнор, баннер
   const okJs = appR.includes('function onHealthWorkoutsReceived')
@@ -1957,7 +1967,7 @@ for (const id of ids) {
 {
   // ===================== 0.8.11 (backfill шагов + экспорт тренировок в HC — нативный пакет) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   // JS: приём backfill + экспорт тренировки
   const okJs = appR.includes('function mergeStepsBackfill')
@@ -2133,7 +2143,7 @@ for (const id of ids) {
 {
   // ===================== 0.8.23 (умные весы: вес/рост из Health Connect, P34) =====================
   const appR = fs.readFileSync('app.js', 'utf8');
-  const mirror = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const mirror = readBuildBundle();
 
   const okJs = appR.includes('function mergeWeightsFromMetrics')
     && appR.includes('function onHealthBodyMetricsReceived')

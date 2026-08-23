@@ -2769,7 +2769,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.26';
+const FITFLOW_VERSION = '0.8.27';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
