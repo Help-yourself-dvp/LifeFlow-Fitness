@@ -2779,7 +2779,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.28';
+const FITFLOW_VERSION = '0.8.29';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -11336,6 +11336,10 @@ const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-not
    пояснение простыми словами. Тексты — без скриншотов (по запросу).
 ============================================================ */
 const HELP_TOPICS = {
+  'beta-ai-analysis': {
+    title: 'Анализ периода — бета',
+    text: 'Эта функция находится в разработке и тестировании.\n\n• Что она делает:\nСобирает ваши записи за период (вес, вода, питание, активность, самочувствие) и формулирует выводы.\n\n• Почему «бета»:\nСами цифры берутся из ваших записей и верны. А вот текстовые выводы и рекомендации — это обобщение, которое пока не проверено на длинной дистанции: формулировки могут быть слишком общими или не учитывать ваш контекст.\n\n• Как относиться:\nЧитайте как подсказку для размышления, а не как медицинскую рекомендацию. Решения о питании и нагрузке принимайте сами, при необходимости — с врачом.\n\n• Основа приложения — напоминания о воде и ручной учёт калорий — работает стабильно и от этой функции не зависит.'
+  },
   'settings-general': {
     title: 'Общее',
     text: '• Тема оформления: авто, светлая или тёмная палитра.\n\n• Плотность экрана: выбор объёма отображаемых карточек (Минимум / Обычный / Полный).\n\n• Состав Главной: настройка порядка и видимости карточек.\n\n• Игровой режим: задания дня и система наградных медалей.'
@@ -12955,6 +12959,7 @@ function init() {
   bindSettingsAccordion();
   bindDialogScrollLock();
   bindSettingsMenu();
+  bindNetStatus(); // 0.8.29: индикатор режима работы в шапке
   bindEvent('#help-ok', 'click', closeHelpTopicDialog);
   bindBackNavigation(); // системная кнопка/жест «назад» = внутренний шаг назад
   // Утренний чек-ин сна — спросить один раз за утро, если не отмечен.
@@ -13866,6 +13871,48 @@ function renderOnlineFeatures() {
       ? 'Выключены — приложение работает полностью офлайн'
       : on.length ? 'Включено функций: ' + on.length : 'Разрешено, но ничего не включено';
   }
+  renderNetStatus();
+}
+
+// 0.8.29: индикатор режима работы в шапке.
+// Три состояния, отличать их важно: «Офлайн» — сеть запрещена настройками
+// (норма для FitFlow); «Онлайн» — разрешена и доступна; «Нет сети» —
+// разрешена, но устройство без интернета, поэтому онлайн-функции промолчат.
+function getNetStatus() {
+  const o = (state && state.onlineFeatures) || {};
+  const on = ONLINE_FEATURE_TOGGLES.filter((f) => o.master && o[f.id] === true);
+  if (!on.length) {
+    return { mode: 'offline', text: 'Офлайн', title: 'Приложение работает полностью офлайн и не выходит в интернет' };
+  }
+  const names = on.map((f) => f.label).join(', ');
+  const reachable = typeof navigator === 'undefined' || navigator.onLine !== false;
+  if (!reachable) {
+    return { mode: 'no-net', text: 'Нет сети', title: 'Онлайн-функции включены (' + names + '), но устройство сейчас без интернета' };
+  }
+  return { mode: 'online', text: 'Онлайн', title: 'Разрешён выход в интернет: ' + names };
+}
+
+function renderNetStatus() {
+  if (typeof document === 'undefined') return;
+  const el = $('#net-status');
+  if (!el) return;
+  const st = getNetStatus();
+  const label = el.querySelector('.net-status-text');
+  if (label) label.textContent = st.text;
+  el.classList.toggle('is-online', st.mode === 'online');
+  el.classList.toggle('is-offline', st.mode !== 'online');
+  el.title = st.title;
+  el.setAttribute('aria-label', 'Режим работы: ' + st.text + '. ' + st.title + '. Открыть настройки онлайн-функций');
+}
+
+function bindNetStatus() {
+  const el = $('#net-status');
+  if (!el) return;
+  el.addEventListener('click', () => switchView('settings-online'));
+  // Пропажа и возврат интернета меняют смысл индикатора — слушаем оба события.
+  window.addEventListener('online', renderNetStatus);
+  window.addEventListener('offline', renderNetStatus);
+  renderNetStatus();
 }
 
 function updateOnlineMaster(enabled) {

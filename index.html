@@ -26,6 +26,13 @@
         <h1>FitFlow</h1>
         <p id="date-label" aria-label="Дата"><span id="date-weekday">—</span><span id="date-month">—</span></p>
       </div>
+      <!-- 0.8.29: индикатор режима работы. Показывает, выходит ли приложение
+           в интернет прямо сейчас. Текст задаётся из renderNetStatus(). -->
+      <button id="net-status" class="net-status is-offline" type="button"
+              aria-label="Режим работы: офлайн. Открыть настройки онлайн-функций">
+        <span class="net-status-dot" aria-hidden="true"></span>
+        <span class="net-status-text">Офлайн</span>
+      </button>
     </div>
 
     <div class="topbar-actions">
@@ -317,7 +324,7 @@
       <div class="card-header">
         <div class="card-icon ai-stats-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
         <div>
-          <h2 id="ai-stats-title">Анализ периода · Помощник FitFlow</h2>
+          <h2 id="ai-stats-title">Анализ периода · Помощник FitFlow<span class="beta-badge" role="button" tabindex="0" data-help="beta-ai-analysis" aria-label="Бета-функция: анализ периода. Подробнее" title="Бета: функция в разработке и тестировании">бета</span></h2>
           <p class="card-subtitle">Выводы по записям — за период, выбранный в статистике ниже</p>
         </div>
       </div>
@@ -1331,7 +1338,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.28 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.29 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1661,7 +1668,7 @@
       </div>
       <!-- Вкладка: Анализ моей недели / месяца -->
       <div id="ai-tab-analysis" class="ai-tab-panel" hidden>
-        <p class="settings-hint" style="margin-top:0">FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
+        <p class="settings-hint" style="margin-top:0"><span class="beta-badge" role="button" tabindex="0" data-help="beta-ai-analysis" aria-label="Бета-функция: анализ периода. Подробнее" title="Бета: функция в разработке и тестировании">бета</span> FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
         <div class="ai-input-stack">
           <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
             <button class="active" type="button" data-ai-period="7">7 дней</button>

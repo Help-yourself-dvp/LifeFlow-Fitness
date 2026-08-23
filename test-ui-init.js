@@ -2328,6 +2328,44 @@ for (const id of ids) {
   if (!okBarsGeometry) failed++;
   console.log(`${okBarsGeometry ? '✓' : '✗'} 0.8.25 графики: колонка с определённой высотой, столбец с шириной и контуром`);
 
+  // 0.8.29: индикатор режима работы в шапке
+  const okNetMarkup = html.includes('id="net-status"')
+    && html.includes('net-status-dot')
+    && html.includes('net-status-text')
+    && /<header class="topbar">[\s\S]{0,2200}id="net-status"/.test(html);
+  if (!okNetMarkup) failed++;
+  console.log(`${okNetMarkup ? '✓' : '✗'} 0.8.29 индикатор режима присутствует в шапке`);
+
+  // Индикатор обязан читать реальный шлюз, а не отдельный флаг,
+  // иначе он начнёт врать при расхождении настроек.
+  const netFn = (appR.match(/function getNetStatus\(\)[\s\S]*?\n\}/) || [''])[0];
+  const okNetLogic = netFn.includes('ONLINE_FEATURE_TOGGLES')
+    && netFn.includes('o.master')
+    && netFn.includes("=== true")
+    && netFn.includes("navigator.onLine")
+    && netFn.includes("'offline'") && netFn.includes("'no-net'") && netFn.includes("'online'");
+  if (!okNetLogic) failed++;
+  console.log(`${okNetLogic ? '✓' : '✗'} 0.8.29 индикатор считает статус по онлайн-функциям и наличию сети`);
+
+  // Индикатор должен перерисовываться при смене настроек и событиях сети
+  const okNetWired = appR.includes('bindNetStatus();')
+    && appR.includes("window.addEventListener('online', renderNetStatus)")
+    && appR.includes("window.addEventListener('offline', renderNetStatus)")
+    && /renderOnlineFeatures\(\)[\s\S]*?renderNetStatus\(\);\n\}/.test(appR)
+    && css.includes('.net-status.is-online');
+  if (!okNetWired) failed++;
+  console.log(`${okNetWired ? '✓' : '✗'} 0.8.29 индикатор обновляется при смене настроек и статуса сети`);
+
+  // 0.8.29: бета-метка на ИИ-анализе периода (оба входа) + пояснение
+  const betaCount = (html.match(/data-help="beta-ai-analysis"/g) || []).length;
+  const okBeta = betaCount === 2
+    && html.includes('class="beta-badge"')
+    && css.includes('.beta-badge')
+    && appR.includes("'beta-ai-analysis': {")
+    && appR.includes('в разработке и тестировании');
+  if (!okBeta) failed++;
+  console.log(`${okBeta ? '✓' : '✗'} 0.8.29 бета-метка на ИИ-анализе (входов: ${betaCount}/2) с пояснением`);
+
   const okVerCurrent = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVerCurrent) failed++;
   console.log(`${okVerCurrent ? '✓' : '✗'} версия ${VERSION} синхронна в коде и «О приложении»`);

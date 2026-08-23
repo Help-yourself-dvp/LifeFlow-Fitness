@@ -225,6 +225,42 @@ h1, h2 {
   gap: 10px;
 }
 
+/* 0.8.29: индикатор режима работы в шапке.
+   Офлайн — нейтральный (это норма для FitFlow, а не ошибка),
+   онлайн — акцентный tertiary, чтобы выход в сеть был заметен. */
+.net-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  padding: 4px 9px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.net-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.net-status.is-online {
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+  border-color: transparent;
+}
+
 .local-badge {
   display: inline-flex;
   align-items: center;
@@ -3057,11 +3093,22 @@ button.food-group-header:active { filter: brightness(0.97); }
 .brand { flex: 1 1 auto; min-width: 0; gap: 6px; }
 .brand-logo { flex: 0 0 36px; width: 36px; height: 36px; min-width: 36px; aspect-ratio: 1 / 1; margin-left: -3px; border-radius: 11px; transform: translateY(-2px); }
 .brand-text { min-width: 0; }
-.brand-text h1 { white-space: nowrap; }
+.brand-text h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #date-label { display: grid; gap: 1px; line-height: 1.1; } /* 0.4.15: заглавная — только первая буква (ниже) */
 #date-label span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #date-weekday { font-weight: 700; }
 #date-month { font-size: .72rem; }
+/* 0.8.29: индикатор режима — компактная шапка. Бренд-блок становится
+   строкой, где текст сжимается, а бейдж режима не даёт себя ужать. */
+.brand { align-items: center; }
+.net-status { margin-left: 0; padding: 3px 7px; font-size: .64rem; }
+@media (max-width: 359px) {
+  /* Меньше 360px место занимает шапка: оставляем только цветную точку,
+     подпись остаётся доступной через aria-label и долгое нажатие. */
+  .net-status { padding: 5px; }
+  .net-status .net-status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.net-status-dot { width: 6px; height: 6px; flex-basis: 6px; }
 .topbar-actions { flex: 0 0 auto; gap: 4px; }
 .topbar-actions > button { display: grid; place-items: center; width: 36px; height: 36px; min-width: 36px; padding: 0; color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); border: 0; border-radius: 50%; }
 .topbar-actions > button:hover { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
@@ -3557,6 +3604,28 @@ html.dialog-open body {
 .settings-menu-btn .help-dot { margin-left: -4px; margin-right: -4px; } /* компактнее внутри flex-строки с gap */
 .weekly-goal-controls .help-dot { margin-left: 0; }
 .help-dot:active { background: var(--md-sys-color-surface-container-high); }
+/* 0.8.29: метка «бета» для функций в разработке и тестировании.
+   Кликабельна — открывает пояснение через тот же механизм, что и «?». */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+  border: 0;
+  font-size: .64rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.beta-badge:active { filter: brightness(0.95); }
 .help-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 #help-text {
