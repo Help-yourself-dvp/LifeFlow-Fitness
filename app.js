@@ -2769,7 +2769,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.25';
+const FITFLOW_VERSION = '0.8.26';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6495,7 +6495,9 @@ function renderHomeQuickNav() {
   let html = '';
   cards.forEach(({ el, meta }) => {
     const label = QUICKNAV_LABELS[meta.id] || meta.label;
-    html += `<button type="button" class="quicknav-chip" data-jump="${el.id}" aria-label="Перейти к разделу «${escapeHtml(label)}»">${homeCardIcon(meta.id)}${escapeHtml(label)}</button>`;
+    /* 0.8.26 (п.1 владельца): в пилюле только текст. Иконка съедала ширину, и
+       длинные названия («Самочувствие») обрезались многоточием. */
+    html += `<button type="button" class="quicknav-chip" data-jump="${el.id}">${escapeHtml(label)}</button>`;
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
@@ -6535,23 +6537,33 @@ function updateHomeQuickNavActive() {
   const cards = cardsEl ? Array.from(cardsEl.children).filter((el) => el && !el.hidden) : [];
   if (!cards.length) return;
 
+  /* 0.8.26 (п.2 владельца: «поднимаюсь к самочувствию, а подсвечен другой раздел»).
+     Было: активной считалась ПОСЛЕДНЯЯ карточка, чей верх прошёл порог. При
+     прокрутке снизу вверх это врёт: у карточки, которую пользователь уже
+     разглядывает, верх ещё не дошёл до порога, поэтому подсвеченной оставалась
+     карточка ниже — та, что почти ушла с экрана. Стало: активен раздел, который
+     реально занимает больше всего места в видимой части экрана. Это совпадает
+     с интуицией «что вижу, то и подсвечено» и работает одинаково в обе стороны. */
   let activeId = null;
   const doc = document.documentElement;
   const scrollTop = window.scrollY || doc.scrollTop || 0;
-  const atBottom = (window.innerHeight + scrollTop) >= (doc.scrollHeight - 8);
+  const viewTop = quicknavStuckBottom();          // экран начинается под панелью
+  const viewBottom = window.innerHeight || doc.clientHeight || 0;
+  const atBottom = (viewBottom + scrollTop) >= (doc.scrollHeight - 8);
   if (atBottom) {
-    // Внизу страницы активна последняя видимая карточка.
-    for (let i = cards.length - 1; i >= 0; i--) {
-      activeId = cards[i].id;
-      break;
-    }
+    // Самый низ страницы: последняя карточка может физически не дотянуться до
+    // верха экрана, но пользователь смотрит именно на неё.
+    activeId = cards[cards.length - 1].id;
   } else {
-    const threshold = quicknavStuckBottom() + 2;
+    let bestSeen = 0;
     for (const card of cards) {
-      if (card.getBoundingClientRect().top <= threshold) activeId = card.id;
+      const r = card.getBoundingClientRect();
+      const seen = Math.min(r.bottom, viewBottom) - Math.max(r.top, viewTop);
+      if (seen > bestSeen) { bestSeen = seen; activeId = card.id; }
     }
-    // Выше первого раздела (приветствие видно) — подсвечиваем первый чип.
-    if (!activeId && cards.length) activeId = cards[0].id;
+    // Ничего не попало в видимую зону (например, экран короче панели) —
+    // держим первый чип, чтобы подсветка не пропадала совсем.
+    if (!activeId) activeId = cards[0].id;
   }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
 }

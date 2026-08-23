@@ -1025,10 +1025,19 @@ for (const id of ids) {
   const cssR = fs.readFileSync('style.css', 'utf8');
   const html = fs.readFileSync('index.html', 'utf8');
 
-  const okPills = /flex:\s*1 1 0/.test(cssR) && cssR.includes('контейнер прозрачный')
+  /* 0.5.1 п.1 — отдельные пилюли, прозрачный контейнер (общая рамка-пилюля убрана).
+     0.8.26 уточнение: «во всю ширину» (flex:1 1 0) отменено — при 6 включённых
+     разделах ширина делилась поровну и длинные названия обрезались. Теперь пилюля
+     по ширине текста, а панель прокручивается вбок. Проверяем правило именно чипа,
+     а не любое «flex: 1 1 0» в файле (раньше условие проходило случайно). */
+  const chipRule = cssR
+    .slice(cssR.indexOf('.home-quicknav .quicknav-chip {'), cssR.indexOf('.home-quicknav .quicknav-chip.active'))
+    .replace(/\/\*[\s\S]*?\*\//g, ''); // комментарии не считаем кодом: в них упоминается старое flex:1 1 0
+  const okPills = /flex:\s*0 0 auto/.test(chipRule) && !/flex:\s*1 1 0/.test(chipRule)
+    && cssR.includes('контейнер прозрачный')
     && cssR.includes('.home-quicknav .quicknav-chip.active');
   if (!okPills) failed++;
-  console.log(`${okPills ? '✓' : '✗'} 0.5.1 п.1: быстрый переход — отдельные пилюли во всю ширину`);
+  console.log(`${okPills ? '✓' : '✗'} 0.5.1 п.1 (уточнено 0.8.26): быстрый переход — отдельные пилюли по ширине текста`);
 
   const brandTextRule = (cssR.match(/\.brand-text p\s*\{[^}]*\}/) || [''])[0];
   const okDateCase = brandTextRule !== '' && !brandTextRule.includes('capitalize')
@@ -2005,7 +2014,10 @@ for (const id of ids) {
   const okNav = appR.includes("const QUICKNAV_LABELS = {")
     && appR.includes("'steps': 'Шаги'")
     && appR.includes('function quicknavStuckBottom')
-    && appR.includes("const threshold = quicknavStuckBottom() + 2;")
+    /* 0.8.26: порог `quicknavStuckBottom() + 2` заменён на верх видимой зоны —
+       подсветка считается по видимой площади раздела, а не по проходу верха
+       карточки через порог. Низ панели по-прежнему общий для прокрутки и зоны. */
+    && appR.includes('const viewTop = quicknavStuckBottom();')
     && appR.includes("target.scrollIntoView({ behavior: 'smooth', block: 'start' })")
     && appR.includes("--quicknav-scroll-margin")
     && css.includes('scroll-margin-top: var(--quicknav-scroll-margin, 116px)');
@@ -2231,6 +2243,26 @@ for (const id of ids) {
   if (!okQuickNavIds) failed++;
   console.log(`${okQuickNavIds ? '✓' : '✗'} 0.8.25 быстрая навигация: id карточек сопоставляются корректно (панель не пустая)`);
 
+  /* 0.8.26 (п.1 владельца): в пилюлях быстрого перехода только текст — иконка
+     съедала ширину и «Самочувствие» обрезалось. Чип не должен звать homeCardIcon,
+     а пилюли не должны делить ширину поровну (flex:1 1 0 → flex:0 0 auto). */
+  const cssQuickNav = fs.readFileSync('style.css', 'utf8');
+  const chipHtml = appR.slice(appR.indexOf('class="quicknav-chip"') - 200, appR.indexOf('class="quicknav-chip"') + 200);
+  const okChipText = !chipHtml.includes('homeCardIcon')
+    && cssQuickNav.includes('.home-quicknav .quicknav-chip')
+    && !cssQuickNav.includes('.home-quicknav .quicknav-chip svg');
+  if (!okChipText) failed++;
+  console.log(`${okChipText ? '✓' : '✗'} 0.8.26 быстрый переход: в пилюлях только текст, без иконок`);
+
+  /* 0.8.26 (п.2 владельца): подсветка при прокрутке снизу вверх показывала
+     не тот раздел. Активным должен быть раздел с наибольшей видимой площадью,
+     а не «последний, чей верх прошёл порог». */
+  const okQuickNavActive = appR.includes('function updateHomeQuickNavActive')
+    && appR.includes('Math.min(r.bottom, viewBottom) - Math.max(r.top, viewTop)')
+    && !appR.includes('if (card.getBoundingClientRect().top <= threshold) activeId = card.id;');
+  if (!okQuickNavActive) failed++;
+  console.log(`${okQuickNavActive ? '✓' : '✗'} 0.8.26 быстрый переход: подсветка по видимой площади раздела`);
+
   // 3. Кнопка «✓ Принял» в уведомлении курса (чистый JS, без правок workflow)
   const okCourseAction = appR.includes('const COURSE_DOSE_ACTION_TYPE')
     && appR.includes('const COURSE_DOSE_ACTION_ID')
@@ -2251,9 +2283,9 @@ for (const id of ids) {
   if (!okBarsGeometry) failed++;
   console.log(`${okBarsGeometry ? '✓' : '✗'} 0.8.25 графики: колонка с определённой высотой, столбец с шириной и контуром`);
 
-  const okVer0825 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
-  if (!okVer0825) failed++;
-  console.log(`${okVer0825 ? '✓' : '✗'} 0.8.25 версия в коде и «О приложении»`);
+  const okVerCurrent = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVerCurrent) failed++;
+  console.log(`${okVerCurrent ? '✓' : '✗'} версия ${VERSION} синхронна в коде и «О приложении»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

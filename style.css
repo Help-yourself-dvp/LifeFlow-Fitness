@@ -294,6 +294,8 @@ html[data-theme="dark"] .icon-sun { display: none; }
   margin: -6px 0 12px;
   padding: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
   /* 0.5.1 (п.1 владельца): чипы — отдельные пилюли во всю ширину экрана;
      общая рамка-пилюля контейнера убрана, контейнер прозрачный. */
@@ -303,15 +305,17 @@ html[data-theme="dark"] .icon-sun { display: none; }
 .home-quicknav::-webkit-scrollbar { display: none; }
 .home-quicknav[hidden] { display: none; }
 .home-quicknav .quicknav-chip {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* 0.8.26 (п.1 владельца): было flex:1 1 0 — ширина делилась поровну между
+     чипами, и при 6 включённых разделах длинные названия («Самочувствие»)
+     обрезались многоточием. Теперь пилюля равна своему тексту и не сжимается,
+     а если все вместе не влезли — панель прокручивается вбок (overflow-x:auto
+     у контейнера). Читаемость больше не зависит от числа включённых карточек. */
+  flex: 0 0 auto;
+  scroll-snap-align: start;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 8px 5px;
+  padding: 8px 12px;
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: 999px;
   background: var(--md-sys-color-surface);
@@ -323,7 +327,6 @@ html[data-theme="dark"] .icon-sun { display: none; }
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
 }
-.home-quicknav .quicknav-chip svg { width: 14px; height: 14px; flex: 0 0 auto; }
 .home-quicknav .quicknav-chip.active {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
