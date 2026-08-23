@@ -2428,6 +2428,23 @@ for (const id of ids) {
     && backFn.indexOf("top.id === 'terms-dialog'") < backFn.indexOf('DIALOG_BACK_CLOSERS[top.id]');
   if (!okTermsGuard) failed++;
   console.log(`${okTermsGuard ? '✓' : '✗'} 0.8.30 экран условий не обходится кнопкой «назад»`);
+
+  /* 0.9.1 (п.1 владельца): подсветка чипа быстрого перехода.
+     Дефект был в том, что активной считалась карточка с максимальной видимой
+     площадью: после клика по низкой карточке («Вес») побеждала высокая соседка
+     («Питание») и подсвечивался не тот чип. Критерий должен быть «карточка,
+     пересекающая линию порога», а scroll-margin — пересчитан ПЕРЕД прокруткой. */
+  const activeFn = (appR.match(/function updateHomeQuickNavActive\(\)[\s\S]*?\n\}/) || [''])[0];
+  const okCross = /r\.top <= line && r\.bottom > line/.test(activeFn)
+    && activeFn.indexOf('r.top <= line') < activeFn.indexOf('bestSeen');
+  if (!okCross) failed++;
+  console.log(`${okCross ? '✓' : '✗'} 0.9.1 активен раздел, пересекающий порог (а не самый крупный)`);
+
+  const clickHandler = (appR.match(/quicknavEl\?\.addEventListener\('click'[\s\S]*?\n  \}\);/) || [''])[0];
+  const okSync = clickHandler.includes('syncQuickNavTop()')
+    && clickHandler.indexOf('syncQuickNavTop()') < clickHandler.indexOf('scrollIntoView');
+  if (!okSync) failed++;
+  console.log(`${okSync ? '✓' : '✗'} 0.9.1 scroll-margin пересчитан до прокрутки по клику`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

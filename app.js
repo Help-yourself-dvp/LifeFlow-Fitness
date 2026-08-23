@@ -2779,7 +2779,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.0';
+const FITFLOW_VERSION = '0.9.1';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6574,9 +6574,20 @@ function updateHomeQuickNavActive() {
      Было: активной считалась ПОСЛЕДНЯЯ карточка, чей верх прошёл порог. При
      прокрутке снизу вверх это врёт: у карточки, которую пользователь уже
      разглядывает, верх ещё не дошёл до порога, поэтому подсвеченной оставалась
-     карточка ниже — та, что почти ушла с экрана. Стало: активен раздел, который
-     реально занимает больше всего места в видимой части экрана. Это совпадает
-     с интуицией «что вижу, то и подсвечено» и работает одинаково в обе стороны. */
+     карточка ниже — та, что почти ушла с экрана. Тогда критерий сменили на
+     «максимум видимой площади».
+
+     0.9.1 (п.1 владельца: «нажимаю чип — подсвечивается соседний»). «Максимум
+     площади» врёт на клике: scrollIntoView ставит верх нажатой карточки на
+     линию порога, и если карточка низкая (Вес ~90px), а следующая под ней
+     высокая (Питание ~400px), по площади побеждает соседка — подсвечивается
+     не тот чип, который нажали.
+
+     Стало: активна карточка, ПЕРЕСЕКАЮЩАЯ линию порога (верх выше линии, низ
+     ниже). Это ровно та карточка, которая «стоит под панелью», — она же цель
+     scrollIntoView, поэтому клик всегда подсвечивает нажатый чип. Для прокрутки
+     руками критерий тоже честен и одинаков в обе стороны: линию пересекает то,
+     что пользователь читает. Запас +8px — на дробные пиксели scroll-margin. */
   let activeId = null;
   const doc = document.documentElement;
   const scrollTop = window.scrollY || doc.scrollTop || 0;
@@ -6588,14 +6599,21 @@ function updateHomeQuickNavActive() {
     // верха экрана, но пользователь смотрит именно на неё.
     activeId = cards[cards.length - 1].id;
   } else {
-    let bestSeen = 0;
+    const line = viewTop + 8;
     for (const card of cards) {
       const r = card.getBoundingClientRect();
-      const seen = Math.min(r.bottom, viewBottom) - Math.max(r.top, viewTop);
-      if (seen > bestSeen) { bestSeen = seen; activeId = card.id; }
+      if (r.top <= line && r.bottom > line) { activeId = card.id; break; }
     }
-    // Ничего не попало в видимую зону (например, экран короче панели) —
-    // держим первый чип, чтобы подсветка не пропадала совсем.
+    if (!activeId) {
+      // Линию никто не пересёк (промежуток между карточками или экран короче
+      // панели) — берём максимум видимой площади как запасной критерий.
+      let bestSeen = 0;
+      for (const card of cards) {
+        const r = card.getBoundingClientRect();
+        const seen = Math.min(r.bottom, viewBottom) - Math.max(r.top, viewTop);
+        if (seen > bestSeen) { bestSeen = seen; activeId = card.id; }
+      }
+    }
     if (!activeId) activeId = cards[0].id;
   }
   chips.forEach((c) => c.classList.toggle('active', c.dataset.jump === activeId));
@@ -13393,6 +13411,11 @@ function init() {
     if (!target) return;
     // Сразу подсветить нажатый раздел — дальше подсветку поведёт прокрутка.
     $$('#home-quicknav [data-jump]').forEach((c) => c.classList.toggle('active', c === chip));
+    // 0.9.1: пересчитать scroll-margin ПЕРЕД прокруткой. Высота шапки меняется
+    // (индикатор сети, перенос строки, смена ориентации), а --quicknav-scroll-margin
+    // до этого обновлялся только на resize — с устаревшим значением карточка
+    // приземлялась не на порог и подсвечивался соседний чип.
+    syncQuickNavTop();
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     clearTimeout(quicknavEl._settleTimer);
     quicknavEl._settleTimer = setTimeout(updateHomeQuickNavActive, 700);
