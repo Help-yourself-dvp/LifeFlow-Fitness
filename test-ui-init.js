@@ -2620,5 +2620,60 @@ for (const id of ids) {
   console.log(`${okNativeList ? '✓' : '✗'} 0.9.4 натив рисует строки по списку, а не жёстко`);
 }
 
+/* -------------------------------------------------------------------
+   0.9.5 — замечания владельца: подсветка на самом верху, дубли строк
+   на виджете, авто-подбор числа строк, кнопка обновления.
+------------------------------------------------------------------- */
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const provR = fs.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+  const yml = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  /* Дефект владельца: «поднимаюсь на самый верх — подсвечен „День“, хотя
+     первая карточка „Шаги“». Наверху линию порога не пересекает никто
+     (первая карточка стоит ниже неё), поэтому нужен явный случай «мы наверху →
+     активна первая карточка» — до ветки atBottom и до запасного критерия. */
+  const act = (appR.match(/function updateHomeQuickNavActive\([\s\S]*?\n\}/) || [''])[0];
+  const okTop = /const atTop = scrollTop <= 8;/.test(act)
+    && /if \(atTop\) \{\s*\n\s*activeId = cards\[0\]\.id;/.test(act)
+    && act.indexOf('atTop') < act.indexOf('bestSeen');
+  if (!okTop) failed++;
+  console.log(`${okTop ? '✓' : '✗'} 0.9.5 на самом верху подсвечен первый раздел`);
+
+  /* Дефект владельца: после перестановки строк в настройках на виджете
+     появились две одинаковые строки «Вода». Натив обязан рисовать каждый
+     показатель не более одного раза, даже если в prefs пришёл дубликат. */
+  const okDedup = /HashSet<String> drawn/.test(provR) && /drawn\.add\(itemId\)/.test(provR);
+  if (!okDedup) failed++;
+  console.log(`${okDedup ? '✓' : '✗'} 0.9.5 повторяющийся показатель не рисуется дважды`);
+
+  /* Число строк подбирается под фактическую высоту виджета, иначе кнопки либо
+     наполовину закрыты, либо под ними остаётся пустое место. */
+  const okFit = /int fitSlots = \(maxHeight - chromeDp\) \/ rowDp;/.test(provR)
+    && /Math\.max\(1, Math\.min\(maxSlots, fitSlots\)\)/.test(provR);
+  if (!okFit) failed++;
+  console.log(`${okFit ? '✓' : '✗'} 0.9.5 число строк виджета подбирается по высоте`);
+
+  /* При уменьшении размера строки выше нового лимита обязаны гаснуть,
+     иначе в них останется текст от прошлой раскладки. */
+  const okClear = /for \(int i = used; i < maxSlots; i\+\+\)/.test(provR);
+  if (!okClear) failed++;
+  console.log(`${okClear ? '✓' : '✗'} 0.9.5 лишние слоты гасятся при уменьшении виджета`);
+
+  /* Кнопка «обновить» на самом виджете: есть в разметке, в Java и в onReceive. */
+  const okRefresh = /@\+id\/widget_refresh_btn/.test(yml)
+    && /R\.id\.widget_refresh_btn/.test(provR)
+    && /ACTION_REFRESH = "com\.fitflow\.app\.WIDGET_REFRESH"/.test(provR)
+    && /ACTION_REFRESH\.equals\(intent\.getAction\(\)\)/.test(provR);
+  if (!okRefresh) failed++;
+  console.log(`${okRefresh ? '✓' : '✗'} 0.9.5 на виджете есть рабочая кнопка обновления`);
+
+  /* Кнопки прижаты к низу: строки лежат в контейнере с layout_weight="1",
+     иначе при большом виджете под кнопками снова появится пустое поле. */
+  const okWeight = /android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical"/.test(yml);
+  if (!okWeight) failed++;
+  console.log(`${okWeight ? '✓' : '✗'} 0.9.5 кнопки виджета прижаты к нижнему краю`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2961,7 +2961,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.4';
+const FITFLOW_VERSION = '0.9.5';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6937,7 +6937,16 @@ function updateHomeQuickNavActive() {
   const viewTop = quicknavStuckBottom();          // экран начинается под панелью
   const viewBottom = window.innerHeight || doc.clientHeight || 0;
   const atBottom = (viewBottom + scrollTop) >= (doc.scrollHeight - 8);
-  if (atBottom) {
+  /* 0.9.5 (владелец: «поднимаюсь на самый верх — подсвечен „День“, хотя первая
+     карточка „Шаги“»). Наверху страницы верх первой карточки стоит ЧУТЬ НИЖЕ
+     линии порога (её собственный отступ), поэтому линию не пересекает никто —
+     срабатывал запасной критерий «максимум площади», и высокая вторая карточка
+     («План дня») перевешивала невысокую первую («Шаги»). Симметрично низу
+     страницы: если прокрутка в самом верху, активна первая карточка. */
+  const atTop = scrollTop <= 8;
+  if (atTop) {
+    activeId = cards[0].id;
+  } else if (atBottom) {
     // Самый низ страницы: последняя карточка может физически не дотянуться до
     // верха экрана, но пользователь смотрит именно на неё.
     activeId = cards[cards.length - 1].id;

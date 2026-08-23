@@ -416,12 +416,22 @@ jobs:
                   '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="%dsp" android:fontFamily="sans-serif-medium" />\n' % title_size,
                   '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="%dsp" android:ellipsize="end" android:singleLine="true" />\n' % profile_size,
               ]
+              # 0.9.5: строки живут в контейнере с layout_weight=1 и высотой 0dp.
+              # Он забирает всю свободную высоту, поэтому кнопки всегда прижаты к
+              # низу: при большом виджете под ними нет пустого поля, при маленьком
+              # они не выдавливаются за край (лишнее обрезается сверху, а не снизу).
+              parts.append('    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">\n')
               for i in range(1, slots + 1):
                   parts.append(widget_slot(i, text_size, bar_height, gap if i > 1 else gap + 3))
               parts.append('    <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Откройте настройки приложения и выберите, что показывать" android:textColor="#4A6363" android:textSize="11sp" android:visibility="gone" />\n')
+              parts.append('    </LinearLayout>\n')
               parts.append('    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n')
               parts.append('        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="%dsp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
               parts.append('        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="%dsp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
+              # 0.9.5: кнопка «обновить» — узкая, фиксированной ширины, чтобы не
+              # отнимать место у основных действий. Просьба владельца: чинить
+              # разъехавшийся виджет на месте, не удаляя и не добавляя его заново.
+              parts.append('        <Button android:id="@+id/widget_refresh_btn" android:layout_width="%ddp" android:layout_height="%ddp" android:layout_marginStart="4dp" android:text="⟳" android:textSize="%dsp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" android:contentDescription="Обновить виджет" />\n' % (btn_height, btn_height, btn_text + 2))
               parts.append('    </LinearLayout>\n')
               parts.append('</LinearLayout>\n')
               return ''.join(parts)

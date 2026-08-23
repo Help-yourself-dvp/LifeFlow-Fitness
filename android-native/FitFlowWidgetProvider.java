@@ -12,6 +12,9 @@ import android.widget.RemoteViews;
 
 public class FitFlowWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_MIDNIGHT = "com.fitflow.app.WIDGET_MIDNIGHT_REFRESH";
+    /* 0.9.5: ручное обновление прямо с виджета (просьба владельца) — перерисовать
+       все экземпляры из текущих prefs, не удаляя и не добавляя виджет заново. */
+    private static final String ACTION_REFRESH = "com.fitflow.app.WIDGET_REFRESH";
 
     /* 0.9.4: универсальные слоты строк вместо зашитых «вода/питание/шаги».
        Компактная раскладка — 5 слотов, большая — 10; строка с полосой
@@ -52,6 +55,15 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         R.id.widget_slot_5_bar2, R.id.widget_slot_6_bar2, R.id.widget_slot_7_bar2, R.id.widget_slot_8_bar2,
         R.id.widget_slot_9_bar2, R.id.widget_slot_10_bar2
     };
+
+    /* 0.9.5: размеры для подбора числа строк под фактическую высоту виджета.
+       chrome = заголовок + строка профиля + ряд кнопок + вертикальные отступы;
+       row = строка показателя (текст + полоса прогресса + зазор). Значения
+       соответствуют widget_layout_xml в build.yml: если менять там — менять и тут. */
+    private static final int SMALL_CHROME_DP = 100;
+    private static final int SMALL_ROW_DP = 26;
+    private static final int LARGE_CHROME_DP = 110;
+    private static final int LARGE_ROW_DP = 30;
 
     public static void updateAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
@@ -124,7 +136,19 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
            «Питание» оставалось на виджете даже после выключения карточки.
            Теперь показываем ровно выбранные элементы, в выбранном порядке,
            и обрезаем по числу слотов реальной раскладки. */
-        int slots = large ? SLOT_IDS_LARGE.length : SLOT_IDS_SMALL.length;
+        /* 0.9.5 (владелец: «либо кнопки наполовину закрыты, либо под ними много
+           пустого места»). Раньше число строк зависело только от выбранной
+           раскладки, а не от реальной высоты виджета на экране. Теперь считаем,
+           сколько строк физически помещается: из высоты вычитаем шапку, ряд
+           кнопок и отступы, остаток делим на высоту одной строки. Кнопки
+           прижаты к низу (layout_weight у контейнера строк), поэтому лишние
+           строки больше не выдавливают их за край, а недостающие не оставляют
+           пустоту. Минимум одна строка — иначе виджет выглядел бы пустым. */
+        int chromeDp = large ? LARGE_CHROME_DP : SMALL_CHROME_DP;
+        int rowDp = large ? LARGE_ROW_DP : SMALL_ROW_DP;
+        int maxSlots = large ? SLOT_IDS_LARGE.length : SLOT_IDS_SMALL.length;
+        int fitSlots = (maxHeight - chromeDp) / rowDp;
+        int slots = Math.max(1, Math.min(maxSlots, fitSlots));
         String itemsRaw = prefs.getString("widgetItems", "water,food,steps");
         if (itemsRaw == null) itemsRaw = "";
         int waterPct = Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0));
@@ -132,9 +156,17 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         int steps = resolveWidgetSteps(context);
 
         int used = 0;
+        /* 0.9.5 (владелец: «после перемещения воды в настройках на виджете стало
+           две одинаковые строки с водой»). Список приходит строкой из prefs, и
+           если в него по любой причине попал повторяющийся id (гонка записи при
+           перестановке: два updateWidget подряд, старое и новое значение), строка
+           рисовалась дважды в разные слоты. Защищаемся на стороне отрисовки —
+           каждый показатель выводится не более одного раза. */
+        java.util.HashSet<String> drawn = new java.util.HashSet<String>();
         for (String rawId : itemsRaw.split(",")) {
             String itemId = rawId == null ? "" : rawId.trim();
             if (itemId.length() == 0) continue;
+            if (!drawn.add(itemId)) continue; // дубликат — уже нарисован выше
             int cost = ("water".equals(itemId) || "food".equals(itemId)) ? 2 : 1;
             if (used + cost > slots) continue; // не помещается — пропускаем, следующий может влезть
             String text;
@@ -180,7 +212,10 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
             }
             used += cost;
         }
-        for (int i = used; i < slots; i++) {
+        /* Гасим ВСЕ оставшиеся слоты раскладки, а не только до slots: число
+           видимых строк теперь зависит от высоты виджета, и при уменьшении
+           размера в слотах выше лимита осталась бы старая строка. */
+        for (int i = used; i < maxSlots; i++) {
             views.setViewVisibility(large ? SLOT_IDS_LARGE[i] : SLOT_IDS_SMALL[i], android.view.View.GONE);
         }
         // Пустой виджет без подсказки выглядел бы сломанным — говорим, что делать.
@@ -205,6 +240,12 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         PendingIntent recordPi = PendingIntent.getActivity(context, 2, recordBtn,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_record_btn, recordPi);
+
+        Intent refreshBtn = new Intent(context, FitFlowWidgetProvider.class);
+        refreshBtn.setAction(ACTION_REFRESH);
+        PendingIntent refreshPi = PendingIntent.getBroadcast(context, 3, refreshBtn,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        views.setOnClickPendingIntent(R.id.widget_refresh_btn, refreshPi);
         manager.updateAppWidget(id, views);
     }
 
@@ -247,6 +288,10 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         // 0.5.5: полночь — перерисовать (дата-страж обнулит вчерашнее)
         // и перевооружить будильник на следующую полночь.
         if (intent != null && ACTION_MIDNIGHT.equals(intent.getAction())) {
+            updateAll(context);
+            return;
+        }
+        if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {
             updateAll(context);
             return;
         }
