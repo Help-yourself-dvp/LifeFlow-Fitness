@@ -2445,6 +2445,55 @@ for (const id of ids) {
     && clickHandler.indexOf('syncQuickNavTop()') < clickHandler.indexOf('scrollIntoView');
   if (!okSync) failed++;
   console.log(`${okSync ? '✓' : '✗'} 0.9.1 scroll-margin пересчитан до прокрутки по клику`);
+
+  /* 0.9.2 (п.2 владельца): сканер штрих-кода камерой.
+     Требования владельца, которые обязаны сохраниться:
+     1) никаких видимых заглушек — кнопка скрыта, пока не подтверждено,
+        что есть и нативный мост, и камера;
+     2) сканирование камерой, а не ручной ввод кода;
+     3) Open Food Facts обязателен к идентификации приложения, иначе банят.
+        Заголовок User-Agent из fetch задать нельзя (forbidden header),
+        поэтому идентификация идёт параметрами app_name/app_version/app_uuid. */
+  const scanBtnHtml = (html.match(/<button[^>]*id="custom-food-scan"[^>]*>/) || [''])[0];
+  const okScanHidden = /\shidden(\s|>)/.test(scanBtnHtml);
+  if (!okScanHidden) failed++;
+  console.log(`${okScanHidden ? '✓' : '✗'} 0.9.2 кнопка сканера скрыта в разметке (без видимых заглушек)`);
+
+  const availFn = (appR.match(/function isBarcodeScannerAvailable\(\)[\s\S]*?\n\}/) || [''])[0];
+  const availCode = availFn.replace(/\/\/[^\n]*/g, '');   // без комментариев: они не выполняются
+  const okAvail = availCode.includes("typeof b.scanBarcode !== 'function'")
+    && /!b\.hasCamera\(\)\)\s*return false/.test(availCode);
+  if (!okAvail) failed++;
+  console.log(`${okAvail ? '✓' : '✗'} 0.9.2 кнопка показывается только при наличии моста и камеры`);
+
+  const offParams = (appR.match(/function offAppParams\(\)[\s\S]*?\n\}/) || [''])[0];
+  const lookupFn = (appR.match(/async function lookupOffByBarcode\([\s\S]*?\n\}/) || [''])[0];
+  const okIdent = offParams.includes('app_name=FitFlow') && offParams.includes('app_uuid=')
+    && lookupFn.includes('offAppParams()');
+  if (!okIdent) failed++;
+  console.log(`${okIdent ? '✓' : '✗'} 0.9.2 запрос в Open Food Facts идентифицирует приложение`);
+
+  /* Кэш проверяется РАНЬШЕ рубильника онлайна: уже известный код обязан
+     срабатывать и в офлайне, иначе сканер бесполезен без сети. */
+  const okCacheFirst = lookupFn.indexOf('offCacheGet(clean)') > -1
+    && lookupFn.indexOf('offCacheGet(clean)') < lookupFn.indexOf("isOnlineAllowed('barcodeLookup')");
+  if (!okCacheFirst) failed++;
+  console.log(`${okCacheFirst ? '✓' : '✗'} 0.9.2 известный штрих-код читается из кэша до проверки онлайна`);
+
+  /* Код прочитан, но продукта нет в базе — владелец не должен остаться
+     с пустой формой: подставляется заготовка карточки с кодом. */
+  const onScanFn = (appR.match(/async function onBarcodeScanned\([\s\S]*?\n\}\n/) || [''])[0];
+  const okFallback = onScanFn.includes("'Продукт ' + code") && onScanFn.includes("error === 'cancelled'");
+  if (!okFallback) failed++;
+  console.log(`${okFallback ? '✓' : '✗'} 0.9.2 ненайденный код превращается в ручную карточку, отмена молчит`);
+
+  /* Юридическая часть: ZXing (Apache-2.0) и атрибуция ODbL — в существующем
+     разделе лицензии, отдельных мест владелец заводить не просил. */
+  const thirdParty = (html.match(/id="license-panel-third-party"[\s\S]*?<\/div>/) || [''])[0];
+  const okLegal = /ZXing/.test(thirdParty) && /Apache License 2\.0/.test(thirdParty)
+    && /Open Database License \(ODbL\)/.test(thirdParty);
+  if (!okLegal) failed++;
+  console.log(`${okLegal ? '✓' : '✗'} 0.9.2 ZXing и ODbL указаны в разделе лицензии`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

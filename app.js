@@ -2573,20 +2573,86 @@ function parseOffProduct(json) {
   };
 }
 
+/* 0.9.2: кэш ответов Open Food Facts.
+   Обязателен по двум причинам. Первая — правила OFF прямо требуют кэшировать и
+   не долбить API одинаковыми запросами. Вторая — практическая: повторное
+   сканирование той же пачки (а это самый частый случай — творог каждое утро)
+   вообще не выходит в сеть и работает мгновенно даже офлайн. */
+const OFF_CACHE_KEY = 'ff.off.cache.v1';
+const OFF_CACHE_MAX = 300;          // ~60 КБ в localStorage
+const OFF_CACHE_TTL_MS = 180 * 24 * 60 * 60 * 1000;  // состав продукта меняется редко
+
+function readOffCache() {
+  try {
+    const raw = localStorage.getItem(OFF_CACHE_KEY);
+    const obj = raw ? JSON.parse(raw) : null;
+    return (obj && typeof obj === 'object') ? obj : {};
+  } catch (e) { return {}; }
+}
+
+function offCacheGet(code) {
+  const cache = readOffCache();
+  const hit = cache[code];
+  if (!hit || !hit.t) return null;
+  if (Date.now() - hit.t > OFF_CACHE_TTL_MS) return null;
+  return hit.p || null;                 // p === null → «в базе нет», тоже помним
+}
+
+function offCachePut(code, product) {
+  try {
+    const cache = readOffCache();
+    cache[code] = { t: Date.now(), p: product || null };
+    const keys = Object.keys(cache);
+    if (keys.length > OFF_CACHE_MAX) {
+      // Вытесняем самые старые записи.
+      keys.sort((a, b) => (cache[a].t || 0) - (cache[b].t || 0))
+        .slice(0, keys.length - OFF_CACHE_MAX)
+        .forEach((k) => { delete cache[k]; });
+    }
+    localStorage.setItem(OFF_CACHE_KEY, JSON.stringify(cache));
+  } catch (e) { /* переполнение хранилища — кэш необязателен, молча */ }
+}
+
+/* Идентификация приложения перед Open Food Facts.
+   Их условия требуют кастомный User-Agent, иначе клиента банят как бота. Но
+   задать заголовок User-Agent из fetch нельзя — это forbidden header, браузер
+   и WebView его молча выбрасывают. Штатная замена, предусмотренная самим OFF,
+   — параметры запроса app_name/app_version/app_uuid (app_uuid позволяет им
+   забанить одного проблемного пользователя, а не всё приложение).
+   Идентификатор случайный и не привязан ни к телефону, ни к профилю. */
+function offAppParams() {
+  let uuid = '';
+  try {
+    uuid = localStorage.getItem('ff.off.uuid') || '';
+    if (!uuid) {
+      uuid = 'ff-' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('ff.off.uuid', uuid);
+    }
+  } catch (e) { uuid = 'ff-anon'; }
+  return '&app_name=FitFlow&app_version=' + encodeURIComponent(FITFLOW_VERSION)
+    + '&app_uuid=' + encodeURIComponent(uuid);
+}
+
 async function lookupOffByBarcode(code) {
   // 0.8.28: до этой версии флаг onlineFeatures.barcodeLookup существовал, но не
   // проверялся — запрос в Open Food Facts ушёл бы при первом же вызове. Теперь
-  // рубильник обязателен; строка штрих-кода в UI пока скрыта, но код защищён.
-  if (!isOnlineAllowed('barcodeLookup')) return { ok: false, error: 'offline' };
+  // рубильник обязателен.
   const clean = String(code || '').replace(/[^0-9]/g, '');
   if (clean.length < 8 || clean.length > 14) return { ok: false, error: 'digits' };
+  // Кэш проверяем ДО рубильника: раз продукт уже известен, сеть не нужна —
+  // пусть работает и в полностью офлайн-режиме.
+  const cached = offCacheGet(clean);
+  if (cached) return { ok: true, product: cached, cached: true };
+  if (!isOnlineAllowed('barcodeLookup')) return { ok: false, error: 'offline' };
   const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => ctrl.abort(), 9000) : null;
   try {
     const res = await fetch('https://world.openfoodfacts.org/api/v2/product/' + encodeURIComponent(clean)
-      + '.json?fields=status,product_name,product_name_ru,product_quantity,nutriments',
+      + '.json?fields=status,product_name,product_name_ru,product_quantity,nutriments'
+      + offAppParams(),
       ctrl ? { signal: ctrl.signal } : {});
     const parsed = parseOffProduct(await res.json());
+    if (parsed) offCachePut(clean, parsed);
     return parsed ? { ok: true, product: parsed } : { ok: false, error: 'not-found' };
   } catch (e) {
     return { ok: false, error: 'network' };
@@ -2595,26 +2661,53 @@ async function lookupOffByBarcode(code) {
   }
 }
 
-async function findCustomFoodByBarcode() {
-  const codeEl = $('#custom-food-barcode');
-  const btn = $('#custom-food-off-btn');
-  if (!codeEl || !btn) return;
-  btn.disabled = true;
-  btn.textContent = 'Ищу…';
-  const result = await lookupOffByBarcode(codeEl.value);
-  btn.disabled = false;
-  btn.textContent = '🔍 Найти онлайн';
-  if (!result.ok) {
-    toast(result.error === 'digits'
-      ? 'Введите 8–14 цифр штрих-кода с упаковки'
-      : result.error === 'offline'
-        ? 'Поиск по штрих-коду выключен: Настройки → Онлайн-функции'
-        : result.error === 'not-found'
-          ? 'Не найден в Open Food Facts — внесите значения вручную'
-          : 'Нет соединения — онлайн-поиск недоступен');
-    return;
+/* ============================================================
+   0.9.2: сканер штрих-кода камерой (ZXing на нативной стороне)
+   Ручного ввода кода нет и не планируется: цифры с пачки набирать
+   дольше, чем значения из таблицы, — такой «сканер» был бы заглушкой.
+   Кнопка показывается только там, где сканер реально работает:
+   есть мост FitFlowExport.scanBarcode и есть камера.
+   ============================================================ */
+
+function isBarcodeScannerAvailable() {
+  try {
+    const b = window.FitFlowExport;
+    if (!b || typeof b.scanBarcode !== 'function') return false;
+    // hasCamera появился вместе со сканером; если моста старой версии нет
+    // метода — считаем, что камера есть, проверку сделает натив.
+    if (typeof b.hasCamera === 'function' && !b.hasCamera()) return false;
+    return true;
+  } catch (e) { return false; }
+}
+
+/* Показ/скрытие кнопки сканера. Никаких неработающих элементов:
+   в браузере и на устройстве без камеры кнопки нет совсем. */
+function syncBarcodeScanButton() {
+  const btn = $('#custom-food-scan');
+  if (!btn) return;
+  btn.hidden = !isBarcodeScannerAvailable();
+}
+
+function startBarcodeScan() {
+  if (!isBarcodeScannerAvailable()) return;
+  const btn = $('#custom-food-scan');
+  if (btn) { btn.disabled = true; btn.textContent = 'Открываю камеру…'; }
+  try {
+    window.FitFlowExport.scanBarcode();
+  } catch (e) {
+    resetBarcodeScanButton();
+    toast('Сканер недоступен на этом устройстве — внесите значения вручную');
   }
-  const pr = result.product;
+}
+
+function resetBarcodeScanButton() {
+  const btn = $('#custom-food-scan');
+  if (btn) { btn.disabled = false; btn.textContent = '📷 Сканировать штрих-код'; }
+}
+
+/* Заполнение формы найденными значениями. Ничего не сохраняем сами:
+   владелец сверяет цифры с упаковкой и жмёт «Сохранить продукт». */
+function fillCustomFoodForm(pr) {
   const set = (id, v) => { const el = $(id); if (el && v != null && v !== '') el.value = v; };
   set('#custom-food-name', pr.name);
   set('#custom-food-kcal', pr.kcal);
@@ -2622,7 +2715,54 @@ async function findCustomFoodByBarcode() {
   set('#custom-food-f', pr.f);
   set('#custom-food-c', pr.c);
   set('#custom-food-piece', pr.pieceG);
-  toast('✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт»');
+}
+
+/* Ответ нативного сканера. Вызывается из MainActivity.notifyBarcodeResult.
+   Объявлено функцией, а не присваиванием в window: app.js подключается ещё и
+   в Node (тесты разбора и базы), где window не существует. */
+async function onBarcodeScanned(code, error) {
+  resetBarcodeScanButton();
+  if (error === 'cancelled') return;           // молча: пользователь сам передумал
+  if (error || !code) {
+    toast('Сканер не запустился — внесите значения с упаковки вручную');
+    return;
+  }
+  const btn = $('#custom-food-scan');
+  if (btn) { btn.disabled = true; btn.textContent = 'Ищу в базе…'; }
+  let result;
+  try {
+    result = await lookupOffByBarcode(code);
+  } catch (e) {
+    result = { ok: false, error: 'network' };
+  }
+  resetBarcodeScanButton();
+  if (result.ok) {
+    fillCustomFoodForm(result.product);
+    toast(result.cached
+      ? '✓ Уже знаю этот код: сверьте с упаковкой и нажмите «Сохранить продукт»'
+      : '✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт»');
+    const kcalInput = $('#custom-food-kcal');
+    if (kcalInput) kcalInput.focus();
+    return;
+  }
+  /* Код прочитан, но продукта в базе нет (или нет сети). База OFF народная,
+     российских товаров в ней заметно меньше — это штатный случай, а не сбой.
+     Не бросаем владельца с пустой формой: заготавливаем карточку с кодом
+     в названии, чтобы осталось вписать калорийность с пачки. */
+  const nameInput = $('#custom-food-name');
+  if (nameInput && !nameInput.value.trim()) nameInput.value = 'Продукт ' + code;
+  toast(result.error === 'offline'
+    ? 'Онлайн-поиск выключен (Настройки → Онлайн-функции). Код прочитан — впишите калорийность с упаковки'
+    : result.error === 'not-found'
+      ? 'Этого кода нет в базе Open Food Facts — впишите калорийность с упаковки, и продукт станет вашим'
+      : 'Нет связи с базой. Код прочитан — впишите калорийность с упаковки');
+  const kcalInput = $('#custom-food-kcal');
+  if (kcalInput) kcalInput.focus();
+}
+
+/* Натив зовёт результат строго по имени window.onBarcodeScanned. */
+if (typeof window !== 'undefined') {
+  window.onBarcodeScanned = onBarcodeScanned;
 }
 
 let pendingCustomFoodDeleteId = null;
@@ -2688,6 +2828,8 @@ function openCustomFoodDialog() {
   const dialog = $('#custom-food-dialog');
   if (!dialog) return;
   renderCustomFoodsList();
+  syncBarcodeScanButton();      // 0.9.2: кнопка только там, где сканер работает
+  resetBarcodeScanButton();     // сброс подписи, если прошлый заход прервали
   dialog.hidden = false;
   const nameInput = $('#custom-food-name');
   if (nameInput) nameInput.focus();
@@ -2779,7 +2921,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.1';
+const FITFLOW_VERSION = '0.9.2';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -13546,6 +13688,7 @@ function init() {
   });
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
+  bindEvent('#custom-food-scan', 'click', startBarcodeScan);   // 0.9.2
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
   bindEvent('#custom-food-del-cancel', 'click', () => { pendingCustomFoodDeleteId = null; const d = $('#custom-food-del-dialog'); if (d) d.hidden = true; });
   bindEvent('#custom-food-del-confirm', 'click', confirmDeleteCustomFood);

@@ -3,6 +3,7 @@ package com.fitflow.app;
 import android.app.AlarmManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.speech.RecognizerIntent;
 import android.os.Build;
@@ -20,6 +21,10 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.BridgeActivity;
+
+// 0.9.2: сканер штрих-кода (zxing-android-embedded, Apache-2.0)
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 
 import org.json.JSONObject;
 
@@ -40,6 +45,8 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
 
     private static final int REQ_SAVE_BACKUP = 7301;
     private static final int REQ_VOICE_INPUT = 7302;
+    /* 0.9.2: сканер штрих-кода (ZXing). Свой код запроса не нужен —
+       IntentIntegrator использует собственный (49374) и сам его разбирает. */
     private String pendingBackupJson = null;
     private String pendingWidgetAction = null;
     private SensorManager sensorManager;
@@ -682,6 +689,48 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             });
         }
 
+        /* 0.9.2: сканер штрих-кода камерой (ZXing, Apache-2.0).
+           Выбран вместо ML Kit / BarcodeDetector сознательно: работает на ЛЮБОМ
+           телефоне, включая устройства без сервисов Google (Huawei и часть
+           китайских брендов) — там оба решения от Google просто не запускаются.
+           Цена вопроса — около 1 МБ в APK, что владелец согласовал.
+           Всё распознавание идёт локально, ни одно изображение никуда не уходит. */
+        @JavascriptInterface
+        public void scanBarcode() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        IntentIntegrator integrator = new IntentIntegrator(MainActivity.this);
+                        // Только товарные форматы: QR-коды и прочее для продуктов бесполезны
+                        // и лишь провоцируют ложные срабатывания на случайных наклейках.
+                        integrator.setDesiredBarcodeFormats(
+                            "EAN_13", "EAN_8", "UPC_A", "UPC_E", "CODE_128", "ITF");
+                        integrator.setPrompt("Наведите камеру на штрих-код упаковки");
+                        integrator.setBeepEnabled(true);
+                        integrator.setOrientationLocked(false);
+                        integrator.setBarcodeImageEnabled(false);
+                        integrator.initiateScan();
+                    } catch (Exception e) {
+                        // Библиотека недоступна или камеру занял другой процесс —
+                        // сообщаем в JS, там откроется обычная ручная карточка.
+                        notifyBarcodeResult("", "unavailable");
+                    }
+                }
+            });
+        }
+
+        /* Есть ли на устройстве работающая камера — JS прячет кнопку сканера,
+           если сканировать физически нечем (планшеты без камеры, эмуляторы). */
+        @JavascriptInterface
+        public boolean hasCamera() {
+            try {
+                return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         /* Закрыть приложение, если пользователь не принял условия */
         @JavascriptInterface
         public void closeApp() {
@@ -787,6 +836,23 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             notifyVoiceResult(text);
             return;
         }
+        /* 0.9.2: результат сканера штрих-кода. IntentIntegrator сам распознаёт
+           свой requestCode; если это не его результат — parseActivityResult
+           вернёт null и мы пропускаем обработку дальше по цепочке. */
+        IntentResult scan = null;
+        try {
+            scan = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        } catch (Exception e) {
+        }
+        if (scan != null) {
+            String code = scan.getContents();
+            if (code == null || code.isEmpty()) {
+                notifyBarcodeResult("", "cancelled");   // пользователь нажал «назад»
+            } else {
+                notifyBarcodeResult(code, "");
+            }
+            return;
+        }
         if (requestCode == REQ_SAVE_BACKUP) {
             String json = pendingBackupJson;
             pendingBackupJson = null;
@@ -819,6 +885,24 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                     WebView wv = getBridge().getWebView();
                     if (wv == null) return;
                     String js = "window.onVoiceInputResult && window.onVoiceInputResult(" + JSONObject.quote(text) + ");";
+                    wv.evaluateJavascript(js, null);
+                } catch (Exception e) {
+                }
+            }
+        });
+    }
+
+    /* 0.9.2: код из сканера → JS. Пустой code + причина в error означают,
+       что сканирование не состоялось (отмена или сканер недоступен). */
+    private void notifyBarcodeResult(final String code, final String error) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                    if (wv == null) return;
+                    String js = "window.onBarcodeScanned && window.onBarcodeScanned("
+                        + JSONObject.quote(code) + "," + JSONObject.quote(error) + ");";
                     wv.evaluateJavascript(js, null);
                 } catch (Exception e) {
                 }

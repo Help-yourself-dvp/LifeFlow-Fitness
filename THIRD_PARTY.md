@@ -21,6 +21,13 @@
 | USDA FoodData Central / SR Legacy | Public domain | Упоминание в «О приложении» (хороший тон) |
 | Open Food Facts | ODbL 1.0 | Атрибуция ниже; аудит базы перед магазином — см. ROADMAP.md |
 
+Использование API (с 0.9.2, сканер штрих-кода): чтение не требует ключа, но
+Open Food Facts обязывает идентифицировать приложение, иначе клиент банится
+как бот. Заголовок `User-Agent` из `fetch` в WebView задать нельзя (forbidden
+header), поэтому применяются штатные параметры запроса `app_name`,
+`app_version`, `app_uuid` (случайный идентификатор, не привязан к устройству
+и профилю). Ответы кэшируются локально — этого требуют правила OFF.
+
 Атрибуция Open Food Facts (обязательная формулировка):
 
 > This record contains information from Open Food Facts (https://en.openfoodfacts.org), which is made available here under the Open Database License (https://opendatacommons.org/licenses/odbl/1-0).
@@ -37,6 +44,8 @@
 | Kotlin stdlib / kotlinx | 2.2.21 (транзитивно) | Apache 2.0 |
 | AndroidX библиотеки | по шаблону сборки | Apache 2.0 |
 | Android Gradle Plugin | 8.2.1 | Apache 2.0 |
+| ZXing Core (`com.google.zxing:core`) | 3.5.3 | Apache 2.0 |
+| zxing-android-embedded (`com.journeyapps`) | 4.3.0 | Apache 2.0 |
 
 Перед первой магазинной публикацией: сверить список версий с фактической
 сборкой и вынести тексты лицензий офлайн в экран «О приложении → Лицензии».

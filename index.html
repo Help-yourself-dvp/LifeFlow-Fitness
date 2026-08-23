@@ -1263,7 +1263,7 @@
           <div class="settings-label-row" style="margin-top:12px">
             <div>
               <p class="settings-label">🔍 Поиск по штрих-коду</p>
-              <p class="settings-hint">Ищет продукт в открытой базе Open Food Facts по штрих-коду с упаковки. В сеть уходит только сам код. Найденные значения всё равно предлагается сверить с упаковкой.</p>
+              <p class="settings-hint">Ищет продукт в открытой базе Open Food Facts по штрих-коду с упаковки (кнопка «Сканировать штрих-код» в «Мои продукты»). В сеть уходит только сам код — фотографии никуда не отправляются. Найденные значения всё равно предлагается сверить с упаковкой. Уже отсканированные продукты запоминаются и потом работают без интернета.</p>
             </div>
             <label class="switch" for="online-barcode-toggle">
               <input id="online-barcode-toggle" type="checkbox" role="switch">
@@ -1339,7 +1339,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.1 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.2 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1764,11 +1764,13 @@
       <div class="app-dialog-icon" aria-hidden="true">🏷️</div>
       <h2 id="custom-food-title">Мои продукты</h2>
       <p class="settings-hint">Точные значения с упаковки вашего бренда или рецепта. Свой продукт перекрывает усреднённый из общей базы — расчёт становится правдивее. Калорийность и БЖУ указываются на 100 г, как на этикетке.</p>
-      <!-- 0.3.28: строка штрих-кода скрыта — см. «Карта контуров» в PROJECT.md:
-           онлайн-функции только после полной офлайн-версии с локальным ИИ.
-           Код поиска (parseOffProduct/lookupOffByBarcode, флаг onlineFeatures.barcodeLookup)
-           оставлен как готовая основа будущего онлайн-контура. -->
+      <!-- 0.9.2: сканер штрих-кода камерой (ZXing, офлайн, без Google Play Services).
+           Ручного ввода кода нет намеренно: набирать 13 цифр дольше, чем сами
+           значения с этикетки. Кнопка скрыта по умолчанию и показывается из
+           syncBarcodeScanButton() только при наличии нативного моста и камеры,
+           поэтому в браузере и на устройстве без камеры её не видно вовсе. -->
       <div class="custom-food-form">
+        <button class="btn btn-secondary" id="custom-food-scan" type="button" hidden>📷 Сканировать штрих-код</button>
         <input class="dialog-text-input" id="custom-food-name" type="text" placeholder="Название (напр., «Творог 5%»)" maxlength="60">
         <div class="custom-food-grid">
           <label>ккал/100 г*<input class="dialog-text-input" id="custom-food-kcal" type="number" inputmode="decimal" min="1" max="900" placeholder="105"></label>
@@ -2328,8 +2330,9 @@
 
       <div class="terms-list license-tab-panel" id="license-panel-third-party" hidden>
         <p><b>Открытые компоненты и библиотеки:</b></p>
-        <p>• <b>SQLite (sql.js WASM + IndexedDB)</b> — MIT License / Public Domain.<br>• <b>Capacitor (Core, Android)</b> — MIT License. Copyright (c) 2017-present Drifty Co.<br>• <b>LiteRT-LM Android Runtime</b> — Apache License 2.0. Copyright (c) The Google AI Edge Authors.<br>• <b>USDA FoodData Central / SR Legacy</b> — Public Domain (U.S. Government Work).<br>• <b>Open Food Facts</b> — Open Database License (ODbL) 1.0 (openfoodfacts.org).<br>• <b>Шрифты Roboto / PT Serif / Comfortaa / Manrope / Russo One</b> — SIL Open Font License 1.1 / Apache 2.0.<br>• <b>Kotlin Standard Library & AndroidX</b> — Apache License 2.0.</p>
+        <p>• <b>SQLite (sql.js WASM + IndexedDB)</b> — MIT License / Public Domain.<br>• <b>Capacitor (Core, Android)</b> — MIT License. Copyright (c) 2017-present Drifty Co.<br>• <b>LiteRT-LM Android Runtime</b> — Apache License 2.0. Copyright (c) The Google AI Edge Authors.<br>• <b>USDA FoodData Central / SR Legacy</b> — Public Domain (U.S. Government Work).<br>• <b>Open Food Facts</b> — Open Database License (ODbL) 1.0 (openfoodfacts.org).<br>• <b>ZXing Core + zxing-android-embedded</b> (сканер штрих-кода) — Apache License 2.0. Copyright (c) ZXing Authors, Journey Mobile, Inc.<br>• <b>Шрифты Roboto / PT Serif / Comfortaa / Manrope / Russo One</b> — SIL Open Font License 1.1 / Apache 2.0.<br>• <b>Kotlin Standard Library & AndroidX</b> — Apache License 2.0.</p>
         <p class="settings-hint">Все компоненты используются в строгом соответствии с их открытыми лицензиями.</p>
+        <p class="settings-hint"><b>Данные о продуктах.</b> Сведения, полученные по штрих-коду, предоставлены проектом Open Food Facts (openfoodfacts.org) и распространяются на условиях Open Database License (ODbL) 1.0. Это народная база: значения вносят обычные люди, поэтому их следует сверять с упаковкой. Приложение только показывает данные и хранит их копию на вашем устройстве; изменённые или дополненные вами карточки продуктов остаются вашими и никуда не передаются.</p>
       </div>
 
       <div class="app-dialog-actions"><button class="btn btn-primary" id="license-dialog-ok" type="button">Понятно</button></div>
