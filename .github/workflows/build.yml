@@ -127,6 +127,18 @@ jobs:
           # Health Connect dependency — чтение шагов/сна из Zepp, Garmin, Samsung
           sed -i '/dependencies {/a\    implementation "androidx.health.connect:connect-client:1.1.0-alpha07"' android/app/build.gradle
           sed -i '/dependencies {/a\    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"' android/app/build.gradle
+          # BARCODE_PATCH (0.9.2): сканер штрих-кода ZXing (Apache-2.0).
+          # Выбран вместо ML Kit и BarcodeDetector сознательно: работает полностью
+          # офлайн и НЕ требует Google Play Services — на устройствах без GMS
+          # (Huawei и часть китайских брендов) решения Google просто не стартуют.
+          # minSdkVersion здесь 26 (>= 24), поэтому zxing:core 3.5.x подхватывается
+          # без десугаринга и без multiDex — дополнительная настройка не нужна.
+          # CAMERA и uses-feature camera.any (required=false) уже объявлены выше
+          # блоком CAMERA_CHOOSER_PATCH — второй раз добавлять не нужно.
+          # CaptureActivity объявлена в манифесте самой библиотеки и подмешивается
+          # при слиянии манифестов, отдельной регистрации не требуется.
+          sed -i '/dependencies {/a\    implementation "com.journeyapps:zxing-android-embedded:4.3.0"' android/app/build.gradle
+          sed -i '/dependencies {/a\    implementation "com.google.zxing:core:3.5.3"' android/app/build.gradle
                               # Kotlin plugin for HealthConnectHelper.kt
           python3 - <<'PYEOF2'
           from pathlib import Path
