@@ -2369,6 +2369,42 @@ for (const id of ids) {
   const okVerCurrent = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVerCurrent) failed++;
   console.log(`${okVerCurrent ? '✓' : '✗'} версия ${VERSION} синхронна в коде и «О приложении»`);
+
+  // 0.8.30 (P22): системный «назад» закрывает диалог его штатной close-функцией.
+  // Раньше обработчик ставил hidden = true в обход уборки, из-за чего онбординг
+  // и мастер настройки всплывали заново, а в памяти оставались данные.
+  const backFn = (appR.match(/function handleBackNavigation\(\)[\s\S]*?\n\}/) || [''])[0];
+  const okBackUsesRegistry = appR.includes('const DIALOG_BACK_CLOSERS = {')
+    && backFn.includes('DIALOG_BACK_CLOSERS[top.id]')
+    && backFn.includes('closer()');
+  if (!okBackUsesRegistry) failed++;
+  console.log(`${okBackUsesRegistry ? '✓' : '✗'} 0.8.30 «назад» закрывает диалоги штатными close-функциями`);
+
+  // Диалоги, которым уборка нужна обязательно: у них либо отметка «показан»
+  // (иначе всплывут снова), либо ссылка на данные в памяти, либо поля ввода.
+  const registry = (appR.match(/const DIALOG_BACK_CLOSERS = \{[\s\S]*?\n\};/) || [''])[0];
+  const mustClean = {
+    'onboarding-dialog': 'skipOnboarding',
+    'setup-wizard-dialog': 'closeSetupWizard',
+    'all-profiles-import-dialog': 'closeAllProfilesImportDialog',
+    'smart-entry-dialog': 'closeSmartEntry',
+    'strength-exercise-dialog': 'closeStrengthExercisePicker',
+    'course-dialog': 'closeCourseDialog',
+    'norms-dialog': 'closeNormsDialog',
+    'profile-rename-dialog': 'closeRenameProfileDialog',
+    'profile-delete-dialog': 'closeDeleteProfileDialog',
+    'activity-reminder-dialog': 'declineActivityReminderPrompt'
+  };
+  const missingClean = Object.keys(mustClean).filter((id) =>
+    !new RegExp(`'${id}':[^\\n]*${mustClean[id]}\\(\\)`).test(registry));
+  if (missingClean.length) failed++;
+  console.log(`${missingClean.length === 0 ? '✓' : '✗'} 0.8.30 диалоги с уборкой закрываются правильно${missingClean.length ? ' — нет: ' + missingClean.join(', ') : ''}`);
+
+  // Экран условий при первом запуске «назад» обходить по-прежнему нельзя.
+  const okTermsGuard = backFn.includes("top.id === 'terms-dialog'")
+    && backFn.indexOf("top.id === 'terms-dialog'") < backFn.indexOf('DIALOG_BACK_CLOSERS[top.id]');
+  if (!okTermsGuard) failed++;
+  console.log(`${okTermsGuard ? '✓' : '✗'} 0.8.30 экран условий не обходится кнопкой «назад»`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

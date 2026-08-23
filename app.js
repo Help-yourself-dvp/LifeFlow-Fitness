@@ -2779,7 +2779,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.29';
+const FITFLOW_VERSION = '0.8.30';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -12186,6 +12186,31 @@ function pushNavSentinel() {
   try { history.pushState({ fitflowBack: true }, ''); } catch (e) { /* вне браузера */ }
 }
 
+/* 0.8.30 (P22): системный «назад» должен закрывать диалог ТЕМ ЖЕ кодом, что и
+   его собственная кнопка закрытия. Раньше обработчик просто ставил hidden=true,
+   минуя close*-функции, и это давало три расходящихся поведения:
+   — онбординг и мастер быстрой настройки не отмечались пройденными, поэтому
+     всплывали снова (кнопка «Пропустить» их отмечает);
+   — оставались «висячие» ссылки на данные (pendingAllProfilesBackup — целая
+     резервная копия всех профилей в памяти, pendingProfileNorms, editingCourseId);
+   — в полях диалогов оставался старый текст (подбор упражнения, умный ввод).
+   Реестр ниже связывает id диалога с его штатным «закрывателем»; для диалогов
+   без особой уборки (просто текст + «Понятно») достаточно hidden = true. */
+const DIALOG_BACK_CLOSERS = {
+  'onboarding-dialog': () => skipOnboarding(),
+  'setup-wizard-dialog': () => closeSetupWizard(),
+  'all-profiles-import-dialog': () => closeAllProfilesImportDialog(),
+  'smart-entry-dialog': () => closeSmartEntry(),
+  'strength-exercise-dialog': () => closeStrengthExercisePicker(),
+  'course-dialog': () => closeCourseDialog(),
+  'combo-dialog': () => closeComboDialog(),
+  'norms-dialog': () => closeNormsDialog(),
+  'profiles-dialog': () => closeProfilesDialog(),
+  'profile-rename-dialog': () => closeRenameProfileDialog(),
+  'profile-delete-dialog': () => closeDeleteProfileDialog(),
+  'activity-reminder-dialog': () => declineActivityReminderPrompt()
+};
+
 /* Реакция на «назад». Возвращает true, если приложение остаётся открытым
    (тогда верхнюю запись истории нужно восстановить). */
 function handleBackNavigation() {
@@ -12199,6 +12224,12 @@ function handleBackNavigation() {
       toast('Чтобы продолжить, примите условия или нажмите «Не принимаю»');
       return true;
     }
+    const closer = DIALOG_BACK_CLOSERS[top.id];
+    if (closer) {
+      try { closer(); } catch (e) { console.warn('Не удалось закрыть диалог штатным способом:', top.id, e); }
+    }
+    // Страховка на оба случая: у диалога нет особой уборки либо она упала.
+    // «Назад» обязан закрыть окно при любом исходе.
     top.hidden = true;
     return true;
   }
