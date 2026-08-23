@@ -2012,8 +2012,10 @@ for (const id of ids) {
   if (!okNav) failed++;
   console.log(`${okNav ? '✓' : '✗'} 0.8.16 быстрый переход: чипы из видимых карточек, единый низ панели для порога и прокрутки`);
 
-  // Столбцы «Шаги» в статистике получили цвет (были прозрачными)
-  const okStepsBars = css.includes('.stats-steps .stats-bar { background: var(--grad-b); }');
+  // Столбцы «Шаги» в статистике получили цвет (были прозрачными).
+  // 0.8.25: одного фона мало — проверяем ещё геометрию (см. блок 0.8.25 ниже),
+  // потому что при схлопнутой колонке красить было нечего.
+  const okStepsBars = css.includes('.stats-steps .stats-bar:not(.is-empty) { background: var(--grad-b); }');
   if (!okStepsBars) failed++;
   console.log(`${okStepsBars ? '✓' : '✗'} 0.8.16 статистика: столбцы «Шаги» окрашены`);
 
@@ -2144,8 +2146,115 @@ for (const id of ids) {
   console.log(`${okVer0823 ? '✓' : '✗'} 0.8.23 версия в коде и «О приложении»`);
 }
 
-console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
-process.exit(failed === 0 ? 0 : 1);
+{
+  // ===================== 0.8.24 (локальный ИИ на устройстве + напоминание о самочувствии, P13/P14) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const plugin = fs.readFileSync('plugins/fitflow-local-ai/android/src/main/java/ru/fitflow/localai/FitFlowLocalAiPlugin.kt', 'utf8');
+
+  const okDownload = appR.includes('startModelDownload')
+    && appR.includes('modelDownloadStatus')
+    && appR.includes('cancelModelDownload')
+    && html.includes('ai-download-panel');
+  if (!okDownload) failed++;
+  console.log(`${okDownload ? '✓' : '✗'} 0.8.24 локальный ИИ: загрузка модели (старт/статус/отмена) + панель в UI`);
+
+  const okPluginKt = plugin.includes('fun startModelDownload')
+    && plugin.includes('fun modelDownloadStatus')
+    && plugin.includes('fun cancelModelDownload')
+    && plugin.includes('fun deviceInfo');
+  if (!okPluginKt) failed++;
+  console.log(`${okPluginKt ? '✓' : '✗'} 0.8.24 плагин Kotlin: методы загрузки модели и сведения об устройстве`);
+
+  const okMood = appR.includes('fitflow_day_mood')
+    && appR.includes('fitflow-day-mood')
+    && html.includes('day-mood-reminder-toggle');
+  if (!okMood) failed++;
+  console.log(`${okMood ? '✓' : '✗'} 0.8.24 напоминание о самочувствии: канал + источник + переключатель`);
+
+  const okVer0824 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0824) failed++;
+  console.log(`${okVer0824 ? '✓' : '✗'} 0.8.24 версия в коде и «О приложении»`);
+}
+
+{
+  // ===================== 0.8.25 (тренировки с часов, скрытые карточки, кнопка в уведомлении курса, столбцы шагов) =====================
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // 1. Тренировки с часов не теряются: дата по началу сессии + авто-импорт + отмена
+  const okWatchAuto = appR.includes('function watchWorkoutDateKey')
+    && appR.includes('function pickStaleWatchWorkouts')
+    && appR.includes('function autoImportStaleWatchWorkouts')
+    && appR.includes('function undoAutoWatchWorkout')
+    && appR.includes("note: 'с часов (авто)'")
+    && appR.includes('watchRecordId')
+    && appR.includes('data-watch-undo');
+  if (!okWatchAuto) failed++;
+  console.log(`${okWatchAuto ? '✓' : '✗'} 0.8.25 часы: дата по началу сессии, авто-добавление за прошлые дни, отмена`);
+
+  // Авто-импорт вызывается и после синка, и при возврате в приложение
+  const okWatchTriggers = (appR.match(/autoImportStaleWatchWorkouts\(\);/g) || []).length >= 2;
+  if (!okWatchTriggers) failed++;
+  console.log(`${okWatchTriggers ? '✓' : '✗'} 0.8.25 часы: авто-импорт вызывается после синхронизации и при возврате`);
+
+  // 2. Скрытая карточка исключается везде: единый хелпер + План дня + задания + статистика
+  const okTracker = appR.includes('const TRACKER_CARDS')
+    && appR.includes('function isTrackerEnabled')
+    && appR.includes("isTrackerEnabled('water')")
+    && appR.includes("isTrackerEnabled('food')")
+    && appR.includes('.filter((task) => isTrackerEnabled(task.id))')
+    && appR.includes('section.hidden = !isTrackerEnabled(cardId)');
+  if (!okTracker) failed++;
+  console.log(`${okTracker ? '✓' : '✗'} 0.8.25 скрытая карточка: единый хелпер для Плана дня, заданий и Статистики`);
+
+  // Секции статистики получили id, по которым их скрывают
+  const okStatsIds = html.includes('id="stats-water-section"')
+    && html.includes('id="stats-food-section"')
+    && html.includes('id="stats-steps-section"')
+    && html.includes('id="stats-weight-section"');
+  if (!okStatsIds) failed++;
+  console.log(`${okStatsIds ? '✓' : '✗'} 0.8.25 статистика: у секций вода/питание/шаги/вес есть id для скрытия`);
+
+  // Быстрая навигация по-прежнему строится из реально видимых карточек
+  const okQuickNav = appR.includes('function renderHomeQuickNav')
+    && appR.includes('!el.hidden')
+    && appR.includes('renderHomeQuickNav();');
+  if (!okQuickNav) failed++;
+  console.log(`${okQuickNav ? '✓' : '✗'} 0.8.25 быстрая навигация: чипы строятся из видимых карточек`);
+
+  /* 0.8.25 (регрессия 0.8.16): id элемента карточки — «food-card», а в HOME_CARDS
+     лежит «food». Сравнение el.id === h.id не совпадало никогда, и панель быстрого
+     перехода молча строилась пустой. Страхуемся: сопоставление должно идти по
+     шаблону `${h.id}-card`, а «голого» сравнения el.id с h.id быть не должно. */
+  const okQuickNavIds = appR.includes('`${h.id}-card` === el.id')
+    && !appR.includes('HOME_CARDS.some((h) => h.id === el.id)');
+  if (!okQuickNavIds) failed++;
+  console.log(`${okQuickNavIds ? '✓' : '✗'} 0.8.25 быстрая навигация: id карточек сопоставляются корректно (панель не пустая)`);
+
+  // 3. Кнопка «✓ Принял» в уведомлении курса (чистый JS, без правок workflow)
+  const okCourseAction = appR.includes('const COURSE_DOSE_ACTION_TYPE')
+    && appR.includes('const COURSE_DOSE_ACTION_ID')
+    && appR.includes("title: '✓ Принял'")
+    && appR.includes('actionTypeId: COURSE_DOSE_ACTION_TYPE')
+    && appR.includes('doseIndex: doseIdx')
+    && appR.includes('event.actionId === COURSE_DOSE_ACTION_ID')
+    && appR.includes('toggleCourseDose(courseId, doseIndex, dateKey)');
+  if (!okCourseAction) failed++;
+  console.log(`${okCourseAction ? '✓' : '✗'} 0.8.25 курс: кнопка «✓ Принял» в уведомлении отмечает конкретный приём`);
+
+  // 4. Столбцы графиков: определённая высота колонки + явная ширина + контур
+  const okBarsGeometry = css.includes('height: 100%;')
+    && /\.stats-bar \{[^}]*width: 100%/.test(css)
+    && /\.stats-bar \{[^}]*border: 1px solid/.test(css)
+    && css.includes('.stats-bar.is-empty')
+    && appR.includes("' is-empty'");
+  if (!okBarsGeometry) failed++;
+  console.log(`${okBarsGeometry ? '✓' : '✗'} 0.8.25 графики: колонка с определённой высотой, столбец с шириной и контуром`);
+
+  const okVer0825 = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
+  if (!okVer0825) failed++;
+  console.log(`${okVer0825 ? '✓' : '✗'} 0.8.25 версия в коде и «О приложении»`);
+}
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

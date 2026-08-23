@@ -2377,6 +2377,13 @@ html[data-theme="dark"] .segmented button.active {
    в фиксированной строке снизу. */
 .stats-bar-col {
   flex: 1 1 auto;
+  /* 0.8.25 (повторный разбор «столбики шагов без цвета»): процентная высота
+     ребёнка считается от РОДИТЕЛЯ С ОПРЕДЕЛЁННОЙ высотой. У flex-элемента без
+     явной height часть движков (в т.ч. Android WebView) резолвит height:N% в
+     auto — столбец схлопывался до min-height:2px и читался как «нет цвета».
+     Правка 0.8.16 красила фон, но красить было нечего: высота была 2 пикселя.
+     Явная height:100% делает высоту определённой, проценты снова работают. */
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -2384,16 +2391,40 @@ html[data-theme="dark"] .segmented button.active {
 }
 
 .stats-bar {
-  min-height: 2px;
+  /* Ширина задаётся явно: в flex-колонке auto-ширина зависит от содержимого,
+     а содержимого у столбца нет — пустой div мог остаться нулевой ширины. */
+  width: 100%;
+  align-self: stretch;
+  min-height: 3px;
   border-radius: 5px 5px 2px 2px;
+  /* Цвет через собственную переменную: одно правило вместо каскада по секциям,
+     контур делает столбец видимым на любом фоне и в любой теме. */
+  background: var(--stats-bar-color, var(--md-sys-color-primary));
+  border: 1px solid color-mix(in srgb, var(--stats-bar-color, var(--md-sys-color-primary)) 65%, transparent);
+  box-sizing: border-box;
   transition: height 0.3s ease;
 }
 
-.stats-water .stats-bar { background: var(--grad-a); }
-.stats-food .stats-bar { background: var(--calorie-accent); }
-.stats-activity .stats-bar { background: var(--md-sys-color-primary); }
-.stats-sleep .stats-bar { background: #5C6BC0; }
-.stats-steps .stats-bar { background: var(--grad-b); }
+/* День без записей — честный пустой контур, а не «столбик неизвестного цвета». */
+.stats-bar.is-empty {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--md-sys-color-outline-variant);
+}
+
+.stats-water { --stats-bar-color: var(--grad-a); }
+.stats-food { --stats-bar-color: var(--calorie-accent); }
+.stats-activity { --stats-bar-color: var(--md-sys-color-primary); }
+.stats-sleep { --stats-bar-color: #5C6BC0; }
+.stats-steps { --stats-bar-color: var(--grad-b); }
+
+/* Дублируем цвет прямым правилом: если движок не поддержит наследование
+   переменной с секции, столбцы всё равно останутся окрашенными. */
+.stats-water .stats-bar:not(.is-empty) { background: var(--grad-a); }
+.stats-food .stats-bar:not(.is-empty) { background: var(--calorie-accent); }
+.stats-activity .stats-bar:not(.is-empty) { background: var(--md-sys-color-primary); }
+.stats-sleep .stats-bar:not(.is-empty) { background: #5C6BC0; }
+.stats-steps .stats-bar:not(.is-empty) { background: var(--grad-b); }
 
 .stats-bar-label {
   flex: 0 0 auto;
@@ -2426,6 +2457,11 @@ html[data-theme="dark"] .segmented button.active {
   border-top: 1px solid var(--md-sys-color-outline-variant);
 }
 .watch-workout:first-child { border-top: none; }
+/* 0.8.25: строка добавленной автоматически тренировки — приглушённая,
+   чтобы визуально отличаться от сессий, которые ещё ждут решения. */
+.watch-workout-auto .watch-workout-info strong,
+.watch-workout-auto .watch-workout-emoji { opacity: 0.85; }
+.watch-workout-auto .watch-workout-info span { opacity: 0.66; }
 .watch-workout-row {
   display: flex;
   align-items: center;

@@ -2769,7 +2769,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.24';
+const FITFLOW_VERSION = '0.8.25';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -2842,6 +2842,25 @@ function syncHomeCardVisibility(id) {
   if (typeof document === 'undefined') return;
   const card = $(`#${id}-card`);
   if (card) card.hidden = !isHomeCardShown(id);
+}
+
+/* ------------------------------------------------------------
+   0.8.25 (замечание владельца: «скрыл Питание — с Главной ушло,
+   а в Плане дня осталось»): скрытая карточка = выключенная
+   СУЩНОСТЬ во всём приложении, а не только на Главной.
+   isTrackerEnabled — единый ответ на вопрос «ведём ли мы этот
+   показатель»: используется Планом дня, заданиями игрового
+   режима и разделами Статистики.
+   Важно: сюда попадают только карточки-показатели (вода,
+   питание, шаги, вес). «План дня» и «Самочувствие» — сами
+   элементы Главной, их видимость к сущностям не относится.
+------------------------------------------------------------ */
+const TRACKER_CARDS = ['water', 'food', 'steps', 'weight'];
+
+function isTrackerEnabled(id, layout) {
+  if (!TRACKER_CARDS.includes(id)) return true;
+  const l = layout || normalizeHomeLayoutValue(state.homeLayout);
+  return l.visible[id] !== false;
 }
 
 const PROFILES_KEY = 'fitflow:profiles';
@@ -4000,8 +4019,17 @@ async function scheduleCourseReminders({ requestPermission = true } = {}) {
             schedule: { at, allowWhileIdle: true },
             channelId: COURSE_REMINDER_CHANNEL,
             smallIcon: 'ic_stat_icon', iconColor: '#FF9E3D', autoCancel: true,
-            actionTypeId: NOTIF_SETTINGS_ACTION_TYPE,
-            extra: { source: 'fitflow-course-reminder', courseId: course.id, notifSettings: 'course' }
+            actionTypeId: COURSE_DOSE_ACTION_TYPE,
+            /* 0.8.25: в extra кладём КОНКРЕТНЫЙ приём и его дату — кнопка
+               «✓ Принял» отмечает именно его, даже если уведомление открыли
+               позже или их накопилось несколько. */
+            extra: {
+              source: 'fitflow-course-reminder',
+              courseId: course.id,
+              notifSettings: 'course',
+              doseIndex: doseIdx,
+              dateKey: date
+            }
           });
         }
       });
@@ -5238,6 +5266,9 @@ function renderDayPlan() {
     const foodOk = computeMealsEatenToday() >= 3 || (foodKcal >= state.food.goal && state.food.goal > 0);
     const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
       .filter((w) => w.date === todayKey()).length > 0;
+    // 0.8.25: скрытая карточка = выключенный показатель, строки в Плане дня нет
+    const showWaterRow = isTrackerEnabled('water');
+    const showFoodRow = isTrackerEnabled('food');
 
     const itemMark = (ok) => ok ? '<span class="checklist-icon done">✓</span>' : '<span class="checklist-icon pending">○</span>';
     const itemText = (ok) => ok ? 'checklist-item done' : 'checklist-item';
@@ -5279,8 +5310,8 @@ function renderDayPlan() {
 
     checklistItems = `<div class="checklist-items">
       ${sleepRow}
-      <span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>
-      <span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>
+      ${showWaterRow ? `<span class="${itemText(waterOk)}">${itemMark(waterOk)} Вода — ${waterText}</span>` : ''}
+      ${showFoodRow ? `<span class="${itemText(foodOk)}">${itemMark(foodOk)} Питание — ${foodText}</span>` : ''}
       <span class="${itemText(activityOk)}">${itemMark(activityOk)} Активность — ${activityText}</span>
     </div>`;
   }
@@ -5291,7 +5322,8 @@ function renderDayPlan() {
   if (showTasks) {
     const tasks = computeGameTasks();
     const doneCount = tasks.filter((t) => t.cur >= t.target).length;
-    headerNote = `<span class="game-tasks-note">Задания: ${doneCount} из ${tasks.length}</span>`;
+    if (!tasks.length) headerNote = ''; // 0.8.25: все показатели скрыты — заданий нет
+    if (tasks.length) headerNote = `<span class="game-tasks-note">Задания: ${doneCount} из ${tasks.length}</span>`;
     tasksHtml = tasks.map((t) => {
       const done = t.cur >= t.target;
       const pct = Math.min(100, Math.round((t.cur / Math.max(1, t.target)) * 100));
@@ -5305,7 +5337,7 @@ function renderDayPlan() {
       <span class="game-task-state">${done ? '✓' : pct + '%'}</span>
     </div>`;
     }).join('') + `
-    ${doneCount === tasks.length ? '<div class="game-win">🏆 Все задания дня выполнены — отличный день!</div>' : ''}
+    ${tasks.length && doneCount === tasks.length ? '<div class="game-win">🏆 Все задания дня выполнены — отличный день!</div>' : ''}
     <div class="game-tasks-footer">
       <span class="game-tasks-note">Отметки ставятся сами по вашим записям</span>
       <button class="btn btn-secondary" type="button" data-game-medals-open style="font-size:0.74rem;padding:6px 12px">🏅 Медали</button>
@@ -5319,9 +5351,14 @@ function renderDayPlan() {
     const foodKcalNow = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
     const actNow = (Array.isArray(state.workouts) ? state.workouts : [])
       .filter((w) => w.date === todayKey()).reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
+    // 0.8.25: в свёрнутой строке — только те показатели, что ведутся
+    const collapsedBits = [];
+    if (isTrackerEnabled('water')) collapsedBits.push(`💧 ${fmt(state.water.total)}/${fmt(state.water.goal)} мл`);
+    if (isTrackerEnabled('food')) collapsedBits.push(`🔥 ${fmt(foodKcalNow)}/${fmt(state.food.goal)} ккал`);
+    collapsedBits.push(`🏃 ${actNow} мин`);
     card.innerHTML = `<div class="card checklist-card" aria-label="План дня">
     <div class="checklist-header"><span>📋 План дня</span>${headerNote}<button class="day-plan-toggle" type="button" data-dayplan-toggle aria-label="Развернуть план дня" title="Развернуть">▸</button></div>
-    <p class="day-plan-collapsed-line">💧 ${fmt(state.water.total)}/${fmt(state.water.goal)} мл · 🔥 ${fmt(foodKcalNow)}/${fmt(state.food.goal)} ккал · 🏃 ${actNow} мин</p>
+    <p class="day-plan-collapsed-line">${collapsedBits.join(' · ')}</p>
   </div>`;
     return;
   }
@@ -5435,11 +5472,14 @@ function computeGameTasks() {
   const activityMinutes = (Array.isArray(state.workouts) ? state.workouts : [])
     .filter((w) => w.date === todayKey())
     .reduce((sum, w) => sum + (Number(w.durationMinutes) || 0), 0);
+  // 0.8.25: задания только по тем показателям, которые ведутся (скрытая
+  // карточка исключает и задание — иначе «выполнено 2 из 3» стало бы
+  // недостижимым по показателю, который владелец сознательно выключил).
   return [
     { id: 'water', emoji: '💧', icon: GAME_TASK_ICONS.water, title: 'Норма воды', cur: waterTotal, target: waterGoal, unit: 'мл' },
     { id: 'food', emoji: '🥑', icon: GAME_TASK_ICONS.food, title: 'Завтрак, обед и ужин', cur: mealsEaten, target: 3, unit: 'приём' },
     { id: 'activity', emoji: '🏃', icon: GAME_TASK_ICONS.activity, title: '30 минут активности', cur: activityMinutes, target: 30, unit: 'мин' }
-  ];
+  ].filter((task) => isTrackerEnabled(task.id));
 }
 
 function renderGameMode() { renderDayPlan(); }
@@ -6441,15 +6481,21 @@ function renderHomeQuickNav() {
   if (typeof document === 'undefined') return;
   const nav = $('#home-quicknav');
   if (!nav) return;
+  /* 0.8.25 (найдено node-прогоном DOM): id элемента — «food-card», а в HOME_CARDS
+     лежит «food». Сравнение el.id === h.id не совпадало НИКОГДА, поэтому панель
+     быстрого перехода с 0.8.16 молча строилась пустой (nav.hidden = true).
+     Сопоставляем по id карточки, а не по id элемента. */
   const cardsEl = $('#home-cards');
   const cards = cardsEl
-    ? Array.from(cardsEl.children).filter((el) => el && !el.hidden && HOME_CARDS.some((h) => h.id === el.id))
+    ? Array.from(cardsEl.children)
+        .filter((el) => el && !el.hidden)
+        .map((el) => ({ el, meta: HOME_CARDS.find((h) => `${h.id}-card` === el.id) }))
+        .filter((x) => !!x.meta)
     : [];
   let html = '';
-  cards.forEach((card) => {
-    const meta = HOME_CARDS.find((h) => h.id === card.id);
-    const label = QUICKNAV_LABELS[card.id] || (meta ? meta.label : '');
-    html += `<button type="button" class="quicknav-chip" data-jump="${card.id}" aria-label="Перейти к разделу «${escapeHtml(label)}»">${homeCardIcon(card.id)}${escapeHtml(label)}</button>`;
+  cards.forEach(({ el, meta }) => {
+    const label = QUICKNAV_LABELS[meta.id] || meta.label;
+    html += `<button type="button" class="quicknav-chip" data-jump="${el.id}" aria-label="Перейти к разделу «${escapeHtml(label)}»">${homeCardIcon(meta.id)}${escapeHtml(label)}</button>`;
   });
   if (nav.innerHTML !== html) nav.innerHTML = html;
   nav.hidden = html === '';
@@ -6734,7 +6780,8 @@ function normalizeWatchWorkouts(list) {
       minutes: Math.max(0, Math.min(1440, Math.round(Number(s.minutes) || 0))),
       date: typeof s.date === 'string' ? s.date : todayKey(),
       imported: s.imported === true,
-      ignored: s.ignored === true
+      ignored: s.ignored === true,
+      autoImported: s.autoImported === true // 0.8.25: добавлено само, можно отменить
     });
   }
   return out;
@@ -6765,6 +6812,21 @@ function requestWatchWorkoutsSync() {
   } catch (e) { }
 }
 
+/* 0.8.25: дата сессии часов — по времени НАЧАЛА тренировки, а не по дню
+   получения данных. Раньше сессия, пришедшая поздно вечером или доехавшая
+   с задержкой синхронизации, помечалась «сегодня» и в дневник попадала не
+   в тот день. */
+/* 0.8.25: сколько суток показывать кнопку «Отменить» у авто-добавленной тренировки. */
+const WATCH_AUTO_UNDO_DAYS = 3;
+
+function watchWorkoutDateKey(startMs, fallback) {
+  const ms = Number(startMs) || 0;
+  if (!ms) return fallback || todayKey();
+  const d = new Date(ms);
+  if (isNaN(d.getTime())) return fallback || todayKey();
+  return courseDateKey(d);
+}
+
 /* Нативный мост вернул JSON со списком сессий. Сливаем с известными (дедуп по recordId). */
 function onHealthWorkoutsReceived(json) {
   let list = [];
@@ -6781,14 +6843,15 @@ function onHealthWorkoutsReceived(json) {
     const minutes = Math.max(0, Math.round(Number(raw.minutes) || 0));
     if (minutes < 5) continue; // шум/нажатия — не тренировка
     if (byId.has(recId)) continue; // уже знаем (в т.ч. импортированные/игнорированные)
+    const start = Number(raw.start) || 0;
     existing.unshift({
       recordId: recId,
       type: String(raw.type || ''),
       title: String(raw.title || '').slice(0,120),
-      start: Number(raw.start) || 0,
+      start,
       end: Number(raw.end) || 0,
       minutes: Math.min(1440, minutes),
-      date: today,
+      date: watchWorkoutDateKey(start, today),
       imported: false,
       ignored: false
     });
@@ -6797,7 +6860,72 @@ function onHealthWorkoutsReceived(json) {
   if (!changed) return;
   state.healthSync.watchWorkouts = normalizeWatchWorkouts(existing);
   saveState();
+  autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   renderWatchWorkoutsSuggest();
+}
+
+/* ------------------------------------------------------------
+   0.8.25: авто-добавление «зависших» тренировок с часов.
+   Проблема владельца: сессия, которую не успел добавить кнопкой,
+   на следующий день пропадала из подсказки и оставалась только
+   в памяти — тренировку приходилось вносить руками.
+   Решение: сессии за ПРОШЛЫЕ дни (не сегодня), которые не
+   импортированы и не отклонены, добавляются в дневник сами,
+   с пометкой «с часов (авто)» и возможностью отменить.
+   Сегодняшние сессии по-прежнему ждут ручного решения — пока
+   день идёт, у владельца есть шанс поправить тип или пропустить.
+------------------------------------------------------------ */
+function isWatchWorkoutStale(session, today = todayKey()) {
+  if (!session || session.imported || session.ignored) return false;
+  const date = String(session.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  return date < today;
+}
+
+/* Чистая часть (тестируется node-прогоном): какие сессии пора добавить сами. */
+function pickStaleWatchWorkouts(list, today = todayKey()) {
+  return (Array.isArray(list) ? list : []).filter((s) => isWatchWorkoutStale(s, today));
+}
+
+function autoImportStaleWatchWorkouts() {
+  normalizeHealthSync();
+  const list = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
+  const today = todayKey();
+  const stale = pickStaleWatchWorkouts(list, today);
+  if (!stale.length) return 0;
+  let added = 0;
+  for (const s of stale) {
+    const type = mapWatchWorkoutType(s.type, s.title);
+    const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
+    const title = s.title || label.label;
+    state.workouts.unshift({
+      id: uid(),
+      date: s.date || today,
+      type,
+      title,
+      note: 'с часов (авто)',
+      intensity: 'medium',
+      durationMinutes: s.minutes,
+      createdAt: Date.now(),
+      watchRecordId: s.recordId // 0.8.25: связь с сессией — для отмены
+    });
+    s.imported = true;
+    s.autoImported = true;
+    added++;
+  }
+  state.healthSync.watchWorkouts = list;
+  saveState();
+  if (typeof document !== 'undefined') {
+    renderTraining();
+    updateNativeWidget();
+    renderWatchWorkoutsSuggest();
+    const first = stale[0];
+    const firstLabel = first ? (first.title || (ACTIVITY_TYPES[mapWatchWorkoutType(first.type, first.title)] || ACTIVITY_TYPES.other).label) : '';
+    toast(added === 1
+      ? `⌚ Добавлена тренировка с часов за ${fmtCourseDate(first.date)}: ${firstLabel}`
+      : `⌚ Добавлено тренировок с часов: ${added} (за прошлые дни)`);
+  }
+  return added;
 }
 
 /* Добавить сессию часов в дневник тренировок. */
@@ -6838,6 +6966,26 @@ function dismissWatchWorkout(recordId) {
   renderWatchWorkoutsSuggest();
 }
 
+/* 0.8.25: отменить авто-добавленную тренировку — убираем запись из дневника
+   и помечаем сессию отклонённой, чтобы она не вернулась при следующем синке. */
+function undoAutoWatchWorkout(recordId) {
+  normalizeHealthSync();
+  const list = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
+  const s = list.find((x) => x.recordId === recordId);
+  if (!s) return;
+  state.workouts = (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((w) => w.watchRecordId !== recordId);
+  s.imported = false;
+  s.autoImported = false;
+  s.ignored = true;
+  state.healthSync.watchWorkouts = list;
+  saveState();
+  renderTraining();
+  renderWatchWorkoutsSuggest();
+  updateNativeWidget();
+  toast('Тренировка с часов убрана из дневника');
+}
+
 /* Баннер «нашли тренировки с часов» в разделе Активность. */
 function renderWatchWorkoutsSuggest() {
   if (typeof document === 'undefined') return;
@@ -6845,9 +6993,16 @@ function renderWatchWorkoutsSuggest() {
   if (!box) return;
   normalizeHealthSync();
   const today = todayKey();
-  const pending = (state.healthSync.watchWorkouts || [])
-    .filter((s) => !s.imported && !s.ignored && s.date === today);
-  if (!pending.length) { box.hidden = true; box.innerHTML = ''; return; }
+  /* 0.8.25: сегодняшние сессии ждут решения владельца, а всё, что за прошлые
+     дни, уже добавлено автоматически — по нему показываем строку отмены
+     (сутки), чтобы «само добавилось» никогда не было сюрпризом. */
+  const all = state.healthSync.watchWorkouts || [];
+  const pending = all.filter((s) => !s.imported && !s.ignored && s.date === today);
+  /* Окно показа отмены — WATCH_AUTO_UNDO_DAYS суток: старые авто-записи уже
+     «прижились», незачем держать баннер вечно (он бы рос с каждой тренировкой). */
+  const undoFrom = courseDateKey(new Date(Date.now() - WATCH_AUTO_UNDO_DAYS * 86400000));
+  const autoAdded = all.filter((s) => s.autoImported && s.imported && !s.ignored && String(s.date || '') >= undoFrom);
+  if (!pending.length && !autoAdded.length) { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
   const rows = pending.map((s) => {
     const type = mapWatchWorkoutType(s.type, s.title);
@@ -6869,7 +7024,31 @@ function renderWatchWorkoutsSuggest() {
         </div>
       </div>`;
   }).join('');
-  box.innerHTML = '<p class="watch-workout-hint">⌚ Нашли тренировки с часов — добавить в дневник?</p>' + rows;
+  const autoRows = autoAdded.map((s) => {
+    const type = mapWatchWorkoutType(s.type, s.title);
+    const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
+    const title = s.title || label.label;
+    return `
+      <div class="watch-workout watch-workout-auto">
+        <div class="watch-workout-row">
+          <span class="watch-workout-emoji" aria-hidden="true">${label.emoji}</span>
+          <div class="watch-workout-info">
+            <strong>${escapeHtml(title)}</strong>
+            <span>${formatWorkoutDuration(s.minutes)} · ${fmtCourseDate(s.date)} · добавлено автоматически</span>
+          </div>
+        </div>
+        <div class="watch-workout-actions">
+          <button class="watch-btn watch-btn-ghost" type="button" data-watch-undo="${escapeHtml(s.recordId)}">Отменить</button>
+        </div>
+      </div>`;
+  }).join('');
+  const pendingBlock = rows
+    ? '<p class="watch-workout-hint">⌚ Нашли тренировки с часов — добавить в дневник?</p>' + rows
+    : '';
+  const autoBlock = autoRows
+    ? '<p class="watch-workout-hint">⌚ Тренировки с часов за прошлые дни добавлены сами — можно отменить</p>' + autoRows
+    : '';
+  box.innerHTML = pendingBlock + autoBlock;
 }
 
 /* 0.8.11: обратная заливка истории шагов (P28) — нативный мост вернул JSON
@@ -7363,6 +7542,7 @@ function refreshHealthDataOnResume() {
     }
   } catch (e) { pendingAutoHealthSync = false; }
   requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
+  autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   requestStepsHistorySync(); // 0.8.11: обратная заливка истории шагов (P28)
   requestBodyMetricsSync(); // 0.8.23: вес/рост с умных весов (P34)
 }
@@ -7728,7 +7908,7 @@ function renderStatsBars(container, days, valueKey, maxValue, period, formatFn) 
     return `<div class="stats-bar-wrap" title="${statsDateLabel(day.date, period)}: ${titleVal || '0'}">
       <div class="stats-bar-col">
         ${period === 'week' && value > 0 ? `<span class="stats-bar-value">${valText}</span>` : ''}
-        <div class="stats-bar" style="height:${height}%"></div>
+        <div class="stats-bar${value > 0 ? '' : ' is-empty'}" style="height:${height}%"></div>
       </div>
       <span class="stats-bar-label">${statsDateLabel(day.date, period)}</span>
     </div>`;
@@ -7739,6 +7919,13 @@ function renderStats() {
   if (typeof document === 'undefined') return;
   const days = getStatsDays();
   const period = activeStatsPeriod;
+  /* 0.8.25: скрытый показатель исключается и из Статистики — раздел не
+     показываем целиком, чтобы «выключено» значило одно и то же везде. */
+  const statsSectionVisibility = { water: 'water', food: 'food', steps: 'steps', weight: 'weight' };
+  Object.keys(statsSectionVisibility).forEach((cardId) => {
+    const section = $(`#stats-${statsSectionVisibility[cardId]}-section`);
+    if (section) section.hidden = !isTrackerEnabled(cardId);
+  });
   const waterTotal = days.reduce((sum, day) => sum + day.waterTotal, 0);
   const waterGoal = days.reduce((sum, day) => sum + day.waterGoal, 0);
   const foodTotal = days.reduce((sum, day) => sum + day.foodTotal, 0);
@@ -10066,6 +10253,11 @@ function closeMorningMessageDialog() {
    ============================================================ */
 const NOTIF_SETTINGS_ACTION_TYPE = 'fitflow-notif-settings';
 const NOTIF_SETTINGS_ACTION_ID = 'open-notif-settings';
+/* 0.8.25 (заказ владельца «как у воды — отметить прямо из уведомления»):
+   у напоминания о курсе свой тип действий — «✓ Принял» + «⚙️ Настроить».
+   Отметка ставится в фоне (foreground: false), приложение не открывается. */
+const COURSE_DOSE_ACTION_TYPE = 'fitflow-course-dose';
+const COURSE_DOSE_ACTION_ID = 'course-dose-taken';
 const NOTIF_SETTINGS_TARGETS = {
   water: { view: 'settings-notifications', anchor: 'water-reminders-toggle' },
   meals: { view: 'settings-notifications', anchor: 'meal-reminders-toggle' },
@@ -10081,10 +10273,20 @@ async function registerNotificationSettingsActions() {
   if (!localNotifications || typeof localNotifications.registerActionTypes !== 'function') return;
   try {
     await localNotifications.registerActionTypes({
-      types: [{
-        id: NOTIF_SETTINGS_ACTION_TYPE,
-        actions: [{ id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить уведомление', foreground: true }]
-      }]
+      types: [
+        {
+          id: NOTIF_SETTINGS_ACTION_TYPE,
+          actions: [{ id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить уведомление', foreground: true }]
+        },
+        {
+          // 0.8.25: курс — быстрая отметка приёма прямо из шторки
+          id: COURSE_DOSE_ACTION_TYPE,
+          actions: [
+            { id: COURSE_DOSE_ACTION_ID, title: '✓ Принял', foreground: false, destructive: false },
+            { id: NOTIF_SETTINGS_ACTION_ID, title: '⚙️ Настроить уведомление', foreground: true }
+          ]
+        }
+      ]
     });
   } catch (e) { console.warn('Действие «⚙️ Настроить» для уведомлений недоступно:', e); }
 }
@@ -10121,6 +10323,23 @@ function installActivityNotificationListener() {
       // 0.5.4: кнопка «⚙️ Настроить» — в свой раздел настроек, tap-ветки не трогаем
       if (event.actionId === NOTIF_SETTINGS_ACTION_ID) {
         if (extra.notifSettings) openNotificationSettings(extra.notifSettings);
+        return;
+      }
+      /* 0.8.25: «✓ Принял» — отмечаем приём курса, не открывая приложение.
+         Отмечаем ИМЕННО тот приём и ту дату, что записаны в уведомлении;
+         повторное нажатие по уже отмеченному ничего не ломает (проверяем
+         перед переключением, чтобы галочка не снялась). */
+      if (event.actionId === COURSE_DOSE_ACTION_ID) {
+        const courseId = extra.courseId;
+        const doseIndex = Number(extra.doseIndex);
+        const dateKey = extra.dateKey || todayKey();
+        const course = getCourse(courseId);
+        if (!course || !Number.isInteger(doseIndex)) return;
+        const already = (((course.checkLog || {})[dateKey]) || []).includes(doseIndex);
+        if (!already) toggleCourseDose(courseId, doseIndex, dateKey);
+        renderDayPlan();
+        await scheduleCourseReminders({ requestPermission: false }); // сегодняшний приём отмечен — не тревожим повторно
+        toast(`✓ Приём отмечен: ${course.name}`);
         return;
       }
       if (extra.source === 'fitflow-water-reminder') {
@@ -12747,7 +12966,10 @@ function init() {
     const addBtn = e.target.closest('[data-watch-import]');
     if (addBtn) return importWatchWorkout(addBtn.dataset.watchImport);
     const ignoreBtn = e.target.closest('[data-watch-ignore]');
-    if (ignoreBtn) dismissWatchWorkout(ignoreBtn.dataset.watchIgnore);
+    if (ignoreBtn) return dismissWatchWorkout(ignoreBtn.dataset.watchIgnore);
+    // 0.8.25: отмена авто-добавленной тренировки за прошлый день
+    const undoBtn = e.target.closest('[data-watch-undo]');
+    if (undoBtn) undoAutoWatchWorkout(undoBtn.dataset.watchUndo);
   });
   // 0.8.4: дневник силовых — клики (добавить упражнение/подход, удалить, сохранить)
   $('#strength-diary').addEventListener('click', (e) => {
