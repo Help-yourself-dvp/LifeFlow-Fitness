@@ -2669,6 +2669,45 @@ async function lookupOffByBarcode(code) {
    есть мост FitFlowExport.scanBarcode и есть камера.
    ============================================================ */
 
+/* ============================================================
+   0.9.3: открытие внешней ссылки в браузере телефона
+   Нужно для страницы ИИ-модели (Hugging Face): там требуется вход
+   в аккаунт и принятие лицензии Gemma — делать это внутри нашего
+   WebView неудобно и небезопасно. Отдаём ссылку системе.
+   Если моста нет (обычный браузер) — используем обычный переход,
+   а при полной неудаче копируем адрес в буфер, чтобы элемент
+   никогда не оказался мёртвой кнопкой.
+   ============================================================ */
+function openExternalLink(url) {
+  const link = String(url || '').trim();
+  if (!/^https?:\/\//i.test(link)) return false;
+  try {
+    const b = window.FitFlowExport;
+    if (b && typeof b.openExternalUrl === 'function') {
+      if (b.openExternalUrl(link)) return true;
+    }
+  } catch (e) { }
+  try {
+    // Обычный браузер (отладка сайта) — штатный переход в новой вкладке.
+    if (typeof window.open === 'function') {
+      const w = window.open(link, '_blank', 'noopener');
+      if (w) return true;
+    }
+  } catch (e) { }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link);
+      toast('Не удалось открыть браузер — ссылка скопирована: ' + link, 5000);
+      return true;
+    }
+  } catch (e) { }
+  toast('Откройте вручную: ' + link, 6000);
+  return false;
+}
+if (typeof window !== 'undefined') {
+  window.openExternalLink = openExternalLink;
+}
+
 function isBarcodeScannerAvailable() {
   try {
     const b = window.FitFlowExport;
@@ -2921,7 +2960,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.2';
+const FITFLOW_VERSION = '0.9.3';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -11524,6 +11563,10 @@ const HELP_TOPICS = {
     title: 'ИИ-помощник',
     text: '• Умный ввод:\nРаспознавание любых фраз («гречка 150г, 2 котлеты и чай») и автоматический расчёт КБЖУ.\n\n• Рецепты и советы:\nПодбор блюд из продуктов в наличии.\n\n• Офлайн-приватность:\nАнализ работает локально по встроенной базе из 960+ продуктов.'
   },
+  'ai-model-download': {
+    title: 'Как получить файл модели',
+    text: 'Модель — это отдельный файл (~0,5–1 ГБ), который вы скачиваете один раз. Внутрь приложения он не встроен: иначе установочный файл вырос бы до гигабайта, а платить за него пришлось бы всем, включая тех, кому локальный ИИ не нужен.\n\nПошагово:\n\n1. Нажмите «Открыть страницу модели» — откроется браузер телефона, сайт Hugging Face (это открытый каталог моделей).\n\n2. Заведите бесплатный аккаунт или войдите в существующий. Без входа файл скачать нельзя — так требует автор модели.\n\n3. На странице модели примите условия Gemma (кнопка согласия). Подтверждение приходит сразу.\n\n4. Откройте вкладку «Files and versions» и скачайте файл с расширением .litertlm. Для большинства телефонов подойдёт gemma3-1b-it-int4.litertlm (~0,5 ГБ) — он самый лёгкий и быстрый.\n\n5. Вернитесь в FitFlow и нажмите «Выбрать файл модели» — укажите скачанный файл в папке «Загрузки».\n\nВажно:\n• Файлы GGUF (для llama.cpp) не подойдут — нужен именно .litertlm.\n• Качайте по Wi-Fi: файл большой.\n• После выбора файла модель работает полностью офлайн, ничего никуда не отправляется.\n• Скачивание — это ваше личное использование модели, оно бесплатно и разрешено условиями Gemma.'
+  },
   'settings-online': {
     title: 'Онлайн-функции',
     text: '• Зачем это:\nFitFlow задуман офлайн-приложением. Вода, калории, тренировки и база 960+ продуктов работают без интернета — и так будет всегда.\n\n• Главный рубильник:\nПока он выключен, приложение не отправляет ни одного запроса в сеть, что бы ни было настроено в других разделах.\n\n• Отдельные функции:\nПосле включения рубильника вы сами решаете, что разрешить: облачную нейросеть (точнее распознаёт фото еды), поиск по штрих-коду или разовое скачивание модели.\n\n• Приватность:\nКлючи и данные хранятся на устройстве. В сеть уходит только то, что нужно включённой функции.'
@@ -13772,6 +13815,7 @@ function init() {
   ONLINE_FEATURE_TOGGLES.forEach((f) =>
     bindEvent(f.sel, 'change', (e) => updateOnlineFeature(f.id, e.target.checked)));
   $$('#ai-mode-choices button').forEach((btn) => btn.addEventListener('click', () => setAiMode(btn.dataset.aiMode)));
+  bindEvent('#ai-model-page-btn', 'click', openAiModelPage);
   bindEvent('#ai-select-btn', 'click', selectLocalModelFile);
   bindEvent('#ai-download-btn', 'click', downloadAiModelAutomatically);
   bindEvent('#ai-download-start', 'click', startAiModelDownload);
@@ -14167,6 +14211,19 @@ function setCloudProvider(provider) {
    при живом нативном модуле системный диалог копирует .litertlm в приватную
    папку приложения и модель РЕАЛЬНО поднимается; без модуля — честный тост,
    притворяться нечем (принцип «нет кнопок-призраков»). */
+/* Страница модели на Hugging Face (0.9.3).
+   Зашитой ссылки НА ФАЙЛ здесь нет и не будет: прямые адреса выдаются
+   после входа в аккаунт и живут недолго, а публиковать чужой файл мы
+   не вправе. Ведём именно на страницу репозитория litert-community —
+   пользователь сам принимает условия Gemma и качает файл.
+   Лицензионно чисто: мы даём ссылку на официальную страницу автора,
+   веса модели не распространяем и логотипы Google не используем. */
+const AI_MODEL_PAGE_URL = 'https://huggingface.co/litert-community/Gemma3-1B-IT';
+
+function openAiModelPage() {
+  openExternalLink(AI_MODEL_PAGE_URL);
+}
+
 function selectLocalModelFile() {
   const plugin = getLocalAiPlugin();
   const statusEl = $('#ai-model-status');

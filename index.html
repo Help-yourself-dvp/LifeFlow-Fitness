@@ -1172,6 +1172,13 @@
           <div id="ai-litert-box" class="ai-model-box" hidden>
             <p class="settings-hint" id="ai-model-status">○ Модель не выбрана: укажите файл Gemma (.litertlm) с телефона или скачайте автоматически.</p>
             <p class="settings-hint ai-device-hint" id="ai-device-hint" hidden></p>
+            <p class="settings-hint" style="margin-top:8px">
+              Модель скачивается один раз с сайта Hugging Face: нужен бесплатный аккаунт и согласие с условиями Gemma.
+              <span class="help-dot" role="button" tabindex="0" data-help="ai-model-download" aria-label="Справка: как получить файл модели" title="Пошаговая инструкция">?</span>
+            </p>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="ai-model-page-btn" type="button">🔗 Открыть страницу модели</button>
+            </div>
             <div class="settings-row" style="margin-top:8px">
               <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать файл модели (.litertlm)</button>
               <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
@@ -1182,7 +1189,7 @@
                 <label for="ai-download-url">Прямая ссылка на файл .litertlm</label>
                 <input id="ai-download-url" class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="https://…/gemma.litertlm?download=true">
               </div>
-              <p class="settings-hint" id="ai-download-hint">💡 Где взять ссылку: откройте страницу модели в репозиториях litert-community/*-litert-lm на Hugging Face, примите условия Gemma и скопируйте прямую ссылку на файл .litertlm (кнопка «Download», затем «Copy link»). GGUF (llama.cpp) не подходит. Для слабых телефонов берите модель поменьше — Gemma 3 1B (~0,7 ГБ).</p>
+              <p class="settings-hint" id="ai-download-hint">💡 Где взять ссылку: нажмите «Открыть страницу модели» выше, войдите в аккаунт Hugging Face и примите условия Gemma, затем во вкладке «Files and versions» скопируйте прямую ссылку на файл .litertlm (долгое нажатие на значок скачивания → «Копировать ссылку»). Ссылка действует ограниченное время — вставляйте её сразу. GGUF (llama.cpp) не подходит. Для слабых телефонов берите модель поменьше — Gemma 3 1B (~0,5 ГБ).</p>
               <div class="settings-row">
                 <button class="btn btn-primary" id="ai-download-start" type="button">Начать скачивание</button>
                 <button class="btn btn-secondary" id="ai-download-cancel" type="button" hidden>Остановить</button>
@@ -1339,7 +1346,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.2 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.3 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -2332,6 +2339,7 @@
         <p><b>Открытые компоненты и библиотеки:</b></p>
         <p>• <b>SQLite (sql.js WASM + IndexedDB)</b> — MIT License / Public Domain.<br>• <b>Capacitor (Core, Android)</b> — MIT License. Copyright (c) 2017-present Drifty Co.<br>• <b>LiteRT-LM Android Runtime</b> — Apache License 2.0. Copyright (c) The Google AI Edge Authors.<br>• <b>USDA FoodData Central / SR Legacy</b> — Public Domain (U.S. Government Work).<br>• <b>Open Food Facts</b> — Open Database License (ODbL) 1.0 (openfoodfacts.org).<br>• <b>ZXing Core + zxing-android-embedded</b> (сканер штрих-кода) — Apache License 2.0. Copyright (c) ZXing Authors, Journey Mobile, Inc.<br>• <b>Шрифты Roboto / PT Serif / Comfortaa / Manrope / Russo One</b> — SIL Open Font License 1.1 / Apache 2.0.<br>• <b>Kotlin Standard Library & AndroidX</b> — Apache License 2.0.</p>
         <p class="settings-hint">Все компоненты используются в строгом соответствии с их открытыми лицензиями.</p>
+        <p class="settings-hint"><b>Модель локального ИИ.</b> Файл модели в приложение не входит и нами не распространяется: вы скачиваете его самостоятельно со страницы автора (репозитории litert-community на Hugging Face). Модели семейства Gemma предоставляются Google на условиях Gemma Terms of Use и Prohibited Use Policy — их нужно принять на сайте перед скачиванием; личное использование бесплатно. Результаты работы модели принадлежат вам: Google на них не претендует. Названия Gemma, Google и Hugging Face упомянуты исключительно для указания источника; товарные знаки принадлежат их правообладателям. Ответы модели носят справочный характер и не являются медицинской рекомендацией.</p>
         <p class="settings-hint"><b>Данные о продуктах.</b> Сведения, полученные по штрих-коду, предоставлены проектом Open Food Facts (openfoodfacts.org) и распространяются на условиях Open Database License (ODbL) 1.0. Это народная база: значения вносят обычные люди, поэтому их следует сверять с упаковкой. Приложение только показывает данные и хранит их копию на вашем устройстве; изменённые или дополненные вами карточки продуктов остаются вашими и никуда не передаются.</p>
       </div>
 

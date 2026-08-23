@@ -720,6 +720,40 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             });
         }
 
+        /* Открыть внешнюю ссылку в браузере телефона (0.9.3).
+           Нужно для страницы ИИ-модели на Hugging Face: там требуется вход в
+           аккаунт и принятие лицензии Gemma, а внутри WebView приложения это
+           неудобно и небезопасно (чужая форма логина в нашем окне). Поэтому
+           отдаём ссылку системе — пользователь работает в своём браузере,
+           где у него уже может быть сессия HF.
+           Открываем только http/https: никаких intent://, file:// и прочих
+           схем, которыми можно было бы дотянуться до внутренностей телефона.
+           Возвращаем boolean, чтобы JS знал, открылось ли, и при неудаче
+           показал ссылку текстом для ручного копирования. */
+        @JavascriptInterface
+        public boolean openExternalUrl(final String url) {
+            try {
+                if (url == null) return false;
+                String trimmed = url.trim();
+                if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return false;
+                final Uri uri = Uri.parse(trimmed);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        } catch (Exception e) {
+                        }
+                    }
+                });
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         /* Есть ли на устройстве работающая камера — JS прячет кнопку сканера,
            если сканировать физически нечем (планшеты без камеры, эмуляторы). */
         @JavascriptInterface

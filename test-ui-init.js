@@ -2496,5 +2496,59 @@ for (const id of ids) {
   console.log(`${okLegal ? '✓' : '✗'} 0.9.2 ZXing и ODbL указаны в разделе лицензии`);
 }
 
+/* ============================================================
+   0.9.3 (п.3 владельца): ссылка на страницу ИИ-модели
+   и пошаговая инструкция в подсказке «?».
+   ============================================================ */
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const nativeR = fs.readFileSync('android-native/MainActivity.java', 'utf8');
+
+  /* Ссылка ведёт на страницу репозитория модели, а не на файл: прямые
+     ссылки живут недолго и требуют авторизации. */
+  const okUrl = /const AI_MODEL_PAGE_URL = 'https:\/\/huggingface\.co\/litert-community\//.test(appR)
+    && !/AI_MODEL_PAGE_URL = '[^']*\.litertlm/.test(appR);
+  if (!okUrl) failed++;
+  console.log(`${okUrl ? '✓' : '✗'} 0.9.3 ссылка ведёт на страницу модели, а не на прямой файл`);
+
+  /* Кнопка не должна быть заглушкой: обработчик привязан, а открытие
+     идёт через мост с запасными вариантами (браузер, буфер обмена). */
+  const okWired = /bindEvent\('#ai-model-page-btn', 'click', openAiModelPage\)/.test(appR)
+    && /id="ai-model-page-btn"/.test(html);
+  if (!okWired) failed++;
+  console.log(`${okWired ? '✓' : '✗'} 0.9.3 кнопка страницы модели привязана к обработчику`);
+
+  const openFn = (appR.match(/function openExternalLink\([\s\S]*?\n\}\n/) || [''])[0];
+  const okFallback = openFn.includes('openExternalUrl') && openFn.includes('window.open')
+    && openFn.includes('clipboard.writeText(link)');
+  if (!okFallback) failed++;
+  console.log(`${okFallback ? '✓' : '✗'} 0.9.3 у открытия ссылки есть запасные варианты`);
+
+  /* Натив открывает только http/https — иначе через мост можно было бы
+     дотянуться до чужих схем (intent://, file://). */
+  const okSafe = /public boolean openExternalUrl/.test(nativeR)
+    && /startsWith\("https:\/\/"\)/.test(nativeR)
+    && /FLAG_ACTIVITY_NEW_TASK/.test(nativeR);
+  if (!okSafe) failed++;
+  console.log(`${okSafe ? '✓' : '✗'} 0.9.3 натив открывает только http/https-ссылки`);
+
+  /* Пошаговая инструкция в «?»: аккаунт, лицензия Gemma, расширение файла
+     и предупреждение про GGUF — без них владелец застрянет на сайте. */
+  const helpTopic = (appR.match(/'ai-model-download': \{[\s\S]*?\n  \},/) || [''])[0];
+  const okHelp = /data-help="ai-model-download"/.test(html)
+    && /аккаунт/i.test(helpTopic) && /условия Gemma/.test(helpTopic)
+    && /\.litertlm/.test(helpTopic) && /GGUF/.test(helpTopic);
+  if (!okHelp) failed++;
+  console.log(`${okHelp ? '✓' : '✗'} 0.9.3 подсказка «?» содержит пошаговую инструкцию`);
+
+  /* Условия Gemma — в существующем разделе лицензии (владелец просил
+     не заводить под юридические тексты новых мест). */
+  const tp = (html.match(/id="license-panel-third-party"[\s\S]*?<\/div>/) || [''])[0];
+  const okGemma = /Gemma Terms of Use/.test(tp) && /Prohibited Use Policy/.test(tp)
+    && /не являются медицинской рекомендацией/.test(tp);
+  if (!okGemma) failed++;
+  console.log(`${okGemma ? '✓' : '✗'} 0.9.3 условия Gemma описаны в разделе лицензии`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
