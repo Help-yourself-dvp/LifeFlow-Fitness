@@ -389,42 +389,47 @@ jobs:
               '</shape>\n', encoding='utf-8')
           layout = res / 'layout'
           layout.mkdir(parents=True, exist_ok=True)
+
+          # 0.9.4 (пункт 4 владельца — конфигуратор виджета): строки виджета
+          # больше не зашиты в layout. Генерируем пул универсальных слотов
+          # (текст + необязательная полоса прогресса); FitFlowWidgetProvider
+          # показывает ровно те слоты, которые пользователь выбрал в настройках,
+          # и прячет остальные. Компактная раскладка — 5 слотов, большая — 10.
+          def widget_slot(i, text_size, bar_height, gap):
+              return (
+                  '    <LinearLayout android:id="@+id/widget_slot_%d" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="%ddp" android:orientation="vertical" android:visibility="gone">\n'
+                  '        <TextView android:id="@+id/widget_slot_%d_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="" android:textColor="#002021" android:textSize="%dsp" android:ellipsize="end" android:singleLine="true" android:fontFamily="sans-serif-medium" />\n'
+                  '        <ProgressBar android:id="@+id/widget_slot_%d_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="%ddp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" android:visibility="gone" />\n'
+                  # Вторая полоса — янтарная (питание). Менять цвет полосы из
+                  # RemoteViews на minSdk 26 нельзя, поэтому держим два готовых
+                  # бара и показываем нужный: без reflection и без риска падения.
+                  '        <ProgressBar android:id="@+id/widget_slot_%d_bar2" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="%ddp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" android:visibility="gone" />\n'
+                  '    </LinearLayout>\n'
+              ) % (i, gap, i, text_size, i, bar_height, i, bar_height)
+
+          def widget_layout_xml(slots, padding, title_size, profile_size, text_size, bar_height, gap, btn_height, btn_text):
+              parts = [
+                  '<?xml version="1.0" encoding="utf-8"?>\n',
+                  '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n',
+                  '    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"\n',
+                  '    android:background="@drawable/fitflow_widget_background" android:orientation="vertical" android:padding="%ddp">\n' % padding,
+                  '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="%dsp" android:fontFamily="sans-serif-medium" />\n' % title_size,
+                  '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="%dsp" android:ellipsize="end" android:singleLine="true" />\n' % profile_size,
+              ]
+              for i in range(1, slots + 1):
+                  parts.append(widget_slot(i, text_size, bar_height, gap if i > 1 else gap + 3))
+              parts.append('    <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Откройте настройки приложения и выберите, что показывать" android:textColor="#4A6363" android:textSize="11sp" android:visibility="gone" />\n')
+              parts.append('    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n')
+              parts.append('        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="%dsp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
+              parts.append('        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="%dsp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
+              parts.append('    </LinearLayout>\n')
+              parts.append('</LinearLayout>\n')
+              return ''.join(parts)
+
           (layout / 'fitflow_widget.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
-              '    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"\n'
-              '    android:background="@drawable/fitflow_widget_background" android:orientation="vertical" android:padding="14dp">\n'
-              '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="11sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="10sp" android:ellipsize="end" android:singleLine="true" />\n'
-              '    <TextView android:id="@+id/widget_water" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Вода: 0 / 2500 мл" android:textColor="#002021" android:textSize="15sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
-              '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#003738" android:textSize="13sp" />\n'
-              '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
-              '    <TextView android:id="@+id/widget_steps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Шаги: 0" android:textColor="#00696B" android:textSize="11sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n'
-              '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="11sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
-              '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="11sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
-              '    </LinearLayout>\n'
-              '</LinearLayout>\n', encoding='utf-8')
+              widget_layout_xml(5, 14, 11, 10, 13, 4, 4, 34, 11), encoding='utf-8')
           (layout / 'fitflow_widget_large.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
-              '    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent"\n'
-              '    android:background="@drawable/fitflow_widget_background" android:orientation="vertical" android:padding="16dp">\n'
-              '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="12sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="11sp" android:ellipsize="end" android:singleLine="true" />\n'
-              '    <TextView android:id="@+id/widget_water" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="Вода: 0 / 2500 мл" android:textColor="#002021" android:textSize="16sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <ProgressBar android:id="@+id/widget_water_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#00696B" />\n'
-              '    <TextView android:id="@+id/widget_water_pct" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0% цели" android:textColor="#00696B" android:textSize="12sp" />\n'
-              '    <TextView android:id="@+id/widget_food" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Питание: 0 / 2000 ккал" android:textColor="#002021" android:textSize="16sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <ProgressBar android:id="@+id/widget_food_bar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:layout_marginTop="3dp" android:max="100" android:progress="0" android:progressTint="#FF9E3D" />\n'
-              '    <TextView android:id="@+id/widget_food_pct" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0% цели" android:textColor="#8F4C00" android:textSize="12sp" />\n'
-              '    <TextView android:id="@+id/widget_activity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Активность: 0 мин" android:textColor="#003738" android:textSize="14sp" android:fontFamily="sans-serif-medium" />\n'
-              '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">\n'
-              '        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:text="+250 мл" android:textSize="12sp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
-              '        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginStart="5dp" android:text="📝 Записать" android:textSize="12sp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
-              '    </LinearLayout>\n'
-              '</LinearLayout>\n', encoding='utf-8')
+              widget_layout_xml(10, 16, 12, 11, 15, 5, 5, 38, 12), encoding='utf-8')
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
           (xml / 'fitflow_widget_info.xml').write_text(
