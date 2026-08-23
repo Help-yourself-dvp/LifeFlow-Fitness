@@ -262,9 +262,44 @@ for (const id of ids) {
   // код-основа сохранён, флаг всегда ВЫКЛ по умолчанию
   const okOff = !html.includes('custom-food-barcode')
     && app4.includes('function parseOffProduct(json)') && app4.includes('async function lookupOffByBarcode(code)')
-    && app4.includes('onlineFeatures: { barcodeLookup: false }');
+    && app4.includes('master: false, cloudAi: false, barcodeLookup: false, modelDownload: false }')
+    // 0.8.28: флаг мало объявить — он обязан проверяться перед сетевым вызовом.
+    && app4.includes("if (!isOnlineAllowed('barcodeLookup')) return { ok: false, error: 'offline' };");
   if (!okOff) failed++;
   console.log(`${okOff ? '✓' : '✗'} карта контуров: OFF-строка скрыта, код-основа и выключенный флаг на месте`);
+
+  // 0.8.28 «Онлайн-функции»: рубильник обязан перекрывать ВСЕ выходы в сеть.
+  // Проверяем не наличие переключателя в UI, а то, что каждый сетевой путь
+  // спрашивает разрешение — иначе рубильник был бы декорацией.
+  const okGateFn = app4.includes('function isOnlineAllowed(feature)')
+    && app4.includes('if (!o.master) return false;');
+  if (!okGateFn) failed++;
+  console.log(`${okGateFn ? '✓' : '✗'} онлайн: единый шлюз isOnlineAllowed с приоритетом главного рубильника`);
+
+  // Все три сетевых выхода: облачный ИИ, штрих-код, скачивание модели.
+  // Плюс checkCloudConnection — он ходит в сеть мимо isCloudAiReady().
+  const okGuards = app4.includes("if (!isOnlineAllowed('cloudAi')) return false;")
+    && app4.includes("if (!isOnlineAllowed('barcodeLookup'))")
+    && app4.includes("if (!isOnlineAllowed('modelDownload'))")
+    && app4.includes("if (!isOnlineAllowed('cloudAi')) {");
+  if (!okGuards) failed++;
+  console.log(`${okGuards ? '✓' : '✗'} онлайн: закрыты все 4 пути в сеть (облако, штрих-код, модель, проверка связи)`);
+
+  // Офлайн по умолчанию: миграция старых сохранений не должна молча включать сеть.
+  const okDefaultOff = app4.includes('master: src.master === true')
+    && app4.includes('cloudAi: src.cloudAi === true')
+    && app4.includes('normalizeOnlineFeatures();');
+  if (!okDefaultOff) failed++;
+  console.log(`${okDefaultOff ? '✓' : '✗'} онлайн: офлайн по умолчанию, старые сохранения не включают сеть`);
+
+  // Раздел настроек подключён как подэкран и не «висит» без навигации.
+  const okOnlineView = html.includes('id="settings-online-view"')
+    && html.includes('data-settings-view="settings-online"')
+    && html.includes('id="online-master-toggle"')
+    && app4.includes("'settings-online'")
+    && app4.includes("if (view === 'settings-online') renderOnlineFeatures();");
+  if (!okOnlineView) failed++;
+  console.log(`${okOnlineView ? '✓' : '✗'} онлайн: раздел настроек подключён (меню, подэкран, кнопка «назад»)`);
   const okIcons = html.includes('>ℹ️ Источники пищевых данных</button>') && html.includes('>🧮 Методика расчётов</button>')
     && html.includes('>🛡️ Условия использования</button>') && html.includes('>💧 Как пользоваться приложением</button>');
   if (!okIcons) failed++;

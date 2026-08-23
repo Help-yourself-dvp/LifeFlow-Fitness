@@ -2574,6 +2574,10 @@ function parseOffProduct(json) {
 }
 
 async function lookupOffByBarcode(code) {
+  // 0.8.28: до этой версии флаг onlineFeatures.barcodeLookup существовал, но не
+  // проверялся — запрос в Open Food Facts ушёл бы при первом же вызове. Теперь
+  // рубильник обязателен; строка штрих-кода в UI пока скрыта, но код защищён.
+  if (!isOnlineAllowed('barcodeLookup')) return { ok: false, error: 'offline' };
   const clean = String(code || '').replace(/[^0-9]/g, '');
   if (clean.length < 8 || clean.length > 14) return { ok: false, error: 'digits' };
   const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -2603,9 +2607,11 @@ async function findCustomFoodByBarcode() {
   if (!result.ok) {
     toast(result.error === 'digits'
       ? 'Введите 8–14 цифр штрих-кода с упаковки'
-      : result.error === 'not-found'
-        ? 'Не найден в Open Food Facts — внесите значения вручную'
-        : 'Нет соединения — онлайн-поиск недоступен');
+      : result.error === 'offline'
+        ? 'Поиск по штрих-коду выключен: Настройки → Онлайн-функции'
+        : result.error === 'not-found'
+          ? 'Не найден в Open Food Facts — внесите значения вручную'
+          : 'Нет соединения — онлайн-поиск недоступен');
     return;
   }
   const pr = result.product;
@@ -2758,7 +2764,11 @@ const DEFAULTS = {
   // с локальным ИИ (этап 0.4.x), онлайн — потом и только точечно. Этот объект —
   // основа будущего онлайн-контура: всегда ВЫКЛ по умолчанию, включает ТОЛЬКО
   // пользователь явным действием, каждый запрос в сеть помечен «онлайн».
-  onlineFeatures: { barcodeLookup: false },
+  // 0.8.28 (решение владельца): единый рубильник онлайн-функций. `master: false` —
+  // приложение полностью офлайн, ни один запрос в сеть невозможен, что бы ни было
+  // настроено в остальных разделах. Включается ТОЛЬКО пользователем вручную; после
+  // включения каждая онлайн-функция ещё и разрешается отдельным флажком.
+  onlineFeatures: { master: false, cloudAi: false, barcodeLookup: false, modelDownload: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
   healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [], stepsHistory: [] },
@@ -2769,7 +2779,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.8.27';
+const FITFLOW_VERSION = '0.8.28';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3274,6 +3284,28 @@ function normalizeDayMood() {
 
 function getTodayMood() {
   return (state.dayMood.date === todayKey() && state.dayMood.rating) ? state.dayMood.rating : null;
+}
+
+/* 0.8.28: рубильник онлайн-функций. Правило миграции — «офлайн по умолчанию»:
+   в старых сохранениях объекта нет, и все флаги честно поднимаются как false.
+   Молчаливого включения сети при обновлении приложения быть не должно. */
+function normalizeOnlineFeatures() {
+  const src = state.onlineFeatures || {};
+  state.onlineFeatures = {
+    master: src.master === true,
+    cloudAi: src.cloudAi === true,
+    barcodeLookup: src.barcodeLookup === true,
+    modelDownload: src.modelDownload === true
+  };
+}
+
+/* Единственный шлюз: разрешён ли выход в сеть для функции `feature`.
+   Любой сетевой вызов в приложении обязан спросить сначала здесь. Общий
+   рубильник имеет приоритет над частным флагом — выключил его и всё офлайн. */
+function isOnlineAllowed(feature) {
+  const o = state.onlineFeatures || {};
+  if (!o.master) return false;
+  return o[feature] === true;
 }
 
 function normalizeAiSettings() {
@@ -4510,6 +4542,7 @@ function loadState() {
   normalizeGameMode();
   normalizeSleepCheckin();
   normalizeDayMood();
+  normalizeOnlineFeatures();
   normalizeAiSettings();
   normalizeHealthSync();
   if (previousWaterDate !== today || previousFoodDate !== today) {
@@ -11294,7 +11327,7 @@ function bindDialogScrollLock() {
 
 /* Подэкраны настроек (схема В): на первом уровне — компактное меню строк,
    каждый раздел — отдельный экран с «← Назад к настройкам». */
-const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-data', 'settings-about', 'settings-courses'];
+const SETTINGS_SUBVIEWS = ['settings-general', 'settings-profile', 'settings-notifications', 'settings-ai', 'settings-online', 'settings-data', 'settings-about', 'settings-courses'];
 
 /* ============================================================
    ❔ Справка по разделам (замечание: «Чек-лист дня — вообще не
@@ -11322,6 +11355,10 @@ const HELP_TOPICS = {
   'settings-ai': {
     title: 'ИИ-помощник',
     text: '• Умный ввод:\nРаспознавание любых фраз («гречка 150г, 2 котлеты и чай») и автоматический расчёт КБЖУ.\n\n• Рецепты и советы:\nПодбор блюд из продуктов в наличии.\n\n• Офлайн-приватность:\nАнализ работает локально по встроенной базе из 960+ продуктов.'
+  },
+  'settings-online': {
+    title: 'Онлайн-функции',
+    text: '• Зачем это:\nFitFlow задуман офлайн-приложением. Вода, калории, тренировки и база 960+ продуктов работают без интернета — и так будет всегда.\n\n• Главный рубильник:\nПока он выключен, приложение не отправляет ни одного запроса в сеть, что бы ни было настроено в других разделах.\n\n• Отдельные функции:\nПосле включения рубильника вы сами решаете, что разрешить: облачную нейросеть (точнее распознаёт фото еды), поиск по штрих-коду или разовое скачивание модели.\n\n• Приватность:\nКлючи и данные хранятся на устройстве. В сеть уходит только то, что нужно включённой функции.'
   },
   'settings-data': {
     title: 'Данные и резервные копии',
@@ -11608,6 +11645,7 @@ function switchView(view) {
   if (isNotifications) refreshNotificationSetupState();
   if (isGameMedals) renderGameMedalsView();
   if (view === 'settings-ai') renderAiSettings();
+  if (view === 'settings-online') renderOnlineFeatures();
   if (view === 'settings-courses') renderCoursesSettings();
   if (isSettings || isSettingsSub) applySettingsAccordion();
   window.scrollTo(0, 0);
@@ -12170,7 +12208,7 @@ function handleBackNavigation() {
   const view = getActiveViewName();
   const backMap = {
     'settings-general': 'settings', 'settings-profile': 'settings', 'settings-notifications': 'settings',
-    'settings-ai': 'settings', 'settings-data': 'settings', 'settings-about': 'settings',
+    'settings-ai': 'settings', 'settings-online': 'settings', 'settings-data': 'settings', 'settings-about': 'settings',
     'settings-courses': 'settings',
     'notifications': 'settings',
     'water-details': 'stats', 'food-details': 'stats', 'weight-details': 'stats',
@@ -13523,6 +13561,10 @@ function init() {
 
   // Настройки ИИ
   bindEvent('#ai-toggle', 'change', (e) => updateAiEnabled(e.target.checked));
+  // 0.8.28: рубильник онлайн-функций.
+  bindEvent('#online-master-toggle', 'change', (e) => updateOnlineMaster(e.target.checked));
+  ONLINE_FEATURE_TOGGLES.forEach((f) =>
+    bindEvent(f.sel, 'change', (e) => updateOnlineFeature(f.id, e.target.checked)));
   $$('#ai-mode-choices button').forEach((btn) => btn.addEventListener('click', () => setAiMode(btn.dataset.aiMode)));
   bindEvent('#ai-select-btn', 'click', selectLocalModelFile);
   bindEvent('#ai-download-btn', 'click', downloadAiModelAutomatically);
@@ -13706,6 +13748,9 @@ function renderAiSettings() {
   });
   if (litertBox) litertBox.hidden = state.aiSettings.mode !== 'litert';
   if (cloudBox) cloudBox.hidden = state.aiSettings.mode !== 'cloud';
+  // 0.8.28: честное предупреждение — режим «Облако» выбран, но рубильник закрыт.
+  const cloudBlocked = $('#ai-cloud-blocked');
+  if (cloudBlocked) cloudBlocked.hidden = !(state.aiSettings.mode === 'cloud' && !isOnlineAllowed('cloudAi'));
 
   if (statusEl) {
     const plugin = getLocalAiPlugin();
@@ -13776,6 +13821,71 @@ function renderAiSettings() {
           ? '○ Укажите адрес сервера выше — без него облако выключено.'
           : '○ Ключ не задан — облако выключено, всё работает локально.'));
   }
+}
+
+/* ============================================================
+   🌐 Онлайн-функции (0.8.28)
+   ------------------------------------------------------------
+   Рубильник: главный переключатель + отдельный флажок на каждую
+   функцию. Проверка одна на всё приложение — isOnlineAllowed().
+   ============================================================ */
+
+const ONLINE_FEATURE_TOGGLES = [
+  { id: 'cloudAi', sel: '#online-cloud-ai-toggle', label: 'Облачная нейросеть' },
+  { id: 'barcodeLookup', sel: '#online-barcode-toggle', label: 'Поиск по штрих-коду' },
+  { id: 'modelDownload', sel: '#online-model-download-toggle', label: 'Скачивание модели' }
+];
+
+function renderOnlineFeatures() {
+  if (typeof document === 'undefined') return;
+  const master = $('#online-master-toggle');
+  const options = $('#online-features-options');
+  if (!master || !options) return;
+  const o = state.onlineFeatures || {};
+
+  master.checked = !!o.master;
+  options.hidden = !o.master;
+  ONLINE_FEATURE_TOGGLES.forEach((f) => {
+    const el = $(f.sel);
+    if (el) el.checked = !!o[f.id];
+  });
+
+  const on = ONLINE_FEATURE_TOGGLES.filter((f) => o.master && o[f.id]);
+  const summary = $('#online-summary');
+  if (summary) {
+    summary.textContent = !o.master
+      ? '🔒 Полностью офлайн: приложение не выходит в интернет.'
+      : on.length
+        ? '🌐 Разрешено (' + on.length + '): ' + on.map((f) => f.label).join(', ') + '.'
+        : '🔒 Выход в сеть разрешён, но ни одна функция не включена — фактически офлайн.';
+  }
+  // Короткий статус в пункте меню настроек.
+  const menuStatus = $('#settings-online-status');
+  if (menuStatus) {
+    menuStatus.textContent = !o.master
+      ? 'Выключены — приложение работает полностью офлайн'
+      : on.length ? 'Включено функций: ' + on.length : 'Разрешено, но ничего не включено';
+  }
+}
+
+function updateOnlineMaster(enabled) {
+  state.onlineFeatures.master = !!enabled;
+  saveState();
+  renderOnlineFeatures();
+  renderAiSettings();
+  toast(enabled
+    ? '🌐 Выход в интернет разрешён — включите нужные функции ниже'
+    : '🔒 Онлайн-функции выключены: приложение работает полностью офлайн');
+}
+
+function updateOnlineFeature(featureId, enabled) {
+  state.onlineFeatures[featureId] = !!enabled;
+  saveState();
+  renderOnlineFeatures();
+  renderAiSettings();
+  const def = ONLINE_FEATURE_TOGGLES.find((f) => f.id === featureId);
+  const label = def ? def.label : 'Функция';
+  toast(enabled ? '🌐 ' + label + ' — включено (работает через интернет)' : '🔒 ' + label + ' — выключено');
 }
 
 function updateAiEnabled(enabled) {
@@ -13963,6 +14073,13 @@ async function startAiModelDownload() {
   const urlInput = $('#ai-download-url');
   if (!plugin || typeof plugin.startModelDownload !== 'function') {
     toast('Скачивание появится в новой Android-сборке — пока выберите файл вручную.');
+    return;
+  }
+  // 0.8.28: скачивание модели идёт через нативный плагин мимо fetch(), поэтому
+  // рубильник проверяем здесь отдельно. Сам локальный ИИ офлайновый — сеть нужна
+  // ровно один раз, чтобы принести файл модели на устройство.
+  if (!isOnlineAllowed('modelDownload')) {
+    toast('Скачивание модели выключено: Настройки → Онлайн-функции. Файл можно выбрать вручную — это офлайн.');
     return;
   }
   const url = String(urlInput && urlInput.value || '').trim();
@@ -14995,6 +15112,12 @@ function getCloudProviderDef() {
 }
 
 function isCloudAiReady() {
+  // 0.8.28: рубильник онлайн-функций старше всех настроек ИИ. Пока пользователь
+  // не включил «Онлайн-функции» → «Облачная нейросеть», облако считается
+  // ненастроенным, и все ветки `isCloudAiReady()` уводят в офлайн-расчёт.
+  // Важно для Pollinations: он отвечает и без ключа, поэтому одной проверки
+  // ключа для «не ходить в сеть без спроса» недостаточно.
+  if (!isOnlineAllowed('cloudAi')) return false;
   if (state.aiSettings.mode !== 'cloud') return false;
   const def = getCloudProviderDef();
   // Свой сервер — готов, когда указан его адрес; провайдеры без обязательного
@@ -15213,6 +15336,12 @@ function cloudErrorText(err) {
 async function checkCloudConnection() {
   const statusEl = $('#ai-cloud-status');
   if (!statusEl) return true;
+  // 0.8.28: «Проверить подключение» ходит в сеть напрямую (geminiListModels),
+  // в обход isCloudAiReady() — поэтому рубильник проверяем и здесь.
+  if (!isOnlineAllowed('cloudAi')) {
+    statusEl.textContent = '✗ Онлайн-функции выключены. Настройки → Онлайн-функции → «Облачная нейросеть».';
+    return false;
+  }
   const def = getCloudProviderDef();
   // Свой сервер: ключ не нужен, но нужен адрес сервера.
   if (def.customBase && getCloudBaseUrl().length < 8) {

@@ -708,6 +708,12 @@
             <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: Помощник FitFlow" title="Что это за раздел?">?</span>
             <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-online">
+            <span class="settings-menu-emoji" aria-hidden="true">🌐</span>
+            <span class="settings-menu-text"><b>Онлайн-функции</b><small id="settings-online-status">Выключены — приложение работает полностью офлайн</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-online" aria-label="Справка: Онлайн-функции" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <button class="settings-menu-btn" type="button" data-settings-view="settings-data">
             <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="backup">💾</span>
             <span class="settings-menu-text"><b>Данные и резервные копии</b><small>Экспорт, импорт, сброс</small></span>
@@ -1121,6 +1127,12 @@
           </div>
           <div id="ai-cloud-box" class="ai-model-box" hidden>
             <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — по вашему ключу</p>
+            <!-- 0.8.28: облако не работает, пока не разрешён выход в сеть. Говорим об этом прямо,
+                 а не молча отдаём офлайн-ответ. -->
+            <p class="settings-hint" id="ai-cloud-blocked" style="margin:0 0 8px;font-weight:600;color:var(--md-sys-color-error)" hidden>
+              🔒 Онлайн-функции выключены — облако не используется, ответы считаются офлайн.
+              Включите: Настройки → Онлайн-функции → «Облачная нейросеть».
+            </p>
             <p class="settings-hint">Более свободные ответы о питании, живой текст рецептов и анализа, распознавание фото моделью Gemini. Нужен интернет и ваш личный ключ; текст запроса уходит выбранному провайдеру. Бесплатные варианты: OpenRouter (модели с пометкой «free», ~50 запросов в день) и Gemini (дневной лимит; доступность зависит от страны). Для ежедневной работы приложения облако не требуется. Ключ хранится только на устройстве.</p>
             <div class="segmented" id="ai-cloud-provider" role="radiogroup" aria-label="Провайдер облачного ИИ">
               <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
@@ -1199,6 +1211,79 @@
     </section>
   </div><!-- /settings-ai-view -->
 
+  <!-- 0.8.28 (решение владельца): единый рубильник онлайн-функций.
+       FitFlow остаётся офлайн-приложением: общий переключатель ВЫКЛ по умолчанию,
+       и пока он выключен, ни одна функция не может выйти в сеть. -->
+  <div id="settings-online-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">🌐</span></div>
+        <div class="card-title-wrap">
+          <h2>Онлайн-функции</h2>
+          <p>По умолчанию всё выключено — приложение работает полностью офлайн</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <div>
+            <p class="settings-label">🌐 Разрешить выход в интернет</p>
+            <p class="settings-hint">Главный рубильник. Пока он выключен, FitFlow не отправляет ни одного запроса в сеть — что бы ни было настроено в других разделах. Все основные функции (вода, калории, тренировки, база 960+ продуктов) работают офлайн и в интернете не нуждаются.</p>
+          </div>
+          <label class="switch" for="online-master-toggle">
+            <input id="online-master-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Разрешить выход в интернет</span>
+          </label>
+        </div>
+
+        <div id="online-features-options" hidden>
+          <p class="settings-hint" style="margin:10px 0 0">Ниже включайте по отдельности только то, что нужно вам. Выключение главного рубильника мгновенно отключает всё сразу.</p>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">☁️ Облачная нейросеть</p>
+              <p class="settings-hint">Разрешает режим «Облако» в разделе «Помощник FitFlow»: текст вашего вопроса и фото еды (если распознаёте по фото) уходят выбранному провайдеру. Распознаёт еду заметно точнее модели на устройстве. Ключ хранится только у вас.</p>
+            </div>
+            <label class="switch" for="online-cloud-ai-toggle">
+              <input id="online-cloud-ai-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить облачную нейросеть</span>
+            </label>
+          </div>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">🔍 Поиск по штрих-коду</p>
+              <p class="settings-hint">Ищет продукт в открытой базе Open Food Facts по штрих-коду с упаковки. В сеть уходит только сам код. Найденные значения всё равно предлагается сверить с упаковкой.</p>
+            </div>
+            <label class="switch" for="online-barcode-toggle">
+              <input id="online-barcode-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить поиск по штрих-коду</span>
+            </label>
+          </div>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">⬇️ Скачивание модели на устройство</p>
+              <p class="settings-hint">Нужно ровно один раз, чтобы принести файл модели (около 1 ГБ) для офлайн-нейросети. Сама модель потом работает без интернета. Файл можно выбрать и вручную — тогда сеть не нужна вовсе.</p>
+            </div>
+            <label class="switch" for="online-model-download-toggle">
+              <input id="online-model-download-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить скачивание модели</span>
+            </label>
+          </div>
+        </div>
+
+        <p class="settings-hint" id="online-summary" style="margin-top:14px;font-weight:600"></p>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-online-view -->
+
   <div id="settings-data-view" hidden>
     <section class="card settings-card settings-sub-card">
       <div class="card-header">
@@ -1246,7 +1331,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.8.27 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.8.28 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
