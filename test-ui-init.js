@@ -2550,5 +2550,75 @@ for (const id of ids) {
   console.log(`${okGemma ? '✓' : '✗'} 0.9.3 условия Gemma описаны в разделе лицензии`);
 }
 
+/* ------------------------------------------------------------------
+   0.9.4 — конфигуратор виджета и скрытие выключенных показателей.
+------------------------------------------------------------------- */
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const provR = fs.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+  const yml = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  /* Бюджет строк должен совпадать в трёх местах: таблица размеров в JS,
+     число слотов в генераторе layout'ов и массивы слотов в Java. Разъедутся —
+     виджет либо обрежет строки молча, либо упадёт на несуществующем id. */
+  const sizes = (appR.match(/const WIDGET_SIZES = \[[\s\S]*?\];/) || [''])[0];
+  const okBudget = /'small', label: '[^']*', units: 3/.test(sizes)
+    && /'medium', label: '[^']*', units: 5/.test(sizes)
+    && /'large', label: '[^']*', units: 8/.test(sizes);
+  if (!okBudget) failed++;
+  console.log(`${okBudget ? '✓' : '✗'} 0.9.4 бюджет строк виджета задан для трёх размеров`);
+
+  /* Самый крупный бюджет (8) обязан помещаться в большую раскладку (10 слотов),
+     а компактная (5 слотов) — вмещать свой бюджет 3. */
+  const okSlots = /widget_layout_xml\(5,/.test(yml) && /widget_layout_xml\(10,/.test(yml)
+    && /SLOT_IDS_SMALL/.test(provR) && /R\.id\.widget_slot_10\b/.test(provR);
+  if (!okSlots) failed++;
+  console.log(`${okSlots ? '✓' : '✗'} 0.9.4 слоты виджета есть и в layout'ах, и в Java`);
+
+  /* Каждый id, к которому обращается Java, должен существовать в разметке.
+     Проверяем по большой раскладке — она надмножество компактной. */
+  const usedIds = Array.from(new Set((provR.match(/R\.id\.(widget_[a-z0-9_]+)/g) || [])
+    .map((m) => m.replace('R.id.', ''))));
+  const declared = new Set((yml.match(/@\+id\/(widget_[a-z0-9_]+)/g) || [])
+    .map((m) => m.replace('@+id/', '')));
+  // Слоты объявлены через %d-шаблон, поэтому раскрываем нумерацию вручную.
+  for (let i = 1; i <= 10; i++) {
+    ['', '_text', '_bar', '_bar2'].forEach((suffix) => declared.add(`widget_slot_${i}${suffix}`));
+  }
+  const missing = usedIds.filter((id) => !declared.has(id));
+  const okIds = missing.length === 0;
+  if (!okIds) failed++;
+  console.log(`${okIds ? '✓' : '✗'} 0.9.4 все id из Java объявлены в разметке${okIds ? '' : ': нет ' + missing.join(', ')}`);
+
+  /* Требование владельца: превышение лимита — не «тихий отказ», а сообщение
+     с цифрами (сколько занимает элемент и сколько свободно). */
+  const upd = (appR.match(/function updateWidgetItem\([\s\S]*?\n\}/) || [''])[0];
+  const okLimit = /Не помещается/.test(upd) && /item\.units > free/.test(upd)
+    && /toast\(/.test(upd) && /return;/.test(upd);
+  if (!okLimit) failed++;
+  console.log(`${okLimit ? '✓' : '✗'} 0.9.4 при превышении лимита показывается сообщение`);
+
+  /* Календарь тренировок владелец просил добавить отдельным пунктом. */
+  const items = (appR.match(/const WIDGET_ITEMS = \[[\s\S]*?\];/) || [''])[0];
+  const okWorkout = /id: 'workout'/.test(items) && /Календарь тренировок/.test(items);
+  if (!okWorkout) failed++;
+  console.log(`${okWorkout ? '✓' : '✗'} 0.9.4 календарь тренировок доступен для виджета`);
+
+  /* Дефект п.5: «Питание» не должно попадать на виджет, если карточка
+     выключена в приложении. Фильтр обязан стоять на пути в натив. */
+  const active = (appR.match(/function activeWidgetItems\([\s\S]*?\n\}/) || [''])[0];
+  const okHide = /filter\(isWidgetItemAvailable\)/.test(active)
+    && /widgetItems: activeWidgetItems\(\)/.test(appR);
+  if (!okHide) failed++;
+  console.log(`${okHide ? '✓' : '✗'} 0.9.4 выключенные показатели не уходят на виджет`);
+
+  /* Натив тоже обязан уважать список: если он снова начнёт рисовать воду и
+     питание безусловно, дефект п.5 вернётся при первом же обновлении виджета. */
+  const okNativeList = /widgetItems/.test(provR) && /widget_empty/.test(provR)
+    && !/setTextViewText\(R\.id\.widget_water/.test(provR);
+  if (!okNativeList) failed++;
+  console.log(`${okNativeList ? '✓' : '✗'} 0.9.4 натив рисует строки по списку, а не жёстко`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

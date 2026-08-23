@@ -794,6 +794,16 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                             .putInt("stepsToday", data.optInt("stepsToday", 0))
                             .putString("profileName", data.optString("profileName", "Мой профиль"))
                             .putString("date", data.optString("date", ""))
+                            // 0.9.4: раскладка виджета из настроек приложения — список
+                            // выбранных строк и готовые тексты для тех показателей,
+                            // которые считаются в JS (вес, план дня, самочувствие, тренировка).
+                            .putString("widgetItems", data.optString("widgetItems", "water,food,steps"))
+                            .putString("widgetSize", data.optString("widgetSize", "medium"))
+                            .putString("weightLine", data.optString("weightLine", ""))
+                            .putString("dayPlanLine", data.optString("dayPlanLine", ""))
+                            .putString("moodLine", data.optString("moodLine", ""))
+                            .putString("workoutLine", data.optString("workoutLine", ""))
+                            .putString("activityLine", data.optString("activityLine", ""))
                             // 0.5.5/0.5.6: момент последней записи воды — ресивер сам
                             // пропускает ближайшее напоминание (настройки «пауза» больше нет)
                             .putLong("lastWaterAt", data.optLong("lastWaterAt", prefs.getLong("lastWaterAt", 0)))

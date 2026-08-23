@@ -2955,12 +2955,13 @@ const DEFAULTS = {
   healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [], stepsHistory: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
+  widgetLayout: { size: 'medium', items: ['water', 'food', 'steps'] }, // 0.9.4: что показывать на Android-виджете
   strengthSessions: [], // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
   strengthTemplates: [], // 0.8.8: шаблоны силовых («День груди», «Фулбоди»…)
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.3';
+const FITFLOW_VERSION = '0.9.4';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3011,6 +3012,62 @@ const HOME_CARDS = [
 ];
 
 /* Включена ли функция, которой принадлежит карточка (независимо от layout). */
+/* ------------------------------------------------------------
+   0.9.4 — конфигуратор Android-виджета (пункт 4 владельца).
+   Пользователь сам выбирает галочками, что показывать на виджете:
+   все карточки Главной + активность + календарь тренировок.
+   «Стоимость» строки (units) честно отражает занимаемое место:
+   показатель с полосой прогресса (вода, питание) занимает две строки,
+   простая строка — одну. Бюджет фиксирован размером виджета, поэтому
+   лишний элемент не добавляется молча, а объясняет, почему не влез.
+------------------------------------------------------------- */
+const WIDGET_ITEMS = [
+  { id: 'water', label: 'Вода', icon: '💧', units: 2 },
+  { id: 'food', label: 'Питание', icon: '🍽️', units: 2 },
+  { id: 'steps', label: 'Шаги', icon: '👟', units: 1 },
+  { id: 'activity', label: 'Активность', icon: '🏃', units: 1 },
+  { id: 'weight', label: 'Вес', icon: '⚖️', units: 1 },
+  { id: 'day-plan', label: 'План дня', icon: '📋', units: 1 },
+  { id: 'day-mood', label: 'Самочувствие', icon: '🌗', units: 1 },
+  { id: 'workout', label: 'Календарь тренировок', icon: '🗓️', units: 1 }
+];
+
+/* Бюджет строк по размеру виджета. Цифры взяты из реальной высоты ячеек
+   Android: у 2×1 остаётся место на 3 строки, у 4×2 — на 5 (ровно то, что
+   виджет показывал до 0.9.4: вода, питание, шаги), у 4×4 — на 8.
+   Натив дополнительно обрезает список по числу слотов своей раскладки,
+   поэтому уменьшение виджета пальцем не ломает вёрстку. */
+const WIDGET_SIZES = [
+  { id: 'small', label: 'Компактный 2×1', units: 3 },
+  { id: 'medium', label: 'Средний 4×2', units: 5 },
+  { id: 'large', label: 'Большой 4×4', units: 8 }
+];
+
+function widgetSizeById(id) {
+  return WIDGET_SIZES.find((size) => size.id === id) || WIDGET_SIZES[1];
+}
+
+function widgetItemById(id) {
+  return WIDGET_ITEMS.find((item) => item.id === id) || null;
+}
+
+function widgetUnitsUsed(items) {
+  return (Array.isArray(items) ? items : []).reduce((sum, id) => {
+    const item = widgetItemById(id);
+    return sum + (item ? item.units : 0);
+  }, 0);
+}
+
+/* Элемент виджета доступен, только если соответствующая карточка/функция
+   включена в приложении. 0.9.4 (дефект владельца, п.5): «Питание» скрыто
+   на Главной, а на виджете оставалось — теперь выключенный показатель
+   не попадает на виджет и не предлагается в конфигураторе. */
+function isWidgetItemAvailable(id) {
+  if (TRACKER_CARDS.includes(id)) return isTrackerEnabled(id);
+  if (id === 'day-plan' || id === 'day-mood') return isHomeCardShown(id);
+  return true;
+}
+
 function isHomeCardFeatureEnabled(id) {
   const density = state.homeDensity || 'normal';
   if (density === 'minimal') {
@@ -3876,6 +3933,41 @@ function normalizeHomeLayout() {
   state.homeLayout = normalizeHomeLayoutValue(state.homeLayout);
 }
 
+/* 0.9.4: раскладка Android-виджета. Правила миграции честные:
+   у кого настройки ещё нет — виджет остаётся ровно таким, каким был
+   до обновления (вода, питание, шаги), ничего не пропадает и не появляется.
+   Порядок элементов = порядок пользователя; лишнее по бюджету обрезается,
+   чтобы сохранённая раскладка не могла «переполнить» виджет. */
+function normalizeWidgetLayoutValue(source) {
+  const raw = source && typeof source === 'object' ? source : {};
+  const size = widgetSizeById(String(raw.size || '')).id;
+  const budget = widgetSizeById(size).units;
+  const seen = new Set();
+  const picked = [];
+  let used = 0;
+  (Array.isArray(raw.items) ? raw.items : ['water', 'food', 'steps'])
+    .map((id) => String(id))
+    .forEach((id) => {
+      const item = widgetItemById(id);
+      if (!item || seen.has(id)) return;
+      if (used + item.units > budget) return;
+      seen.add(id);
+      picked.push(id);
+      used += item.units;
+    });
+  return { size, items: picked };
+}
+
+function normalizeWidgetLayout() {
+  state.widgetLayout = normalizeWidgetLayoutValue(state.widgetLayout);
+}
+
+/* Что реально уедет в натив: выбранное пользователем минус то, что
+   выключено в приложении (скрытая карточка = выключенный показатель). */
+function activeWidgetItems() {
+  return normalizeWidgetLayoutValue(state.widgetLayout).items.filter(isWidgetItemAvailable);
+}
+
 function normalizeActivitySettings() {
   const settings = state.activitySettings || {};
   state.activitySettings = {
@@ -4709,6 +4801,7 @@ function loadState() {
   normalizeActivitySettings();
   normalizeProfileSettings();
   normalizeHomeLayout();
+  normalizeWidgetLayout();
   normalizeFavoriteMeals();
   normalizeCustomFoods();
   normalizeCombosState();
@@ -5299,6 +5392,65 @@ let activeWaterDetailPeriod = 'week';
 let activeFoodDetailPeriod = 'week';
 let activeWeightPeriod = 'month';
 
+/* 0.9.4: короткие тексты для строк виджета, которых нет в старом наборе.
+   Виджет — не второе приложение: одна строка = один факт без расшифровок. */
+function widgetWeightLine() {
+  const history = normalizeWeightHistory(state.profileSettings.weightHistory);
+  const latest = history[history.length - 1];
+  const weight = state.profileSettings.weightKg || (latest ? latest.weightKg : null);
+  return weight ? `Вес: ${Number(weight).toLocaleString('ru-RU')} кг` : 'Вес: нет записей';
+}
+
+function widgetDayPlanLine() {
+  const waterOk = state.water.goal > 0 && state.water.total >= state.water.goal;
+  const foodKcal = state.food.items.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+  const foodOk = computeMealsEatenToday() >= 3 || (state.food.goal > 0 && foodKcal >= state.food.goal);
+  const activityOk = (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((workout) => workout.date === todayKey()).length > 0;
+  const rows = [];
+  if (isTrackerEnabled('water')) rows.push(waterOk);
+  if (isTrackerEnabled('food')) rows.push(foodOk);
+  rows.push(activityOk);
+  const done = rows.filter(Boolean).length;
+  return `План дня: ${done} из ${rows.length}`;
+}
+
+function widgetMoodLine() {
+  const mood = getTodayMood();
+  const emojis = { 1: '😞', 2: '🙁', 3: '😐', 4: '🙂', 5: '😄' };
+  return mood ? `Самочувствие: ${emojis[mood]} ${mood}/5` : 'Самочувствие: не отмечено';
+}
+
+/* Календарь тренировок на виджете: что назначено планом силовых на сегодня
+   и что уже выполнено. Плюс обычные тренировки дня, если они записаны. */
+function widgetWorkoutLine() {
+  const templates = state.strengthTemplates || [];
+  const plan = normalizeStrengthPlanList(state.strengthPlan);
+  const dow = strengthTodayDow();
+  const todayPlan = plan.filter((entry) => entry.days.includes(dow))
+    .map((entry) => templates.find((template) => template.id === entry.templateId))
+    .filter(Boolean);
+  if (todayPlan.length) {
+    const done = todayPlan.filter((template) => isPlanDoneToday(template.id)).length;
+    if (done >= todayPlan.length) return `Тренировка: ✅ ${todayPlan[0].name}`;
+    const next = todayPlan.find((template) => !isPlanDoneToday(template.id));
+    return `Тренировка: ${next ? next.name : todayPlan[0].name}`;
+  }
+  const logged = (Array.isArray(state.workouts) ? state.workouts : [])
+    .filter((workout) => workout.date === todayKey()).length;
+  if (logged > 0) return `Тренировка: записана (${logged})`;
+  return 'Тренировка: отдых';
+}
+
+function widgetActivityLine(activityMinutes) {
+  const minutes = Number(activityMinutes) || 0;
+  if (minutes <= 0) return 'Активность: 0 мин';
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `Активность: ${minutes} мин`;
+  return rest ? `Активность: ${hours} ч ${rest} мин` : `Активность: ${hours} ч`;
+}
+
 function updateNativeWidget() {
   if (typeof window === 'undefined' || !window.FitFlowExport
       || typeof window.FitFlowExport.updateWidget !== 'function') return;
@@ -5320,7 +5472,16 @@ function updateNativeWidget() {
       stepsToday,
       priority: (state.healthSync && state.healthSync.priority) || 'auto', // 0.7.13: для фонового разрешения шагов в виджете
       profileName,
-      date: todayKey()
+      date: todayKey(),
+      // 0.9.4: раскладка виджета — список выбранных строк (в порядке пользователя)
+      // и готовые тексты для тех из них, которые натив сам посчитать не может.
+      widgetItems: activeWidgetItems().join(','),
+      widgetSize: normalizeWidgetLayoutValue(state.widgetLayout).size,
+      weightLine: widgetWeightLine(),
+      dayPlanLine: widgetDayPlanLine(),
+      moodLine: widgetMoodLine(),
+      workoutLine: widgetWorkoutLine(),
+      activityLine: widgetActivityLine(activityMinutes)
     }));
   } catch (e) {
     console.warn('Не удалось обновить Android-виджет:', e);
@@ -5330,6 +5491,7 @@ function updateNativeWidget() {
 function renderAll() {
   applyHomeLayout();
   renderHomeLayoutSettings();
+  renderWidgetLayoutSettings();
   renderWeightSettings();
   renderMoodCorrelations();
   renderWeightOverview();
@@ -6884,6 +7046,143 @@ function moveHomeCard(id, direction) {
   saveState();
   applyHomeLayout();
   renderHomeLayoutDialog();
+}
+
+/* ------------------------------------------------------------
+   0.9.4 — конфигуратор Android-виджета (настройки + диалог).
+   Логика лимита: у каждого размера фиксированный бюджет строк,
+   каждый элемент стоит 1 или 2 строки. Не влезающий элемент
+   не включается, а сообщает, сколько он занимает и сколько
+   свободно — «молча ничего не произошло» быть не должно.
+------------------------------------------------------------- */
+function renderWidgetLayoutSettings() {
+  const status = $('#widget-layout-status');
+  if (!status) return;
+  const layout = normalizeWidgetLayoutValue(state.widgetLayout);
+  const size = widgetSizeById(layout.size);
+  const shownItems = layout.items.filter(isWidgetItemAvailable);
+  const shown = shownItems.length;
+  const hidden = layout.items.length - shown;
+  if (!layout.items.length) {
+    status.textContent = `${size.label}: ничего не выбрано`;
+    return;
+  }
+  // Считаем по тому, что реально попадёт на виджет: выключенные в приложении
+  // показатели не занимают строк и не должны раздувать счётчик.
+  let text = `${size.label}: ${shown} ${ruForms(shown, ['элемент', 'элемента', 'элементов'])} · занято ${widgetUnitsUsed(shownItems)} из ${size.units}`;
+  if (hidden > 0) text += ` · ${hidden} ${ruForms(hidden, ['скрыт', 'скрыто', 'скрыто'])} (выключено в приложении)`;
+  status.textContent = text;
+}
+
+function renderWidgetLayoutDialog() {
+  const list = $('#widget-layout-list');
+  if (!list) return;
+  const layout = normalizeWidgetLayoutValue(state.widgetLayout);
+  const size = widgetSizeById(layout.size);
+  const used = widgetUnitsUsed(layout.items);
+
+  const sizeBox = $('#widget-size-segmented');
+  if (sizeBox) {
+    sizeBox.querySelectorAll('[data-widget-size]').forEach((button) => {
+      const on = button.dataset.widgetSize === layout.size;
+      button.classList.toggle('active', on);
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
+  const counter = $('#widget-layout-counter');
+  if (counter) counter.textContent = `Занято ${used} из ${size.units} ${ruForms(size.units, ['строки', 'строк', 'строк'])}`;
+
+  // Сначала выбранные — в порядке пользователя, затем остальные.
+  const rest = WIDGET_ITEMS.filter((item) => !layout.items.includes(item.id)).map((item) => item.id);
+  const order = layout.items.concat(rest);
+  list.innerHTML = order.map((id, index) => {
+    const item = widgetItemById(id);
+    if (!item) return '';
+    const checked = layout.items.includes(id);
+    const available = isWidgetItemAvailable(id);
+    const fits = checked || used + item.units <= size.units;
+    const cost = `${item.units} ${ruForms(item.units, ['строка', 'строки', 'строк'])}`;
+    const note = !available
+      ? 'выключено в приложении'
+      : (checked ? cost : (fits ? cost : `не помещается · ${cost}`));
+    return `<div class="home-layout-row widget-layout-row${checked ? ' on' : ''}${available ? '' : ' off'}">
+      <div class="home-layout-card-name">
+        <span aria-hidden="true">${item.icon}</span>
+        <div class="widget-layout-text"><strong>${item.label}</strong><span class="widget-layout-cost">${note}</span></div>
+      </div>
+      <div class="home-layout-controls">
+        <label class="switch" title="Показывать ${item.label} на виджете">
+          <input type="checkbox" data-widget-item="${item.id}" ${checked ? 'checked' : ''}>
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="sr-only">Показывать ${item.label} на виджете</span>
+        </label>
+        <div class="home-layout-order" aria-label="Изменить порядок ${item.label}">
+          <button type="button" data-widget-move="${item.id}" data-widget-direction="-1" ${(!checked || index === 0) ? 'disabled' : ''} aria-label="Переместить ${item.label} выше">↑</button>
+          <button type="button" data-widget-move="${item.id}" data-widget-direction="1" ${(!checked || index >= layout.items.length - 1) ? 'disabled' : ''} aria-label="Переместить ${item.label} ниже">↓</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openWidgetLayoutDialog() {
+  renderWidgetLayoutDialog();
+  $('#widget-layout-dialog').hidden = false;
+}
+function closeWidgetLayoutDialog() { $('#widget-layout-dialog').hidden = true; }
+
+function setWidgetSize(sizeId) {
+  const size = widgetSizeById(sizeId);
+  const layout = normalizeWidgetLayoutValue(state.widgetLayout);
+  const before = layout.items.length;
+  state.widgetLayout = normalizeWidgetLayoutValue({ size: size.id, items: layout.items });
+  const dropped = before - state.widgetLayout.items.length;
+  saveState();
+  renderWidgetLayoutSettings();
+  renderWidgetLayoutDialog();
+  if (dropped > 0) {
+    toast(`${size.label}: помещается ${size.units} ${ruForms(size.units, ['строка', 'строки', 'строк'])} — ${dropped} ${ruForms(dropped, ['элемент убран', 'элемента убрано', 'элементов убрано'])}`);
+  }
+}
+
+function updateWidgetItem(id, enabled) {
+  const item = widgetItemById(id);
+  if (!item) return;
+  const layout = normalizeWidgetLayoutValue(state.widgetLayout);
+  const size = widgetSizeById(layout.size);
+  if (enabled) {
+    if (!isWidgetItemAvailable(id)) {
+      toast(`«${item.label}» выключено в приложении — сначала включите этот показатель`);
+      renderWidgetLayoutDialog();
+      return;
+    }
+    const free = size.units - widgetUnitsUsed(layout.items);
+    if (item.units > free) {
+      // Требование владельца: не «тихий отказ», а объяснение с цифрами.
+      toast(`Не помещается: «${item.label}» занимает ${item.units} ${ruForms(item.units, ['строку', 'строки', 'строк'])}, свободно ${free} из ${size.units}`);
+      renderWidgetLayoutDialog();
+      return;
+    }
+    layout.items.push(id);
+  } else {
+    layout.items = layout.items.filter((itemId) => itemId !== id);
+  }
+  state.widgetLayout = layout;
+  saveState();
+  renderWidgetLayoutSettings();
+  renderWidgetLayoutDialog();
+}
+
+function moveWidgetItem(id, direction) {
+  const layout = normalizeWidgetLayoutValue(state.widgetLayout);
+  const from = layout.items.indexOf(id);
+  const to = from + Number(direction);
+  if (from < 0 || to < 0 || to >= layout.items.length) return;
+  [layout.items[from], layout.items[to]] = [layout.items[to], layout.items[from]];
+  state.widgetLayout = layout;
+  saveState();
+  renderWidgetLayoutDialog();
 }
 
 function renderWater() {
@@ -11599,6 +11898,10 @@ const HELP_TOPICS = {
     title: 'Карточки на Главной',
     text: '• Настройка экрана:\nСтрелками ↑↓ можно менять порядок карточек, а переключателями — скрывать ненужные модули для максимального удобства.'
   },
+  'widget-layout': {
+    title: 'Виджет на экране телефона',
+    text: '• Что это:\nВиджет FitFlow на рабочем столе Android — вода, питание и другие показатели дня без открытия приложения.\n\n• Выбор строк:\nОтметьте галочками нужные элементы, стрелками ↑↓ задайте порядок. «Вода» и «Питание» идут с полосой прогресса и занимают две строки, остальные — одну.\n\n• Почему есть лимит:\nУ виджета фиксированная высота, поэтому число строк ограничено размером. Если элемент не помещается, приложение скажет, сколько строк он занимает и сколько осталось свободно — выключите лишнее или выберите размер побольше.\n\n• Размер:\nУкажите тот же размер, который вы выбрали при установке виджета на рабочий стол; виджет подстроится сам, если вы измените его размер пальцем.\n\n• Выключенные показатели:\nЕсли карточка скрыта на Главной, на виджет она не попадёт — так на экране не останется данных, которыми вы не пользуетесь.'
+  },
   'game-mode': {
     title: 'Игровой режим',
     text: '• Мотивация:\nЕжедневные квесты и коллекция медалей за рекорды и регулярность.\n\n• Прогресс:\nСравнение текущей недели с прошлой в разделе статистики.'
@@ -12258,6 +12561,10 @@ function importData(file) {
 
       if (data.homeLayout && typeof data.homeLayout === 'object') {
         state.homeLayout = normalizeHomeLayoutValue(data.homeLayout);
+      }
+
+      if (data.widgetLayout && typeof data.widgetLayout === 'object') {
+        state.widgetLayout = normalizeWidgetLayoutValue(data.widgetLayout);
       }
 
       if (data.activitySettings && typeof data.activitySettings === 'object') {
@@ -13375,6 +13682,20 @@ function init() {
   });
   $('#home-layout-open').addEventListener('click', openHomeLayoutDialog);
   $('#home-layout-close').addEventListener('click', closeHomeLayoutDialog);
+  $('#widget-layout-open').addEventListener('click', openWidgetLayoutDialog);
+  $('#widget-layout-close').addEventListener('click', closeWidgetLayoutDialog);
+  $('#widget-size-segmented').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-widget-size]');
+    if (button) setWidgetSize(button.dataset.widgetSize);
+  });
+  $('#widget-layout-list').addEventListener('change', (e) => {
+    const checkbox = e.target.closest('[data-widget-item]');
+    if (checkbox) updateWidgetItem(checkbox.dataset.widgetItem, checkbox.checked);
+  });
+  $('#widget-layout-list').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-widget-move]');
+    if (button) moveWidgetItem(button.dataset.widgetMove, button.dataset.widgetDirection);
+  });
   $('#home-layout-list').addEventListener('change', (e) => {
     const checkbox = e.target.closest('[data-home-card-visible]');
     if (checkbox) updateHomeCardVisibility(checkbox.dataset.homeCardVisible, checkbox.checked);

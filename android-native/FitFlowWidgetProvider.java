@@ -13,6 +13,46 @@ import android.widget.RemoteViews;
 public class FitFlowWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_MIDNIGHT = "com.fitflow.app.WIDGET_MIDNIGHT_REFRESH";
 
+    /* 0.9.4: универсальные слоты строк вместо зашитых «вода/питание/шаги».
+       Компактная раскладка — 5 слотов, большая — 10; строка с полосой
+       прогресса занимает два слота (см. cost в updateWidget). */
+    private static final int[] SLOT_IDS_SMALL = {
+        R.id.widget_slot_1, R.id.widget_slot_2, R.id.widget_slot_3, R.id.widget_slot_4, R.id.widget_slot_5
+    };
+    private static final int[] SLOT_TEXT_IDS_SMALL = {
+        R.id.widget_slot_1_text, R.id.widget_slot_2_text, R.id.widget_slot_3_text,
+        R.id.widget_slot_4_text, R.id.widget_slot_5_text
+    };
+    private static final int[] SLOT_BAR_IDS_SMALL = {
+        R.id.widget_slot_1_bar, R.id.widget_slot_2_bar, R.id.widget_slot_3_bar,
+        R.id.widget_slot_4_bar, R.id.widget_slot_5_bar
+    };
+    /* Янтарная полоса (питание) — отдельная вьюха: цвет прогресса
+       из RemoteViews на minSdk 26 не меняется, поэтому два готовых бара. */
+    private static final int[] SLOT_BAR2_IDS_SMALL = {
+        R.id.widget_slot_1_bar2, R.id.widget_slot_2_bar2, R.id.widget_slot_3_bar2,
+        R.id.widget_slot_4_bar2, R.id.widget_slot_5_bar2
+    };
+    private static final int[] SLOT_IDS_LARGE = {
+        R.id.widget_slot_1, R.id.widget_slot_2, R.id.widget_slot_3, R.id.widget_slot_4, R.id.widget_slot_5,
+        R.id.widget_slot_6, R.id.widget_slot_7, R.id.widget_slot_8, R.id.widget_slot_9, R.id.widget_slot_10
+    };
+    private static final int[] SLOT_TEXT_IDS_LARGE = {
+        R.id.widget_slot_1_text, R.id.widget_slot_2_text, R.id.widget_slot_3_text, R.id.widget_slot_4_text,
+        R.id.widget_slot_5_text, R.id.widget_slot_6_text, R.id.widget_slot_7_text, R.id.widget_slot_8_text,
+        R.id.widget_slot_9_text, R.id.widget_slot_10_text
+    };
+    private static final int[] SLOT_BAR_IDS_LARGE = {
+        R.id.widget_slot_1_bar, R.id.widget_slot_2_bar, R.id.widget_slot_3_bar, R.id.widget_slot_4_bar,
+        R.id.widget_slot_5_bar, R.id.widget_slot_6_bar, R.id.widget_slot_7_bar, R.id.widget_slot_8_bar,
+        R.id.widget_slot_9_bar, R.id.widget_slot_10_bar
+    };
+    private static final int[] SLOT_BAR2_IDS_LARGE = {
+        R.id.widget_slot_1_bar2, R.id.widget_slot_2_bar2, R.id.widget_slot_3_bar2, R.id.widget_slot_4_bar2,
+        R.id.widget_slot_5_bar2, R.id.widget_slot_6_bar2, R.id.widget_slot_7_bar2, R.id.widget_slot_8_bar2,
+        R.id.widget_slot_9_bar2, R.id.widget_slot_10_bar2
+    };
+
     public static void updateAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
@@ -78,19 +118,73 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         boolean large = maxWidth >= 250 || maxHeight >= 180;
         RemoteViews views = new RemoteViews(context.getPackageName(), large ? R.layout.fitflow_widget_large : R.layout.fitflow_widget);
         views.setTextViewText(R.id.widget_profile, "Профиль: " + profileName);
-        views.setTextViewText(R.id.widget_water, "Вода: " + water + " / " + waterGoal + " мл");
-        views.setTextViewText(R.id.widget_food, "Питание: " + food + " / " + foodGoal + " ккал");
-        views.setProgressBar(R.id.widget_water_bar, 100, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)), false);
-        views.setProgressBar(R.id.widget_food_bar, 100, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)), false);
+
+        /* 0.9.4 (пункты 4 и 5 владельца): состав виджета задаёт пользователь
+           в настройках приложения. Раньше все строки рисовались безусловно —
+           «Питание» оставалось на виджете даже после выключения карточки.
+           Теперь показываем ровно выбранные элементы, в выбранном порядке,
+           и обрезаем по числу слотов реальной раскладки. */
+        int slots = large ? SLOT_IDS_LARGE.length : SLOT_IDS_SMALL.length;
+        String itemsRaw = prefs.getString("widgetItems", "water,food,steps");
+        if (itemsRaw == null) itemsRaw = "";
+        int waterPct = Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0));
+        int foodPct = Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0));
         int steps = resolveWidgetSteps(context);
-        views.setTextViewText(R.id.widget_steps, "Шаги: " + steps);
-        if (large) {
-            views.setTextViewText(R.id.widget_water_pct, Math.min(100, Math.round(waterGoal > 0 ? water * 100f / waterGoal : 0)) + "% цели");
-            views.setTextViewText(R.id.widget_food_pct, Math.min(100, Math.round(foodGoal > 0 ? food * 100f / foodGoal : 0)) + "% цели");
-            String actStr = "Активность: " + formatActivity(activity);
-            if (steps > 0) actStr += " · " + steps + " ш.";
-            views.setTextViewText(R.id.widget_activity, actStr);
+
+        int used = 0;
+        for (String rawId : itemsRaw.split(",")) {
+            String itemId = rawId == null ? "" : rawId.trim();
+            if (itemId.length() == 0) continue;
+            int cost = ("water".equals(itemId) || "food".equals(itemId)) ? 2 : 1;
+            if (used + cost > slots) continue; // не помещается — пропускаем, следующий может влезть
+            String text;
+            int pct = -1;
+            boolean amberBar = false; // питание — янтарная полоса, вода — бирюзовая
+            if ("water".equals(itemId)) {
+                text = "Вода: " + water + " / " + waterGoal + " мл";
+                pct = waterPct;
+            } else if ("food".equals(itemId)) {
+                text = "Питание: " + food + " / " + foodGoal + " ккал";
+                pct = foodPct;
+                amberBar = true;
+            } else if ("steps".equals(itemId)) {
+                text = "Шаги: " + steps;
+            } else if ("activity".equals(itemId)) {
+                text = fallbackLine(prefs, "activityLine", "Активность: " + formatActivity(activity));
+            } else if ("weight".equals(itemId)) {
+                text = fallbackLine(prefs, "weightLine", "Вес: нет записей");
+            } else if ("day-plan".equals(itemId)) {
+                text = fallbackLine(prefs, "dayPlanLine", "План дня");
+            } else if ("day-mood".equals(itemId)) {
+                text = fallbackLine(prefs, "moodLine", "Самочувствие: не отмечено");
+            } else if ("workout".equals(itemId)) {
+                text = fallbackLine(prefs, "workoutLine", "Тренировка: отдых");
+            } else {
+                continue; // неизвестный элемент из будущей версии — молча пропускаем
+            }
+            int slotIndex = used;
+            int slotId = large ? SLOT_IDS_LARGE[slotIndex] : SLOT_IDS_SMALL[slotIndex];
+            int textId = large ? SLOT_TEXT_IDS_LARGE[slotIndex] : SLOT_TEXT_IDS_SMALL[slotIndex];
+            int barId = large ? SLOT_BAR_IDS_LARGE[slotIndex] : SLOT_BAR_IDS_SMALL[slotIndex];
+            int bar2Id = large ? SLOT_BAR2_IDS_LARGE[slotIndex] : SLOT_BAR2_IDS_SMALL[slotIndex];
+            views.setViewVisibility(slotId, android.view.View.VISIBLE);
+            views.setTextViewText(textId, text);
+            int shownBar = amberBar ? bar2Id : barId;
+            int hiddenBar = amberBar ? barId : bar2Id;
+            views.setViewVisibility(hiddenBar, android.view.View.GONE);
+            if (pct >= 0) {
+                views.setViewVisibility(shownBar, android.view.View.VISIBLE);
+                views.setProgressBar(shownBar, 100, pct, false);
+            } else {
+                views.setViewVisibility(shownBar, android.view.View.GONE);
+            }
+            used += cost;
         }
+        for (int i = used; i < slots; i++) {
+            views.setViewVisibility(large ? SLOT_IDS_LARGE[i] : SLOT_IDS_SMALL[i], android.view.View.GONE);
+        }
+        // Пустой виджет без подсказки выглядел бы сломанным — говорим, что делать.
+        views.setViewVisibility(R.id.widget_empty, used == 0 ? android.view.View.VISIBLE : android.view.View.GONE);
 
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (launch == null) launch = new Intent(context, MainActivity.class);
@@ -112,6 +206,14 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_record_btn, recordPi);
         manager.updateAppWidget(id, views);
+    }
+
+    /* Тексты, которые считает JS (вес, план дня, самочувствие, тренировка).
+       Пока приложение ни разу не открывали после обновления, их в prefs нет —
+       показываем нейтральную заглушку вместо пустой строки. */
+    private static String fallbackLine(SharedPreferences prefs, String key, String fallback) {
+        String value = prefs.getString(key, "");
+        return (value == null || value.trim().length() == 0) ? fallback : value;
     }
 
     private static String formatActivity(int minutes) {

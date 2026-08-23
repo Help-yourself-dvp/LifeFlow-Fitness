@@ -801,6 +801,12 @@
           <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
         </div>
       </div>
+      <div class="settings-group home-layout-settings">
+        <div class="settings-label-row">
+          <div><p class="settings-label">Виджет на рабочем столе <span class="help-dot" role="button" tabindex="0" data-help="widget-layout" aria-label="Справка: Виджет на рабочем столе" title="Что это и зачем?">?</span></p><p class="settings-hint" id="widget-layout-status">—</p></div>
+          <button class="btn btn-secondary home-layout-open" id="widget-layout-open" type="button">Настроить</button>
+        </div>
+      </div>
       <div class="settings-group">
         <p class="settings-label">📱 Плотность Главного экрана</p>
         <div class="segmented" id="home-density-segmented" role="radiogroup" aria-label="Плотность Главного экрана">
@@ -1346,7 +1352,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.3 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.4 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1895,6 +1901,22 @@
       <p>Включайте нужные карточки и меняйте их порядок. Хотя бы одна карточка останется видимой.</p>
       <div class="home-layout-list" id="home-layout-list"></div>
       <button class="btn btn-secondary theme-dialog-cancel" id="home-layout-close" type="button">Готово</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="widget-layout-dialog" role="dialog" aria-modal="true" aria-labelledby="widget-layout-title" hidden>
+    <section class="app-dialog home-layout-dialog widget-layout-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🧩</div>
+      <h2 id="widget-layout-title">Виджет на рабочем столе</h2>
+      <p>Выберите, что показывать на виджете. Число строк ограничено его размером.</p>
+      <div class="segmented" id="widget-size-segmented" role="radiogroup" aria-label="Размер виджета">
+        <button type="button" role="radio" aria-checked="false" data-widget-size="small">2×1</button>
+        <button class="active" type="button" role="radio" aria-checked="true" data-widget-size="medium">4×2</button>
+        <button type="button" role="radio" aria-checked="false" data-widget-size="large">4×4</button>
+      </div>
+      <p class="settings-hint widget-layout-counter" id="widget-layout-counter">—</p>
+      <div class="home-layout-list" id="widget-layout-list"></div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="widget-layout-close" type="button">Готово</button>
     </section>
   </div>
 

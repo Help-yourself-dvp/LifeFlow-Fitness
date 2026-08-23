@@ -3134,6 +3134,14 @@ button.food-group-header:active { filter: brightness(0.97); }
 .home-layout-order button + button { border-left: 1px solid var(--md-sys-color-outline-variant); }
 .home-layout-order button:disabled { opacity: .35; }
 .home-layout-order button:not(:disabled):active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+/* 0.9.4: конфигуратор Android-виджета (тот же список, что и карточки Главной,
+   плюс «стоимость» строки и подсветка выбранных элементов) */
+.widget-layout-dialog #widget-size-segmented { margin-top: 12px; }
+.widget-layout-counter { margin-top: 8px; text-align: center; }
+.widget-layout-row.on { background: var(--md-sys-color-primary-container); }
+.widget-layout-row.off { opacity: .55; }
+.widget-layout-text { display: flex; min-width: 0; flex-direction: column; }
+.widget-layout-cost { color: var(--md-sys-color-on-surface-variant); font-size: .7rem; }
 
 /* ---------- Вес и динамика по профилю ---------- */
 .weight-settings .settings-label-row { align-items: flex-start; }
