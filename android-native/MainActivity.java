@@ -792,6 +792,9 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                             .putInt("foodGoal", data.optInt("foodGoal", 2000))
                             .putInt("activityMinutes", data.optInt("activityMinutes", 0))
                             .putInt("stepsToday", data.optInt("stepsToday", 0))
+                            // 0.9.6: цели для «рисованных» виджетов (кольца, дуги, плитки)
+                            .putInt("stepsGoal", data.optInt("stepsGoal", 8000))
+                            .putInt("activityGoal", data.optInt("activityGoal", 21))
                             .putString("profileName", data.optString("profileName", "Мой профиль"))
                             .putString("date", data.optString("date", ""))
                             // 0.9.4: раскладка виджета из настроек приложения — список

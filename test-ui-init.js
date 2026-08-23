@@ -2734,5 +2734,113 @@ for (const id of ids) {
   console.log(`${okOnce ? '✓' : '✗'} 0.9.5 значок цели анимируется только в момент достижения`);
 }
 
+/* 0.9.6 — пункт 5 владельца: несколько оформлений виджета для сравнения.
+   Классический строчный виджет остаётся нетронутым, рядом появляются
+   «рисованные» варианты. Проверяем сцепку четырёх частей: исходники
+   копируются в сборку, ресиверы объявлены в манифесте, каждому выдан свой
+   appwidget-info, и все R.id из Java существуют в генерируемой разметке. */
+{
+  const bundle = readBuildBundle();
+  const yml = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const appW = fs.readFileSync('app.js', 'utf8');
+
+  const variants = [
+    'FitFlowWidgetRingProvider',
+    'FitFlowWidgetRingsProvider',
+    'FitFlowWidgetDialProvider',
+    'FitFlowWidgetTilesProvider'
+  ];
+
+  /* Файлы вариантов реально лежат в репозитории. */
+  const okFiles = variants.every((v) => fs.existsSync('android-native/' + v + '.java'))
+    && fs.existsSync('android-native/FitFlowWidgetCanvasProvider.java')
+    && fs.existsSync('android-native/FitFlowWidgetData.java')
+    && fs.existsSync('android-native/FitFlowWidgetDraw.java');
+  if (!okFiles) failed++;
+  console.log(`${okFiles ? '✓' : '✗'} 0.9.6 исходники вариантов виджета на месте`);
+
+  /* Шаг копирования нативных файлов перечисляет каждый новый класс — иначе
+     манифест сошлётся на несуществующий ресивер и сборка упадёт. */
+  const copyLine = (yml.match(/for f in MainActivity\.java[^\n]*/) || [''])[0];
+  const okCopy = variants.every((v) => copyLine.includes(v + '.java'))
+    && copyLine.includes('FitFlowWidgetCanvasProvider.java')
+    && copyLine.includes('FitFlowWidgetData.java')
+    && copyLine.includes('FitFlowWidgetDraw.java');
+  if (!okCopy) failed++;
+  console.log(`${okCopy ? '✓' : '✗'} 0.9.6 варианты копируются в сборку`);
+
+  /* Каждый вариант объявлен ресивером и получил собственный appwidget-info. */
+  const infos = ['fitflow_widget_ring_info', 'fitflow_widget_rings_info',
+                 'fitflow_widget_dial_info', 'fitflow_widget_tiles_info'];
+  const okManifest = variants.every((v) => yml.includes(`'${v}'`))
+    && infos.every((i) => yml.includes(i));
+  if (!okManifest) failed++;
+  console.log(`${okManifest ? '✓' : '✗'} 0.9.6 каждому варианту свой ресивер и appwidget-info`);
+
+  /* Разметка «рисованного» виджета генерируется и содержит все нужные id. */
+  const canvasIds = ['widget_canvas_root', 'widget_canvas_image',
+                     'widget_canvas_water_btn', 'widget_canvas_record_btn', 'widget_canvas_refresh_btn'];
+  const okLayout = yml.includes('fitflow_widget_canvas.xml')
+    && canvasIds.every((id) => yml.includes('@+id/' + id));
+  if (!okLayout) failed++;
+  console.log(`${okLayout ? '✓' : '✗'} 0.9.6 разметка рисованного виджета описана`);
+
+  /* Все R.id/R.layout, которые Java просит у ресурсов, должны существовать
+     в генерируемой разметке. Именно это ломает сборку в первую очередь. */
+  const declaredIds = new Set((yml.match(/@\+id\/([A-Za-z0-9_]+)/g) || [])
+    .map((m) => m.replace('@+id/', '')));
+  /* Слоты классического виджета генерируются шаблоном ('widget_slot_%d'),
+     поэтому в тексте workflow буквальных widget_slot_1..10 нет. Разворачиваем
+     шаблоны в конкретные номера — до 10 слотов большой раскладки. */
+  (yml.match(/@\+id\/([A-Za-z0-9_]*)%d([A-Za-z0-9_]*)/g) || []).forEach((m) => {
+    const tpl = m.replace('@+id/', '');
+    for (let i = 1; i <= 10; i++) declaredIds.add(tpl.replace('%d', String(i)));
+  });
+  const declaredLayouts = new Set((yml.match(/'(fitflow_widget[a-z_]*)\.xml'/g) || [])
+    .map((m) => m.replace(/'/g, '').replace('.xml', '')));
+  let usedIds = new Set();
+  let usedLayouts = new Set();
+  for (const f of fs.readdirSync('android-native').filter((f) => f.endsWith('.java'))) {
+    const t = fs.readFileSync('android-native/' + f, 'utf8');
+    (t.match(/R\.id\.([A-Za-z0-9_]+)/g) || []).forEach((m) => usedIds.add(m.slice(5)));
+    (t.match(/R\.layout\.([A-Za-z0-9_]+)/g) || []).forEach((m) => usedLayouts.add(m.slice(9)));
+  }
+  const missingIds = [...usedIds].filter((id) => !declaredIds.has(id));
+  const missingLayouts = [...usedLayouts].filter((l) => !declaredLayouts.has(l));
+  const okRefs = usedIds.size > 20 && missingIds.length === 0 && missingLayouts.length === 0;
+  if (!okRefs) failed++;
+  console.log(`${okRefs ? '✓' : '✗'} 0.9.6 все R.id и R.layout существуют в разметке`
+    + (missingIds.length ? ` (нет id: ${missingIds.join(', ')})` : '')
+    + (missingLayouts.length ? ` (нет layout: ${missingLayouts.join(', ')})` : ''));
+
+  /* Обновление данных доходит до новых виджетов: единая точка updateAll
+     перерисовывает и «рисованные» варианты. */
+  const okUpdate = bundle.includes('FitFlowWidgetCanvasProvider.updateAllCanvas(context);')
+    && /static void updateAllCanvas\(Context context\)/.test(bundle);
+  if (!okUpdate) failed++;
+  console.log(`${okUpdate ? '✓' : '✗'} 0.9.6 новые виджеты обновляются из общей точки`);
+
+  /* Кольцам и дугам нужны цели, иначе процент не из чего считать:
+     JS шлёт их, MainActivity кладёт в prefs, класс данных читает. */
+  const okGoals = /stepsGoal: \(state\.healthSync/.test(appW)
+    && /activityGoal: Math\.max\(1,/.test(appW)
+    && bundle.includes('.putInt("stepsGoal"')
+    && bundle.includes('.putInt("activityGoal"');
+  if (!okGoals) failed++;
+  console.log(`${okGoals ? '✓' : '✗'} 0.9.6 цели шагов и активности доходят до виджета`);
+
+  /* Картинка рисуется без области кнопок — иначе содержимое уезжает под них. */
+  const okRoom = /BUTTON_ROW_DP/.test(bundle)
+    && /maxHeightDp - BUTTON_ROW_DP/.test(bundle);
+  if (!okRoom) failed++;
+  console.log(`${okRoom ? '✓' : '✗'} 0.9.6 картинка не залезает под кнопки`);
+
+  /* Классический виджет не тронут: его разметка и слоты на месте. */
+  const okLegacy = yml.includes('widget_layout_xml(5,') && yml.includes('widget_layout_xml(10,')
+    && bundle.includes('R.layout.fitflow_widget_large');
+  if (!okLegacy) failed++;
+  console.log(`${okLegacy ? '✓' : '✗'} 0.9.6 классический виджет остался прежним`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -70,6 +70,11 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
         int[] ids = manager.getAppWidgetIds(component);
         for (int id : ids) updateWidget(context, manager, id);
+        /* 0.9.6 (пункт 5 владельца — несколько оформлений для сравнения):
+           единая точка обновления. Все, кто уже звал updateAll (приложение,
+           фоновая синхронизация, кнопка воды, полуночный будильник),
+           автоматически перерисовывают и «рисованные» варианты виджета. */
+        FitFlowWidgetCanvasProvider.updateAllCanvas(context);
         scheduleMidnightRefresh(context);
     }
 
@@ -270,7 +275,9 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
        без суммы источников и без устаревшего значения из JS-кэша.
        phone_only → аппаратный шагомер; health_connect_only → часы;
        auto → часы при наличии, иначе телефон. */
-    private static int resolveWidgetSteps(Context context) {
+    /* 0.9.6: видимость расширена до пакетной — сравниваемые «рисованные»
+       варианты виджета берут шаги той же функцией, без второй копии правил. */
+    static int resolveWidgetSteps(Context context) {
         SharedPreferences s = context.getSharedPreferences("fitflow_sensor_prefs", Context.MODE_PRIVATE);
         String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
         String savedDate = s.getString("steps_date", "");

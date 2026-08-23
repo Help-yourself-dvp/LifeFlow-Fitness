@@ -2964,7 +2964,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.5';
+const FITFLOW_VERSION = '0.9.6';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5473,6 +5473,12 @@ function updateNativeWidget() {
       foodGoal: state.food.goal,
       activityMinutes,
       stepsToday,
+      // 0.9.6 (пункт 5 владельца — виджеты с кольцами/дугами): им нужны не
+      // только значения, но и цели, иначе процент нарисовать не из чего.
+      // Недельную цель активности делим на 7 — виджет показывает день.
+      stepsGoal: (state.healthSync && state.healthSync.dailyGoal) || 8000,
+      activityGoal: Math.max(1, Math.round(((state.activitySettings
+        && state.activitySettings.weeklyGoalMinutes) || 150) / 7)),
       priority: (state.healthSync && state.healthSync.priority) || 'auto', // 0.7.13: для фонового разрешения шагов в виджете
       profileName,
       date: todayKey(),
