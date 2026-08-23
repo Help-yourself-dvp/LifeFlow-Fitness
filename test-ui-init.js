@@ -2366,6 +2366,29 @@ for (const id of ids) {
   if (!okBeta) failed++;
   console.log(`${okBeta ? '✓' : '✗'} 0.8.29 бета-метка на ИИ-анализе (входов: ${betaCount}/2) с пояснением`);
 
+  // 0.9.0: бета-метка на прогрессе силовых + пояснение, что 1RM/уровни — расчётная оценка
+  const okBetaStrength = html.includes('data-help="beta-strength"')
+    && appR.includes("'beta-strength': {")
+    && appR.includes('в разработке и тестировании');
+  if (!okBetaStrength) failed++;
+  console.log(`${okBetaStrength ? '✓' : '✗'} 0.9.0 бета-метка на прогрессе силовых с пояснением`);
+
+  // 0.9.0: метка стоит в теле блока, а не в шапке-переключателе,
+  // иначе один тап и свернёт блок, и откроет справку.
+  const bsIdx = html.indexOf('data-help="beta-strength"');
+  const headBefore = html.lastIndexOf('<button class="collapsible-toggle"', bsIdx);
+  const closeBefore = html.lastIndexOf('</button>', bsIdx);
+  const okBetaPlacement = bsIdx > -1 && closeBefore > headBefore
+    && html.indexOf('id="strength-history-content"') < bsIdx;
+  if (!okBetaPlacement) failed++;
+  console.log(`${okBetaPlacement ? '✓' : '✗'} 0.9.0 бета-метка силовых вне .collapsible-toggle (клик не сворачивает блок)`);
+
+  // 0.9.0: медали силы честно помечены оценкой, а не нормативом
+  const okMedalHint = appR.includes("id: 'strength', title: '🏋️ Сила (уровни)'")
+    && /id: 'strength',[^\n]*Бета:[^\n]*расчётному 1RM/.test(appR);
+  if (!okMedalHint) failed++;
+  console.log(`${okMedalHint ? '✓' : '✗'} 0.9.0 медали силы помечены как расчётная оценка`);
+
   const okVerCurrent = appR.includes("const FITFLOW_VERSION = '" + VERSION + "'") && html.includes('v' + VERSION);
   if (!okVerCurrent) failed++;
   console.log(`${okVerCurrent ? '✓' : '✗'} версия ${VERSION} синхронна в коде и «О приложении»`);
