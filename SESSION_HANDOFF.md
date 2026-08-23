@@ -16,13 +16,20 @@
 Ссылки всегда давать КЛИКАБЕЛЬНЫМИ, а активный файл — сразу в режиме редактирования:
 
 1. Скопировать зеркало целиком:
-   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/019ff972-lifeflow-fitness/tools/github-workflows/build.yml
+   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/01a02da3-lifeflow-fitness/tools/github-workflows/build.yml
 2. Открыть активный workflow в режиме редактирования и заменить всё содержимое:
-   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/019ff972-lifeflow-fitness/.github/workflows/build.yml
+   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/01a02da3-lifeflow-fitness/.github/workflows/build.yml
 3. Commit changes → вкладка «Actions» → дождаться сборки → APK в Releases.
 
 ## Текущее состояние
 
+- Версия приложения: **0.9.4** (конфигуратор виджета — выпущено, релиз `v0.9.4-build344`):
+  - 🧩 Галочки выбора карточек в «Оформление» → `#widget-layout-dialog`; бюджет по размеру виджета (`WIDGET_SIZES`: small 3, medium 5, large 8; вода и питание стоят 2 строки, остальные 1), при переполнении — сообщение «Не помещается…».
+  - 🗂 Слот-модель разметки: `widget_slot_N` / `_text` / `_bar` / `_bar2` (small 1..5, large 1..10) генерируется в `build.yml`; `FitFlowWidgetProvider.updateWidget` раскладывает `widgetItems` по слотам, неизвестный id пропускается.
+  - 🐛 П.5 владельца: «Питание» больше не появляется на виджете при выключенной карточке — `activeWidgetItems()` фильтрует через `isWidgetItemAvailable`.
+- Версия приложения: **0.9.3** (ссылка на страницу ИИ-модели + пошаговая инструкция в подсказке «?»; лицензионная чистота проверена: Gemma Terms — обязанности только при распространении весов).
+- Версия приложения: **0.9.2** (сканер штрих-кода камерой: ZXing `zxing-android-embedded`, Apache-2.0, офлайн, без Google Play Services; мост `scanBarcode()` → `window.onBarcodeScanned`; источник данных — Open Food Facts, ODbL, атрибуция в разделе лицензий).
+- Версия приложения: **0.9.1** (п.1 владельца: подсветка быстрого перехода — активен раздел, пересекающий линию порога под панелью, поэтому нажатый чип подсвечивается всегда; `syncQuickNavTop()` пересчитывается перед прокруткой).
 - Версия приложения: **0.8.24** (P13 вечерний пуш «Оцени день» + P14 скачивание модели + подсказка совместимости телефона + микродвижения):
   - 🌗 P13: `dayMoodReminder` + `scheduleMoodReminder`/`refreshMoodReminderOnLaunch` + канал `fitflow_day_mood` + подсветка карточки самочувствия.
   - 📥 P14: натив `startModelDownload`/`modelDownloadStatus`/`cancelModelDownload`/`deviceInfo` в `FitFlowLocalAiPlugin.kt` (скачивание через DownloadManager, прогресс/докачка) + JS `startAiModelDownload`/`pollAiModelDownload` + панель `#ai-download-panel`.
@@ -306,7 +313,7 @@
 - Кейс-урок 0.3.6: в браузере `document.querySelectorAll` возвращает **NodeList** — у него есть `.forEach`/`.length`, но НЕТ `.some/.map/.filter`. Падение в `init()` перехватывается общим try/catch и показывает красный баннер, но ВСЕ обработчики ниже места падения не привязываются — приложение «вроде открывается», но половина кнопок мертва. Правило: любой Array-метод на результате `$$` — только через `Array.from`; теперь это гарантировано самим хелпером + тестом `test-ui-init.js` (проверяет, что `$$` содержит `Array.from`).
 - Новая договорённость (05.08.2026): в «полировочные» версии по замечаниям включаем и один некритичный пункт дорожной карты, чтобы не застревать на мелочах (в 0.3.2 — «Методика расчётов», в 0.3.3 — «честный ИИ»: реальный рецепт и чат-нутрициолог по правилам вместо шаблонных заглушек).
 - При выпуске версии обновлять четыре места: `version.txt` (версия сборки в CI), `package.json`, константу `FITFLOW_VERSION` в app.js и fallback `<span id="about-version">` в index.html.
-- Ветка сессии: `arena/019ff5ec-lifeflow-fitness` (продолжение линии сессий `arena/019fc7ce...` → `arena/019fbe3c...` → `arena/019ff03f...`).
+- Ветка сессии: `arena/01a02da3-lifeflow-fitness` (продолжение линии сессий `arena/019fc7ce...` → `arena/019fbe3c...` → `arena/019ff03f...` → `arena/019ff5ec...` → `arena/019ff972...`).
 - Приложение offline-first: HTML/CSS/Vanilla JS + Capacitor Android.
 - Данные хранятся локально, серверов нет.
 - Реализованы вода, питание, парсер (база 925+ продуктов, источники в `DATA_SOURCES.md`), резервные копии, активность, шаблоны активности, вечерний вопрос об активности, утренняя мотивация, свои и избранные блюда, история итогов дня, статистика Сегодня / 7 / 30 дней, компактный Android-виджет, подробные экраны воды и питания, история веса с графиком, локальные профили (до 10), чек-лист дня с настроением 1–5, ИИ-центр с вкладками и режим «Локальный эксперт FitFlow (0 ГБ)», выбор локального файла модели, честный бенчмарк, голосовой ввод через нативный RecognizerIntent.
@@ -326,7 +333,7 @@
 
 ## Важно про GitHub
 
-- Рабочая ветка этой сессии: `arena/019ff5ec-lifeflow-fitness`. Не переключать ветку.
+- Рабочая ветка этой сессии: `arena/01a02da3-lifeflow-fitness`. Не переключать ветку.
 - Пуш изменений в `.github/workflows/` отклоняется GitHub App без permission `workflows` — активный workflow заменяет пользователь вручную по raw-ссылке на `tools/github-workflows/build.yml` (протокол с SHA-256 и размером описан в AI_GUIDE.md).
 - После перехода на `version.txt` ручная замена workflow нужна только при нативных изменениях (Gradle, плагины, MainActivity, виджет), а не ради номера версии.
 - gh-протокол проверки сборки (0.4.15): `gh run list --limit 1 --json databaseId -q '.[0].databaseId'` → `gh run watch <ID> --exit-status --interval 20` → `gh release view v<версия>-build<N> --json tagName,assets,url`. Подводные камни: у `gh release list` нет флага `--json` (использовать view на конкретный тег), в JSON `gh release view` нет поля `isLatest` — факт Latest проверять на странице релизов.
