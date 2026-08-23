@@ -2675,5 +2675,64 @@ for (const id of ids) {
   console.log(`${okWeight ? '✓' : '✗'} 0.9.5 кнопки виджета прижаты к нижнему краю`);
 }
 
+/* -------------------------------------------------------------------
+   0.9.5 — п.1 «Питание»: чёткое разделение трёх сущностей и видимый
+   адрес результата сканирования; п.3 — узкие микроанимации отклика.
+------------------------------------------------------------------- */
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+  const htmlR = fs.readFileSync('index.html', 'utf8');
+  const cssR = fs.readFileSync('style.css', 'utf8');
+
+  /* Дефект владельца: «сканирую штрих-код, а результат ищу не там».
+     После сохранения продукт обязан САМ называть своё место. */
+  const okAddress = /сохранён в «Мои продукты»/.test(appR)
+    && /он попадёт в «Мои продукты»/.test(appR);
+  if (!okAddress) failed++;
+  console.log(`${okAddress ? '✓' : '✗'} 0.9.5 сканер сообщает, куда сохранён продукт`);
+
+  /* Комбо умеют воду и активность (commitParsedEntry пишет waterMl и
+     activities) — это обязано быть видно в поле создания, иначе владелец
+     снова не найдёт способ добавить воду в комбо. */
+  const okComboHint = /placeholder="Напр\.: 500 мл воды, овсянка 150 г, бег 30 мин"/.test(htmlR)
+    && /записывает СРАЗУ воду, еду и активность/.test(appR);
+  if (!okComboHint) failed++;
+  console.log(`${okComboHint ? '✓' : '✗'} 0.9.5 в комбо видно, что можно писать воду и активность`);
+
+  /* Подсказка в разметке и подсказка в JS не должны разъезжаться:
+     при открытии вкладки JS перезаписывает текст, и рассинхрон был бы
+     заметен как «мигание» другой формулировки. */
+  const hintsBlock = (appR.match(/const QUICK_TAB_HINTS = \{[\s\S]*?\n\};/) || [''])[0];
+  const jsCombo = (hintsBlock.match(/combo: '([^']+)'/) || [])[1] || '';
+  const okSync = jsCombo.length > 30 && htmlR.includes(jsCombo);
+  if (!okSync) failed++;
+  console.log(`${okSync ? '✓' : '✗'} 0.9.5 подсказка вкладки «Комбо» синхронна в HTML и JS`);
+
+  /* П.3: анимация обязана запускаться ТОЛЬКО при реальном изменении —
+     иначе число дёргается на каждой плановой перерисовке. */
+  const fn = (appR.match(/function setValueAnimated\([\s\S]*?\n\}/) || [''])[0];
+  const okGuard = /el\.textContent !== next/.test(fn) && /if \(!changed\) return;/.test(fn);
+  if (!okGuard) failed++;
+  console.log(`${okGuard ? '✓' : '✗'} 0.9.5 микроанимация только при реальном изменении`);
+
+  /* Счётчики воды и ккал переведены на анимированную установку. */
+  const okWired = /setValueAnimated\(\$\('#water-total'\)/.test(appR)
+    && /setValueAnimated\(\$\('#food-total'\)/.test(appR);
+  if (!okWired) failed++;
+  console.log(`${okWired ? '✓' : '✗'} 0.9.5 счётчики воды и ккал дают отклик`);
+
+  /* Классы анимаций описаны в CSS, а системный режим «уменьшить движение»
+     обязан их гасить — глобальное правило уже есть, проверяем оба факта. */
+  const okCss = /@keyframes value-bump/.test(cssR) && /@keyframes check-pop/.test(cssR)
+    && /prefers-reduced-motion/.test(cssR);
+  if (!okCss) failed++;
+  console.log(`${okCss ? '✓' : '✗'} 0.9.5 анимации описаны и уважают «уменьшить движение»`);
+
+  /* Галочка цели «пухнет» один раз — в момент достижения, а не постоянно. */
+  const okOnce = /const wasReached =/.test(appR) && /if \(reached && !wasReached\)/.test(appR);
+  if (!okOnce) failed++;
+  console.log(`${okOnce ? '✓' : '✗'} 0.9.5 значок цели анимируется только в момент достижения`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

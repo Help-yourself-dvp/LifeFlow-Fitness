@@ -4535,3 +4535,48 @@ html[data-palette="berry"] .ai-icon-btn {
     transition: translate 0.2s ease;
   }
 }
+
+/* ============================================================
+   0.9.5 — микроанимации отклика (замечание владельца п.3).
+   Оценка была: делать, но УЗКО. Анимируется только то, что реально
+   изменилось, длительность 160–220 мс — глаз успевает заметить
+   изменение, палец не ждёт. Глобальное правило
+   prefers-reduced-motion (строка ~2077) гасит всё это автоматически,
+   поэтому отдельных отключений здесь не нужно.
+   ============================================================ */
+@keyframes value-bump {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.13); }
+  100% { transform: scale(1);    }
+}
+
+/* Крупные счётчики (вода, ккал): короткий «толчок» в момент изменения.
+   Только transform — не вызывает пересчёт разметки, поэтому дёшево. */
+.value-bump {
+  animation: value-bump 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: transform;
+}
+
+@keyframes row-flash {
+  0%   { background-color: transparent; }
+  25%  { background-color: rgb(0 105 107 / 0.16); }
+  100% { background-color: transparent; }
+}
+
+/* Строка/карточка, данные которой только что обновились. */
+.row-flash {
+  animation: row-flash 0.7s ease;
+  border-radius: 12px;
+}
+
+@keyframes check-pop {
+  0%   { transform: scale(0.6); opacity: 0.2; }
+  55%  { transform: scale(1.18); opacity: 1;  }
+  100% { transform: scale(1);    opacity: 1;  }
+}
+
+/* Галочка выполнения (цель достигнута, задача отмечена). */
+.check-pop {
+  animation: check-pop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: transform;
+}

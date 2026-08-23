@@ -2778,8 +2778,8 @@ async function onBarcodeScanned(code, error) {
   if (result.ok) {
     fillCustomFoodForm(result.product);
     toast(result.cached
-      ? '✓ Уже знаю этот код: сверьте с упаковкой и нажмите «Сохранить продукт»'
-      : '✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт»');
+      ? '✓ Уже знаю этот код: сверьте с упаковкой и нажмите «Сохранить продукт» — он попадёт в «Мои продукты»'
+      : '✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт» — он попадёт в «Мои продукты»');
     const kcalInput = $('#custom-food-kcal');
     if (kcalInput) kcalInput.focus();
     return;
@@ -2897,7 +2897,10 @@ function saveCustomFoodFromDialog() {
   }
   ['#custom-food-name', '#custom-food-kcal', '#custom-food-p', '#custom-food-f', '#custom-food-c', '#custom-food-piece']
     .forEach((id) => { const el = $(id); if (el) el.value = ''; });
-  toast('🏷 «' + result.item.name + '» сохранён — разбор теперь берёт ваши значения');
+  /* 0.9.5 (п.1): владелец искал результат сканирования не там, где он
+     оказывался. Теперь после сохранения прямо называем место и способ
+     применения — «лежит в „Мои продукты“, пишите название во фразе». */
+  toast('🏷 «' + result.item.name + '» → сохранён в «Мои продукты». Пишите это название во фразе — расчёт возьмёт ваши значения');
   renderCustomFoodsList();
 }
 
@@ -7194,11 +7197,30 @@ function moveWidgetItem(id, direction) {
   renderWidgetLayoutDialog();
 }
 
+/* 0.9.5 (п.3, оценка «делать, но узко»). Ставит текст и, ЕСЛИ значение
+   реально изменилось, коротко «толкает» число. Проверка на изменение
+   обязательна: без неё анимация запускалась бы на каждой перерисовке
+   (а renderWater зовётся и по таймерам, и при открытии экрана) и
+   превратилась бы в мельтешение. Системный режим «уменьшить движение»
+   гасит анимацию глобальным правилом в style.css. */
+function setValueAnimated(el, text, cls) {
+  if (!el) return;
+  const next = String(text);
+  const changed = el.textContent !== next && el.textContent !== '';
+  el.textContent = next;
+  if (!changed) return;
+  const klass = cls || 'value-bump';
+  el.classList.remove(klass);
+  void el.offsetWidth;              // рестарт анимации: нужен реальный reflow
+  el.classList.add(klass);
+  setTimeout(() => el.classList.remove(klass), 400);
+}
+
 function renderWater() {
   const { total, goal } = state.water;
   const pct = Math.min(1, goal > 0 ? total / goal : 0);
 
-  $('#water-total').textContent = fmt(total);
+  setValueAnimated($('#water-total'), fmt(total));
   $('#water-ring-fg').style.strokeDashoffset =
     String(RING_CIRCUMFERENCE * (1 - pct));
 
@@ -7206,9 +7228,19 @@ function renderWater() {
   card.classList.toggle('goal-reached', total >= goal);
 
   const reached = total >= goal;
+  const wasReached = $('#water-status') && /Цель достигнута/.test($('#water-status').textContent || '');
   $('#water-status').innerHTML = reached
     ? '<span style="color:var(--success);font-weight:700">Цель достигнута! 🎉</span>'
     : `из ${fmt(goal)} мл`;
+  /* 0.9.5 (п.3): «пух» только в МОМЕНТ достижения цели, а не на каждой
+     перерисовке уже достигнутой цели — иначе значок дёргался бы весь день. */
+  if (reached && !wasReached) {
+    const badge = $('#water-status').firstElementChild;
+    if (badge) {
+      badge.classList.add('check-pop');
+      setTimeout(() => badge.classList.remove('check-pop'), 400);
+    }
+  }
 
   $('#water-undo').style.opacity = total > 0 ? '1' : '0.45';
   renderDayChecklist();
@@ -8316,7 +8348,7 @@ function renderFood() {
 
   const pct = Math.min(1, effectiveGoal > 0 ? total / effectiveGoal : 0);
 
-  $('#food-total').textContent = fmt(total);
+  setValueAnimated($('#food-total'), fmt(total));   // 0.9.5 (п.3): отклик на изменение ккал
   $('#food-goal-label').textContent = fmt(effectiveGoal);
   $('#food-goal').textContent = `${fmt(goal)} ккал`;
   if (budgetAdj && budgetAdj.total > 0) {
@@ -13060,9 +13092,14 @@ function renderCharityReports() {
    карточке → один диалог → три вкладки. Все id у узлов прежние, поэтому
    существующие обработчики и рендеры не переписывались.
    ============================================================ */
+/* 0.9.5 (замечание владельца п.1: «три раздела пересекаются, непонятно,
+   какой когда»). Подсказки переписаны так, чтобы каждая называла СВОЙ случай
+   и границу с соседним: комбо — сценарий дня (вода+еда+активность одной
+   фразой), блюда — готовая порция в ккал, продукты — упаковка со штрих-кодом
+   и БЖУ на 100 г. Сущности не сливаем: у них разные данные и разный смысл. */
 const QUICK_TAB_HINTS = {
-  combo: 'Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.',
-  meals: 'Ваши блюда с точными ккал с упаковки: тап сразу вносит блюдо в дневник. Ниже можно создать свой шаблон.'
+  combo: 'Сценарий одним тапом: одна фраза записывает СРАЗУ воду, еду и активность — например «500 мл воды, овсянка 150 г, бег 30 минут». Для одного блюда удобнее вкладка «Мои блюда».',
+  meals: 'Готовая порция с известной калорийностью: тап — и блюдо в дневнике. Если нужно записать ещё воду и тренировку той же фразой — это вкладка «Комбо», а упаковки со штрих-кодом живут в «Мои продукты».'
 };
 
 function switchQuickTab(name) {

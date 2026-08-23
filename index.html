@@ -2194,10 +2194,10 @@
         <button type="button" role="tab" data-quick-tab="combo" class="active" aria-selected="true"><span data-icon-slot="combo">⭐</span> Комбо</button>
         <button type="button" role="tab" data-quick-tab="meals" aria-selected="false"><span data-icon-slot="food">🍽</span> Мои блюда</button>
       </div>
-      <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Фраза-набор «на всё сразу»: тап по комбо записывает и воду, и еду, и активность из неё одним прикосновением.</p>
+      <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Сценарий одним тапом: одна фраза записывает СРАЗУ воду, еду и активность — например «500 мл воды, овсянка 150 г, бег 30 минут». Для одного блюда удобнее вкладка «Мои блюда».</p>
 
       <div class="quick-panel" id="quick-panel-combo" role="tabpanel">
-        <p class="quick-label">Ваши комбо (тап — мгновенная запись):</p>
+        <p class="quick-label">Ваши комбо (тап — мгновенная запись воды, еды и активности):</p>
         <div class="quick-chips" id="combo-chips"></div>
         <p class="settings-hint" id="combo-hint"></p>
         <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Управление комбо…</button>
@@ -2206,7 +2206,7 @@
           <div class="quick-add-accordion-body" id="quick-combo-body" hidden style="margin-top:8px">
             <div class="manual-food-row">
               <input class="dialog-text-input" id="quick-combo-name" type="text" maxlength="40" placeholder="Название (напр., Завтрак)" aria-label="Название комбо">
-              <input class="dialog-text-input" id="quick-combo-text" type="text" maxlength="300" placeholder="Фраза: овсянка 150г, кофе" aria-label="Фраза комбо">
+              <input class="dialog-text-input" id="quick-combo-text" type="text" maxlength="300" placeholder="Напр.: 500 мл воды, овсянка 150 г, бег 30 мин" aria-label="Фраза комбо">
             </div>
             <button class="btn btn-primary" id="quick-combo-save-btn" type="button" style="width:100%;margin-top:6px">Сохранить комбо</button>
           </div>
