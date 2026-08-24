@@ -178,7 +178,9 @@ jobs:
           set -e
           DEST=android/app/src/main/java/com/fitflow/app
           mkdir -p "$DEST"
-          for f in MainActivity.java FitFlowWidgetProvider.java WaterReminderReceiver.java HealthSyncReceiver.java HealthConnectHelper.kt; do
+          # 0.9.6: к классическому виджету добавлены «рисованные» варианты
+          # оформления (пункт 5 владельца — сравнить их рядом на телефоне).
+          for f in MainActivity.java FitFlowWidgetProvider.java WaterReminderReceiver.java HealthSyncReceiver.java HealthConnectHelper.kt FitFlowWidgetData.java FitFlowWidgetDraw.java FitFlowWidgetCanvasProvider.java FitFlowWidgetRingProvider.java FitFlowWidgetRingsProvider.java FitFlowWidgetDialProvider.java FitFlowWidgetTilesProvider.java; do
             if [ ! -f "android-native/$f" ]; then
               echo "::error::Не найден android-native/$f"
               exit 1
@@ -230,6 +232,27 @@ jobs:
           )
           if 'FitFlowWidgetProvider' not in t:
               t = t.replace('</application>', receiver + '    </application>')
+          # 0.9.6 (пункт 5 владельца): рядом с классическим виджетом ставятся
+          # варианты оформления с другой визуализацией — их можно повесить на
+          # экран одновременно и сравнить на одних и тех же показателях.
+          canvas_widgets = [
+              ('FitFlowWidgetRingProvider', 'fitflow_widget_ring_info'),
+              ('FitFlowWidgetRingsProvider', 'fitflow_widget_rings_info'),
+              ('FitFlowWidgetDialProvider', 'fitflow_widget_dial_info'),
+              ('FitFlowWidgetTilesProvider', 'fitflow_widget_tiles_info'),
+          ]
+          for cls, info in canvas_widgets:
+              if cls in t:
+                  continue
+              block = (
+                  f'        <receiver android:name=".{cls}" android:exported="false">\n'
+                  '            <intent-filter>\n'
+                  '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
+                  '            </intent-filter>\n'
+                  f'            <meta-data android:name="android.appwidget.provider" android:resource="@xml/{info}" />\n'
+                  '        </receiver>\n'
+              )
+              t = t.replace('</application>', block + '    </application>')
           health_alias = (
               '        <activity-alias\n'
               '            android:name="ViewPermissionUsageActivity"\n'
@@ -416,12 +439,22 @@ jobs:
                   '    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="FITFLOW · СЕГОДНЯ" android:textColor="#00696B" android:textSize="%dsp" android:fontFamily="sans-serif-medium" />\n' % title_size,
                   '    <TextView android:id="@+id/widget_profile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Профиль: Мой профиль" android:textColor="#4A6363" android:textSize="%dsp" android:ellipsize="end" android:singleLine="true" />\n' % profile_size,
               ]
+              # 0.9.5: строки живут в контейнере с layout_weight=1 и высотой 0dp.
+              # Он забирает всю свободную высоту, поэтому кнопки всегда прижаты к
+              # низу: при большом виджете под ними нет пустого поля, при маленьком
+              # они не выдавливаются за край (лишнее обрезается сверху, а не снизу).
+              parts.append('    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">\n')
               for i in range(1, slots + 1):
                   parts.append(widget_slot(i, text_size, bar_height, gap if i > 1 else gap + 3))
               parts.append('    <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Откройте настройки приложения и выберите, что показывать" android:textColor="#4A6363" android:textSize="11sp" android:visibility="gone" />\n')
+              parts.append('    </LinearLayout>\n')
               parts.append('    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:orientation="horizontal">\n')
               parts.append('        <Button android:id="@+id/widget_water_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="%dsp" android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
               parts.append('        <Button android:id="@+id/widget_record_btn" android:layout_width="0dp" android:layout_height="%ddp" android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="%dsp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n' % (btn_height, btn_text))
+              # 0.9.5: кнопка «обновить» — узкая, фиксированной ширины, чтобы не
+              # отнимать место у основных действий. Просьба владельца: чинить
+              # разъехавшийся виджет на месте, не удаляя и не добавляя его заново.
+              parts.append('        <Button android:id="@+id/widget_refresh_btn" android:layout_width="%ddp" android:layout_height="%ddp" android:layout_marginStart="4dp" android:text="⟳" android:textSize="%dsp" android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" android:contentDescription="Обновить виджет" />\n' % (btn_height, btn_height, btn_text + 2))
               parts.append('    </LinearLayout>\n')
               parts.append('</LinearLayout>\n')
               return ''.join(parts)
@@ -430,6 +463,35 @@ jobs:
               widget_layout_xml(5, 14, 11, 10, 13, 4, 4, 34, 11), encoding='utf-8')
           (layout / 'fitflow_widget_large.xml').write_text(
               widget_layout_xml(10, 16, 12, 11, 15, 5, 5, 38, 12), encoding='utf-8')
+          # 0.9.6 (пункт 5 владельца — сравнение оформлений): разметка для
+          # «рисованных» виджетов. Показатели рисуются на Bitmap и кладутся в
+          # ImageView одним setImageViewBitmap: на minSdk 26 цвет ProgressBar
+          # из RemoteViews не меняется, поэтому разноцветные кольца и дуги
+          # вьюхами не собрать. Кнопки внизу — обычные, как у классического.
+          (layout / 'fitflow_widget_canvas.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    android:id="@+id/widget_canvas_root" android:layout_width="match_parent" android:layout_height="match_parent"\n'
+              '    android:orientation="vertical">\n'
+              '    <ImageView android:id="@+id/widget_canvas_image" android:layout_width="match_parent"\n'
+              '        android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitXY"\n'
+              '        android:contentDescription="Показатели дня FitFlow" />\n'
+              '    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"\n'
+              '        android:orientation="horizontal"\n'
+              '        android:layout_marginStart="10dp" android:layout_marginEnd="10dp" android:layout_marginBottom="8dp">\n'
+              '        <Button android:id="@+id/widget_canvas_water_btn" android:layout_width="0dp" android:layout_height="30dp"\n'
+              '            android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="10sp"\n'
+              '            android:textColor="#FFFFFF" android:background="@drawable/fitflow_widget_btn_water" android:fontFamily="sans-serif-medium" />\n'
+              '        <Button android:id="@+id/widget_canvas_record_btn" android:layout_width="0dp" android:layout_height="30dp"\n'
+              '            android:layout_weight="1" android:layout_marginStart="4dp" android:text="📝 Записать" android:textSize="10sp"\n'
+              '            android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary" android:fontFamily="sans-serif-medium" />\n'
+              '        <Button android:id="@+id/widget_canvas_refresh_btn" android:layout_width="30dp" android:layout_height="30dp"\n'
+              '            android:layout_marginStart="4dp" android:text="⟳" android:textSize="12sp"\n'
+              '            android:textColor="#00696B" android:background="@drawable/fitflow_widget_btn_secondary"\n'
+              '            android:fontFamily="sans-serif-medium" android:contentDescription="Обновить виджет" />\n'
+              '    </LinearLayout>\n'
+              '</LinearLayout>\n', encoding='utf-8')
+
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
           (xml / 'fitflow_widget_info.xml').write_text(
@@ -441,6 +503,28 @@ jobs:
               '    android:initialLayout="@layout/fitflow_widget"\n'
               '    android:resizeMode="horizontal|vertical"\n'
               '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
+
+          # 0.9.6: по одному описанию на каждый вариант оформления. Имя (label)
+          # видно в списке виджетов лаунчера — владелец сразу понимает, какой
+          # из них ставит на экран. Размеры по умолчанию разные: кольцу с
+          # строками нужна ширина, плиткам — квадрат.
+          canvas_infos = [
+              ('fitflow_widget_ring_info', 'FitFlow · кольцо и строки', 250, 110),
+              ('fitflow_widget_rings_info', 'FitFlow · кольца', 180, 180),
+              ('fitflow_widget_dial_info', 'FitFlow · циферблат', 180, 180),
+              ('fitflow_widget_tiles_info', 'FitFlow · плитки', 250, 150),
+          ]
+          for info_name, label, min_w, min_h in canvas_infos:
+              (xml / (info_name + '.xml')).write_text(
+                  '<?xml version="1.0" encoding="utf-8"?>\n'
+                  '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"\n'
+                  '    android:minWidth="%ddp"\n' % min_w +
+                  '    android:minHeight="%ddp"\n' % min_h +
+                  '    android:updatePeriodMillis="0"\n'
+                  '    android:initialLayout="@layout/fitflow_widget_canvas"\n'
+                  '    android:resizeMode="horizontal|vertical"\n'
+                  '    android:label="%s"\n' % label +
+                  '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
 
           adaptive = (
               '<?xml version="1.0" encoding="utf-8"?>\n'
