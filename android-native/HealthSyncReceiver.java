@@ -39,6 +39,22 @@ public class HealthSyncReceiver extends BroadcastReceiver {
                     long lastSync = prefs.getLong("hc_last_sync_ts", 0);
                     if (System.currentTimeMillis() - lastSync >= BACKGROUND_SYNC_MIN_INTERVAL) {
                         try {
+                            /* 0.9.15: минуты тренировок за сегодня — для вечернего
+                               напоминания. С фоновым чтением (Android 15+) часы
+                               доезжают сами, и приложение узнаёт об активности,
+                               даже если его сегодня не открывали. */
+                            int exerciseMin = HealthConnectHelper.readTodayExerciseMinutes(context);
+                            if (exerciseMin >= 0) {
+                                prefs.edit()
+                                    .putInt("hc_exercise_min_today", exerciseMin)
+                                    .putString("hc_exercise_min_date", today)
+                                    .apply();
+                                // День уже закрыт активностью — убираем показанный
+                                // вопрос «была сегодня активность?» из шторки.
+                                if (exerciseMin >= ACTIVITY_REMINDER_MIN_MINUTES) {
+                                    cancelTrainingReminderNotification(context, today);
+                                }
+                            }
                             int[] result = HealthConnectHelper.syncNow(context);
                             int watchSteps = result[0];
                             int totalSteps = result[1];
@@ -62,6 +78,33 @@ public class HealthSyncReceiver extends BroadcastReceiver {
                 }
             }
         }).start();
+    }
+
+    /* 0.9.15: снять уже показанное вечернее напоминание.
+       Идентификатор считается тем же алгоритмом, что и в app.js
+       (FNV-1a от даты + TRAINING_REMINDER_BASE_ID) — иначе фон снимал бы
+       чужое уведомление или не находил нужное. Планируемые (ещё не
+       показанные) сигналы остаются за приложением: их перестраивает
+       refreshTrainingReminderOnResume при ближайшем открытии. */
+    private static final int TRAINING_REMINDER_BASE_ID = 76000;
+    private static final int ACTIVITY_REMINDER_MIN_MINUTES = 15;
+
+    static int trainingReminderId(String dateKey) {
+        int hash = (int) 2166136261L;
+        for (int i = 0; i < dateKey.length(); i++) {
+            hash ^= dateKey.charAt(i);
+            hash *= 16777619;
+        }
+        long unsigned = ((long) hash) & 0xFFFFFFFFL;
+        return TRAINING_REMINDER_BASE_ID + (int) (unsigned % 900000L);
+    }
+
+    private static void cancelTrainingReminderNotification(Context context, String dateKey) {
+        try {
+            android.app.NotificationManager nm =
+                (android.app.NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(trainingReminderId(dateKey));
+        } catch (Exception e) { }
     }
 
     public static void schedulePeriodicSync(Context context) {

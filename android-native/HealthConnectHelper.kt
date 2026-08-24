@@ -1,6 +1,8 @@
 package com.fitflow.app
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
+import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -48,6 +50,59 @@ object HealthConnectHelper {
         "com.fitbit.FitbitMobile",                // Fitbit
         "com.withings.wiscale2"                   // Withings Health Mate
     )
+
+    // 0.9.15: разрешение на чтение Health Connect В ФОНЕ.
+    // По умолчанию Health Connect отдаёт данные только приложению на переднем
+    // плане: наш часовой HealthSyncReceiver честно просыпался и получал отказ,
+    // поэтому данные подтягивались лишь при открытии приложения. Начиная с
+    // Android 15 существует отдельное разрешение, снимающее этот запрет.
+    // Строку берём из HealthPermission, а не пишем руками: константа
+    // PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND и есть
+    // "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND".
+    @JvmStatic
+    val BACKGROUND_READ_PERMISSION: String = HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+
+    // Доступна ли функция на этом устройстве. У пользователя может стоять старая
+    // версия Health Connect, где фонового чтения нет вовсе — тогда просить
+    // разрешение бессмысленно и мы не показываем ничего.
+    @JvmStatic
+    fun isBackgroundReadAvailable(context: Context): Boolean {
+        return try {
+            if (HealthConnectClient.getSdkStatus(context) != HealthConnectClient.SDK_AVAILABLE) return false
+            val client = HealthConnectClient.getOrCreate(context)
+            client.features.getFeatureStatus(
+                HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND
+            ) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // Выдано ли разрешение. Проверяем ровно так же, как остальные разрешения HC —
+    // через getGrantedPermissions, а не через проверку манифеста: пользователь
+    // может отозвать доступ в настройках в любой момент.
+    @JvmStatic
+    fun hasBackgroundReadPermission(context: Context): Boolean {
+        return try {
+            if (HealthConnectClient.getSdkStatus(context) != HealthConnectClient.SDK_AVAILABLE) return false
+            val client = HealthConnectClient.getOrCreate(context)
+            runBlocking {
+                client.permissionController.getGrantedPermissions()
+                    .contains(BACKGROUND_READ_PERMISSION)
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // Одна строка состояния для JS: чтобы не гонять два моста подряд.
+    // unavailable — версия HC старая; granted — всё хорошо, фон работает;
+    // denied — функция есть, разрешения нет, можно предложить выдать.
+    @JvmStatic
+    fun backgroundReadStatus(context: Context): String {
+        if (!isBackgroundReadAvailable(context)) return "unavailable"
+        return if (hasBackgroundReadPermission(context)) "granted" else "denied"
+    }
 
     @JvmStatic
     fun syncNow(context: Context): IntArray {
@@ -149,6 +204,44 @@ object HealthConnectHelper {
        а случайно включённый и сразу выключенный режим на часах. Тот же порог
        продублирован в JS (onHealthWorkoutsReceived), менять надо в обоих местах. */
     private const val MIN_WORKOUT_MINUTES = 5
+
+    /* 0.9.15: суммарные минуты тренировок ЗА СЕГОДНЯ — для фоновой проверки
+       вечернего напоминания. Отдельный лёгкий метод вместо разбора JSON из
+       readTodayWorkouts: тому окно 3 суток и он возвращает строку, а фоновому
+       ресиверу нужно одно число и как можно быстрее. Свой экспорт и слишком
+       короткие отрезки отбрасываем ровно по тем же правилам, иначе фон и
+       приложение считали бы день по-разному. */
+    @JvmStatic
+    fun readTodayExerciseMinutes(context: Context): Int {
+        return try {
+            val client = HealthConnectClient.getOrCreate(context)
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now()
+            val start = today.atStartOfDay(zone).toInstant()
+            val end = today.plusDays(1).atStartOfDay(zone).toInstant()
+            val selfPkg = context.packageName
+            var total = 0
+            var pageToken: String? = null
+            do {
+                val req = ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageToken = pageToken
+                )
+                val resp = runBlocking { client.readRecords(req) }
+                for (rec in resp.records) {
+                    if ((rec.metadata.dataOrigin?.packageName ?: "") == selfPkg) continue
+                    val minutes = ((rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()) / 60000L).toInt()
+                    if (minutes < MIN_WORKOUT_MINUTES) continue
+                    total += minutes
+                }
+                pageToken = resp.pageToken
+            } while (pageToken != null)
+            total
+        } catch (e: Exception) {
+            -1
+        }
+    }
 
     @JvmStatic
     fun readTodayWorkouts(context: Context): String {

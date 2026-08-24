@@ -229,6 +229,10 @@ jobs:
               'android.permission.health.WRITE_EXERCISE',
               'android.permission.health.READ_WEIGHT',
               'android.permission.health.READ_HEIGHT',
+              # 0.9.15: чтение Health Connect, когда приложение закрыто (Android 15+).
+              # На более старых версиях разрешение просто игнорируется системой,
+              # а приложение работает как раньше — читает при открытии.
+              'android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND',
           ]
           for p in perms:
               tag = f'    <uses-permission android:name="{p}" />\n'

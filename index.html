@@ -936,6 +936,14 @@
             <button class="btn btn-secondary" id="health-connect-open-btn" type="button">⚙️ Системные разрешения Health Connect</button>
             <button class="btn btn-secondary" id="health-phone-perm-btn" type="button">🚶 Разрешение шагомера телефона</button>
           </div>
+          <!-- 0.9.15: фоновое чтение Health Connect. Блок скрыт полностью,
+               пока не выяснено состояние: показываем только если разрешение
+               реально можно выдать (Android 15+ и оно ещё не выдано). -->
+          <div id="health-background-read-block" hidden style="margin-top:12px">
+            <p class="settings-hint" id="health-background-read-hint">Сейчас данные с часов подтягиваются только когда приложение открыто.</p>
+            <button class="btn btn-secondary" id="health-background-read-btn" type="button" style="width:100%">🌙 Разрешить чтение в фоне</button>
+          </div>
+          <p class="settings-hint" style="margin-top:12px">Если данные с часов приходят с задержкой — дело обычно не в FitFlow: приложение часов (Zepp, Mi Fitness, Huawei Health) отдаёт их в Health Connect только когда работает само. Отключите для него экономию батареи в настройках Android, тогда синхронизация пойдёт без открытия приложения часов.</p>
         </div>
         <p class="settings-hint" id="health-sync-status">Синхронизация выключена.</p>
       </div>
@@ -1347,7 +1355,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.14 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.15 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

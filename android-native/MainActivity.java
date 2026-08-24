@@ -533,6 +533,29 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             return prefs.getString("hc_last_error", "");
         }
 
+        /* 0.9.15: состояние фонового чтения Health Connect.
+           "unavailable" — на устройстве старая версия HC без этой функции,
+           "denied" — функция есть, разрешение не выдано,
+           "granted" — фоновое чтение работает.
+           Вызов быстрый (без сети), поэтому синхронный. */
+        @JavascriptInterface
+        public String getHealthBackgroundReadStatus() {
+            try {
+                return HealthConnectHelper.backgroundReadStatus(getApplicationContext());
+            } catch (Throwable t) {
+                return "unavailable";
+            }
+        }
+
+        /* 0.9.15: открыть экран выдачи разрешения на фоновое чтение.
+           Отдельного системного экрана «только фон» нет: Health Connect
+           показывает дополнительный доступ на общей странице разрешений
+           нашего приложения, поэтому ведём туда же, куда и обычные разрешения. */
+        @JavascriptInterface
+        public void requestHealthBackgroundRead() {
+            requestHealthConnectPermissions();
+        }
+
         /* 0.8.0: сессии тренировок с часов из Health Connect → JS-подсказка */
         @JavascriptInterface
         public void syncHealthWorkoutsNow() {

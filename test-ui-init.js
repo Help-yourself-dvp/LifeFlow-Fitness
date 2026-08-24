@@ -3691,5 +3691,116 @@ for (const id of ids) {
   console.log(`${captionOk ? '✓' : '✗'} 0.9.14 подпись периода говорит «последние N дней»`);
 }
 
+/* ==== 0.9.15: фоновое чтение Health Connect и вечернее напоминание ==== */
+{
+  const appS = fs.readFileSync('app.js', 'utf8');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const kt = fs.readFileSync('android-native/HealthConnectHelper.kt', 'utf8');
+  const main = fs.readFileSync('android-native/MainActivity.java', 'utf8');
+  const recv = fs.readFileSync('android-native/HealthSyncReceiver.java', 'utf8');
+  const wf = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+
+  // 1. Разрешение фонового чтения попадает в манифест сборки.
+  const permOk = /android\.permission\.health\.READ_HEALTH_DATA_IN_BACKGROUND/.test(wf);
+  if (!permOk) failed++;
+  console.log(`${permOk ? '✓' : '✗'} 0.9.15 READ_HEALTH_DATA_IN_BACKGROUND есть в манифесте`);
+
+  // 2. Строка разрешения берётся из константы SDK, а не пишется руками:
+  //    опечатка в строковом литерале выявилась бы только на устройстве.
+  const constOk = /HealthPermission\.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND/.test(kt);
+  if (!constOk) failed++;
+  console.log(`${constOk ? '✓' : '✗'} 0.9.15 разрешение берётся из HealthPermission, не строкой`);
+
+  // 3. Поддержка функции проверяется ДО запроса разрешения.
+  const featOk = /FEATURE_READ_HEALTH_DATA_IN_BACKGROUND/.test(kt)
+    && /FEATURE_STATUS_AVAILABLE/.test(kt);
+  if (!featOk) failed++;
+  console.log(`${featOk ? '✓' : '✗'} 0.9.15 доступность функции проверяется через getFeatureStatus`);
+
+  // 4. Выданность читается через getGrantedPermissions: пользователь может
+  //    отозвать доступ, манифест об этом не знает.
+  const grantOk = /getGrantedPermissions\(\)[\s\S]{0,120}BACKGROUND_READ_PERMISSION/.test(kt);
+  if (!grantOk) failed++;
+  console.log(`${grantOk ? '✓' : '✗'} 0.9.15 выданность проверяется через getGrantedPermissions`);
+
+  // 5. Мост наружу и три возможных состояния.
+  const bridgeOk = /getHealthBackgroundReadStatus/.test(main)
+    && /requestHealthBackgroundRead/.test(main)
+    && /backgroundReadStatus/.test(kt);
+  if (!bridgeOk) failed++;
+  console.log(`${bridgeOk ? '✓' : '✗'} 0.9.15 мосты фонового чтения объявлены в MainActivity`);
+
+  const jsBridgeOk = /function healthBackgroundReadStatus/.test(appS)
+    && /'granted'/.test(appS) && /'unavailable'/.test(appS);
+  if (!jsBridgeOk) failed++;
+  console.log(`${jsBridgeOk ? '✓' : '✗'} 0.9.15 JS читает состояние фонового чтения`);
+
+  // 6. Никаких видимых заглушек: блок скрыт в разметке и открывается кодом.
+  const hiddenOk = /id="health-background-read-block" hidden/.test(html)
+    && /block\.hidden = true/.test(appS);
+  if (!hiddenOk) failed++;
+  console.log(`${hiddenOk ? '✓' : '✗'} 0.9.15 блок фонового доступа скрыт, пока функция недоступна`);
+
+  // 7. Порог «день засчитан» — сумма минут, а не количество записей.
+  //    Часы заводят «тренировкой» двухминутную ходьбу до магазина.
+  const thresholdOk = /const ACTIVITY_REMINDER_MIN_MINUTES = (\d+)/.test(appS)
+    && /function hasWorkoutToday\(\)[\s\S]{0,160}activityMinutesForDate\(todayKey\(\)\) >= ACTIVITY_REMINDER_MIN_MINUTES/.test(appS);
+  if (!thresholdOk) failed++;
+  console.log(`${thresholdOk ? '✓' : '✗'} 0.9.15 вечерний вопрос считает СУММУ минут за день`);
+
+  // 8. Порог одинаков в JS и в фоновом ресивере — иначе фон и приложение
+  //    закрывали бы день по разным правилам.
+  const jsThr = (appS.match(/const ACTIVITY_REMINDER_MIN_MINUTES = (\d+)/) || [])[1];
+  const javaThr = (recv.match(/ACTIVITY_REMINDER_MIN_MINUTES = (\d+)/) || [])[1];
+  const sameThr = !!jsThr && jsThr === javaThr;
+  if (!sameThr) failed++;
+  console.log(`${sameThr ? '✓' : '✗'} 0.9.15 порог активности совпадает в JS (${jsThr}) и в фоне (${javaThr})`);
+
+  // 9. Идентификатор напоминания в фоне считается тем же алгоритмом (FNV-1a
+  //    от даты + база), иначе фон гасил бы чужое уведомление.
+  const jsBase = (appS.match(/TRAINING_REMINDER_BASE_ID = (\d+)/) || [])[1];
+  const javaBase = (recv.match(/TRAINING_REMINDER_BASE_ID = (\d+)/) || [])[1];
+  const idOk = !!jsBase && jsBase === javaBase
+    && /16777619/.test(recv) && /900000/.test(recv);
+  if (!idOk) failed++;
+  console.log(`${idOk ? '✓' : '✗'} 0.9.15 id вечернего напоминания считается одинаково в JS и в фоне`);
+
+  // 10. Дыра №1: импорт тренировки с часов пересчитывает напоминание.
+  const importSyncOk = /syncPastDaySummary\(s\.date \|\| ''\)[\s\S]{0,400}syncTrainingReminderForToday/.test(appS);
+  if (!importSyncOk) failed++;
+  console.log(`${importSyncOk ? '✓' : '✗'} 0.9.15 ручной импорт с часов пересчитывает вечерний вопрос`);
+
+  // 11. Дыра №1 (авто): автоимпорт делает то же самое.
+  const autoSyncOk = /if \(added\) \{ Promise\.resolve\(syncTrainingReminderForToday\(\)\)/.test(appS);
+  if (!autoSyncOk) failed++;
+  console.log(`${autoSyncOk ? '✓' : '✗'} 0.9.15 автоимпорт с часов пересчитывает вечерний вопрос`);
+
+  // 12. Дыра №2: расписание пересматривается при возврате в приложение,
+  //     а не только в момент построения на 14 дней вперёд.
+  const resumeOk = /function refreshTrainingReminderOnResume/.test(appS)
+    && /refreshTrainingReminderOnResume\(\);/.test(appS)
+    && /refreshTrainingReminderOnResume\(true\)/.test(appS);
+  if (!resumeOk) failed++;
+  console.log(`${resumeOk ? '✓' : '✗'} 0.9.15 напоминание пересчитывается при возврате в приложение`);
+
+  // 13. Дыра №3: фоновый синк снимает уже показанный вопрос.
+  const bgOk = /readTodayExerciseMinutes/.test(recv)
+    && /cancelTrainingReminderNotification/.test(recv);
+  if (!bgOk) failed++;
+  console.log(`${bgOk ? '✓' : '✗'} 0.9.15 фоновый синк снимает вопрос при засчитанном дне`);
+
+  // 14. Нативный счётчик минут отбрасывает собственный экспорт — иначе
+  //     записанная нами тренировка вернулась бы и закрыла день сама себе.
+  const selfOk = /fun readTodayExerciseMinutes[\s\S]{0,900}packageName[\s\S]{0,80}selfPkg/.test(kt);
+  if (!selfOk) failed++;
+  console.log(`${selfOk ? '✓' : '✗'} 0.9.15 фоновый счётчик минут игнорирует собственный экспорт`);
+
+  // 15. Подсказка про экономию батареи приложения часов — причина задержек
+  //     не в FitFlow, и владельцу это нужно видеть в настройках синхронизации.
+  const zeppOk = /экономию батареи/.test(html) && /Health Connect только когда работает само/.test(html);
+  if (!zeppOk) failed++;
+  console.log(`${zeppOk ? '✓' : '✗'} 0.9.15 подсказка про экономию батареи приложения часов`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

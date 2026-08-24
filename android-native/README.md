@@ -11,8 +11,23 @@
 | `MainActivity.java` | Точка входа, мост JS↔Android: будильники, батарея, сохранение бэкапа, распознавание речи |
 | `FitFlowWidgetProvider.java` | Виджет на рабочем столе (вода, шаги, кнопка +250) |
 | `WaterReminderReceiver.java` | Напоминания о воде: канал, расписание, пауза, кнопки в уведомлении |
-| `HealthSyncReceiver.java` | Периодическая фоновая синхронизация с Health Connect |
-| `HealthConnectHelper.kt` | Чтение шагов, сна, тренировок, веса и роста; запись тренировок |
+| `HealthSyncReceiver.java` | Периодическая фоновая синхронизация с Health Connect; с 0.9.15 снимает вечернее напоминание, если день закрыт активностью |
+| `HealthConnectHelper.kt` | Чтение шагов, сна, тренировок, веса и роста; запись тренировок; с 0.9.15 — состояние разрешения на чтение в фоне |
+
+**Фоновое чтение (0.9.15).** Health Connect по умолчанию отдаёт данные только
+приложению на переднем плане. Разрешение
+`android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND` (Android 15+, API 35)
+снимает запрет; оно объявлено в списке `perms` в `tools/github-workflows/build.yml`.
+Перед запросом обязательна проверка поддержки через
+`client.features.getFeatureStatus(FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)` —
+на старых версиях Health Connect функции нет вовсе. Выданность проверяется через
+`permissionController.getGrantedPermissions()`, а не по манифесту: доступ можно
+отозвать в любой момент.
+
+**Порог активности продублирован.** `ACTIVITY_REMINDER_MIN_MINUTES = 15` и
+алгоритм расчёта id уведомления (FNV-1a от даты + `TRAINING_REMINDER_BASE_ID`)
+существуют и в `app.js`, и в `HealthSyncReceiver.java`. Менять только парой —
+рассинхрон ловится тестом `test-ui-init.js`, блок 0.9.15.
 
 ## Как править
 

@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.14';
+const FITFLOW_VERSION = '0.9.15';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -7966,6 +7966,11 @@ function autoImportStaleWatchWorkouts() {
     renderTraining();
     updateNativeWidget();
     renderWatchWorkoutsSuggest();
+    /* 0.9.15: тренировка доехала с часов — вечерний вопрос «была активность?»
+       на сегодня больше не нужен. Раньше пересчёт звали только ручные
+       сценарии, и напоминание приходило поверх уже засчитанного дня.
+       Ждать нечего — уведомление снимается в фоне. */
+    if (added) { Promise.resolve(syncTrainingReminderForToday()).catch(() => {}); }
     const first = addedList[0];
     const firstLabel = first ? (first.title || (ACTIVITY_TYPES[mapWatchWorkoutType(first.type, first.title)] || ACTIVITY_TYPES.other).label) : '';
     // 0.9.10: молчим, если всё пришедшее оказалось уже записанным вручную.
@@ -8007,6 +8012,8 @@ function importWatchWorkout(recordId) {
   renderTraining();
   renderWatchWorkoutsSuggest();
   updateNativeWidget();
+  // 0.9.15: день засчитан — снимаем вечерний вопрос, как при ручной записи.
+  Promise.resolve(syncTrainingReminderForToday()).catch(() => {});
   toast('✓ Добавлено с часов: ' + title + ' · ' + formatWorkoutDuration(s.minutes));
 }
 
@@ -8322,6 +8329,57 @@ function openHealthConnectSettings() {
   toast('Health Connect доступен в Android-сборке на телефоне');
 }
 
+/* 0.9.15: фоновое чтение Health Connect.
+   Возвращает "unavailable" | "denied" | "granted".
+   На вебе и на старых Android моста нет — считаем, что функции нет. */
+function healthBackgroundReadStatus() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.getHealthBackgroundReadStatus === 'function') {
+      const raw = String(window.FitFlowExport.getHealthBackgroundReadStatus() || '');
+      if (raw === 'granted' || raw === 'denied' || raw === 'unavailable') return raw;
+    }
+  } catch (e) { }
+  return 'unavailable';
+}
+
+function requestHealthBackgroundRead() {
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.requestHealthBackgroundRead === 'function') {
+      window.FitFlowExport.requestHealthBackgroundRead();
+      /* Системный экран открылся поверх нас. Пользователь вернётся уже с
+         выданным (или не выданным) доступом — перечитываем состояние на
+         возврате, а не сразу: сразу оно ещё старое. */
+      toast('Health Connect → Дополнительный доступ → Данные в фоновом режиме');
+      return;
+    }
+  } catch (e) { }
+  toast('Доступно в Android-сборке на телефоне');
+}
+
+/* Блок в настройках виден ТОЛЬКО когда есть что нажать: функция на устройстве
+   поддерживается, а разрешение ещё не выдано. Выдано — короткая строка без
+   кнопки; не поддерживается — блока нет вовсе (никаких мёртвых элементов). */
+function renderHealthBackgroundRead() {
+  if (typeof document === 'undefined') return;
+  const block = $('#health-background-read-block');
+  if (!block) return;
+  const btn = $('#health-background-read-btn');
+  const hint = $('#health-background-read-hint');
+  const status = healthBackgroundReadStatus();
+  if (status === 'unavailable' || !state.healthSync.enabled) {
+    block.hidden = true;
+    return;
+  }
+  block.hidden = false;
+  if (status === 'granted') {
+    if (btn) btn.hidden = true;
+    if (hint) hint.textContent = '🌙 Фоновое чтение разрешено: шаги, сон и тренировки с часов подтягиваются, даже когда FitFlow закрыт.';
+  } else {
+    if (btn) btn.hidden = false;
+    if (hint) hint.textContent = 'Сейчас данные с часов подтягиваются только когда приложение открыто. Разрешение на чтение в фоне снимает это ограничение — тренировка попадёт в дневник сама.';
+  }
+}
+
 function requestActivityRecognition() {
   try {
     if (window.FitFlowExport && typeof window.FitFlowExport.requestActivityRecognition === 'function') {
@@ -8418,6 +8476,7 @@ function renderHealthSyncSettings() {
       statusEl.textContent = `Синхронизация активна. Шагов сегодня: ${fmt(steps)} (${src}).`;
     }
   }
+  renderHealthBackgroundRead(); // 0.9.15: доступ к данным в фоне
   renderStepsCard();
 }
 
@@ -9937,8 +9996,17 @@ function activityCountText(count) {
   return 'активностей';
 }
 
+/* 0.9.15: порог «день засчитан» для вечернего напоминания.
+   Раньше хватало ЛЮБОЙ записи: часы автоматом заводят «тренировку» из
+   двухминутной ходьбы до магазина, она попадала в дневник — и вопрос
+   «была сегодня активность?» не приходил в день, когда реальной
+   активности не было. Считаем сумму минут за день, а не количество
+   записей: три коротких прогулки по 6 минут — это уже день с движением,
+   одна двухминутная — нет. */
+const ACTIVITY_REMINDER_MIN_MINUTES = 15;
+
 function hasWorkoutToday() {
-  return getWorkoutsForDate().length > 0;
+  return activityMinutesForDate(todayKey()) >= ACTIVITY_REMINDER_MIN_MINUTES;
 }
 
 function renderActivityTypeSelection() {
@@ -11562,6 +11630,25 @@ async function scheduleMoodReminder({ skipToday = false, requestPermission = tru
     console.warn('Не удалось запланировать вечерний вопрос о самочувствии:', e);
     return { ok: false, message: 'Не удалось запланировать напоминание. Проверьте разрешения Android.' };
   }
+}
+
+/* 0.9.15: пересчёт вечернего вопроса при запуске и при возврате в приложение.
+   Расписание строится на 14 дней вперёд, а решение «сегодня уже была
+   активность» принимается в МОМЕНТ ПОСТРОЕНИЯ. Между построением и вечером
+   проходят часы: за это время наступает новый день, доезжают тренировки с
+   часов, правится дневник. Раньше расписание никто не пересматривал —
+   напоминание либо приходило в засчитанный день, либо не приходило в пустой.
+   Вызов дешёвый (перепланирование локальных уведомлений) и тихий:
+   разрешение не запрашиваем. */
+let lastTrainingReminderRefreshAt = 0;
+const TRAINING_REMINDER_REFRESH_MIN_INTERVAL = 5 * 60 * 1000;
+
+async function refreshTrainingReminderOnResume(force = false) {
+  if (!state.reminders.enabled || !getLocalNotifications()) return;
+  const now = Date.now();
+  if (!force && now - lastTrainingReminderRefreshAt < TRAINING_REMINDER_REFRESH_MIN_INTERVAL) return;
+  lastTrainingReminderRefreshAt = now;
+  await syncTrainingReminderForToday();
 }
 
 async function refreshMoodReminderOnLaunch() {
@@ -14156,8 +14243,13 @@ function init() {
 
   // 0.7.12: шаги обновляются при входе и при возврате в приложение (свернули → открыли).
   refreshHealthDataOnResume();
+  refreshTrainingReminderOnResume(true); // 0.9.15: сверить вечерний вопрос с фактом дня
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refreshHealthDataOnResume();
+    if (!document.hidden) {
+      refreshHealthDataOnResume();
+      refreshTrainingReminderOnResume();
+      renderHealthBackgroundRead(); // 0.9.15: вернулись с экрана разрешений
+    }
   });
 
   // Тема
@@ -14799,6 +14891,7 @@ function init() {
   bindEvent('#health-diag-copy-btn', 'click', copyHealthDiagnosticsReport);
   bindEvent('#health-diag-sync-btn', 'click', () => { requestHealthSyncNow(); openHealthDiagnostics(); });
   bindEvent('#health-connect-open-btn', 'click', openHealthConnectSettings);
+  bindEvent('#health-background-read-btn', 'click', requestHealthBackgroundRead); // 0.9.15
   bindEvent('#health-phone-perm-btn', 'click', requestActivityRecognition);
   $$('#health-priority-choices [data-health-priority]').forEach((btn) => {
     btn.addEventListener('click', () => updateHealthPriority(btn.dataset.healthPriority));
