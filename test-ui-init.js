@@ -3029,5 +3029,73 @@ for (const id of ids) {
   }
 }
 
+/* ============================================================
+   0.9.9: «План тренировок» — путь создания шаблона и отметка
+   выполнения. Замечание владельца: «не смог найти, как создать
+   шаблон». Проверяем не текст подсказки, а наличие рабочего
+   пути и устойчивость галочки к переименованию.
+   ============================================================ */
+{
+  const appPlanSrc = fs.readFileSync('app.js', 'utf8');
+
+  // 1. В пустом плане есть кнопка создания, и у неё есть обработчик.
+  const planFn = appPlanSrc.slice(appPlanSrc.indexOf('function renderStrengthPlan()'));
+  const planEmpty = planFn.slice(0, planFn.indexOf('// «Сегодня по плану»'));
+  const hasCreateBtn = /data-s-plan-create/.test(planEmpty);
+  if (!hasCreateBtn) failed++;
+  console.log(`${hasCreateBtn ? '✓' : '✗'} 0.9.9 в пустом плане есть кнопка «Создать шаблон»`);
+
+  const hasHandler = /\[data-s-plan-create\]/.test(appPlanSrc)
+    && /function openStrengthTemplateCreation\(\)/.test(appPlanSrc);
+  if (!hasHandler) failed++;
+  console.log(`${hasHandler ? '✓' : '✗'} 0.9.9 кнопка создания шаблона привязана к обработчику`);
+
+  // 2. Обработчик реально раскрывает дневник силовых и ставит фокус в название.
+  const openFn = appPlanSrc.slice(appPlanSrc.indexOf('function openStrengthTemplateCreation()'));
+  const openBody = openFn.slice(0, openFn.indexOf('\n}\n'));
+  const opensDiary = /strength-diary-content/.test(openBody)
+    && /setCollapsibleState\(toggle, content, true\)/.test(openBody)
+    && /data-s-title/.test(openBody);
+  if (!opensDiary) failed++;
+  console.log(`${opensDiary ? '✓' : '✗'} 0.9.9 создание шаблона открывает дневник и ставит курсор в «Название»`);
+
+  // 3. Поле названия не подписано «необязательно» — сохранение шаблона его требует.
+  const saysOptional = /Название \(необязательно\)/.test(appPlanSrc);
+  if (saysOptional) failed++;
+  console.log(`${!saysOptional ? '✓' : '✗'} 0.9.9 подпись поля «Название» не противоречит проверке при сохранении`);
+
+  // 4. Поведение isPlanDoneToday: галочка переживает переименование тренировки.
+  const doneSrc = appPlanSrc.slice(appPlanSrc.indexOf('function isPlanDoneToday('));
+  const doneBody = doneSrc.slice(0, doneSrc.indexOf('\n}\n') + 2);
+  const TODAY = '2026-08-24';
+  const mkState = (sessions) => ({
+    strengthTemplates: [{ id: 'tpl-1', name: 'День ног', exercises: [] }],
+    strengthSessions: sessions
+  });
+  const callDone = (st) => {
+    const fn = new Function('state', 'todayKey', doneBody + '; return isPlanDoneToday;')(st, () => TODAY);
+    return fn('tpl-1');
+  };
+
+  // 4a. Тренировка начата из шаблона и переименована — план всё равно засчитан.
+  const renamed = callDone(mkState([
+    { date: TODAY, title: 'Ноги + пресс (добавил упражнения)', templateId: 'tpl-1' }
+  ]));
+  if (!renamed) failed++;
+  console.log(`${renamed ? '✓' : '✗'} 0.9.9 переименованная тренировка по шаблону отмечается выполненной`);
+
+  // 4b. Старая запись (до 0.9.9, без templateId) — засчитывается по имени.
+  const legacy = callDone(mkState([{ date: TODAY, title: 'День ног' }]));
+  if (!legacy) failed++;
+  console.log(`${legacy ? '✓' : '✗'} 0.9.9 записи прежних версий по-прежнему засчитываются по названию`);
+
+  // 4c. Чужая тренировка того же дня не засчитывается за шаблон.
+  const other = callDone(mkState([
+    { date: TODAY, title: 'Плавание', templateId: 'tpl-2' }
+  ]));
+  if (other) failed++;
+  console.log(`${!other ? '✓' : '✗'} 0.9.9 посторонняя тренировка не отмечает план выполненным`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

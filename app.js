@@ -3047,7 +3047,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.8';
+const FITFLOW_VERSION = '0.9.9';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -9713,6 +9713,7 @@ function normalizeStrengthSessions() {
         date: s.date,
         title: normalizeActivityName(s.title) || null,
         durationMinutes: (Number.isFinite(dur) && dur >= 5 && dur <= 1440) ? Math.round(dur) : null,
+        templateId: typeof s.templateId === 'string' && s.templateId ? s.templateId : null,
         exercises,
         createdAt: Number(s.createdAt) || Date.now()
       };
@@ -9784,6 +9785,9 @@ function startStrengthFromTemplate(id) {
   strengthDraft = {
     title: t.name,
     durationMinutes: '',
+    // 0.9.9: помним, из какого шаблона начата тренировка — отметка «выполнено»
+    // в плане больше не зависит от совпадения названий.
+    templateId: t.id,
     exercises: t.exercises.map((ex) => ({ name: ex.name, sets: ex.sets.map((s) => ({ weight: s.weight, reps: s.reps })) }))
   };
   renderStrengthDiary();
@@ -9917,12 +9921,37 @@ function renderWeeklyLoadBalance() {
   el.textContent = parts.length ? 'Баланс за 7 дней: ' + parts.join(' · ') : 'Баланс нагрузки появится после тренировок';
 }
 
+/* 0.9.9: «Создать шаблон» из плана — раскрываем дневник силовых, прокручиваем
+   к нему и ставим курсор в «Название». Раньше кнопки не было вовсе, а подсказка
+   «сначала сохраните шаблон» не говорила, где именно это делается. */
+function openStrengthTemplateCreation() {
+  if (typeof document === 'undefined') return;
+  const content = document.getElementById('strength-diary-content');
+  const toggle = document.querySelector('[data-collapse-target="strength-diary-content"]');
+  if (content && toggle) setCollapsibleState(toggle, content, true);
+  const section = document.querySelector('.strength-diary-section');
+  if (section) {
+    try { section.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    catch (e) { try { section.scrollIntoView(true); } catch (e2) { } }
+  }
+  setTimeout(() => {
+    const input = document.querySelector('#strength-diary [data-s-title]');
+    if (!input) return;
+    try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+  }, 320);
+  toast('Заполните название и добавьте упражнения — затем «⭐ Сохранить как шаблон»');
+}
+
 /* Выполнена ли тренировка по шаблону сегодня (сессия с тем же именем). */
 function isPlanDoneToday(templateId) {
   const t = (state.strengthTemplates || []).find((x) => x.id === templateId);
   if (!t) return false;
   const name = t.name.toLowerCase();
-  return (state.strengthSessions || []).some((s) => s.date === todayKey() && String(s.title || '').toLowerCase() === name);
+  /* 0.9.9: сначала точная связь по templateId — переименование тренировки
+     больше не сбрасывает галочку. Сверка по имени осталась запасным путём:
+     сессии, записанные до 0.9.9, поля templateId не имеют. */
+  return (state.strengthSessions || []).some((s) => s.date === todayKey()
+    && (s.templateId ? s.templateId === templateId : String(s.title || '').toLowerCase() === name));
 }
 
 function renderStrengthPlan() {
@@ -9935,7 +9964,11 @@ function renderStrengthPlan() {
 
   let html = '';
   if (!templates.length) {
-    box.innerHTML = '<p class="strength-empty">Сначала сохраните шаблон тренировки — затем назначьте его дням недели.</p>';
+    /* 0.9.9 (владелец: «не смог найти, как создать шаблон»): пустой план
+       больше не отсылает в никуда. Кнопка сама открывает дневник силовых
+       и ставит курсор в «Название» — путь создания виден из этого раздела. */
+    box.innerHTML = '<p class="strength-empty">Шаблон — это список упражнений, который потом можно назначить дням недели.</p>'
+      + '<button class="btn btn-primary" type="button" data-s-plan-create>＋ Создать шаблон тренировки</button>';
     return;
   }
 
@@ -9974,7 +10007,7 @@ function renderStrengthPlan() {
 }
 
 /* Черновик (в памяти, до сохранения) и текущая группа в выборе упражнения. */
-let strengthDraft = { title: '', durationMinutes: '', exercises: [] };
+let strengthDraft = { title: '', durationMinutes: '', templateId: null, exercises: [] };
 let strengthPickerGroup = STRENGTH_GROUPS[0];
 
 function openStrengthExercisePicker() {
@@ -10042,7 +10075,7 @@ function renderStrengthDiary() {
 
   let html = '';
   html += '<div class="strength-meta">'
-    + `<label class="strength-title-field"><span>Название (необязательно)</span><input type="text" class="form-input" maxlength="60" placeholder="Например, День ног" value="${escapeHtml(strengthDraft.title)}" data-s-title></label>`
+    + `<label class="strength-title-field"><span>Название (нужно для шаблона)</span><input type="text" class="form-input" maxlength="60" placeholder="Например, День ног" value="${escapeHtml(strengthDraft.title)}" data-s-title></label>`
     + `<label class="strength-title-field"><span>Длительность, мин (в недельную цель)</span><input type="number" inputmode="numeric" min="0" step="5" placeholder="Например, 60" value="${escapeHtml(strengthDraft.durationMinutes)}" data-s-duration aria-label="Длительность силовой в минутах"></label>`
     + '</div>';
   if (strengthDraft.exercises.length) {
@@ -10134,6 +10167,7 @@ function saveStrengthSession() {
     date: todayKey(),
     title: sessionTitle,
     durationMinutes: durMin || null,
+    templateId: strengthDraft.templateId || null, // 0.9.9: связь с шаблоном плана
     exercises,
     createdAt: Date.now()
   });
@@ -10151,7 +10185,7 @@ function saveStrengthSession() {
   }
   normalizeStrengthSessions();
   const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets), 0);
-  strengthDraft = { title: '', durationMinutes: '', exercises: [] };
+  strengthDraft = { title: '', durationMinutes: '', templateId: null, exercises: [] };
   saveState();
   renderTraining(); // обновляет и недельную цель, и дневник силовых
   // 0.8.6: моменты награды — какие упражнения подняли уровень.
@@ -13774,6 +13808,8 @@ function init() {
     if (dayBtn) return togglePlanDay(dayBtn.dataset.sPlanDay, Number(dayBtn.dataset.sPlanDow));
     const startBtn = e.target.closest('[data-s-plan-start]');
     if (startBtn) return startStrengthFromTemplate(startBtn.dataset.sPlanStart);
+    // 0.9.9: создание шаблона прямо из пустого плана
+    if (e.target.closest('[data-s-plan-create]')) return openStrengthTemplateCreation();
   });
   // 0.8.10: таймер отдыха между подходами
   $$('#strength-rest-presets [data-rest]').forEach((btn) =>
