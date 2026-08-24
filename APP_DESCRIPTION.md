@@ -244,8 +244,8 @@
   приложению на переднем плане, поэтому часовой `HealthSyncReceiver` получал
   отказ, а данные появлялись лишь при открытии приложения. С Android 15 (API 35)
   это снимает разрешение `android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND`.
-  Перед запросом обязательна проверка поддержки:
-  `client.features.getFeatureStatus(FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)`.
+  Перед запросом проверяется поддержка: служба доступна и либо разрешение уже
+  выдано, либо версия Android не ниже 15 (`Build.VERSION.SDK_INT >= 35`).
   Состояние отдаётся в JS одной строкой `backgroundReadStatus()` →
   `"unavailable" | "granted" | "denied"`; выданность читается через
   `getGrantedPermissions()`, а не по манифесту — доступ можно отозвать в любой

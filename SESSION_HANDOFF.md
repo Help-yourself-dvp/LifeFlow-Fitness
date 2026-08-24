@@ -81,7 +81,8 @@ FitFlow — офлайн-трекер здоровья на русском: во
 **0.9.15 (текущая):**
 - Фоновое чтение Health Connect: разрешение
   `android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND` (Android 15+),
-  проверка поддержки через `getFeatureStatus`, проверка выданности через
+  проверка поддержки по `SDK_INT >= 35` (не `getFeatureStatus`: его нет в
+  закреплённой `connect-client:1.1.0-alpha07`), проверка выданности через
   `getGrantedPermissions`, единая строка состояния `backgroundReadStatus()` →
   `"unavailable" | "granted" | "denied"`. Мосты `getHealthBackgroundReadStatus`
   и `requestHealthBackgroundRead` в `MainActivity.java`. Блок в настройках

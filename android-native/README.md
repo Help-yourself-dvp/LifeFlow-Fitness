@@ -18,9 +18,14 @@
 приложению на переднем плане. Разрешение
 `android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND` (Android 15+, API 35)
 снимает запрет; оно объявлено в списке `perms` в `tools/github-workflows/build.yml`.
-Перед запросом обязательна проверка поддержки через
-`client.features.getFeatureStatus(FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)` —
-на старых версиях Health Connect функции нет вовсе. Выданность проверяется через
+Перед запросом проверяется поддержка: служба Health Connect доступна и либо
+разрешение уже выдано, либо Android не ниже 15 (`Build.VERSION.SDK_INT >= 35`).
+Штатный `features.getFeatureStatus` не используется: его нет в закреплённой
+`connect-client:1.1.0-alpha07` (появился в `alpha09`), и первая сборка 0.9.15
+из-за него упала. Поднимать библиотеку нельзя — в `alpha12` `metadata` у
+записей стало обязательным с внутренним конструктором, что сломало бы
+`insertWorkoutSession`. Строка разрешения задана литералом (значение
+фиксировано платформой) и сверяется тестом. Выданность проверяется через
 `permissionController.getGrantedPermissions()`, а не по манифесту: доступ можно
 отозвать в любой момент.
 

@@ -3705,17 +3705,34 @@ for (const id of ids) {
   if (!permOk) failed++;
   console.log(`${permOk ? '✓' : '✗'} 0.9.15 READ_HEALTH_DATA_IN_BACKGROUND есть в манифесте`);
 
-  // 2. Строка разрешения берётся из константы SDK, а не пишется руками:
-  //    опечатка в строковом литерале выявилась бы только на устройстве.
-  const constOk = /HealthPermission\.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND/.test(kt);
+  // 2. Строка разрешения объявлена ровно один раз и точно совпадает с
+  //    платформенной. Раньше здесь бралась константа HealthPermission, но
+  //    её нет в закреплённой connect-client:1.1.0-alpha07 — сборка падала.
+  //    Литерал допустим, потому что значение задано платформой; ошибка в
+  //    нём проявилась бы только на устройстве, поэтому сверяем посимвольно.
+  const constOk = /val BACKGROUND_READ_PERMISSION: String = "android\.permission\.health\.READ_HEALTH_DATA_IN_BACKGROUND"/.test(kt);
   if (!constOk) failed++;
-  console.log(`${constOk ? '✓' : '✗'} 0.9.15 разрешение берётся из HealthPermission, не строкой`);
+  console.log(`${constOk ? '✓' : '✗'} 0.9.15 строка разрешения объявлена точно и одним местом`);
 
-  // 3. Поддержка функции проверяется ДО запроса разрешения.
-  const featOk = /FEATURE_READ_HEALTH_DATA_IN_BACKGROUND/.test(kt)
-    && /FEATURE_STATUS_AVAILABLE/.test(kt);
+  // 3. Не тянем из библиотеки то, чего в закреплённой версии нет.
+  //    HealthConnectFeatures и HealthPermission.PERMISSION_* появились в
+  //    1.1.0-alpha09, а собираемся на alpha07: любое обращение к ним (вне
+  //    комментария) снова уронит шаг Build APK.
+  const ktCode = kt.split('\n')
+    .filter(function (line) { return !/^\s*(\/\/|\*|\/\*)/.test(line); })
+    .join('\n');
+  const noNewApiOk = !/HealthConnectFeatures/.test(ktCode)
+    && !/HealthPermission\./.test(ktCode)
+    && !/\.features\b/.test(ktCode);
+  if (!noNewApiOk) failed++;
+  console.log(`${noNewApiOk ? '✓' : '✗'} 0.9.15 нет обращений к API новее connect-client:1.1.0-alpha07`);
+
+  // 3b. Доступность определяется до запроса разрешения: старая служба или
+  //     Android ниже 15 — предлагать нечего.
+  const featOk = /Build\.VERSION\.SDK_INT >= 35/.test(kt)
+    && /fun isBackgroundReadAvailable/.test(kt);
   if (!featOk) failed++;
-  console.log(`${featOk ? '✓' : '✗'} 0.9.15 доступность функции проверяется через getFeatureStatus`);
+  console.log(`${featOk ? '✓' : '✗'} 0.9.15 доступность фонового чтения проверяется до запроса`);
 
   // 4. Выданность читается через getGrantedPermissions: пользователь может
   //    отозвать доступ, манифест об этом не знает.

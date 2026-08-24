@@ -541,11 +541,20 @@ node test-parser.js
 1. `HealthConnectHelper.kt` — четыре новых члена:
    - `BACKGROUND_READ_PERMISSION` — берётся из
      `HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND`, а не пишется
-     строкой руками: опечатка в литерале выявилась бы только на устройстве.
-   - `isBackgroundReadAvailable(context)` — обязательная предварительная
-     проверка через
-     `client.features.getFeatureStatus(FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)`.
-     На старой версии Health Connect функции нет вовсе.
+     строкой руками — но именно так и пришлось: проект собирается с
+     `connect-client:1.1.0-alpha07`, а константа `HealthPermission.PERMISSION_*`
+     и класс `HealthConnectFeatures` появились только в `1.1.0-alpha09`.
+     Первая сборка 0.9.15 упала на шаге Build APK именно из-за этого.
+     Поднять библиотеку нельзя: в `1.1.0-alpha12` поле `metadata` у записей
+     стало обязательным, а его конструктор — внутренним, и наш
+     `insertWorkoutSession` перестал бы компилироваться. Разрешение проверяет
+     системная служба Health Connect, а не клиентская библиотека, поэтому
+     литерала в манифесте и согласия пользователя достаточно. Точность строки
+     стережёт тест, отдельный тест запрещает обращения к API новее alpha07.
+   - `isBackgroundReadAvailable(context)` — предварительная проверка:
+     служба доступна и либо разрешение уже выдано, либо Android не ниже 15
+     (`Build.VERSION.SDK_INT >= 35`). Штатный `features.getFeatureStatus`
+     недоступен в закреплённой версии библиотеки.
    - `hasBackgroundReadPermission(context)` — через
      `permissionController.getGrantedPermissions()`, а НЕ по манифесту:
      пользователь может отозвать доступ в любой момент.

@@ -1,8 +1,7 @@
 package com.fitflow.app
 import android.content.Context
+import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.HealthConnectFeatures
-import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
@@ -56,23 +55,35 @@ object HealthConnectHelper {
     // плане: наш часовой HealthSyncReceiver честно просыпался и получал отказ,
     // поэтому данные подтягивались лишь при открытии приложения. Начиная с
     // Android 15 существует отдельное разрешение, снимающее этот запрет.
-    // Строку берём из HealthPermission, а не пишем руками: константа
-    // PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND и есть
-    // "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND".
+    //
+    // ВАЖНО (иначе сборка падает): строку пишем литералом, а НЕ берём из
+    // HealthPermission. Проект собирается с connect-client:1.1.0-alpha07
+    // (январь 2024), а константа PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+    // и класс HealthConnectFeatures появились только в 1.1.0-alpha09.
+    // Поднимать библиотеку сейчас нельзя: в 1.1.0-alpha12 поле metadata у
+    // записей стало обязательным, а его конструктор — внутренним, и наш
+    // insertWorkoutSession перестал бы компилироваться. Разрешение всё равно
+    // проверяет системная служба Health Connect, а не клиентская библиотека:
+    // достаточно объявить его в манифесте и получить согласие пользователя.
+    // Значение зафиксировано платформой и не меняется.
     @JvmStatic
-    val BACKGROUND_READ_PERMISSION: String = HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+    val BACKGROUND_READ_PERMISSION: String = "android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"
 
-    // Доступна ли функция на этом устройстве. У пользователя может стоять старая
-    // версия Health Connect, где фонового чтения нет вовсе — тогда просить
-    // разрешение бессмысленно и мы не показываем ничего.
+    // Доступна ли функция на этом устройстве. У пользователя может стоять
+    // старая версия Android/Health Connect, где фонового чтения нет вовсе —
+    // тогда просить разрешение бессмысленно и мы не показываем ничего.
+    // Штатная проверка (features.getFeatureStatus) недоступна в закреплённой
+    // версии библиотеки, поэтому опираемся на два факта: сама служба доступна
+    // и версия Android не ниже 15 (VANILLA_ICE_CREAM, API 35) — именно там
+    // появилось фоновое чтение. Если разрешение уже выдано, считаем функцию
+    // доступной без оглядки на версию: выданное разрешение — лучшее из
+    // возможных доказательств поддержки.
     @JvmStatic
     fun isBackgroundReadAvailable(context: Context): Boolean {
         return try {
             if (HealthConnectClient.getSdkStatus(context) != HealthConnectClient.SDK_AVAILABLE) return false
-            val client = HealthConnectClient.getOrCreate(context)
-            client.features.getFeatureStatus(
-                HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND
-            ) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+            if (hasBackgroundReadPermission(context)) return true
+            Build.VERSION.SDK_INT >= 35
         } catch (e: Exception) {
             false
         }
@@ -80,7 +91,8 @@ object HealthConnectHelper {
 
     // Выдано ли разрешение. Проверяем ровно так же, как остальные разрешения HC —
     // через getGrantedPermissions, а не через проверку манифеста: пользователь
-    // может отозвать доступ в настройках в любой момент.
+    // может отозвать доступ в настройках в любой момент. На старых версиях
+    // службы этой строки в выданных просто не будет — вернётся false.
     @JvmStatic
     fun hasBackgroundReadPermission(context: Context): Boolean {
         return try {
@@ -96,8 +108,9 @@ object HealthConnectHelper {
     }
 
     // Одна строка состояния для JS: чтобы не гонять два моста подряд.
-    // unavailable — версия HC старая; granted — всё хорошо, фон работает;
-    // denied — функция есть, разрешения нет, можно предложить выдать.
+    // unavailable — фонового чтения на этом устройстве нет; granted — всё
+    // хорошо, фон работает; denied — функция есть, разрешения нет, можно
+    // предложить выдать.
     @JvmStatic
     fun backgroundReadStatus(context: Context): String {
         if (!isBackgroundReadAvailable(context)) return "unavailable"
