@@ -145,6 +145,11 @@ object HealthConnectHelper {
        прошлые добавляются автоматически с возможностью отмены). */
     private const val WORKOUTS_LOOKBACK_DAYS = 3L
 
+    /* 0.9.14: минимальная длительность сессии. Короче — это не тренировка,
+       а случайно включённый и сразу выключенный режим на часах. Тот же порог
+       продублирован в JS (onHealthWorkoutsReceived), менять надо в обоих местах. */
+    private const val MIN_WORKOUT_MINUTES = 5
+
     @JvmStatic
     fun readTodayWorkouts(context: Context): String {
         return try {
@@ -164,7 +169,58 @@ object HealthConnectHelper {
                    с собой. У шагов такой фильтр по источнику был с самого начала. */
                 if ((rec.metadata.dataOrigin?.packageName ?: "") == selfPkg) continue
                 val minutes = ((rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()) / 60000L).toInt()
-                if (minutes < 5) continue
+                if (minutes < MIN_WORKOUT_MINUTES) continue
+                val obj = JSONObject()
+                obj.put("recordId", rec.metadata.id)
+                obj.put("type", mapExerciseType(rec.exerciseType))
+                obj.put("title", rec.title ?: "")
+                obj.put("start", rec.startTime.toEpochMilli())
+                obj.put("end", rec.endTime.toEpochMilli())
+                obj.put("minutes", minutes)
+                arr.put(obj)
+            }
+            arr.toString()
+        } catch (e: Exception) {
+            "[]"
+        }
+    }
+
+    /* 0.9.14: история тренировок за последние N дней — обратная заливка.
+       Раньше сессии читались только за WORKOUTS_LOOKBACK_DAYS (3 суток), и всё,
+       что старше, не подтягивалось НИКОГДА — даже при ручной синхронизации.
+       У шагов (0.8.11) и сна (0.9.11) обратная заливка за 30 дней была, а у
+       тренировок её просто забыли сделать. Читаем постранично: за месяц сессий
+       может быть больше страницы (часы пишут «тренировкой» и обычную ходьбу).
+       Формат ответа тот же, что у readTodayWorkouts — JS-слой общий. */
+    @JvmStatic
+    fun readWorkoutsHistory(context: Context, days: Int): String {
+        return try {
+            val n = if (days in 1..90) days else 30
+            val client = HealthConnectClient.getOrCreate(context)
+            val today = LocalDate.now()
+            val zone = ZoneId.systemDefault()
+            val start = today.minusDays((n - 1).toLong()).atStartOfDay(zone).toInstant()
+            val end = today.plusDays(1).atStartOfDay(zone).toInstant()
+            val records = mutableListOf<ExerciseSessionRecord>()
+            var pageToken: String? = null
+            do {
+                val req = ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageToken = pageToken
+                )
+                val resp = runBlocking { client.readRecords(req) }
+                records.addAll(resp.records)
+                pageToken = resp.pageToken
+            } while (pageToken != null)
+            val arr = JSONArray()
+            val selfPkg = context.packageName
+            for (rec in records) {
+                // 0.9.10: собственный экспорт обратно не читаем — иначе тренировка
+                // задваивается сама с собой (см. readTodayWorkouts).
+                if ((rec.metadata.dataOrigin?.packageName ?: "") == selfPkg) continue
+                val minutes = ((rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()) / 60000L).toInt()
+                if (minutes < MIN_WORKOUT_MINUTES) continue
                 val obj = JSONObject()
                 obj.put("recordId", rec.metadata.id)
                 obj.put("type", mapExerciseType(rec.exerciseType))

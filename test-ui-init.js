@@ -3508,5 +3508,188 @@ for (const id of ids) {
   console.log(`${clearsOk ? '✓' : '✗'} 0.9.13 при пустом курсе нативная копия очищается`);
 }
 
+/* ============================================================
+   0.9.14 «История тренировок с часов».
+   Владелец увидел в статистике за 7 дней только три дня с тренировками,
+   хотя часы фиксировали больше. Причина: натив читал сессии лишь за
+   WORKOUTS_LOOKBACK_DAYS (3 суток), обратной заливки (как у шагов и сна)
+   не существовало вовсе, а добавленная задним числом тренировка не
+   попадала в сводку прошлого дня — то есть и в график активности.
+   Тесты держат всю цепочку: натив → мост → JS → сводка дня.
+   ============================================================ */
+{
+  const appS = fs.readFileSync('app.js', 'utf8');
+  const helperKt = fs.readFileSync('android-native/HealthConnectHelper.kt', 'utf8');
+  const mainJava = fs.readFileSync('android-native/MainActivity.java', 'utf8');
+
+  // 1. Натив умеет читать историю за N дней и делает это постранично:
+  // readRecords отдаёт до 1000 записей за страницу, а за месяц сессий бывает
+  // больше (часы пишут «тренировкой» и обычную ходьбу). Ровно на этом
+  // в 0.9.12 погорела история шагов.
+  const histStart = helperKt.indexOf('fun readWorkoutsHistory');
+  const histSrc = histStart >= 0 ? helperKt.slice(histStart, histStart + 2200) : '';
+  const nativeHistoryOk = histStart >= 0
+    && /pageToken/.test(histSrc)
+    && /while \(pageToken != null\)/.test(histSrc)
+    && /ExerciseSessionRecord::class/.test(histSrc);
+  if (!nativeHistoryOk) failed++;
+  console.log(`${nativeHistoryOk ? '✓' : '✗'} 0.9.14 натив читает историю тренировок постранично`);
+
+  // 2. Собственный экспорт в Health Connect читать обратно нельзя — иначе
+  // тренировка задваивается сама с собой (урок 0.9.10).
+  const selfFilterOk = /== selfPkg\) continue/.test(histSrc);
+  if (!selfFilterOk) failed++;
+  console.log(`${selfFilterOk ? '✓' : '✗'} 0.9.14 история пропускает собственный экспорт приложения`);
+
+  // 3. Мост: имя метода и имя колбэка должны совпадать по обе стороны.
+  // Разъедутся — данные молча не доедут, а на телефоне это выглядит как
+  // «синхронизация есть, тренировок нет».
+  const bridgeOk = /public void syncHealthWorkoutsHistory\(\)/.test(mainJava)
+    && /readWorkoutsHistory\(getApplicationContext\(\), 30\)/.test(mainJava)
+    && /window\.onHealthWorkoutsHistoryReceived/.test(mainJava)
+    && /FitFlowExport\.syncHealthWorkoutsHistory/.test(appS);
+  if (!bridgeOk) failed++;
+  console.log(`${bridgeOk ? '✓' : '✗'} 0.9.14 мост истории тренировок согласован между JS и нативом`);
+
+  // 4. Колбэк обязан быть присвоен в window: натив зовёт его по имени и
+  // без присваивания молча ничего не делает (грабли 0.8.23 — вес с весов).
+  const inWindowOk = /window\.onHealthWorkoutsHistoryReceived = onHealthWorkoutsHistoryReceived/.test(appS)
+    && /window\.onHealthBodyMetricsReceived = onHealthBodyMetricsReceived/.test(appS);
+  if (!inWindowOk) failed++;
+  console.log(`${inWindowOk ? '✓' : '✗'} 0.9.14 колбэки истории тренировок и показателей тела присвоены в window`);
+
+  // 5. Заливка вызывается рядом с историей шагов и сна и не чаще раза в сутки.
+  const reqStart = appS.indexOf('function requestWorkoutsHistorySync');
+  const reqSrc = reqStart >= 0 ? appS.slice(reqStart, reqStart + 500) : '';
+  const dailyOk = reqStart >= 0
+    && /24 \* 60 \* 60 \* 1000/.test(reqSrc)
+    && /requestWorkoutsHistorySync\(\); \/\/ 0\.9\.14/.test(appS);
+  if (!dailyOk) failed++;
+  console.log(`${dailyOk ? '✓' : '✗'} 0.9.14 история тренировок запрашивается раз в сутки при возврате в приложение`);
+
+  // 6. Поведение разбора: пачка за 30 дней превращается в сессии, повторная
+  // доставка тех же записей ничего не добавляет (дедуп по recordId).
+  const api = require('./app.js');
+  const hasApi = typeof api.mergeWatchWorkoutsBackfill === 'function';
+  if (!hasApi) failed++;
+  console.log(`${hasApi ? '✓' : '✗'} 0.9.14 слияние истории тренировок доступно для прогона`);
+
+  if (hasApi) {
+    const merge = api.mergeWatchWorkoutsBackfill;
+    const dayMs = 86400000;
+    const at = (daysAgo, hour) => {
+      const d = new Date();
+      d.setHours(hour, 0, 0, 0);
+      return d.getTime() - daysAgo * dayMs;
+    };
+    const mk = (id, daysAgo, minutes) => ({
+      recordId: id, type: 'other', title: 'Тренировка',
+      start: at(daysAgo, 10), end: at(daysAgo, 10) + minutes * 60000, minutes
+    });
+    const today = new Date();
+    const p2 = (v) => String(v).padStart(2, '0');
+    const todayK = `${today.getFullYear()}-${p2(today.getMonth() + 1)}-${p2(today.getDate())}`;
+    const payload = [mk('h1', 12, 45), mk('h2', 9, 30), mk('h3', 6, 50)];
+
+    const first = merge([], payload, todayK);
+    const again = merge(first.list, payload, todayK);
+    const hasAll = ['h1', 'h2', 'h3'].every((id) => first.list.some((s) => s.recordId === id));
+    const mergeOk = first.added === 3 && again.added === 0 && again.list.length === 3 && hasAll;
+    if (!mergeOk) failed++;
+    console.log(`${mergeOk ? '✓' : '✗'} 0.9.14 сессии за прошлые недели добавляются один раз (повтор не задваивает)`);
+
+    // Уже импортированная или отклонённая сессия не должна вернуться из истории:
+    // иначе месячная заливка воскресила бы всё, что владелец разобрал руками.
+    const settled = first.list.map((s) => ({ ...s, imported: s.recordId === 'h1', ignored: s.recordId === 'h2' }));
+    const revive = merge(settled, payload, todayK);
+    const noRevive = revive.added === 0
+      && revive.list.find((s) => s.recordId === 'h1').imported === true
+      && revive.list.find((s) => s.recordId === 'h2').ignored === true;
+    if (!noRevive) failed++;
+    console.log(`${noRevive ? '✓' : '✗'} 0.9.14 разобранные сессии не воскресают из месячной истории`);
+
+    // Дата сессии — по времени НАЧАЛА, а не по дню получения данных: иначе
+    // вся месячная история сложилась бы в сегодняшний день (урок 0.8.25).
+    const s1 = first.list.find((s) => s.recordId === 'h1');
+    const want = new Date(at(12, 10));
+    const wantKey = `${want.getFullYear()}-${p2(want.getMonth() + 1)}-${p2(want.getDate())}`;
+    const dateOk = !!s1 && s1.date === wantKey && s1.date !== todayK;
+    if (!dateOk) failed++;
+    console.log(`${dateOk ? '✓' : '✗'} 0.9.14 дата сессии из истории берётся по времени начала тренировки`);
+
+    // Короткие сессии (случайно включённый режим на часах) не засоряют дневник.
+    const shortRes = merge([], [mk('h-short', 5, 3)], todayK);
+    const shortIgnored = shortRes.added === 0 && shortRes.list.length === 0;
+    if (!shortIgnored) failed++;
+    console.log(`${shortIgnored ? '✓' : '✗'} 0.9.14 сессии короче 5 минут в историю не попадают`);
+
+    // Потолок списка режет самое старое, а не свежее: за 30 дней записей много,
+    // а список целиком лежит в localStorage.
+    const many = [];
+    for (let i = 0; i < 40; i++) many.push(mk('m' + i, i, 20));
+    const capped = merge([], many, todayK, 10);
+    const keepsFresh = capped.list.length === 10
+      && capped.list.some((s) => s.recordId === 'm0')
+      && !capped.list.some((s) => s.recordId === 'm39');
+    if (!keepsFresh) failed++;
+    console.log(`${keepsFresh ? '✓' : '✗'} 0.9.14 потолок списка сессий отрезает самые старые`);
+  }
+
+  // 7. Порог короткой сессии продублирован в нативе и JS — значения обязаны
+  // совпадать, иначе телефон и часы «видят» разные тренировки.
+  const ktMin = helperKt.match(/MIN_WORKOUT_MINUTES = (\d+)/);
+  const jsMin = appS.match(/WATCH_MIN_WORKOUT_MINUTES = (\d+)/);
+  const thresholdOk = !!ktMin && !!jsMin && ktMin[1] === jsMin[1];
+  if (!thresholdOk) failed++;
+  console.log(`${thresholdOk ? '✓' : '✗'} 0.9.14 порог короткой сессии одинаков в нативе и JS`);
+
+  // 8. Тренировка, добавленная задним числом, обязана попасть в сводку дня.
+  // Без этого график активности за прошлый день остаётся пустым, если за тот
+  // день уже была запись о воде или еде — ровно то, что видел владелец.
+  const autoStart = appS.indexOf('function autoImportStaleWatchWorkouts');
+  const autoSrc = autoStart >= 0 ? appS.slice(autoStart, autoStart + 3600) : '';
+  const summaryOk = /touchedDates\.forEach\(\(d\) => syncPastDaySummary\(d\)\)/.test(autoSrc);
+  if (!summaryOk) failed++;
+  console.log(`${summaryOk ? '✓' : '✗'} 0.9.14 авто-добавленная тренировка обновляет сводку прошлого дня`);
+
+  const importStart = appS.indexOf('function importWatchWorkout');
+  const importSrc = importStart >= 0 ? appS.slice(importStart, importStart + 1600) : '';
+  const importSummaryOk = /syncPastDaySummary\(s\.date/.test(importSrc);
+  if (!importSummaryOk) failed++;
+  console.log(`${importSummaryOk ? '✓' : '✗'} 0.9.14 ручное добавление с часов тоже обновляет сводку дня`);
+}
+
+/* ============================================================
+   0.9.14: сравнение периодов больше не спрятано за игровым режимом.
+   ============================================================ */
+{
+  const appS = fs.readFileSync('app.js', 'utf8');
+  const cmpStart = appS.indexOf('function renderStatsCompare');
+  const cmpSrc = cmpStart >= 0 ? appS.slice(cmpStart, cmpStart + 2600) : '';
+
+  // Блок обязан зависеть только от периода: статистика к игре отношения не имеет.
+  const notGated = cmpStart >= 0
+    && /const show = period !== 'day'/.test(cmpSrc)
+    && !/gameMode/.test(cmpSrc);
+  if (!notGated) failed++;
+  console.log(`${notGated ? '✓' : '✗'} 0.9.14 сравнение периодов не зависит от игрового режима`);
+
+  // Заголовок называет сравниваемые окна — исходный вопрос владельца.
+  const titleOk = /Последние ' \+ count \+ ' дней против предыдущих ' \+ count/.test(cmpSrc);
+  if (!titleOk) failed++;
+  console.log(`${titleOk ? '✓' : '✗'} 0.9.14 заголовок сравнения называет оба периода явно`);
+
+  // Прошлый период считает минуты активности так же, как текущий: из журнала
+  // тренировок. Иначе сравнение занижает прошлые дни без воды и еды.
+  const fairOk = /activityMinutes: activityMinutesForDate\(date\)/.test(cmpSrc);
+  if (!fairOk) failed++;
+  console.log(`${fairOk ? '✓' : '✗'} 0.9.14 прошлый период учитывает тренировки из журнала`);
+
+  // Подпись периода описывает скользящее окно, а не календарную неделю.
+  const captionOk = /week: 'Последние 7 дней'/.test(appS) && !/week: 'Итоги за 7 дней'/.test(appS);
+  if (!captionOk) failed++;
+  console.log(`${captionOk ? '✓' : '✗'} 0.9.14 подпись периода говорит «последние N дней»`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

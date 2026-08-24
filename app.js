@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.13';
+const FITFLOW_VERSION = '0.9.14';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6557,21 +6557,35 @@ function renderGameMedalsView() {
     </div>`).join('');
 }
 
-/* Сравнение текущего периода (7/30 дней) с предыдущим таким же — только
-   при включённом игровом режиме и при наличии данных обоих периодов. */
+/* Сравнение текущего периода (7/30 дней) с предыдущим таким же.
+   0.9.14: раньше блок показывался только при включённом игровом режиме — и
+   владелец, глядя на графики, разумно спрашивал, сравниваются ли 7 дней с
+   предыдущими семью. Сравнение к игре отношения не имеет: это обычная
+   статистика, и прятать её за чужой настройкой незачем. Условие осталось
+   одно — период не «день» (сравнивать сегодня со вчера смысла мало,
+   день виден целиком). */
 function renderStatsCompare() {
   if (typeof document === 'undefined') return;
   const section = $('#stats-compare-section');
   if (!section) return;
   const period = activeStatsPeriod;
-  const show = state.gameMode.enabled && period !== 'day';
+  const show = period !== 'day';
   section.hidden = !show;
   if (!show) return;
 
   const count = statsPeriodDays(period);
+  /* 0.9.14: подписываем прямо в заголовке, ЧТО с чем сравнивается — именно
+     этот вопрос владелец и задал, глядя на графики. */
+  const compareTitle = $('#stats-compare-title');
+  if (compareTitle) compareTitle.textContent = '📈 Последние ' + count + ' дней против предыдущих ' + count;
   const historyByDate = new Map((Array.isArray(state.dailyHistory) ? state.dailyHistory : [])
     .map((day) => [day.date, day]));
-  const blank = (date) => ({ date, waterTotal: 0, waterGoal: DEFAULTS.water.goal, foodTotal: 0, foodGoal: DEFAULTS.food.goal, activityMinutes: 0 });
+  /* 0.9.14: у дня без сводки минуты активности берём из журнала тренировок —
+     так же, как это делает getStatsDays для текущего периода. Раньше прошлый
+     период считался только по dailyHistory, и сравнение было нечестным:
+     тренировки прошлой недели, записанные без воды и еды, в нём просто
+     не учитывались. */
+  const blank = (date) => ({ date, waterTotal: 0, waterGoal: DEFAULTS.water.goal, foodTotal: 0, foodGoal: DEFAULTS.food.goal, activityMinutes: activityMinutesForDate(date) });
   const prev = [];
   for (let offset = count * 2 - 1; offset >= count; offset--) {
     const date = statsDateKey(offset);
@@ -7653,27 +7667,41 @@ function watchWorkoutDateKey(startMs, fallback) {
   return courseDateKey(d);
 }
 
-/* Нативный мост вернул JSON со списком сессий. Сливаем с известными (дедуп по recordId). */
-function onHealthWorkoutsReceived(json) {
-  let list = [];
-  try { list = JSON.parse(json) || []; } catch (e) { return; }
-  if (!Array.isArray(list) || !list.length) return;
-  normalizeHealthSync();
-  const today = todayKey();
-  const existing = normalizeWatchWorkouts(state.healthSync.watchWorkouts);
-  const byId = new Map(existing.map((s) => [s.recordId, s]));
-  let changed = false;
-  for (const raw of list) {
+/* 0.9.14: сколько сессий часов держим в памяти. Обратная заливка за 30 дней
+   приносит десятки записей (часы пишут «тренировкой» и обычную ходьбу), а
+   список лежит в localStorage целиком — без потолка он рос бы вечно.
+   Режем по времени начала: самое старое уже импортировано или отклонено. */
+const WATCH_WORKOUTS_KEEP = 300;
+
+/* 0.9.14: минимальная длительность сессии. Короче — это не тренировка, а
+   случайно включённый и сразу выключенный режим на часах. Тот же порог
+   продублирован в HealthConnectHelper.kt (MIN_WORKOUT_MINUTES). */
+const WATCH_MIN_WORKOUT_MINUTES = 5; // шум/нажатия — не тренировка
+
+/* Чистое ядро слияния (тестируется node-прогоном, без state и DOM):
+   известные сессии + пачка из натива → новый список и сколько добавилось.
+   Дедуп по recordId: одна и та же сессия приходит и в ежедневном синке,
+   и в месячной истории — задваивать её нельзя. */
+function mergeWatchWorkoutsBackfill(known, incoming, today, keep = WATCH_WORKOUTS_KEEP) {
+  const existing = normalizeWatchWorkouts(known);
+  const list = Array.isArray(incoming) ? incoming : [];
+  const byId = new Set(existing.map((s) => s.recordId));
+  // Свежие сессии разбираем первыми: если сработает потолок списка,
+  // отрежется самое старое, а не только что пришедшее.
+  const sorted = list.slice().sort((a, b) => (Number(b && b.start) || 0) - (Number(a && a.start) || 0));
+  let added = 0;
+  for (const raw of sorted) {
     const recId = String((raw && raw.recordId) || (raw && raw.id) || '');
     if (!recId) continue;
-    const minutes = Math.max(0, Math.round(Number(raw.minutes) || 0));
-    if (minutes < 5) continue; // шум/нажатия — не тренировка
+    const minutes = Math.max(0, Math.round(Number(raw && raw.minutes) || 0));
+    if (minutes < WATCH_MIN_WORKOUT_MINUTES) continue;
     if (byId.has(recId)) continue; // уже знаем (в т.ч. импортированные/игнорированные)
+    byId.add(recId);
     const start = Number(raw.start) || 0;
     existing.unshift({
       recordId: recId,
       type: String(raw.type || ''),
-      title: String(raw.title || '').slice(0,120),
+      title: String(raw.title || '').slice(0, 120),
       start,
       end: Number(raw.end) || 0,
       minutes: Math.min(1440, minutes),
@@ -7681,10 +7709,44 @@ function onHealthWorkoutsReceived(json) {
       imported: false,
       ignored: false
     });
-    changed = true;
+    added++;
   }
-  if (!changed) return;
-  state.healthSync.watchWorkouts = normalizeWatchWorkouts(existing);
+  let out = normalizeWatchWorkouts(existing);
+  if (out.length > keep) {
+    out = out.slice().sort((a, b) => (Number(b.start) || 0) - (Number(a.start) || 0)).slice(0, keep);
+  }
+  return { list: out, added };
+}
+
+/* 0.9.14: история тренировок с часов за 30 дней.
+   Главная ошибка, найденная владельцем: в статистике за неделю тренировки
+   с часов были видны лишь за последние 3 дня — натив читал сессии только за
+   WORKOUTS_LOOKBACK_DAYS, а обратной заливки (как у шагов и сна) не было вовсе.
+   Разбор тот же, что у ежедневного синка: дедуп не задваивает уже известное,
+   а прошлые дни доберёт автоимпорт со своей проверкой на дубли. */
+function onHealthWorkoutsHistoryReceived(json) {
+  let list = [];
+  try { list = JSON.parse(json) || []; } catch (e) { return 0; }
+  if (!Array.isArray(list) || !list.length) return 0;
+  normalizeHealthSync();
+  const merged = mergeWatchWorkoutsBackfill(state.healthSync.watchWorkouts, list, todayKey());
+  if (!merged.added) return 0;
+  state.healthSync.watchWorkouts = merged.list;
+  saveState();
+  autoImportStaleWatchWorkouts(); // прошлые дни добавятся сами, с проверкой на дубли
+  renderWatchWorkoutsSuggest();
+  return merged.added;
+}
+
+/* Нативный мост вернул JSON со списком сессий. Сливаем с известными (дедуп по recordId). */
+function onHealthWorkoutsReceived(json) {
+  let list = [];
+  try { list = JSON.parse(json) || []; } catch (e) { return; }
+  if (!Array.isArray(list) || !list.length) return;
+  normalizeHealthSync();
+  const merged = mergeWatchWorkoutsBackfill(state.healthSync.watchWorkouts, list, todayKey());
+  if (!merged.added) return;
+  state.healthSync.watchWorkouts = merged.list;
   saveState();
   autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   renderWatchWorkoutsSuggest();
@@ -7892,6 +7954,13 @@ function autoImportStaleWatchWorkouts() {
     addedList.push(s);
   }
   state.healthSync.watchWorkouts = list;
+  /* 0.9.14: сводка прошлого дня не пересчитывалась после авто-добавления.
+     Статистика за прошлый день берёт минуты из dailyHistory, если запись
+     за этот день есть (а она появляется от воды или еды), и только при её
+     отсутствии — из журнала тренировок. Поэтому тренировка с часов, доехавшая
+     задним числом, в графике активности не появлялась вообще. */
+  const touchedDates = new Set(addedList.map((x) => x.date).filter(Boolean));
+  touchedDates.forEach((d) => syncPastDaySummary(d));
   saveState();
   if (typeof document !== 'undefined') {
     renderTraining();
@@ -7933,6 +8002,7 @@ function importWatchWorkout(recordId) {
   s.imported = true;
   s.maybeDuplicate = false;
   state.healthSync.watchWorkouts = list;
+  syncPastDaySummary(s.date || ''); // 0.9.14: минуты прошлого дня — в статистику
   saveState();
   renderTraining();
   renderWatchWorkoutsSuggest();
@@ -7963,6 +8033,7 @@ function undoAutoWatchWorkout(recordId) {
   s.autoImported = false;
   s.ignored = true;
   state.healthSync.watchWorkouts = list;
+  syncPastDaySummary(s.date || ''); // 0.9.14: убрали запись — сводка тоже меняется
   saveState();
   renderTraining();
   renderWatchWorkoutsSuggest();
@@ -8232,6 +8303,11 @@ if (typeof window !== 'undefined') {
   window.dismissWatchWorkout = dismissWatchWorkout;
   window.onHealthStepsHistoryReceived = onHealthStepsHistoryReceived;
   window.onHealthSleepHistoryReceived = onHealthSleepHistoryReceived; // 0.9.11
+  window.onHealthWorkoutsHistoryReceived = onHealthWorkoutsHistoryReceived; // 0.9.14
+  /* 0.9.14: колбэк показателей тела (вес/рост с умных весов) существовал
+     с 0.8.23, но в window не присваивался — натив звал window.onHealthBodyMetricsReceived,
+     не находил его и молча ничего не делал. Вес с весов не доезжал вообще. */
+  window.onHealthBodyMetricsReceived = onHealthBodyMetricsReceived;
   window.exportWorkoutToHealthConnect = exportWorkoutToHealthConnect;
   window.onWorkoutExported = onWorkoutExported;
 }
@@ -8611,6 +8687,7 @@ function refreshHealthDataOnResume() {
   requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
   autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   requestStepsHistorySync(); // 0.8.11: обратная заливка истории шагов (P28)
+  requestWorkoutsHistorySync(); // 0.9.14: обратная заливка истории тренировок
   requestSleepHistorySync(); // 0.9.11: обратная заливка истории сна
   requestBodyMetricsSync(); // 0.8.23: вес/рост с умных весов (P34)
 }
@@ -8625,6 +8702,21 @@ function requestStepsHistorySync() {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthStepsHistory === 'function') {
       lastStepsHistorySyncAt = now;
       window.FitFlowExport.syncHealthStepsHistory();
+    }
+  } catch (e) { }
+}
+
+/* 0.9.14: история тренировок — раз в сутки, как шаги и сон. Первый вызов
+   происходит при запуске (счётчик в памяти), поэтому пропущенные дни доедут
+   при ближайшем открытии приложения. */
+let lastWorkoutsHistorySyncAt = 0;
+function requestWorkoutsHistorySync() {
+  const now = Date.now();
+  if (now - lastWorkoutsHistorySyncAt < 24 * 60 * 60 * 1000) return;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthWorkoutsHistory === 'function') {
+      lastWorkoutsHistorySyncAt = now;
+      window.FitFlowExport.syncHealthWorkoutsHistory();
     }
   } catch (e) { }
 }
@@ -9014,7 +9106,7 @@ function renderStats() {
   const activityMinutes = days.reduce((sum, day) => sum + day.activityMinutes, 0);
   const count = days.length;
 
-  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  const captions = { day: 'Итоги за сегодня', week: 'Последние 7 дней', month: 'Последние 30 дней' };
   $('#stats-period-caption').textContent = captions[period];
   // 0.5.0 (вопрос владельца «в статистике суммы за весь период: 3+ л воды,
   // 2+ ч активности»): крупное число недели/месяца — СРЕДНЕЕ за день, сумма
@@ -9155,7 +9247,7 @@ function renderWaterDetails() {
   const total = days.reduce((sum, day) => sum + day.waterTotal, 0);
   const goal = days.reduce((sum, day) => sum + day.waterGoal, 0);
   const achieved = days.filter((day) => day.waterTotal > 0 && day.waterTotal >= day.waterGoal).length;
-  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  const captions = { day: 'Итоги за сегодня', week: 'Последние 7 дней', month: 'Последние 30 дней' };
   $('#water-details-caption').textContent = captions[period];
   $('#water-details-total').textContent = `${fmt(total)} мл`;
   const waterDataDays = days.filter((day) => day.waterTotal > 0);
@@ -9177,7 +9269,7 @@ function renderFoodDetails() {
   const total = days.reduce((sum, day) => sum + day.foodTotal, 0);
   const goal = days.reduce((sum, day) => sum + day.foodGoal, 0);
   const withinGoal = days.filter((day) => day.foodTotal > 0 && day.foodTotal <= day.foodGoal).length;
-  const captions = { day: 'Итоги за сегодня', week: 'Итоги за 7 дней', month: 'Итоги за 30 дней' };
+  const captions = { day: 'Итоги за сегодня', week: 'Последние 7 дней', month: 'Последние 30 дней' };
   $('#food-details-caption').textContent = captions[period];
   $('#food-details-total').textContent = `${fmt(total)} ккал`;
   const foodDataDays = days.filter((day) => day.foodTotal > 0);
@@ -17304,7 +17396,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT, scannedPortionGrams,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
-    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
+    mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, mergeWatchWorkoutsBackfill, WATCH_MIN_WORKOUT_MINUTES, computeFoodBudgetAdjustmentPure,
     // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,

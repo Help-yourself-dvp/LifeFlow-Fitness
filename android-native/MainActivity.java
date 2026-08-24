@@ -556,6 +556,32 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             }).start();
         }
 
+        /* 0.9.14: обратная заливка истории ТРЕНИРОВОК → JS.
+           Раньше моста не было вовсе: сессии приходили только за 3 последних дня
+           (syncHealthWorkoutsNow), и всё, что старше, терялось безвозвратно.
+           Симметрично истории шагов и сна: за 30 дней, JS сам разберётся с дублями. */
+        @JavascriptInterface
+        public void syncHealthWorkoutsHistory() {
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        final String json = HealthConnectHelper.readWorkoutsHistory(getApplicationContext(), 30);
+                        runOnUiThread(new Runnable() {
+                            @Override public void run() {
+                                try {
+                                    WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                    if (wv != null) {
+                                        wv.evaluateJavascript(
+                                            "window.onHealthWorkoutsHistoryReceived && window.onHealthWorkoutsHistoryReceived(" + JSONObject.quote(json) + ");", null);
+                                    }
+                                } catch (Exception e) {}
+                            }
+                        });
+                    } catch (Exception e) {}
+                }
+            }).start();
+        }
+
         /* 0.8.11: обратная заливка истории шагов (P28) → JS */
         @JavascriptInterface
         public void syncHealthStepsHistory() {
