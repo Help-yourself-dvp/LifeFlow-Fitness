@@ -519,6 +519,30 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             }).start();
         }
 
+        /* 0.9.11: обратная заливка истории сна → JS.
+           Симметрично истории шагов: пропущенные ночи восстанавливаются задним числом. */
+        @JavascriptInterface
+        public void syncHealthSleepHistory() {
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        final String json = HealthConnectHelper.readSleepHistory(getApplicationContext(), 30);
+                        runOnUiThread(new Runnable() {
+                            @Override public void run() {
+                                try {
+                                    WebView wv = getBridge() != null ? getBridge().getWebView() : null;
+                                    if (wv != null) {
+                                        wv.evaluateJavascript(
+                                            "window.onHealthSleepHistoryReceived && window.onHealthSleepHistoryReceived(" + JSONObject.quote(json) + ");", null);
+                                    }
+                                } catch (Exception e) {}
+                            }
+                        });
+                    } catch (Exception e) {}
+                }
+            }).start();
+        }
+
         /* 0.8.23: показатели тела (вес/рост с умных весов) → JS */
         @JavascriptInterface
         public void syncHealthBodyMetrics() {

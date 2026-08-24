@@ -3182,5 +3182,83 @@ for (const id of ids) {
   console.log(`${keepsLink ? '✓' : '✗'} 0.9.10 связь записи с сессией часов переживает нормализацию`);
 }
 
+
+/* 0.9.11: пропущенные дни (шаги и сон) должны восстанавливаться задним числом.
+   Симптом владельца: 20 и 21 августа шаги и сон не записались, хотя часы носились. */
+{
+  const api = require('./app.js');
+  const hasSteps = typeof api.mergeStepsBackfill === 'function';
+  const hasSleep = typeof api.mergeSleepBackfill === 'function';
+  const T = '2026-08-24';
+
+  // Шаги: частичный утренний снимок не должен блокировать итог дня из Health Connect.
+  let stepsFixed = false;
+  if (hasSteps) {
+    const r = api.mergeStepsBackfill([{ date: '2026-08-20', steps: 480, source: 'часы' }],
+                                     [{ date: '2026-08-20', steps: 11200 }], T);
+    const day = r.find((e) => e.date === '2026-08-20');
+    stepsFixed = !!day && day.steps === 11200;
+  }
+  if (!stepsFixed) failed++;
+  console.log(`${stepsFixed ? '✓' : '✗'} 0.9.11 частичный снимок шагов перезаписывается итогом из Health Connect`);
+
+  // Но пустой ответ HC не должен стирать уже собранные шаги.
+  let stepsKept = false;
+  if (hasSteps) {
+    const r = api.mergeStepsBackfill([{ date: '2026-08-20', steps: 11200, source: 'часы' }],
+                                     [{ date: '2026-08-20', steps: 0 }], T);
+    const day = r.find((e) => e.date === '2026-08-20');
+    stepsKept = !!day && day.steps === 11200;
+  }
+  if (!stepsKept) failed++;
+  console.log(`${stepsKept ? '✓' : '✗'} 0.9.11 «нет записи в HC» не обнуляет шаги за день`);
+
+  // Сон: пропущенные ночи восстанавливаются.
+  let sleepFixed = false;
+  if (hasSleep) {
+    const res = api.mergeSleepBackfill({}, [
+      { date: '2026-08-20', minutes: 430, bedTime: '23:40', wakeTime: '06:50' },
+      { date: '2026-08-21', minutes: 395, bedTime: '00:10', wakeTime: '06:45' }
+    ], T);
+    sleepFixed = res.added === 2 && res.history['2026-08-20'].durationMinutes === 430
+      && res.history['2026-08-21'].wakeTime === '06:45';
+  }
+  if (!sleepFixed) failed++;
+  console.log(`${sleepFixed ? '✓' : '✗'} 0.9.11 пропущенные ночи сна дозаливаются из Health Connect`);
+
+  // Ручной чек-ин важнее показаний часов.
+  let manualKept = false;
+  if (hasSleep) {
+    const res = api.mergeSleepBackfill(
+      { '2026-08-20': { date: '2026-08-20', durationMinutes: 400, source: 'Чек-ин', rating: 5 } },
+      [{ date: '2026-08-20', minutes: 430 }], T);
+    manualKept = res.history['2026-08-20'].durationMinutes === 400 && res.added === 0 && res.updated === 0;
+  }
+  if (!manualKept) failed++;
+  console.log(`${manualKept ? '✓' : '✗'} 0.9.11 ручной чек-ин сна не перезаписывается часами`);
+
+  // Нативная сторона: шаги через полночь делятся между сутками, сон читается за период.
+  const hcSrc = fs.readFileSync('android-native/HealthConnectHelper.kt', 'utf8');
+  const splitsMidnight = /0\.9\.11/.test(hcSrc) && /endDate/.test(hcSrc) && /rec\.endTime\.atZone/.test(hcSrc);
+  if (!splitsMidnight) failed++;
+  console.log(`${splitsMidnight ? '✓' : '✗'} 0.9.11 шаги через полночь не уходят целиком во вчера`);
+
+  const maSrc = fs.readFileSync('android-native/MainActivity.java', 'utf8');
+  const hasSleepReader = /fun readSleepHistory/.test(hcSrc) && /void syncHealthSleepHistory\(\)/.test(maSrc);
+  if (!hasSleepReader) failed++;
+  console.log(`${hasSleepReader ? '✓' : '✗'} 0.9.11 нативный мост умеет отдавать историю сна`);
+
+  // Цепочка должна быть замкнута: Kotlin → Java → window.<колбэк> → JS-функция.
+  // Без публикации на window нативный вызов молча уходит в никуда.
+  const appSrc = fs.readFileSync('app.js', 'utf8');
+  const cbName = (maSrc.match(/window\.(onHealthSleepHistoryReceived)/) || [])[1];
+  const chainOk = !!cbName
+    && new RegExp('window\\.' + cbName + '\\s*=').test(appSrc)
+    && /window\.FitFlowExport\.syncHealthSleepHistory\(\)/.test(appSrc)
+    && /requestSleepHistorySync\(\);/.test(appSrc);
+  if (!chainOk) failed++;
+  console.log(`${chainOk ? '✓' : '✗'} 0.9.11 история сна: цепочка Kotlin → Java → window → JS замкнута`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -201,16 +201,61 @@ object HealthConnectHelper {
             val end = today.plusDays(1).atStartOfDay(zone).toInstant()
             val req = ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(start, end))
             val resp = runBlocking { client.readRecords(req) }
+            // 0.9.11: раньше суммировались ВСЕ источники — шаги телефона и часов
+            // складывались в один день, завышая итог. Считаем раздельно, как в syncNow:
+            // если за день есть данные с часов, день описывают именно они.
             val byDate = sortedMapOf<String, Long>()
+            val byDateWatch = sortedMapOf<String, Long>()
             for (rec in resp.records) {
-                val date = rec.startTime.atZone(zone).toLocalDate().toString()
-                byDate[date] = (byDate[date] ?: 0L) + rec.count
+                val isWatch = WEARABLE_PACKAGES.contains(rec.metadata.dataOrigin?.packageName ?: "")
+                // 0.9.11: запись, пересекающую полночь, раньше целиком относили к дню
+                // начала — из-за этого ночные шаги утекали во вчера. Делим количество
+                // между сутками пропорционально времени, попавшему в каждые из них.
+                val startDate = rec.startTime.atZone(zone).toLocalDate()
+                val endDate = rec.endTime.atZone(zone).toLocalDate()
+                if (startDate == endDate) {
+                    val k = startDate.toString()
+                    byDate[k] = (byDate[k] ?: 0L) + rec.count
+                    if (isWatch) byDateWatch[k] = (byDateWatch[k] ?: 0L) + rec.count
+                    continue
+                }
+                val totalMs = rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()
+                if (totalMs <= 0L) {
+                    val k = startDate.toString()
+                    byDate[k] = (byDate[k] ?: 0L) + rec.count
+                    if (isWatch) byDateWatch[k] = (byDateWatch[k] ?: 0L) + rec.count
+                    continue
+                }
+                var cursor = startDate
+                var assigned = 0L
+                while (!cursor.isAfter(endDate)) {
+                    val dayStart = cursor.atStartOfDay(zone).toInstant()
+                    val dayEnd = cursor.plusDays(1).atStartOfDay(zone).toInstant()
+                    val from = if (rec.startTime.isAfter(dayStart)) rec.startTime else dayStart
+                    val to = if (rec.endTime.isBefore(dayEnd)) rec.endTime else dayEnd
+                    val overlapMs = to.toEpochMilli() - from.toEpochMilli()
+                    if (overlapMs > 0L) {
+                        val part = if (cursor == endDate) rec.count - assigned
+                                   else rec.count * overlapMs / totalMs
+                        if (part > 0L) {
+                            val k = cursor.toString()
+                            byDate[k] = (byDate[k] ?: 0L) + part
+                            if (isWatch) byDateWatch[k] = (byDateWatch[k] ?: 0L) + part
+                            assigned += part
+                        }
+                    }
+                    cursor = cursor.plusDays(1)
+                }
             }
             val arr = JSONArray()
             for ((date, steps) in byDate) {
+                val watch = byDateWatch[date] ?: 0L
                 val obj = JSONObject()
                 obj.put("date", date)
-                obj.put("steps", steps)
+                // Часы приоритетнее: телефон в кармане и часы на руке считают одно и то же.
+                obj.put("steps", if (watch > 0L) watch else steps)
+                obj.put("watchSteps", watch)
+                obj.put("totalSteps", steps)
                 arr.put(obj)
             }
             arr.toString()
@@ -295,6 +340,61 @@ object HealthConnectHelper {
             out.toString()
         } catch (e: Exception) {
             "{}"
+        }
+    }
+
+    /* 0.9.11: история сна за последние N дней — обратная заливка.
+       Раньше сон читался только в окне «вчера 18:00 → сегодня 18:00» (syncNow),
+       поэтому пропущенная ночь задним числом не восстанавливалась никогда:
+       не открыл приложение утром — данные за ту ночь потеряны навсегда.
+       Ночь относим к дню ПРОБУЖДЕНИЯ (как и чек-ин: «сколько я спал сегодня»),
+       сессии одной ночи суммируем, для времени отхода/подъёма берём самую
+       длинную сессию этой ночи. */
+    @JvmStatic
+    fun readSleepHistory(context: Context, days: Int): String {
+        return try {
+            val n = if (days in 1..90) days else 30
+            val client = HealthConnectClient.getOrCreate(context)
+            val today = LocalDate.now()
+            val zone = ZoneId.systemDefault()
+            // Берём с запасом в сутки назад: ночь, засчитанная в первый день окна,
+            // начинается ещё накануне вечером.
+            val start = today.minusDays(n.toLong()).atStartOfDay(zone).toInstant()
+            val end = today.plusDays(1).atStartOfDay(zone).toInstant()
+            val req = ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(start, end))
+            val resp = runBlocking { client.readRecords(req) }
+
+            val totals = sortedMapOf<String, Long>()
+            val bestMs = mutableMapOf<String, Long>()
+            val bestStart = mutableMapOf<String, Instant>()
+            val bestEnd = mutableMapOf<String, Instant>()
+            for (rec in resp.records) {
+                val ms = rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()
+                if (ms <= 0L) continue
+                val date = rec.endTime.atZone(zone).toLocalDate().toString()
+                totals[date] = (totals[date] ?: 0L) + ms
+                if (ms > (bestMs[date] ?: 0L)) {
+                    bestMs[date] = ms
+                    bestStart[date] = rec.startTime
+                    bestEnd[date] = rec.endTime
+                }
+            }
+
+            val fmt = DateTimeFormatter.ofPattern("HH:mm")
+            val arr = JSONArray()
+            for ((date, ms) in totals) {
+                val minutes = (ms / 60000L).toInt()
+                if (minutes <= 0) continue
+                val obj = JSONObject()
+                obj.put("date", date)
+                obj.put("minutes", minutes)
+                bestStart[date]?.let { obj.put("bedTime", fmt.format(it.atZone(zone))) }
+                bestEnd[date]?.let { obj.put("wakeTime", fmt.format(it.atZone(zone))) }
+                arr.put(obj)
+            }
+            arr.toString()
+        } catch (e: Exception) {
+            "[]"
         }
     }
 }

@@ -3047,7 +3047,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.10';
+const FITFLOW_VERSION = '0.9.11';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -7969,10 +7969,70 @@ function mergeStepsBackfill(existing, incoming, today) {
     const date = String(row && row.date || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date >= today) continue;
     const steps = Math.max(0, Math.round(Number(row.steps) || 0));
-    if (!steps || byDate.has(date)) continue;
+    if (!steps) continue; // «нет записи в HC» ≠ «0 шагов» — своё значение не затираем
+    // 0.9.11: раньше день с любой уже существующей записью пропускался целиком.
+    // Из-за этого частичный снимок (приложение открыли утром — 480 шагов) навсегда
+    // блокировал реальный итог дня из Health Connect. Шаги за день только растут,
+    // поэтому берём большее значение, а не первое попавшееся.
+    const prev = byDate.get(date);
+    if (prev && prev.steps >= steps) continue;
     byDate.set(date, { date, steps, source: 'Health Connect' });
   }
   return normalizeStepsHistory(Array.from(byDate.values()));
+}
+
+/* 0.9.11: слияние истории сна из Health Connect. Чистая функция (тестируется).
+   Ночь уже отнесена нативным кодом ко дню пробуждения. Правила:
+   - день сегодняшний и будущие не трогаем (за сегодня работает обычный синк);
+   - ручной чек-ин пользователя приоритетнее показаний часов — не перезаписываем;
+   - запись от часов обновляем, только если длительность реально изменилась;
+   - нулевые/мусорные значения игнорируем («нет записи» ≠ «спал 0»).
+   Возвращает { history, added, updated }. */
+function mergeSleepBackfill(history, incoming, today) {
+  const out = {};
+  const src = (history && typeof history === 'object') ? history : {};
+  Object.keys(src).forEach((d) => { out[d] = src[d]; });
+  let added = 0;
+  let updated = 0;
+  const isTime = (v) => typeof v === 'string' && /^([01]?\d|2[0-3]):[0-5]\d$/.test(v);
+
+  (Array.isArray(incoming) ? incoming : []).forEach((row) => {
+    const date = String(row && row.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date >= today) return;
+    const minutes = Math.round(Number(row && row.minutes) || 0);
+    if (!(minutes > 0) || minutes > 960) return;
+
+    const prev = out[date];
+    const fromWatch = prev && typeof prev.source === 'string' && prev.source.indexOf('Health Connect') >= 0;
+    if (prev && !fromWatch) return; // ручной чек-ин не трогаем
+    if (prev && fromWatch && (prev.durationMinutes || prev.durationMin || 0) === minutes) return;
+
+    out[date] = {
+      date,
+      durationMinutes: minutes,
+      durationMin: minutes,
+      bedTime: isTime(row.bedTime) ? row.bedTime : (prev ? prev.bedTime : null),
+      wakeTime: isTime(row.wakeTime) ? row.wakeTime : (prev ? prev.wakeTime : null),
+      rating: (prev && Number(prev.rating)) || 4,
+      source: 'часы / Health Connect'
+    };
+    if (prev) updated++; else added++;
+  });
+
+  return { history: out, added, updated };
+}
+
+function onHealthSleepHistoryReceived(json) {
+  let list = [];
+  try { list = JSON.parse(json) || []; } catch (e) { return; }
+  if (!Array.isArray(list) || !list.length) return;
+  if (!state.sleepCheckin) state.sleepCheckin = { enabled: false, history: {}, log: [] };
+  if (!state.sleepCheckin.history) state.sleepCheckin.history = {};
+  const res = mergeSleepBackfill(state.sleepCheckin.history, list, todayKey());
+  if (!res.added && !res.updated) return;
+  state.sleepCheckin.history = res.history;
+  saveState();
+  if (typeof document !== 'undefined') renderStats();
 }
 
 /* 0.8.23: слияние веса с умных весов с историей. Чистая функция (тестируется):
@@ -8072,6 +8132,7 @@ if (typeof window !== 'undefined') {
   window.importWatchWorkout = importWatchWorkout;
   window.dismissWatchWorkout = dismissWatchWorkout;
   window.onHealthStepsHistoryReceived = onHealthStepsHistoryReceived;
+  window.onHealthSleepHistoryReceived = onHealthSleepHistoryReceived; // 0.9.11
   window.exportWorkoutToHealthConnect = exportWorkoutToHealthConnect;
   window.onWorkoutExported = onWorkoutExported;
 }
@@ -8451,6 +8512,7 @@ function refreshHealthDataOnResume() {
   requestWatchWorkoutsSync(); // 0.8.0: подтягиваем и сессии тренировок с часов
   autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   requestStepsHistorySync(); // 0.8.11: обратная заливка истории шагов (P28)
+  requestSleepHistorySync(); // 0.9.11: обратная заливка истории сна
   requestBodyMetricsSync(); // 0.8.23: вес/рост с умных весов (P34)
 }
 
@@ -8464,6 +8526,19 @@ function requestStepsHistorySync() {
     if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthStepsHistory === 'function') {
       lastStepsHistorySyncAt = now;
       window.FitFlowExport.syncHealthStepsHistory();
+    }
+  } catch (e) { }
+}
+
+/* 0.9.11: история сна — раз в сутки, как и шаги. */
+let lastSleepHistorySyncAt = 0;
+function requestSleepHistorySync() {
+  const now = Date.now();
+  if (now - lastSleepHistorySyncAt < 24 * 60 * 60 * 1000) return;
+  try {
+    if (window.FitFlowExport && typeof window.FitFlowExport.syncHealthSleepHistory === 'function') {
+      lastSleepHistorySyncAt = now;
+      window.FitFlowExport.syncHealthSleepHistory();
     }
   } catch (e) { }
 }
@@ -16854,6 +16929,6 @@ if (typeof module !== 'undefined' && module.exports) {
     // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
-    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
+    STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, mergeSleepBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };
 }

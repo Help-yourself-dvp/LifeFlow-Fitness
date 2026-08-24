@@ -1616,11 +1616,15 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 {
   let bad = 0;
   const today = new Date().toISOString().slice(0, 10);
+  // 0.9.11: правило «день с существующей записью пропускаем» отменено — именно оно
+  // теряло данные (утренний снимок в 480 шагов навсегда блокировал итог дня).
+  // Теперь за прошлый день побеждает большее значение: шаги за сутки только растут,
+  // а Health Connect отдаёт итог дня (с приоритетом часов над телефоном).
   const merged = mergeStepsBackfill(
-    [{ date: '2026-08-10', steps: 5000, source: 'шагомер телефона' }], // вперёд-снапшот
+    [{ date: '2026-08-10', steps: 5000, source: 'шагомер телефона' }], // частичный снимок
     [
       { date: '2026-08-09', steps: 7000 },
-      { date: '2026-08-10', steps: 9999 }, // не перезаписываем существующий
+      { date: '2026-08-10', steps: 9999 }, // итог дня больше снимка — уточняем
       { date: today, steps: 12345 },        // сегодня не трогаем (backfill только прошлые)
       { date: 'bad', steps: 100 }
     ],
@@ -1628,11 +1632,21 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   );
   const byDate = Object.fromEntries(merged.map((e) => [e.date, e]));
   if (!(byDate['2026-08-09'] && byDate['2026-08-09'].steps === 7000 && byDate['2026-08-09'].source === 'Health Connect')) bad++;
-  if (!(byDate['2026-08-10'] && byDate['2026-08-10'].steps === 5000 && byDate['2026-08-10'].source === 'шагомер телефона')) bad++; // вперёд-снапшот сохранён
+  if (!(byDate['2026-08-10'] && byDate['2026-08-10'].steps === 9999 && byDate['2026-08-10'].source === 'Health Connect')) bad++; // снимок уточнён итогом дня
   if (byDate[today]) bad++; // сегодня не добавился
+
+  // Обратный случай: меньшее значение из HC не затирает уже накопленное за день.
+  const kept = mergeStepsBackfill(
+    [{ date: '2026-08-08', steps: 12000, source: 'часы' }],
+    [{ date: '2026-08-08', steps: 900 }],
+    today
+  );
+  const keptDay = kept.find((e) => e.date === '2026-08-08');
+  if (!(keptDay && keptDay.steps === 12000 && keptDay.source === 'часы')) bad++;
+
   const ok24 = bad === 0;
   if (!ok24) failed++;
-  console.log(`${ok24 ? '✓' : '✗'} 0.8.11 backfill шагов: прошлые дни добавляются, вперёд-снапшоты и сегодня не перезаписываются`);
+  console.log(`${ok24 ? '✓' : '✗'} 0.8.11/0.9.11 backfill шагов: прошлые дни уточняются большим значением, сегодня не трогается`);
 }
 
 // ===== 0.8.20: поиск по базе продуктов (P15) =====
