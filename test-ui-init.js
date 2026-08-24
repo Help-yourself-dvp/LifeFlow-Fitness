@@ -3097,5 +3097,90 @@ for (const id of ids) {
   console.log(`${!other ? '✓' : '✗'} 0.9.9 посторонняя тренировка не отмечает план выполненным`);
 }
 
+/* ============================================================
+   0.9.10: двойной учёт тренировок. Владелец отверг критерий
+   «совпадение длительности ±15 мин» — две тренировки в день
+   одной длины обычны. Сверяем пересечение интервалов времени.
+   ============================================================ */
+{
+  const api = require('./app.js');
+  const appDupSrc = fs.readFileSync('app.js', 'utf8');
+  const D = '2026-08-23';
+  const at = (h, mi) => new Date(`${D}T${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}:00`).getTime();
+  const hasApi = typeof api.classifyWatchWorkout === 'function';
+  if (!hasApi) failed++;
+  console.log(`${hasApi ? '✓' : '✗'} 0.9.10 сопоставление тренировок по времени доступно для прогона`);
+  // Если функции нет — не роняем весь прогон, а помечаем проверки проваленными.
+  const verdict = (session, workouts) => (hasApi
+    ? api.classifyWatchWorkout(session, workouts, {}).verdict
+    : 'НЕТ ФУНКЦИИ');
+  const check = (name, got, want) => {
+    const ok = got === want;
+    if (!ok) failed++;
+    console.log(`${ok ? '✓' : '✗'} 0.9.10 ${name}${ok ? '' : ` (получили «${got}», ждали «${want}»)`}`);
+  };
+
+  // Жалоба владельца: силовая записана сразу, часы прислали её же.
+  check('силовая из дневника и она же с часов не задваиваются',
+    verdict({ recordId: 'w1', date: D, type: 'other', title: 'Workout', minutes: 58, start: at(18, 2), end: at(19, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 60, createdAt: at(19, 5) }]), 'duplicate');
+
+  // Отвергнутый критерий: одинаковая длительность ≠ дубль.
+  check('утренняя и вечерняя одной длины считаются разными',
+    verdict({ recordId: 'w2', date: D, type: 'other', minutes: 60, start: at(19, 0), end: at(20, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 60, createdAt: at(8, 5) }]), 'unique');
+
+  check('две тренировки подряд одной длины не схлопываются',
+    verdict({ recordId: 'w3', date: D, type: 'other', minutes: 45, start: at(19, 10), end: at(19, 55) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 45, createdAt: at(19, 5) }]), 'unique');
+
+  // Вопрос владельца: тренировка была утром, записали вечером.
+  check('запись задним числом не добавляется молча, а спрашивает',
+    verdict({ recordId: 'w4', date: D, type: 'other', minutes: 60, start: at(8, 0), end: at(9, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 60, createdAt: at(22, 30) }]), 'unsure');
+
+  // «Тренировки» из ходьбы остаются (решение владельца — keep).
+  check('длинная прогулка с часов не считается дублем короткой силовой',
+    verdict({ recordId: 'w5', date: D, type: 'walk', minutes: 180, start: at(10, 0), end: at(13, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 40, createdAt: at(20, 0) }]), 'unique');
+
+  check('силовая внутри длинной сессии часов — дубль',
+    verdict({ recordId: 'w6', date: D, type: 'other', minutes: 180, start: at(17, 0), end: at(20, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 40, createdAt: at(18, 40) }]), 'duplicate');
+
+  check('повторный синк уже импортированной сессии не добавляет её снова',
+    verdict({ recordId: 'w7', date: D, type: 'other', minutes: 60, start: at(18, 0), end: at(19, 0) },
+      [{ id: 'a', date: D, type: 'strength', durationMinutes: 60, createdAt: at(19, 2), watchRecordId: 'w7' }]), 'duplicate');
+
+  check('одинаковая тренировка в другой день остаётся своей',
+    verdict({ recordId: 'w8', date: D, type: 'other', minutes: 60, start: at(18, 0), end: at(19, 0) },
+      [{ id: 'a', date: '2026-08-22', type: 'strength', durationMinutes: 60, createdAt: at(19, 2) }]), 'unique');
+
+  // Сквозной счёт минут — та самая «118 вместо 60».
+  const workouts = [{ id: 'a', date: D, type: 'strength', durationMinutes: 60, createdAt: at(19, 5) }];
+  const session = { recordId: 'w1', date: D, type: 'other', minutes: 58, start: at(18, 2), end: at(19, 0) };
+  if (verdict(session, workouts) === 'unique') workouts.push({ id: 'b', date: D, type: 'strength', durationMinutes: 58, createdAt: Date.now() });
+  const totalMin = workouts.reduce((n, w) => n + w.durationMinutes, 0);
+  // hasApi в условии: без функции сверки тест не должен «проходить» вхолостую.
+  const minutesOk = hasApi && totalMin === 60;
+  if (!minutesOk) failed++;
+  console.log(`${minutesOk ? '✓' : '✗'} 0.9.10 недельная цель считает 60 мин, а не 118${minutesOk ? '' : ` (вышло ${totalMin})`}`);
+
+  // Health Connect не должен возвращать наш собственный экспорт.
+  const hc = fs.readFileSync('android-native/HealthConnectHelper.kt', 'utf8');
+  const readFn = hc.slice(hc.indexOf('fun readTodayWorkouts'));
+  const body = readFn.slice(0, readFn.indexOf('private fun mapExerciseType'));
+  const selfFiltered = /context\.packageName/.test(body) && /dataOrigin\?\.packageName/.test(body);
+  if (!selfFiltered) failed++;
+  console.log(`${selfFiltered ? '✓' : '✗'} 0.9.10 собственный экспорт не читается обратно как «с часов»`);
+
+  // Нормализация не должна терять связь записи с сессией часов.
+  const normFn = appDupSrc.slice(appDupSrc.indexOf('function normalizeWorkouts()'));
+  const normBody = normFn.slice(0, normFn.indexOf('\n}\n'));
+  const keepsLink = /watchRecordId:/.test(normBody) && /watchStart:/.test(normBody);
+  if (!keepsLink) failed++;
+  console.log(`${keepsLink ? '✓' : '✗'} 0.9.10 связь записи с сессией часов переживает нормализацию`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2501,6 +2501,18 @@ html[data-theme="dark"] .segmented button.active {
 .watch-workout-auto .watch-workout-info strong,
 .watch-workout-auto .watch-workout-emoji { opacity: 0.85; }
 .watch-workout-auto .watch-workout-info span { opacity: 0.66; }
+/* 0.9.10: сессия, похожая на уже записанную вручную. Не прячем и не добавляем
+   сами — предупреждаем, решение за владельцем. */
+.watch-workout-dup {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--md-sys-color-error);
+  opacity: 1;
+}
+.watch-workout-maybe .watch-workout-info strong { opacity: 0.9; }
 .watch-workout-row {
   display: flex;
   align-items: center;

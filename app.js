@@ -3047,7 +3047,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.9';
+const FITFLOW_VERSION = '0.9.10';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -4698,7 +4698,14 @@ function normalizeWorkouts() {
       note: normalizeOptionalNote(workout.note),
       intensity: ['low','medium','high'].includes(workout.intensity) ? workout.intensity : 'medium',
       durationMinutes: Math.min(1440, Math.round(Number(workout.durationMinutes))),
-      createdAt: Number(workout.createdAt) || Date.now()
+      createdAt: Number(workout.createdAt) || Date.now(),
+      /* 0.9.10: нормализация пересобирает объект — раньше здесь терялась связь
+         с сессией часов (watchRecordId), из-за чего «Отменить» у авто-записи
+         переставало её находить. Заодно храним точное время сессии: по нему
+         работает проверка на повтор (classifyWatchWorkout). */
+      watchRecordId: workout.watchRecordId ? String(workout.watchRecordId).slice(0, 120) : null,
+      watchStart: Number(workout.watchStart) || 0,
+      watchEnd: Number(workout.watchEnd) || 0
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -7497,7 +7504,11 @@ function normalizeWatchWorkouts(list) {
       date: typeof s.date === 'string' ? s.date : todayKey(),
       imported: s.imported === true,
       ignored: s.ignored === true,
-      autoImported: s.autoImported === true // 0.8.25: добавлено само, можно отменить
+      autoImported: s.autoImported === true, // 0.8.25: добавлено само, можно отменить
+      // 0.9.10: распознано как повтор уже записанной тренировки
+      duplicateOf: s.duplicateOf === true,
+      // 0.9.10: похоже на уже записанную, но точно определить нельзя — спросим
+      maybeDuplicate: s.maybeDuplicate === true
     });
   }
   return out;
@@ -7591,6 +7602,132 @@ function onHealthWorkoutsReceived(json) {
    Сегодняшние сессии по-прежнему ждут ручного решения — пока
    день идёт, у владельца есть шанс поправить тип или пропустить.
 ------------------------------------------------------------ */
+/* ============================================================
+   0.9.10: защита от двойного учёта тренировок.
+
+   Замечание владельца: часы и дневник записывали одну и ту же
+   тренировку дважды, и недельная цель показывала двойные минуты.
+   Прежний план «считать дублем совпадение длительности ±15 мин»
+   владелец отверг справедливо: две тренировки в день примерно
+   одной длины — обычное дело (утро/вечер или подряд), да и часы
+   сами делают «тренировки» из обычной ходьбы.
+
+   Поэтому сверяем не длительность, а ВРЕМЯ: пересекаются ли
+   интервалы. У сессии с часов время точное (start/end в мс).
+   У ручной записи времени нет — есть только момент сохранения,
+   поэтому её интервал восстанавливаем как [createdAt − длительность,
+   createdAt]. Это верно, когда тренировку записали сразу после неё,
+   и неверно, когда её внесли вечером задним числом.
+
+   Отсюда правило асимметричное (обсуждено с владельцем):
+     • уверенно пересеклись           → дубль, молча пропускаем;
+     • уверенно не пересеклись        → разные, добавляем сами;
+     • данных не хватает (запись
+       внесена сильно позже события)  → НЕ добавляем молча,
+                                        показываем строкой в баннере.
+   Тихо ошибиться в обе стороны нельзя: потерянная тренировка так же
+   плоха, как задвоенная, поэтому в сомнительном случае решает человек.
+   ============================================================ */
+
+/* Доля пересечения двух интервалов от более КОРОТКОГО из них.
+   Именно от короткого: 40-минутная силовая внутри 3-часовой
+   «тренировки», которую часы слепили из ходьбы, — это дубль,
+   хотя от длинного интервала доля вышла бы мизерной. */
+function intervalsOverlapRatio(aStart, aEnd, bStart, bEnd) {
+  const a1 = Number(aStart) || 0, a2 = Number(aEnd) || 0;
+  const b1 = Number(bStart) || 0, b2 = Number(bEnd) || 0;
+  if (!(a2 > a1) || !(b2 > b1)) return 0;
+  const overlap = Math.min(a2, b2) - Math.max(a1, b1);
+  if (overlap <= 0) return 0;
+  return overlap / Math.min(a2 - a1, b2 - b1);
+}
+
+/* Временной интервал записи дневника.
+   exact=true — время пришло с часов (watchStart/watchEnd).
+   exact=false — восстановлено из момента сохранения. */
+function workoutInterval(w) {
+  if (!w) return null;
+  const dur = Math.max(0, Math.round(Number(w.durationMinutes) || 0));
+  const ws = Number(w.watchStart) || 0;
+  const we = Number(w.watchEnd) || 0;
+  if (ws > 0 && we > ws) return { start: ws, end: we, exact: true };
+  if (!dur) return null;
+  const created = Number(w.createdAt) || 0;
+  if (!created) return null;
+  return { start: created - dur * 60000, end: created, exact: false };
+}
+
+/* Дубль считаем при пересечении не меньше половины короткого интервала. */
+const WATCH_DUP_MIN_RATIO = 0.5;
+/* Допуск для восстановленного времени: между концом тренировки и нажатием
+   «Сохранить» обычно проходит несколько минут (душ, дорога, заполнение). */
+const WATCH_TIME_TOLERANCE_MS = 20 * 60000;
+/* Насколько близкими должны быть длительности, чтобы счесть записи
+   «похожими» при неизвестном времени (0.75 = расхождение до четверти). */
+const WATCH_SIMILAR_DURATION = 0.75;
+
+/* Типы считаем совместимыми при совпадении; 'other' совместим с любым —
+   часы часто отдают OTHER_WORKOUT без внятного заголовка. */
+function watchTypesCompatible(a, b) {
+  if (!a || !b) return true;
+  if (a === b) return true;
+  return a === 'other' || b === 'other';
+}
+
+/* Вердикт по сессии с часов относительно уже записанных тренировок:
+   'duplicate' — та же тренировка, уже в дневнике;
+   'unique'    — точно другая, можно добавлять;
+   'unsure'    — похоже на уже записанную, но время ручной записи
+                 недостоверно; решение за человеком. */
+function classifyWatchWorkout(session, workouts, opts) {
+  const o = opts || {};
+  const minRatio = Number.isFinite(o.minRatio) ? o.minRatio : WATCH_DUP_MIN_RATIO;
+  const tol = Number.isFinite(o.toleranceMs) ? o.toleranceMs : WATCH_TIME_TOLERANCE_MS;
+  const start = Number(session && session.start) || 0;
+  const end = Number(session && session.end) || 0;
+  const date = String(session && session.date || '');
+  const minutes = Math.max(0, Math.round(Number(session && session.minutes) || 0));
+  const sType = mapWatchWorkoutType(session && session.type, session && session.title);
+  const list = Array.isArray(workouts) ? workouts : [];
+  // Сравниваем только с записями того же дня — разные дни дублями не бывают.
+  const sameDay = list.filter((w) => w && String(w.date || '') === date);
+  if (!sameDay.length) return { verdict: 'unique', matchId: null };
+  // Своя же запись, добавленная с этих часов ранее, — безусловный дубль.
+  const already = sameDay.find((w) => w.watchRecordId && w.watchRecordId === (session && session.recordId));
+  if (already) return { verdict: 'duplicate', matchId: already.id || null };
+  if (!(end > start)) return { verdict: 'unsure', matchId: null };
+
+  let unsure = null;
+  for (const w of sameDay) {
+    const iv = workoutInterval(w);
+    if (!iv) continue;
+    if (iv.exact) {
+      // Обе стороны знают время точно — вопрос решается однозначно.
+      if (intervalsOverlapRatio(start, end, iv.start, iv.end) >= minRatio) {
+        return { verdict: 'duplicate', matchId: w.id || null };
+      }
+      continue;
+    }
+    // Время ручной записи восстановлено: сначала пробуем с допуском.
+    if (intervalsOverlapRatio(start, end, iv.start - tol, iv.end + tol) >= minRatio) {
+      return { verdict: 'duplicate', matchId: w.id || null };
+    }
+    /* Пересечения нет — но если запись внесли ЗАДНИМ ЧИСЛОМ (сохранили
+       вечером тренировку, которая была утром), её восстановленный интервал
+       уехал к вечеру и разошёлся с часами. Признаки: сохранили уже после
+       конца сессии, тип совместим, длительность близкая. Молча добавлять
+       такое нельзя — спросим. */
+    if (unsure) continue;
+    const created = Number(w.createdAt) || 0;
+    const wMin = Math.max(0, Math.round(Number(w.durationMinutes) || 0));
+    if (!created || created <= end || !wMin || !minutes) continue;
+    if (!watchTypesCompatible(sType, String(w.type || ''))) continue;
+    const ratio = Math.min(wMin, minutes) / Math.max(wMin, minutes);
+    if (ratio >= WATCH_SIMILAR_DURATION) unsure = { verdict: 'unsure', matchId: w.id || null };
+  }
+  return unsure || { verdict: 'unique', matchId: null };
+}
+
 function isWatchWorkoutStale(session, today = todayKey()) {
   if (!session || session.imported || session.ignored) return false;
   const date = String(session.date || '');
@@ -7610,7 +7747,28 @@ function autoImportStaleWatchWorkouts() {
   const stale = pickStaleWatchWorkouts(list, today);
   if (!stale.length) return 0;
   let added = 0;
+  let skipped = 0;
+  const addedList = [];
   for (const s of stale) {
+    /* 0.9.10: та же тренировка могла уже быть записана руками (дневник
+       силовых или «Активность»). Раньше проверялись только флаги
+       imported/ignored самой сессии, поэтому минуты складывались дважды. */
+    const verdict = classifyWatchWorkout(s, state.workouts, {}).verdict;
+    if (verdict === 'duplicate') {
+      // Уже есть в дневнике — тихо закрываем сессию, баннером не тревожим.
+      s.imported = true;
+      s.autoImported = false;
+      s.duplicateOf = true;
+      skipped++;
+      continue;
+    }
+    if (verdict === 'unsure') {
+      /* Похоже на уже записанную, но время ручной записи восстановлено
+         приблизительно. Не добавляем молча и не выбрасываем — сессия
+         остаётся в баннере с пометкой, решает владелец. */
+      s.maybeDuplicate = true;
+      continue;
+    }
     const type = mapWatchWorkoutType(s.type, s.title);
     const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
     const title = s.title || label.label;
@@ -7623,11 +7781,16 @@ function autoImportStaleWatchWorkouts() {
       intensity: 'medium',
       durationMinutes: s.minutes,
       createdAt: Date.now(),
-      watchRecordId: s.recordId // 0.8.25: связь с сессией — для отмены
+      watchRecordId: s.recordId, // 0.8.25: связь с сессией — для отмены
+      // 0.9.10: точное время с часов — чтобы следующие сверки были однозначными
+      watchStart: s.start || 0,
+      watchEnd: s.end || 0
     });
     s.imported = true;
     s.autoImported = true;
+    s.maybeDuplicate = false;
     added++;
+    addedList.push(s);
   }
   state.healthSync.watchWorkouts = list;
   saveState();
@@ -7635,11 +7798,12 @@ function autoImportStaleWatchWorkouts() {
     renderTraining();
     updateNativeWidget();
     renderWatchWorkoutsSuggest();
-    const first = stale[0];
+    const first = addedList[0];
     const firstLabel = first ? (first.title || (ACTIVITY_TYPES[mapWatchWorkoutType(first.type, first.title)] || ACTIVITY_TYPES.other).label) : '';
-    toast(added === 1
-      ? `⌚ Добавлена тренировка с часов за ${fmtCourseDate(first.date)}: ${firstLabel}`
-      : `⌚ Добавлено тренировок с часов: ${added} (за прошлые дни)`);
+    // 0.9.10: молчим, если всё пришедшее оказалось уже записанным вручную.
+    if (added === 1) toast(`⌚ Добавлена тренировка с часов за ${fmtCourseDate(first.date)}: ${firstLabel}`);
+    else if (added > 1) toast(`⌚ Добавлено тренировок с часов: ${added} (за прошлые дни)`);
+    else if (skipped) toast('⌚ Тренировка с часов уже записана — повторно не добавили');
   }
   return added;
 }
@@ -7661,9 +7825,14 @@ function importWatchWorkout(recordId) {
     note: 'с часов (импорт)',
     intensity: 'medium',
     durationMinutes: s.minutes,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    watchRecordId: s.recordId,
+    // 0.9.10: точное время с часов — последующие сверки станут однозначными
+    watchStart: s.start || 0,
+    watchEnd: s.end || 0
   });
   s.imported = true;
+  s.maybeDuplicate = false;
   state.healthSync.watchWorkouts = list;
   saveState();
   renderTraining();
@@ -7713,7 +7882,11 @@ function renderWatchWorkoutsSuggest() {
      дни, уже добавлено автоматически — по нему показываем строку отмены
      (сутки), чтобы «само добавилось» никогда не было сюрпризом. */
   const all = state.healthSync.watchWorkouts || [];
-  const pending = all.filter((s) => !s.imported && !s.ignored && s.date === today);
+  /* 0.9.10: кроме сегодняшних, в баннер попадают сессии за прошлые дни,
+     которые авто-импорт счёл похожими на уже записанные вручную. Они не
+     добавлены и не отброшены — молча пропасть тренировка не должна. */
+  const pending = all.filter((s) => !s.imported && !s.ignored
+    && (s.date === today || s.maybeDuplicate === true));
   /* Окно показа отмены — WATCH_AUTO_UNDO_DAYS суток: старые авто-записи уже
      «прижились», незачем держать баннер вечно (он бы рос с каждой тренировкой). */
   const undoFrom = courseDateKey(new Date(Date.now() - WATCH_AUTO_UNDO_DAYS * 86400000));
@@ -7725,18 +7898,36 @@ function renderWatchWorkoutsSuggest() {
     const label = ACTIVITY_TYPES[type] || ACTIVITY_TYPES.other;
     const title = s.title || label.label;
     const clock = s.start ? new Date(s.start).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+    // Для сессий за прошлые дни показываем дату — иначе непонятно, о чём речь.
+    const day = s.date && s.date !== today ? fmtCourseDate(s.date) + ' · ' : '';
+    /* 0.9.10: сессия, похожая на уже записанную вручную. Точно определить
+       нельзя (время ручной записи восстановлено приблизительно), поэтому
+       не добавляем молча и не прячем — предупреждаем и даём выбрать. */
+    /* Сегодняшние сессии авто-импорт не трогает (день ещё идёт), поэтому
+       вердикт для них считаем прямо здесь — предупреждение должно быть
+       видно и до того, как сессия «состарится». */
+    const liveVerdict = s.maybeDuplicate === true
+      ? 'unsure'
+      : classifyWatchWorkout(s, state.workouts, {}).verdict;
+    const maybeDup = liveVerdict === 'unsure' || liveVerdict === 'duplicate';
+    const dupNote = maybeDup
+      ? `<span class="watch-workout-dup">⚠️ ${liveVerdict === 'duplicate'
+          ? 'Эта тренировка уже есть в дневнике — добавлять второй раз не нужно'
+          : 'Похоже, эта тренировка уже записана — добавьте, только если она была отдельно'}</span>`
+      : '';
     return `
-      <div class="watch-workout">
+      <div class="watch-workout${maybeDup ? ' watch-workout-maybe' : ''}">
         <div class="watch-workout-row">
           <span class="watch-workout-emoji" aria-hidden="true">${label.emoji}</span>
           <div class="watch-workout-info">
             <strong>${escapeHtml(title)}</strong>
-            <span>${formatWorkoutDuration(s.minutes)}${clock ? ' · ' + clock : ''} · с часов · тип можно изменить после добавления</span>
+            <span>${day}${formatWorkoutDuration(s.minutes)}${clock ? ' · ' + clock : ''} · с часов · тип можно изменить после добавления</span>
+            ${dupNote}
           </div>
         </div>
         <div class="watch-workout-actions">
-          <button class="watch-btn watch-btn-add" type="button" data-watch-import="${escapeHtml(s.recordId)}">Добавить</button>
-          <button class="watch-btn watch-btn-ghost" type="button" data-watch-ignore="${escapeHtml(s.recordId)}">Игнорировать</button>
+          <button class="watch-btn ${maybeDup ? 'watch-btn-ghost' : 'watch-btn-add'}" type="button" data-watch-import="${escapeHtml(s.recordId)}">${maybeDup ? 'Всё равно добавить' : 'Добавить'}</button>
+          <button class="watch-btn watch-btn-ghost" type="button" data-watch-ignore="${escapeHtml(s.recordId)}">${maybeDup ? 'Это дубль' : 'Игнорировать'}</button>
         </div>
       </div>`;
   }).join('');
@@ -16660,6 +16851,8 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeCombos, COMBOS_LIMIT, scannedPortionGrams,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
+    // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
+    intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };

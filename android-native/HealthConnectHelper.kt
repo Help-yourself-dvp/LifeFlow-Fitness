@@ -156,7 +156,13 @@ object HealthConnectHelper {
             val req = ReadRecordsRequest(ExerciseSessionRecord::class, TimeRangeFilter.between(startOfDay, endOfDay))
             val resp = runBlocking { client.readRecords(req) }
             val arr = JSONArray()
+            val selfPkg = context.packageName
             for (rec in resp.records) {
+                /* 0.9.10: не возвращаем собственный экспорт. Кнопка «Записать в
+                   Health Connect» кладёт туда наши же тренировки, и они читались
+                   обратно как «сессии с часов» — тренировка задваивалась сама
+                   с собой. У шагов такой фильтр по источнику был с самого начала. */
+                if ((rec.metadata.dataOrigin?.packageName ?: "") == selfPkg) continue
                 val minutes = ((rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()) / 60000L).toInt()
                 if (minutes < 5) continue
                 val obj = JSONObject()
