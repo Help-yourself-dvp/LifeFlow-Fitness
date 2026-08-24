@@ -3389,5 +3389,118 @@ for (const id of ids) {
   console.log(`${restRender ? '✓' : '✗'} 0.9.12 пресеты перерисовываются из состояния, клик делегирован контейнеру`);
 }
 
+/* ============================================================
+   0.9.13 «Витамины»: подтверждение приёма из шторки без открытия
+   приложения и строка курса на виджете.
+   Проверяем контракт JS↔натив: если одна сторона переименует ключ
+   или отвалится мост, отметка молча потеряется — а на телефоне это
+   выглядит как «нажал Принял, а ничего не записалось».
+   ============================================================ */
+{
+  const api = require('./app.js');
+  const appS = fs.readFileSync('app.js', 'utf8');
+  const hasApi = typeof api.buildNativeCoursePlan === 'function'
+    && typeof api.buildNativeCourseDone === 'function';
+  if (!hasApi) failed++;
+  console.log(`${hasApi ? '✓' : '✗'} 0.9.13 сборка плана курса для натива доступна для прогона`);
+
+  // Планировщик обязан идти native-first: кнопки уведомлений Capacitor на
+  // Android всегда открывают приложение, а владелец просил обратного.
+  const schedStart = appS.indexOf('async function scheduleCourseReminders');
+  const schedSrc = appS.slice(schedStart, appS.indexOf('\nasync function refreshCourseRemindersOnLaunch', schedStart));
+  const nativeFirst = /scheduleCourseRemindersNative/.test(schedSrc)
+    && schedSrc.indexOf('syncNativeCourseState') < schedSrc.indexOf('localNotifications.schedule');
+  if (!nativeFirst) failed++;
+  console.log(`${nativeFirst ? '✓' : '✗'} 0.9.13 напоминания курса планирует натив, JS остаётся запасным путём`);
+
+  // План уезжает в натив ДО проверки разрешения: строка витаминов на виджете
+  // не должна зависеть от того, разрешены ли уведомления.
+  const beforePermission = schedSrc.indexOf('if (hasNative) syncNativeCourseState();')
+    < schedSrc.indexOf('ensureNotificationPermission');
+  if (!beforePermission) failed++;
+  console.log(`${beforePermission ? '✓' : '✗'} 0.9.13 виджет получает курс независимо от разрешения на уведомления`);
+
+  // Отметка в приложении обязана доехать в натив, иначе придёт напоминание
+  // об уже принятом приёме, а виджет покажет старый счёт.
+  const toggleStart = appS.indexOf('function toggleCourseDose');
+  const toggleSrc = appS.slice(toggleStart, appS.indexOf('\n/* Строки курсов', toggleStart));
+  const toggleSyncs = /syncNativeCourseState\(\)/.test(toggleSrc);
+  if (!toggleSyncs) failed++;
+  console.log(`${toggleSyncs ? '✓' : '✗'} 0.9.13 отметка приёма в приложении сразу уходит в натив`);
+
+  // Обратный канал: колбэк обязан быть присвоен в window, иначе натив его
+  // не найдёт (наступали на это с onHealthBodyMetricsReceived).
+  const cbOk = /window\.onCourseDosesFromNative\s*=/.test(appS)
+    && /onCourseDosesFromNative/.test(fs.readFileSync('android-native/MainActivity.java', 'utf8'));
+  if (!cbOk) failed++;
+  console.log(`${cbOk ? '✓' : '✗'} 0.9.13 очередь отметок из натива принимает window.onCourseDosesFromNative`);
+
+  // Натив присылает конечное состояние (done 1/0), а не «переключить»:
+  // повторная доставка очереди не должна снимать уже отмеченный приём.
+  const cbStart = appS.indexOf('window.onCourseDosesFromNative =');
+  const cbSrc = appS.slice(cbStart, cbStart + 1600);
+  const idempotent = /marks\.includes\(idx\) === wantDone/.test(cbSrc);
+  if (!idempotent) failed++;
+  console.log(`${idempotent ? '✓' : '✗'} 0.9.13 повторная доставка очереди не переворачивает отметку`);
+
+  // Формат плана для натива: ключи короткие и совпадают с FitFlowCourses.java.
+  const coursesJava = fs.readFileSync('android-native/FitFlowCourses.java', 'utf8');
+  const planKeysOk = ['id', 'name', 'start', 'days', 'remind', 'times']
+    .every((k) => new RegExp('optString\\("' + k + '"|optInt\\("' + k + '"|optBoolean\\("' + k + '"|optJSONArray\\("' + k + '"').test(coursesJava));
+  if (!planKeysOk) failed++;
+  console.log(`${planKeysOk ? '✓' : '✗'} 0.9.13 ключи плана курса совпадают в app.js и FitFlowCourses.java`);
+
+  // Кнопка «Принял» должна быть броадкастом: getActivity открыл бы приложение.
+  const receiverJava = fs.readFileSync('android-native/CourseReminderReceiver.java', 'utf8');
+  const takenStart = receiverJava.indexOf('Intent taken = new Intent');
+  const takenSrc = receiverJava.slice(takenStart, takenStart + 700);
+  const broadcastOk = /PendingIntent\.getBroadcast\(context, notifId, taken/.test(takenSrc)
+    && /addAction\(R\.drawable\.ic_stat_icon, "✓ Принял", takenPi\)/.test(receiverJava);
+  if (!broadcastOk) failed++;
+  console.log(`${broadcastOk ? '✓' : '✗'} 0.9.13 «✓ Принял» — броадкаст, приложение не открывается`);
+
+  // Диапазоны id уведомлений не должны пересекаться с водой (4250).
+  const baseMatch = receiverJava.match(/COURSE_NOTIFICATION_BASE = (\d+)/);
+  const waterJava = fs.readFileSync('android-native/WaterReminderReceiver.java', 'utf8');
+  const waterMatch = waterJava.match(/WATER_NOTIFICATION_ID = (\d+)/);
+  const base = baseMatch ? Number(baseMatch[1]) : -1;
+  const waterId = waterMatch ? Number(waterMatch[1]) : -1;
+  const rangesOk = base > 0 && waterId > 0 && (waterId < base || waterId > base + 99);
+  if (!rangesOk) failed++;
+  console.log(`${rangesOk ? '✓' : '✗'} 0.9.13 id уведомлений курса не пересекаются с водой`);
+
+  // Виджет: пункт есть в конфигураторе и обрабатывается нативом.
+  const widgetJava = fs.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+  const widgetOk = /id: 'courses'/.test(appS)
+    && /"courses"\.equals\(itemId\)/.test(widgetJava)
+    && /FitFlowCourses\.widgetLine/.test(widgetJava)
+    && /FitFlowCourses\.toggleTarget/.test(widgetJava);
+  if (!widgetOk) failed++;
+  console.log(`${widgetOk ? '✓' : '✗'} 0.9.13 строка витаминов есть в конфигураторе и рисуется нативом`);
+
+  // Без заведённого курса пункт не предлагается: правило «никаких заглушек».
+  const availStart = appS.indexOf('function isWidgetItemAvailable');
+  const availSrc = appS.slice(availStart, availStart + 700);
+  const noStub = /id === 'courses'/.test(availSrc) && /state\.myCourses/.test(availSrc);
+  if (!noStub) failed++;
+  console.log(`${noStub ? '✓' : '✗'} 0.9.13 без курса строка витаминов не предлагается в настройках виджета`);
+
+  // Сборка: новые файлы копируются, ресивер попадает в манифест.
+  const yml = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const buildOk = /FitFlowCourses\.java/.test(yml)
+    && /CourseReminderReceiver\.java/.test(yml)
+    && /android:name="\.CourseReminderReceiver"/.test(yml);
+  if (!buildOk) failed++;
+  console.log(`${buildOk ? '✓' : '✗'} 0.9.13 нативные файлы курса копируются и ресивер объявлен в манифесте`);
+
+  // Удаление последнего курса обязано чистить нативную копию, иначе строка
+  // витаминов и будильник переживут удаление.
+  const refreshStart = appS.indexOf('async function refreshCourseRemindersOnLaunch');
+  const refreshSrc = appS.slice(refreshStart, refreshStart + 900);
+  const clearsOk = /cancelCourseRemindersNative/.test(refreshSrc);
+  if (!clearsOk) failed++;
+  console.log(`${clearsOk ? '✓' : '✗'} 0.9.13 при пустом курсе нативная копия очищается`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

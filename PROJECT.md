@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.9.12**
+Текущая версия: **0.9.13**
 
 > Точка входа для нового диалога/агента — `SESSION_HANDOFF.md`:
 > порядок действий, текущие приоритеты, грабли и карта кода.
@@ -519,6 +519,87 @@ node test-parser.js
 ---
 
 # 14. История версий
+
+## 0.9.13 — Витамины: подтверждение из шторки и строка на виджете (24.08.2026)
+
+**Постановка владельца:** (1) подтверждение приёма витаминов из уведомления
+**не должно открывать приложение** — работать точно как вода: уведомление
+обновилось и закрылось, данные в приложении обновились; (2) витамины на виджете
+с отметкой «принял / забыл сегодня».
+
+### Почему кнопку в шторке пришлось делать нативной
+
+`@capacitor/local-notifications` на Android **не поддерживает `foreground: false`**.
+В `LocalNotificationManager.createActionIntents` и contentIntent, и каждое
+action-`PendingIntent` создаются через `PendingIntent.getActivity()` с
+`Intent.ACTION_MAIN` + `CATEGORY_LAUNCHER`; результат приходит в `handleOnNewIntent`
+как событие `localNotificationActionPerformed`. То есть любая кнопка плагина
+физически запускает Activity — требование владельца через него невыполнимо.
+Поэтому напоминания о курсе переведены на собственный `AlarmManager` + `BroadcastReceiver`
+по образцу воды (`WaterReminderReceiver.java`), а JS-планирование осталось
+запасным путём для сборок без нативного моста.
+
+### Новые нативные файлы
+
+**`android-native/FitFlowCourses.java`** — нативная копия курса и журнала приёмов
+в prefs `fitflow_courses` (три ключа: `plan`, `done`, `pending`). Хранит только то,
+что нужно уведомлению и виджету: `{id, name, start, days, remind, times[]}`.
+Отметки — `{дата: {courseId: [индексы]}}`, старше `DONE_KEEP_DAYS = 3` отбрасываются.
+Даты внутри считаются на полдень, чтобы переход на летнее время не сдвигал день.
+API: `setPlan/clearPlan/plan/hasPlan`, `dayNumber`, `dosesForDate`, `setDoneForDate/isDone/markDose`,
+`hasPending/takePending`, `nextTriggerMs` (окно 2 суток), `dueDoses` (лаг 0–5 минут),
+`widgetLine`, `toggleTarget`, `todayKey`. Id уведомления приёма —
+`4300 + позиция_курса*10 + индекс_приёма`, диапазон 4300–4399 (вода занимает 4250).
+
+**`android-native/CourseReminderReceiver.java`** — канал `fitflow_course_reminders_native`,
+`ACTION_ALARM` для будильника и `ACTION_TAKEN` для кнопки. «✓ Принял» —
+именно `PendingIntent.getBroadcast`: приложение не открывается, приёмка пишется
+через `markDose`, виджет обновляется, а вместо исчезнувшего уведомления на 2 секунды
+показывается подтверждение (тот же приём, что у воды). «⚙️ Настроить» открывает
+Activity с `widget_action = "notif_settings_course"`. Перевооружение после
+`BOOT_COMPLETED`, `setOnlyAlertOnce(true)`, `setExactAndAllowWhileIdle` с фоллбэком.
+
+### Строка витаминов на виджете
+
+В `WIDGET_ITEMS` добавлен пункт `courses` (1 слот, «Витамины (мой курс)»).
+Текст строки собирает **натив** (`FitFlowCourses.widgetLine`), а не app.js: после
+полуночи виджет обязан показать новый день, даже если приложение с вечера не
+открывали. Тап по слоту шлёт `ACTION_COURSE_DOSE` (requestCode 5) →
+`FitFlowCourses.toggleTarget`: отмечается ближайший непринятый приём, а когда
+отмечены все — снимается последний. Так одно касание закрывает и «принял», и
+«ошибся», без второй кнопки (принцип «не городить кнопок»).
+`isWidgetItemAvailable('courses')` возвращает `false`, пока курсов нет, — правило
+«никаких видимых заглушек» распространяется и на список настроек виджета.
+
+### Синхронизация JS ↔ натив
+
+- `buildNativeCoursePlan()` / `buildNativeCourseDone(date)` — сериализация состояния;
+  `syncNativeCourseState()` отправляет и то и другое одним мостовым вызовом
+  `scheduleCourseRemindersNative(planJson, dateKey, doneJson)`.
+- `syncNativeCourseState()` вызывается в `scheduleCourseReminders` **до** проверки
+  разрешения на уведомления: строка на виджете и отметка тапом не должны зависеть
+  от того, разрешил ли пользователь уведомления.
+- `toggleCourseDose` при отметке за сегодня сразу синхронизирует натив — иначе
+  придёт напоминание об уже принятом приёме.
+- `refreshCourseRemindersOnLaunch` очищает нативную копию, когда активных курсов
+  не осталось (иначе строка и будильник пережили бы удаление курса), и всё равно
+  отдаёт план, если курс есть, но напоминания в нём выключены.
+- Обратный канал — `window.onCourseDosesFromNative(json)`: массив
+  `{id, dose, date, done}`. Натив присылает **конечное состояние**, а не «переключить»,
+  и JS применяет его идемпотентно (сверяет с `checkLog` и зовёт `toggleCourseDose`
+  только при расхождении) — повторная доставка очереди безопасна.
+- `MainActivity.checkPendingCourseDoses()` вызывается в `onCreate`/`onNewIntent`/`onResume`
+  и повторяет попытку до ~12 секунд, ожидая `window.__fitflowReady`: на холодном
+  старте WebView ещё не готов, и без повторов очередь пролежала бы до следующего
+  открытия приложения.
+
+### Сборка
+
+В `tools/github-workflows/build.yml` добавлено копирование `FitFlowCourses.java`
+и `CourseReminderReceiver.java`, а в манифест — `<receiver android:name=".CourseReminderReceiver">`
+с `BOOT_COMPLETED`. Тесты 0.9.13 в `test-ui-init.js` проверяют контракт JS↔натив
+по обеим сторонам сразу (ключи плана, id уведомлений, броадкаст вместо активити,
+идемпотентность очереди, наличие ресивера в сборочном файле).
 
 ## 0.9.12 — Шаги за прошлые дни, свой отдых, быстрый ввод подходов, отмена (24.08.2026)
 

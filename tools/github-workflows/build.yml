@@ -180,7 +180,7 @@ jobs:
           mkdir -p "$DEST"
           # 0.9.6: к классическому виджету добавлены «рисованные» варианты
           # оформления (пункт 5 владельца — сравнить их рядом на телефоне).
-          for f in MainActivity.java FitFlowWidgetProvider.java WaterReminderReceiver.java HealthSyncReceiver.java HealthConnectHelper.kt FitFlowWidgetData.java FitFlowWidgetDraw.java FitFlowWidgetCanvasProvider.java FitFlowWidgetRingProvider.java FitFlowWidgetRingsProvider.java FitFlowWidgetDialProvider.java FitFlowWidgetTilesProvider.java; do
+          for f in MainActivity.java FitFlowWidgetProvider.java WaterReminderReceiver.java FitFlowCourses.java CourseReminderReceiver.java HealthSyncReceiver.java HealthConnectHelper.kt FitFlowWidgetData.java FitFlowWidgetDraw.java FitFlowWidgetCanvasProvider.java FitFlowWidgetRingProvider.java FitFlowWidgetRingsProvider.java FitFlowWidgetDialProvider.java FitFlowWidgetTilesProvider.java; do
             if [ ! -f "android-native/$f" ]; then
               echo "::error::Не найден android-native/$f"
               exit 1
@@ -284,6 +284,17 @@ jobs:
           )
           if 'WaterReminderReceiver' not in t:
               t = t.replace('</application>', water_receiver + '    </application>')
+          # 0.9.13: напоминания «Моего курса» (витамины). Кнопка «Принял»
+          # обрабатывается броадкастом, поэтому приложение не открывается.
+          course_receiver = (
+              '        <receiver android:name=".CourseReminderReceiver" android:enabled="true" android:exported="true">\n'
+              '            <intent-filter>\n'
+              '                <action android:name="android.intent.action.BOOT_COMPLETED" />\n'
+              '            </intent-filter>\n'
+              '        </receiver>\n'
+          )
+          if 'CourseReminderReceiver' not in t:
+              t = t.replace('</application>', course_receiver + '    </application>')
           health_sync_receiver = (
               '        <receiver android:name=".HealthSyncReceiver" android:enabled="true" android:exported="false">\n'
               '            <intent-filter>\n'

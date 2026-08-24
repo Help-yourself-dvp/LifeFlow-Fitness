@@ -74,6 +74,7 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
         initStepSensors();
         try { HealthSyncReceiver.schedulePeriodicSync(this); } catch (Exception e) { }
         checkPendingWidgetWaterAdd();
+        checkPendingCourseDoses();
         Intent startIntent = getIntent();
         if (startIntent != null && startIntent.hasExtra("widget_action")) {
             pendingWidgetAction = startIntent.getStringExtra("widget_action");
@@ -94,6 +95,7 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         checkPendingWidgetWaterAdd();
+        checkPendingCourseDoses();
         if (intent != null && intent.hasExtra("widget_action")) {
             pendingWidgetAction = intent.getStringExtra("widget_action");
             processWidgetAction();
@@ -110,7 +112,65 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
             }
         } catch (Exception e) { }
         checkPendingWidgetWaterAdd();
+        checkPendingCourseDoses();
         if (pendingWidgetAction != null) processWidgetAction();
+    }
+
+    /* 0.9.13: отметки приёмов курса, сделанные без открытия приложения
+       (кнопка «✓ Принял» в шторке или строка витаминов на виджете), лежат
+       в очереди FitFlowCourses. Забираем её и отдаём в app.js одним вызовом —
+       он сам сведёт отметки со своим состоянием и перерисует экран. Очередь
+       очищается только после успешной доставки: если WebView ещё не готов,
+       повтор произойдёт на следующем onResume. */
+    private boolean isDeliveringDoses = false;
+
+    private synchronized void checkPendingCourseDoses() {
+        if (isDeliveringDoses) return;
+        try {
+            if (!FitFlowCourses.hasPending(this)) return;
+        } catch (Exception e) { return; }
+        isDeliveringDoses = true;
+        tryDeliverCourseDoses(0);
+    }
+
+    /* На холодном старте WebView ещё не готов, а onResume приходит сразу за
+       onCreate — без повторов очередь пролежала бы до следующего сворачивания
+       приложения (нажал «Принял» в шторке, открыл приложение, а отметки нет).
+       Ждём window.__fitflowReady теми же ~12 секундами, что и действия виджета. */
+    private void tryDeliverCourseDoses(final int attempt) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                WebView wv = null;
+                try { wv = getBridge() != null ? getBridge().getWebView() : null; } catch (Exception e) { }
+                if (wv == null) { retryCourseDoses(attempt); return; }
+                final WebView webView = wv;
+                try {
+                    webView.evaluateJavascript("(window.__fitflowReady === true)", new android.webkit.ValueCallback<String>() {
+                        @Override public void onReceiveValue(String value) {
+                            if (!"true".equals(value)) { retryCourseDoses(attempt); return; }
+                            try {
+                                String payload = FitFlowCourses.takePending(MainActivity.this).toString();
+                                // Строку кладём в JSON.parse: имена курсов и даты приходят
+                                // из нашей же очереди, но экранирование кавычек обязательно.
+                                String js = "window.onCourseDosesFromNative && window.onCourseDosesFromNative("
+                                    + org.json.JSONObject.quote(payload) + ");";
+                                webView.evaluateJavascript(js, null);
+                            } catch (Exception e) { }
+                            isDeliveringDoses = false;
+                        }
+                    });
+                } catch (Exception e) { retryCourseDoses(attempt); }
+            }
+        });
+    }
+
+    private void retryCourseDoses(final int attempt) {
+        if (attempt >= 40) { isDeliveringDoses = false; return; }
+        new android.os.Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() { tryDeliverCourseDoses(attempt + 1); }
+        }, 300);
     }
 
     private boolean isDeliveringWater = false;
@@ -888,6 +948,38 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                 @Override
                 public void run() {
                     try { WaterReminderReceiver.clearSchedule(MainActivity.this); } catch (Exception e) { }
+                }
+            });
+        }
+
+        /* 0.9.13: план курсов уезжает в натив целиком (JSON-массив курсов и
+           отметки за сегодня). Дальше уведомление с кнопкой «✓ Принял» и
+           строка витаминов на виджете живут без WebView — как у воды. */
+        @JavascriptInterface
+        public void scheduleCourseRemindersNative(final String planJson, final String dateKey, final String doneJson) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        FitFlowCourses.setPlan(MainActivity.this, planJson);
+                        FitFlowCourses.setDoneForDate(MainActivity.this, dateKey, doneJson);
+                        CourseReminderReceiver.reschedule(MainActivity.this);
+                        FitFlowWidgetProvider.updateAll(MainActivity.this);
+                    } catch (Exception e) { }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void cancelCourseRemindersNative() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        FitFlowCourses.clearPlan(MainActivity.this);
+                        CourseReminderReceiver.clearAll(MainActivity.this);
+                        FitFlowWidgetProvider.updateAll(MainActivity.this);
+                    } catch (Exception e) { }
                 }
             });
         }

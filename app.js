@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.12';
+const FITFLOW_VERSION = '0.9.13';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3119,7 +3119,11 @@ const WIDGET_ITEMS = [
   { id: 'weight', label: 'Вес', icon: '⚖️', units: 1 },
   { id: 'day-plan', label: 'План дня', icon: '📋', units: 1 },
   { id: 'day-mood', label: 'Самочувствие', icon: '🌗', units: 1 },
-  { id: 'workout', label: 'Календарь тренировок', icon: '🗓️', units: 1 }
+  { id: 'workout', label: 'Календарь тренировок', icon: '🗓️', units: 1 },
+  /* 0.9.13 (просьба владельца): витамины на виджете с отметкой «принял».
+     Строку рисует натив из своей копии плана курса, поэтому она остаётся
+     правильной и на следующий день, когда приложение ещё не открывали. */
+  { id: 'courses', label: 'Витамины (мой курс)', icon: '💊', units: 1 }
 ];
 
 /* Бюджет строк по размеру виджета. Цифры взяты из реальной высоты ячеек
@@ -3155,6 +3159,9 @@ function widgetUnitsUsed(items) {
 function isWidgetItemAvailable(id) {
   if (TRACKER_CARDS.includes(id)) return isTrackerEnabled(id);
   if (id === 'day-plan' || id === 'day-mood') return isHomeCardShown(id);
+  /* 0.9.13: без заведённого курса строка витаминов показывала бы пустоту —
+     не предлагаем её в конфигураторе (правило «никаких видимых заглушек»). */
+  if (id === 'courses') return (Array.isArray(state.myCourses) ? state.myCourses : []).length > 0;
   return true;
 }
 
@@ -4329,6 +4336,9 @@ function toggleCourseDose(courseId, doseIndex, dateKey = todayKey()) {
   const list = [...marks].sort((a, b) => a - b);
   if (list.length) course.checkLog[dateKey] = list; else delete course.checkLog[dateKey];
   saveState();
+  /* 0.9.13: отметка из приложения сразу уезжает в натив — иначе виджет покажет
+     старый счёт, а напоминание об уже принятом приёме всё равно сработает. */
+  if (dateKey === todayKey()) syncNativeCourseState();
   return true;
 }
 
@@ -4379,17 +4389,86 @@ async function ensureCourseReminderChannel(localNotifications) {
 }
 
 async function cancelCourseReminders(localNotifications = getLocalNotifications()) {
+  const bridge = getNativeBridge();
+  if (bridge && typeof bridge.cancelCourseRemindersNative === 'function') {
+    try { bridge.cancelCourseRemindersNative(); } catch (e) { }
+  }
   if (!localNotifications) return;
   try { await localNotifications.cancel({ notifications: courseReminderAllIds().map((id) => ({ id })) }); } catch (e) { }
 }
 
+/* 0.9.13: план курса для нативного планировщика. Отдаём только то, что нужно
+   уведомлению и строке виджета: имя, старт, длительность и времена приёмов. */
+function buildNativeCoursePlan() {
+  return (Array.isArray(state.myCourses) ? state.myCourses : []).map((course) => ({
+    id: course.id,
+    name: course.name,
+    start: course.startDate,
+    days: course.daysTotal || 0,
+    remind: course.remind !== false,
+    times: Array.isArray(course.times) ? course.times : []
+  }));
+}
+
+/* Отметки за дату в формате натива: { courseId: [индексы принятых приёмов] }. */
+function buildNativeCourseDone(dateKey = todayKey()) {
+  const done = {};
+  (Array.isArray(state.myCourses) ? state.myCourses : []).forEach((course) => {
+    const marks = (course.checkLog || {})[dateKey];
+    if (Array.isArray(marks) && marks.length) done[course.id] = marks.slice();
+  });
+  return done;
+}
+
+/* Синхронизировать нативную копию курса, не трогая разрешения и уведомления.
+   Зовём после любой отметки в приложении, чтобы виджет и шторка не разошлись
+   с журналом (например: приём отметили в «Плане дня» — напоминание о нём
+   больше не должно приходить). */
+function syncNativeCourseState() {
+  const bridge = getNativeBridge();
+  if (!bridge || typeof bridge.scheduleCourseRemindersNative !== 'function') return false;
+  try {
+    const date = todayKey();
+    bridge.scheduleCourseRemindersNative(
+      JSON.stringify(buildNativeCoursePlan()), date, JSON.stringify(buildNativeCourseDone(date)));
+    return true;
+  } catch (e) {
+    console.warn('Не удалось передать курс в нативный планировщик:', e);
+    return false;
+  }
+}
+
 async function scheduleCourseReminders({ requestPermission = true } = {}) {
   const localNotifications = getLocalNotifications();
-  if (!localNotifications) return { ok: false, message: 'Напоминания о курсе работают только в Android-приложении.' };
+  const bridge = getNativeBridge();
+  const hasNative = bridge && typeof bridge.scheduleCourseRemindersNative === 'function';
+  if (!localNotifications && !hasNative) return { ok: false, message: 'Напоминания о курсе работают только в Android-приложении.' };
+  /* Копию плана натив получает ДО проверки разрешения: строка витаминов на
+     виджете и отметка тапом не зависят от того, разрешены ли уведомления. */
+  if (hasNative) syncNativeCourseState();
   let allowed = false;
-  if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
-  else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  if (localNotifications) {
+    if (requestPermission) allowed = await ensureNotificationPermission(localNotifications);
+    else { try { allowed = (await localNotifications.checkPermissions()).display === 'granted'; } catch (e) { } }
+  } else {
+    try { allowed = bridge.areNotificationsEnabled(); } catch (e) { allowed = false; }
+  }
   if (!allowed) return { ok: false, message: 'Разрешите уведомления Android, чтобы приходили напоминания о курсе.' };
+
+  /* Приоритет — нативный планировщик (0.9.13, просьба владельца: отметить
+     приём прямо из шторки, не открывая приложение). Кнопки уведомлений
+     Capacitor на Android всегда запускают Activity — флаг foreground:false
+     там не читается, поэтому подтверждение «✓ Принял» умеет только натив.
+     JS-планирование остаётся запасным путём для старых сборок. */
+  if (hasNative) {
+    // План уже отправлен выше (syncNativeCourseState) — будильник взведён там же.
+    // Снять старые JS-уведомления курса, иначе на один приём придут два.
+    if (localNotifications) {
+      try { await localNotifications.cancel({ notifications: courseReminderAllIds().map((id) => ({ id })) }); } catch (e) { }
+    }
+    return { ok: true, native: true };
+  }
+  if (!localNotifications) return { ok: false, message: 'Напоминания о курсе сейчас недоступны.' };
   try {
     await ensureCourseReminderChannel(localNotifications);
     await cancelCourseReminders(localNotifications);
@@ -4439,9 +4518,23 @@ async function scheduleCourseReminders({ requestPermission = true } = {}) {
 }
 
 async function refreshCourseRemindersOnLaunch() {
-  if (!getLocalNotifications()) return;
-  const hasActive = (Array.isArray(state.myCourses) ? state.myCourses : []).some((c) => c.remind && isCourseActiveOn(c));
-  if (!hasActive) return;
+  const bridge = getNativeBridge();
+  const hasNative = bridge && typeof bridge.scheduleCourseRemindersNative === 'function';
+  if (!getLocalNotifications() && !hasNative) return;
+  const courses = Array.isArray(state.myCourses) ? state.myCourses : [];
+  const hasAny = courses.some((c) => isCourseActiveOn(c));
+  const hasRemind = courses.some((c) => c.remind && isCourseActiveOn(c));
+  /* 0.9.13: при пустом курсе нативную копию нужно ОЧИСТИТЬ, а не просто выйти,
+     иначе строка витаминов на виджете и будильник переживут удаление курса. */
+  if (!hasAny) {
+    if (hasNative && typeof bridge.cancelCourseRemindersNative === 'function') {
+      try { bridge.cancelCourseRemindersNative(); } catch (e) { }
+    }
+    return;
+  }
+  /* Курс без напоминаний всё равно должен жить на виджете: план отдаём всегда,
+     а будильник натив взводит только для приёмов с remind. */
+  if (!hasRemind) { if (hasNative) syncNativeCourseState(); return; }
   await scheduleCourseReminders({ requestPermission: false });
 }
 
@@ -13131,10 +13224,40 @@ if (typeof window !== 'undefined') {
     } else if (action === 'notif_settings_water') {
       // 0.5.5: кнопка «⚙️ Настроить» нативного напоминания о воде
       openNotificationSettings('water');
+    } else if (action === 'notif_settings_course') {
+      // 0.9.13: «⚙️ Настроить» в напоминании о курсе
+      openNotificationSettings('course');
     } else if (action === 'smart_entry') {
       openSmartEntry();
       toast('📝 Быстрый ввод открыт с виджета');
     }
+  };
+
+  /* 0.9.13: отметки приёмов курса, сделанные без открытия приложения — кнопкой
+     «✓ Принял» в шторке или тапом по строке витаминов на виджете. Натив копит
+     их в своей очереди и отдаёт сюда при первом открытии. Приложение —
+     хозяин журнала, поэтому натив присылает не «переключить», а конечное
+     состояние (done: 1/0): повторная доставка ничего не испортит. */
+  window.onCourseDosesFromNative = function (payload) {
+    let queue;
+    try { queue = JSON.parse(payload); } catch (e) { return; }
+    if (!Array.isArray(queue) || !queue.length) return;
+    let changed = false;
+    queue.forEach((item) => {
+      if (!item) return;
+      const course = getCourse(String(item.id || ''));
+      const idx = Math.round(Number(item.dose));
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) ? String(item.date) : todayKey();
+      if (!course || !Number.isInteger(idx) || idx < 0 || idx >= course.times.length) return;
+      const wantDone = Number(item.done) === 1;
+      const marks = (course.checkLog && course.checkLog[date]) || [];
+      if (marks.includes(idx) === wantDone) return; // состояние уже совпадает
+      if (toggleCourseDose(course.id, idx, date)) changed = true;
+    });
+    if (!changed) return;
+    // Молча, без тоста: как и с водой с виджета — «просто обновилось».
+    renderDayPlan();
+    updateNativeWidget();
   };
 }
 
@@ -17176,6 +17299,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
+    buildNativeCoursePlan, buildNativeCourseDone, // 0.9.13
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
     normalizeCombos, COMBOS_LIMIT, scannedPortionGrams,

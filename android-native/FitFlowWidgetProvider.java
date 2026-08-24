@@ -15,6 +15,8 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
     /* 0.9.5: ручное обновление прямо с виджета (просьба владельца) — перерисовать
        все экземпляры из текущих prefs, не удаляя и не добавляя виджет заново. */
     private static final String ACTION_REFRESH = "com.fitflow.app.WIDGET_REFRESH";
+    /* 0.9.13: тап по строке витаминов — отметка приёма без запуска приложения. */
+    private static final String ACTION_COURSE_DOSE = "com.fitflow.app.WIDGET_COURSE_DOSE";
 
     /* 0.9.4: универсальные слоты строк вместо зашитых «вода/питание/шаги».
        Компактная раскладка — 5 слотов, большая — 10; строка с полосой
@@ -161,6 +163,7 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         int steps = resolveWidgetSteps(context);
 
         int used = 0;
+        int courseSlotIndex = -1; // 0.9.13: слот витаминов, чтобы повесить на него тап
         /* 0.9.5 (владелец: «после перемещения воды в настройках на виджете стало
            две одинаковые строки с водой»). Список приходит строкой из prefs, и
            если в него по любой причине попал повторяющийся id (гонка записи при
@@ -196,6 +199,13 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
                 text = fallbackLine(prefs, "moodLine", "Самочувствие: не отмечено");
             } else if ("workout".equals(itemId)) {
                 text = fallbackLine(prefs, "workoutLine", "Тренировка: отдых");
+            } else if ("courses".equals(itemId)) {
+                /* 0.9.13: витамины считает натив (FitFlowCourses), а не app.js.
+                   Готовый текст из prefs здесь не годится: после полуночи строка
+                   должна показывать новый день, даже если приложение с вечера
+                   не открывали. Тап по строке отмечает приём — см. ниже. */
+                text = FitFlowCourses.widgetLine(context, today);
+                courseSlotIndex = used;
             } else {
                 continue; // неизвестный элемент из будущей версии — молча пропускаем
             }
@@ -232,6 +242,21 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         PendingIntent pending = PendingIntent.getActivity(context, 0, launch,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.widget_root, pending);
+
+        /* 0.9.13: тап по строке витаминов отмечает ближайший неотмеченный приём,
+           не открывая приложение (владелец: «принял / забыл сегодня» прямо на
+           виджете). Обработчик вешается ПОСЛЕ корневого, иначе клик по строке
+           перехватывал бы widget_root и запускал приложение. Повторный тап,
+           когда всё отмечено, снимает последнюю отметку — так исправляют
+           случайное нажатие, не заходя в приложение. */
+        if (courseSlotIndex >= 0) {
+            int courseSlotId = large ? SLOT_IDS_LARGE[courseSlotIndex] : SLOT_IDS_SMALL[courseSlotIndex];
+            Intent doseTap = new Intent(context, FitFlowWidgetProvider.class);
+            doseTap.setAction(ACTION_COURSE_DOSE);
+            PendingIntent dosePi = PendingIntent.getBroadcast(context, 5, doseTap,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(courseSlotId, dosePi);
+        }
 
         Intent waterBtn = new Intent(context, FitFlowWidgetProvider.class);
         waterBtn.setAction("com.fitflow.app.ADD_WATER_250");
@@ -299,6 +324,14 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
             return;
         }
         if (intent != null && ACTION_REFRESH.equals(intent.getAction())) {
+            updateAll(context);
+            return;
+        }
+        if (intent != null && ACTION_COURSE_DOSE.equals(intent.getAction())) {
+            /* Отмечаем ближайший неотмеченный приём за сегодня; если отмечены
+               все — снимаем последний (отмена случайного тапа). Отметка ляжет
+               в очередь FitFlowCourses и доедет в app.js при следующем открытии. */
+            try { FitFlowCourses.toggleTarget(context, FitFlowCourses.todayKey()); } catch (Exception e) { }
             updateAll(context);
             return;
         }
