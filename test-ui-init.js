@@ -2059,9 +2059,11 @@ for (const id of ids) {
   const okNav = appR.includes("const QUICKNAV_LABELS = {")
     && appR.includes("'steps': 'Шаги'")
     && appR.includes('function quicknavStuckBottom')
-    /* 0.8.26: порог `quicknavStuckBottom() + 2` заменён на верх видимой зоны —
-       подсветка считается по видимой площади раздела, а не по проходу верха
-       карточки через порог. Низ панели по-прежнему общий для прокрутки и зоны. */
+    && appR.includes('подсветка по видимой площади раздела') === false
+    /* 0.8.26: порог `quicknavStuckBottom() + 2` заменён на верх видимой зоны.
+       0.9.8: критерий «видимая площадь» снят (он давал дребезг в зазорах между
+       карточками), но низ панели по-прежнему общий для порога и прокрутки — это
+       и проверяем. */
     && appR.includes('const viewTop = quicknavStuckBottom();')
     && appR.includes("target.scrollIntoView({ behavior: 'smooth', block: 'start' })")
     && appR.includes("--quicknav-scroll-margin")
@@ -2299,14 +2301,21 @@ for (const id of ids) {
   if (!okChipText) failed++;
   console.log(`${okChipText ? '✓' : '✗'} 0.8.26 быстрый переход: в пилюлях только текст, без иконок`);
 
-  /* 0.8.26 (п.2 владельца): подсветка при прокрутке снизу вверх показывала
-     не тот раздел. Активным должен быть раздел с наибольшей видимой площадью,
-     а не «последний, чей верх прошёл порог». */
+  /* 0.8.26 (п.2 владельца): подсветка при прокрутке снизу вверх показывала не
+     тот раздел. Требование владельца — «подсвечен тот раздел, который читаю»,
+     одинаково в обе стороны.
+
+     0.9.8: реализация этого требования сменилась. Критерий «наибольшая видимая
+     площадь» сам оказался источником дребезга (в зазоре между карточками
+     побеждала самая высокая, подсветка прыгала туда-обратно), поэтому активен
+     раздел, ПЕРЕСЕКАЮЩИЙ линию порога, — он честен в обе стороны прокрутки.
+     Проверяем действующий критерий и отсутствие наивного правила «последний,
+     чей верх прошёл порог» по всему списку, из-за которого дефект и возник. */
   const okQuickNavActive = appR.includes('function updateHomeQuickNavActive')
-    && appR.includes('Math.min(r.bottom, viewBottom) - Math.max(r.top, viewTop)')
+    && appR.includes('if (r.top <= line && r.bottom > line)')
     && !appR.includes('if (card.getBoundingClientRect().top <= threshold) activeId = card.id;');
   if (!okQuickNavActive) failed++;
-  console.log(`${okQuickNavActive ? '✓' : '✗'} 0.8.26 быстрый переход: подсветка по видимой площади раздела`);
+  console.log(`${okQuickNavActive ? '✓' : '✗'} 0.8.26 быстрый переход: активен раздел под панелью (в обе стороны)`);
 
   // 3. Кнопка «✓ Принял» в уведомлении курса (чистый JS, без правок workflow)
   const okCourseAction = appR.includes('const COURSE_DOSE_ACTION_TYPE')
@@ -2435,8 +2444,12 @@ for (const id of ids) {
      («Питание») и подсвечивался не тот чип. Критерий должен быть «карточка,
      пересекающая линию порога», а scroll-margin — пересчитан ПЕРЕД прокруткой. */
   const activeFn = (appR.match(/function updateHomeQuickNavActive\(\)[\s\S]*?\n\}/) || [''])[0];
+  /* 0.9.8: критерий пересечения порога остался главным, а вот запасной
+     «максимум площади» снят — именно он подсвечивал самую крупную карточку.
+     Проверяем, что площадь больше нигде не участвует в выборе. */
   const okCross = /r\.top <= line && r\.bottom > line/.test(activeFn)
-    && activeFn.indexOf('r.top <= line') < activeFn.indexOf('bestSeen');
+    && !/bestSeen/.test(activeFn)
+    && !/Math\.min\(r\.bottom, viewBottom\)/.test(activeFn);
   if (!okCross) failed++;
   console.log(`${okCross ? '✓' : '✗'} 0.9.1 активен раздел, пересекающий порог (а не самый крупный)`);
 
@@ -2636,7 +2649,8 @@ for (const id of ids) {
   const act = (appR.match(/function updateHomeQuickNavActive\([\s\S]*?\n\}/) || [''])[0];
   const okTop = /const atTop = scrollTop <= 8;/.test(act)
     && /if \(atTop\) \{\s*\n\s*activeId = cards\[0\]\.id;/.test(act)
-    && act.indexOf('atTop') < act.indexOf('bestSeen');
+    // 0.9.8: ветка «мы наверху» по-прежнему раньше всех остальных критериев
+    && act.indexOf('atTop') < act.indexOf('r.top <= line');
   if (!okTop) failed++;
   console.log(`${okTop ? '✓' : '✗'} 0.9.5 на самом верху подсвечен первый раздел`);
 
@@ -2900,6 +2914,119 @@ for (const id of ids) {
   const okMealSave = saveBody.includes('item.mealTypeId') && saveBody.includes('item.mealTypeLabel');
   if (!okMealUi || !okMealSave) failed++;
   console.log(`${okMealUi && okMealSave ? '✓' : '✗'} 0.9.7 тип приёма пищи меняется у записанной строки`);
+}
+
+/* 0.9.8 — дефект владельца: «при скролле главного экрана подсветка быстрого
+   доступа прыгает между „Шаги“ и „День“ несколько раз, с „Самочувствие“ и
+   „Вода“ то же самое».
+
+   Текстовых проверок тут мало: дефект геометрический. Поэтому исполняем
+   настоящий алгоритм выбора активного раздела на смоделированной раскладке
+   Главной (карточки разной высоты + зазор между ними, как в CSS gap 10–16px)
+   и прокручиваем страницу пиксель за пикселем. */
+{
+  const appR = fs.readFileSync('app.js', 'utf8');
+
+  // Берём тело реальной функции и подставляем свои DOM/окно — так тест
+  // проверяет фактический код, а не его копию.
+  const fnSrc = (appR.match(/function updateHomeQuickNavActive\(\)[\s\S]*?\n\}/) || [''])[0];
+  const okExtract = fnSrc.length > 500;
+  if (!okExtract) failed++;
+  console.log(`${okExtract ? '✓' : '✗'} 0.9.8 тело updateHomeQuickNavActive извлечено для прогона`);
+
+  // Раскладка: низкая карточка рядом с высокой — именно та пара, на которой
+  // «максимум площади» давал прыжок («Шаги» 120px рядом с «День» 380px).
+  const layout = [
+    { id: 'steps-card', h: 120 }, { id: 'day-plan-card', h: 380 },
+    { id: 'day-mood-card', h: 90 }, { id: 'water-card', h: 200 },
+    { id: 'food-card', h: 400 }
+  ];
+  const GAP = 16, TOPBAR = 72, NAVH = 44, WINH = 800;
+  const viewTop = TOPBAR + NAVH;
+  let y = 0;
+  const geom = layout.map((c) => { const o = { id: c.id, top: y, bottom: y + c.h }; y += c.h + GAP; return o; });
+  const pageH = y + 400;
+
+  let scrollTop = 0;
+  const active = [];
+  const chips = layout.map((c) => ({
+    dataset: { jump: c.id },
+    classList: { toggle: (cls, on) => { if (cls === 'active' && on) active.push(c.id); } }
+  }));
+  const cardEls = geom.map((g) => ({
+    id: g.id, hidden: false,
+    getBoundingClientRect: () => ({ top: g.top - scrollTop, bottom: g.bottom - scrollTop })
+  }));
+  const sandbox = {
+    document: {
+      documentElement: { scrollTop: 0, clientHeight: WINH, scrollHeight: pageH },
+      querySelector: (sel) => (sel === '.topbar' ? { offsetHeight: TOPBAR } : null)
+    },
+    window: { get scrollY() { return scrollTop; }, innerHeight: WINH },
+    $: (sel) => {
+      if (sel === '#home-quicknav') return { hidden: false, offsetHeight: NAVH, querySelectorAll: () => chips };
+      if (sel === '#home-view') return { hidden: false };
+      if (sel === '#home-cards') return { children: cardEls };
+      return null;
+    }
+  };
+  let run = null;
+  try {
+    run = new Function('document', 'window', '$', 'quicknavStuckBottom',
+      fnSrc + '; return updateHomeQuickNavActive;')(
+      sandbox.document, sandbox.window, sandbox.$,
+      () => TOPBAR + NAVH);
+  } catch (e) { run = null; }
+
+  if (!run) {
+    failed++;
+    console.log('✗ 0.9.8 алгоритм подсветки не удалось выполнить в песочнице');
+  } else {
+    const seq = [];
+    for (let sc = 0; sc <= pageH - WINH; sc += 2) {
+      scrollTop = sc;
+      active.length = 0;
+      run();
+      const cur = active[0] || null;
+      if (!seq.length || seq[seq.length - 1].id !== cur) seq.push({ id: cur, at: sc });
+    }
+    const order = layout.map((c) => c.id);
+
+    /* Главное требование: при прокрутке вниз подсветка идёт строго по порядку
+       разделов и никогда не возвращается назад. Любой откат — это и есть
+       «прыгает несколько раз». */
+    let back = null, maxIdx = -1;
+    for (const st of seq) {
+      const i = order.indexOf(st.id);
+      if (i < maxIdx && !back) back = st;
+      maxIdx = Math.max(maxIdx, i);
+    }
+    if (back) failed++;
+    console.log(`${!back ? '✓' : '✗'} 0.9.8 подсветка не прыгает назад при прокрутке вниз`
+      + (back ? ` (откат на «${back.id}» при scrollTop=${back.at})` : ''));
+
+    // Каждый раздел получает подсветку ровно один раз — без «туда-обратно».
+    const visits = {};
+    seq.forEach((st) => { visits[st.id] = (visits[st.id] || 0) + 1; });
+    const repeated = Object.entries(visits).filter(([, n]) => n > 1);
+    if (repeated.length) failed++;
+    console.log(`${!repeated.length ? '✓' : '✗'} 0.9.8 каждый раздел подсвечивается один раз`
+      + (repeated.length ? ` (повторы: ${repeated.map(([k, n]) => `${k}×${n}`).join(', ')})` : ''));
+
+    // Ни один включённый раздел не пропущен: до каждого можно доскроллить.
+    const missed = order.filter((id) => !visits[id]);
+    if (missed.length) failed++;
+    console.log(`${!missed.length ? '✓' : '✗'} 0.9.8 ни один раздел не пропущен при прокрутке`
+      + (missed.length ? ` (пропущены: ${missed.join(', ')})` : ''));
+
+    // Края: наверху — первый раздел, внизу — последний.
+    scrollTop = 0; active.length = 0; run();
+    const topOk = active[0] === order[0];
+    scrollTop = pageH - WINH; active.length = 0; run();
+    const botOk = active[0] === order[order.length - 1];
+    if (!topOk || !botOk) failed++;
+    console.log(`${topOk && botOk ? '✓' : '✗'} 0.9.8 наверху активен первый раздел, внизу — последний`);
+  }
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
