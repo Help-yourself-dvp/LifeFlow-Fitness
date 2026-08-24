@@ -2773,15 +2773,21 @@ for (const id of ids) {
   if (!okFiles) failed++;
   console.log(`${okFiles ? '✓' : '✗'} 0.9.6 исходники вариантов виджета на месте`);
 
-  /* Шаг копирования нативных файлов перечисляет каждый новый класс — иначе
-     манифест сошлётся на несуществующий ресивер и сборка упадёт. */
-  const copyLine = (yml.match(/for f in MainActivity\.java[^\n]*/) || [''])[0];
-  const okCopy = variants.every((v) => copyLine.includes(v + '.java'))
-    && copyLine.includes('FitFlowWidgetCanvasProvider.java')
-    && copyLine.includes('FitFlowWidgetData.java')
-    && copyLine.includes('FitFlowWidgetDraw.java');
+  /* Шаг копирования должен забирать КАЖДЫЙ файл из android-native/ — иначе
+     манифест сошлётся на несуществующий класс и сборка упадёт на «Build APK».
+     0.9.13 (переписано): раньше здесь требовалось поимённое перечисление, но
+     именно оно и роняло сборку — про новый класс забывали. Теперь копирование
+     идёт циклом по маске, поэтому проверяем покрытие: файл считается
+     скопированным, если он попадает либо под маску, либо в явный список. */
+  const copyStep = (yml.match(/Копировать нативные исходники[\s\S]{0,1800}/) || [''])[0];
+  const hasGlob = /for f in android-native\/\*\.java android-native\/\*\.kt/.test(copyStep);
+  const nativeFiles = fs.readdirSync('android-native')
+    .filter((f) => f.endsWith('.java') || f.endsWith('.kt'));
+  const okCopy = nativeFiles.length > 0
+    && nativeFiles.every((f) => (hasGlob && (f.endsWith('.java') || f.endsWith('.kt')))
+      || copyStep.includes(f));
   if (!okCopy) failed++;
-  console.log(`${okCopy ? '✓' : '✗'} 0.9.6 варианты копируются в сборку`);
+  console.log(`${okCopy ? '✓' : '✗'} 0.9.6 все нативные исходники копируются в сборку`);
 
   /* Каждый вариант объявлен ресивером и получил собственный appwidget-info. */
   const infos = ['fitflow_widget_ring_info', 'fitflow_widget_rings_info',
