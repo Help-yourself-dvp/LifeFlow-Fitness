@@ -3044,10 +3044,14 @@ const DEFAULTS = {
   widgetLayout: { size: 'medium', items: ['water', 'food', 'steps'] }, // 0.9.4: что показывать на Android-виджете
   strengthSessions: [], // 0.8.4: дневник силовых — сеты «вес × повторы», тоннаж, 1RM
   strengthTemplates: [], // 0.8.8: шаблоны силовых («День груди», «Фулбоди»…)
-  strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
+  strengthPlan: [], // 0.8.9: план тренировок — шаблоны по дням недели
+  // 0.9.12: набор пресетов отдыха теперь свой у каждого. Раньше 30/60/90/120
+  // были прибиты в разметке — «3 минуты» ввести было нечем, а лишние кнопки
+  // убрать некуда. seconds — выбранное значение, переживает перезапуск.
+  strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.11';
+const FITFLOW_VERSION = '0.9.12';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3369,7 +3373,8 @@ const state = {
   theme: null,
   strengthSessions: [], // 0.8.4
   strengthTemplates: [], // 0.8.8
-  strengthPlan: [] // 0.8.9
+  strengthPlan: [], // 0.8.9
+  strengthRest: { seconds: 90, presets: [60, 90, 120, 180] } // 0.9.12
 };
 
 function isValidReminderTime(time) {
@@ -4903,6 +4908,7 @@ function loadState() {
   normalizeStrengthSessions();
   normalizeStrengthTemplates();
   normalizeStrengthPlan();
+  normalizeStrengthRest(); // 0.9.12
   normalizeActivityTemplates();
   normalizeWaterReminders();
   normalizeDayChecklist();
@@ -10124,17 +10130,101 @@ function togglePlanDay(templateId, day) {
    Не привязан к renderStrengthDiary — живёт в своей строке, чтобы
    не сбрасываться при правках дневника.
 ============================================================ */
-let strengthRestTimer = { seconds: 90, remaining: 0, timerId: null };
+let strengthRestTimer = { remaining: 0, timerId: null };
+
+const REST_PRESET_MIN = 10;
+const REST_PRESET_MAX = 900; // 15 минут — выше нет смысла даже для тяжёлых приседов
+const REST_PRESETS_MAX_COUNT = 6;
+
+/* 0.9.12: пресеты отдыха живут в состоянии, а не в разметке.
+   Раньше кнопок было ровно четыре (30/60/90/120), поэтому нужные три минуты
+   поставить было нечем, а ненужные 30с висели навсегда. */
+function normalizeStrengthRest() {
+  const def = { seconds: 90, presets: [60, 90, 120, 180] };
+  const src = (state.strengthRest && typeof state.strengthRest === 'object') ? state.strengthRest : {};
+  let presets = Array.isArray(src.presets) ? src.presets : def.presets;
+  presets = presets
+    .map((v) => Math.round(Number(v)))
+    .filter((v) => Number.isFinite(v) && v >= REST_PRESET_MIN && v <= REST_PRESET_MAX);
+  presets = Array.from(new Set(presets)).sort((a, b) => a - b).slice(0, REST_PRESETS_MAX_COUNT);
+  if (!presets.length) presets = def.presets.slice();
+  let seconds = Math.round(Number(src.seconds));
+  if (!Number.isFinite(seconds) || seconds < REST_PRESET_MIN || seconds > REST_PRESET_MAX) seconds = def.seconds;
+  state.strengthRest = { seconds, presets };
+  return state.strengthRest;
+}
+
+function getStrengthRestSeconds() {
+  return normalizeStrengthRest().seconds;
+}
 
 function setStrengthRestSeconds(seconds) {
-  strengthRestTimer.seconds = Math.max(10, Math.min(600, Number(seconds) || 90));
+  const rest = normalizeStrengthRest();
+  const val = Math.max(REST_PRESET_MIN, Math.min(REST_PRESET_MAX, Math.round(Number(seconds)) || rest.seconds));
+  rest.seconds = val;
+  saveState();
   stopStrengthRest(false);
   renderStrengthRestTimer();
 }
 
+/* Добавление своего значения. Возвращает {ok, reason} — так тесты проверяют
+   правила без DOM, а UI показывает понятный toast. */
+function addStrengthRestPreset(seconds) {
+  const rest = normalizeStrengthRest();
+  const val = Math.round(Number(seconds));
+  if (!Number.isFinite(val) || val < REST_PRESET_MIN || val > REST_PRESET_MAX) {
+    return { ok: false, reason: 'range' };
+  }
+  if (rest.presets.includes(val)) {
+    rest.seconds = val;
+    saveState();
+    return { ok: true, reason: 'exists' };
+  }
+  if (rest.presets.length >= REST_PRESETS_MAX_COUNT) return { ok: false, reason: 'full' };
+  rest.presets = rest.presets.concat(val).sort((a, b) => a - b);
+  rest.seconds = val;
+  saveState();
+  return { ok: true, reason: 'added' };
+}
+
+/* Удаление лишнего пресета. Последний удалить нельзя — иначе таймер остался бы
+   без единой кнопки и запускать его было бы нечем. */
+function removeStrengthRestPreset(seconds) {
+  const rest = normalizeStrengthRest();
+  const val = Math.round(Number(seconds));
+  if (!rest.presets.includes(val)) return { ok: false, reason: 'missing' };
+  if (rest.presets.length <= 1) return { ok: false, reason: 'last' };
+  rest.presets = rest.presets.filter((v) => v !== val);
+  if (rest.seconds === val) rest.seconds = rest.presets[0];
+  saveState();
+  return { ok: true, reason: 'removed' };
+}
+
+/* «90с» / «3 мин» / «3:30» — короткая подпись на кнопке. */
+function formatRestSeconds(seconds) {
+  const v = Math.max(0, Math.round(Number(seconds) || 0));
+  if (v < 60) return v + 'с';
+  const m = Math.floor(v / 60);
+  const s = v % 60;
+  return s === 0 ? m + ' мин' : m + ':' + String(s).padStart(2, '0');
+}
+
+/* Ввод своего значения: «180», «3 мин», «2:30» — всё в секунды. */
+function parseRestInput(text) {
+  const raw = String(text == null ? '' : text).trim().toLowerCase().replace(',', '.');
+  if (!raw) return null;
+  const clock = raw.match(/^(\d{1,2}):([0-5]\d)$/);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+  const num = parseFloat(raw.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(num) || num <= 0) return null;
+  // «мин»/«м» — минуты; голое число до 15 тоже трактуем как минуты
+  if (/мин|min|^\d+(\.\d+)?\s*м$/.test(raw) || num <= 15) return Math.round(num * 60);
+  return Math.round(num);
+}
+
 function startStrengthRest() {
   stopStrengthRest(false);
-  strengthRestTimer.remaining = strengthRestTimer.seconds;
+  strengthRestTimer.remaining = getStrengthRestSeconds();
   renderStrengthRestTimer();
   strengthRestTimer.timerId = setInterval(() => {
     strengthRestTimer.remaining--;
@@ -10171,10 +10261,35 @@ function renderStrengthRestTimer() {
       count.textContent = m + ':' + String(s).padStart(2, '0');
     }
   }
-  const presets = document.querySelectorAll('#strength-rest-presets [data-rest]');
-  if (presets.length) {
-    presets.forEach((btn) => btn.classList.toggle('on', Number(btn.dataset.rest) === strengthRestTimer.seconds));
+  // 0.9.12: кнопки рисуются из состояния, а не берутся из статичной разметки.
+  const box = document.getElementById('strength-rest-presets');
+  if (box) {
+    const rest = normalizeStrengthRest();
+    box.innerHTML = rest.presets
+      .map((v) => `<button type="button" class="${v === rest.seconds ? 'on' : ''}" data-rest="${v}" ` +
+        `title="Нажать — выбрать, долгое нажатие — убрать">${formatRestSeconds(v)}</button>`)
+      .join('') +
+      (rest.presets.length < REST_PRESETS_MAX_COUNT
+        ? '<button type="button" class="strength-rest-add" data-rest-add title="Своё время отдыха">＋</button>'
+        : '');
   }
+}
+
+/* 0.9.12: своё время отдыха. Один prompt вместо экрана настроек — принцип
+   «настроил один раз и пользуемся», лишних кнопок в интерфейсе не появляется. */
+function promptStrengthRestPreset() {
+  if (typeof window === 'undefined' || !window.prompt) return;
+  const raw = window.prompt('Своё время отдыха: «3 мин», «2:30» или «180» (секунды)', '3 мин');
+  if (raw == null) return;
+  const seconds = parseRestInput(raw);
+  if (!seconds) return toast('Не понял время. Примеры: 3 мин, 2:30, 180');
+  const res = addStrengthRestPreset(seconds);
+  if (!res.ok) {
+    if (res.reason === 'full') return toast(`Больше ${REST_PRESETS_MAX_COUNT} вариантов не поместится — уберите лишний долгим нажатием`);
+    return toast(`Отдых — от ${formatRestSeconds(REST_PRESET_MIN)} до ${formatRestSeconds(REST_PRESET_MAX)}`);
+  }
+  renderStrengthRestTimer();
+  toast(res.reason === 'exists' ? `Выбрано: ${formatRestSeconds(seconds)}` : `Добавлено: ${formatRestSeconds(seconds)}`);
 }
 
 function renderWeeklyLoadBalance() {
@@ -10314,6 +10429,50 @@ function addStrengthSet(idx) {
   if (ex && ex.sets.length < 40) ex.sets.push({ weight: '', reps: '' });
   renderStrengthDiary();
 }
+
+const STRENGTH_MAX_SETS = 40;
+
+/* 0.9.12: разбор быстрого ввода «5x10x12» — подходы × повторения × вес.
+   Раньше пять одинаковых подходов требовали пяти нажатий «＋ подход» и десяти
+   заполненных полей. Разделителем считаем любой из x, х, звёздочка, × и пробел,
+   чтобы не заставлять целиться в конкретный символ на телефонной клавиатуре.
+   Вес необязателен: для отжиманий с весом «5x10x12» — 12 кг отягощения,
+   а «5x10» — просто пять подходов по десять повторений. */
+function parseQuickSets(text) {
+  const raw = String(text == null ? '' : text).trim().toLowerCase().replace(/,/g, '.');
+  if (!raw) return null;
+  const nums = raw.split(/[^0-9.]+/).filter((t) => t !== '').map(Number);
+  if (!nums.length || nums.some((n) => !Number.isFinite(n))) return null;
+  let sets, reps, weight;
+  if (nums.length === 1) { sets = 1; reps = nums[0]; weight = 0; }
+  else if (nums.length === 2) { sets = nums[0]; reps = nums[1]; weight = 0; }
+  else { sets = nums[0]; reps = nums[1]; weight = nums[2]; }
+  sets = Math.round(sets);
+  reps = Math.round(reps);
+  if (!(sets >= 1 && sets <= STRENGTH_MAX_SETS)) return null;
+  if (!(reps >= 1 && reps <= 500)) return null;
+  if (!(weight >= 0 && weight <= 500)) return null;
+  return { sets, reps, weight };
+}
+
+/* Разворачивает быстрый ввод в обычные подходы — дальше их можно править
+   поштучно, как и раньше. Пустые «болванки» подходов при этом вытесняются:
+   иначе после быстрого ввода оставалась бы висеть незаполненная строка. */
+function applyQuickSets(idx, text) {
+  const ex = strengthDraft.exercises[idx];
+  if (!ex) return { ok: false, reason: 'no-exercise' };
+  const parsed = parseQuickSets(text);
+  if (!parsed) return { ok: false, reason: 'parse' };
+  const filled = ex.sets.filter((st) => Number(st.weight) > 0 || Number(st.reps) > 0);
+  const room = STRENGTH_MAX_SETS - filled.length;
+  if (room <= 0) return { ok: false, reason: 'full' };
+  const count = Math.min(parsed.sets, room);
+  const weight = parsed.weight > 0 ? String(parsed.weight) : '';
+  const added = [];
+  for (let i = 0; i < count; i++) added.push({ weight, reps: String(parsed.reps) });
+  ex.sets = filled.concat(added);
+  return { ok: true, added: count, reps: parsed.reps, weight: parsed.weight, clipped: count < parsed.sets };
+}
 function removeStrengthSet(idx, setIdx) {
   const ex = strengthDraft.exercises[idx];
   if (ex && ex.sets[setIdx]) ex.sets.splice(setIdx, 1);
@@ -10329,7 +10488,45 @@ function updateStrengthSummary(idx) {
   const rm = computeExercise1RM(valid);
   el.textContent = valid.length
     ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг`
-    : 'укажите вес и повторы';
+    : 'укажите вес и повторения';
+}
+
+/* 0.9.12: отмена заполнения силовой. Раньше сбросить черновик было нечем —
+   набранные подходы оставались в полях до перезагрузки приложения, и следующая
+   тренировка начиналась поверх чужих цифр. Черновик живёт в памяти, поэтому
+   достаточно обнулить объект и перерисовать. */
+function resetStrengthDraft() {
+  strengthDraft = { title: '', durationMinutes: '', templateId: null, exercises: [] };
+}
+
+function applyQuickSetsFromInput(idx) {
+  if (typeof document === 'undefined') return;
+  const input = document.querySelector(`[data-s-quick="${idx}"]`);
+  if (!input) return;
+  const res = applyQuickSets(idx, input.value);
+  if (!res.ok) {
+    if (res.reason === 'full') return toast(`Больше ${STRENGTH_MAX_SETS} подходов в одном упражнении не поместится`);
+    return toast('Формат: подходы × повторения × вес. Например, 5x10x12');
+  }
+  renderStrengthDiary();
+  const weightText = res.weight > 0 ? ` по ${fmt(res.weight)} кг` : '';
+  toast(`✓ ${res.added} × ${res.reps} повторений${weightText}` + (res.clipped ? ' (больше не поместилось)' : ''));
+}
+
+function cancelStrengthDraft() {
+  const hadData = strengthDraft.exercises.length > 0
+    || !!String(strengthDraft.title || '').trim()
+    || !!String(strengthDraft.durationMinutes || '').trim();
+  if (!hadData) return false;
+  // Спрашиваем подтверждение: заполненный дневник — это несколько минут работы,
+  // и случайный тап по «Отменить» не должен стирать тренировку молча.
+  if (typeof window !== 'undefined' && window.confirm && !window.confirm('Очистить заполнение? Несохранённые подходы будут удалены.')) {
+    return false;
+  }
+  resetStrengthDraft();
+  renderStrengthDiary();
+  toast('Заполнение очищено');
+  return true;
 }
 
 function renderStrengthDiary() {
@@ -10351,13 +10548,13 @@ function renderStrengthDiary() {
         <div class="strength-set">
           <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Вес, кг" value="${escapeHtml(set.weight)}" data-s-field="weight" data-s-ex="${idx}" data-s-set="${si}" aria-label="Вес в килограммах">
           <span class="strength-set-x">×</span>
-          <input type="number" inputmode="numeric" min="0" step="1" placeholder="Повторы" value="${escapeHtml(set.reps)}" data-s-field="reps" data-s-ex="${idx}" data-s-set="${si}" aria-label="Количество повторов">
+          <input type="number" inputmode="numeric" min="0" step="1" placeholder="Повторения" value="${escapeHtml(set.reps)}" data-s-field="reps" data-s-ex="${idx}" data-s-set="${si}" aria-label="Повторения в подходе">
           <button class="strength-set-remove" type="button" data-s-remove-set="${idx}" data-s-set="${si}" aria-label="Удалить подход">×</button>
         </div>`).join('');
       const valid = ex.sets.filter((s) => Number(s.weight) > 0 && Number(s.reps) > 0);
       const tonnage = computeSetTonnage(valid);
       const rm = computeExercise1RM(valid);
-      const summary = valid.length ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг` : 'укажите вес и повторы';
+      const summary = valid.length ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг` : 'укажите вес и повторения';
       html += `
         <div class="strength-exercise">
           <div class="strength-exercise-head">
@@ -10366,6 +10563,11 @@ function renderStrengthDiary() {
             <button class="strength-exercise-remove" type="button" data-s-remove-exercise="${idx}" aria-label="Удалить упражнение">×</button>
           </div>
           ${setsHtml}
+          <div class="strength-quick-row">
+            <input type="text" inputmode="decimal" class="strength-quick-input" placeholder="5x10x12" value="" data-s-quick="${idx}" aria-label="Быстрый ввод: подходы, повторения, вес">
+            <button class="strength-quick-apply" type="button" data-s-quick-apply="${idx}">Заполнить</button>
+          </div>
+          <p class="strength-quick-hint">подходы × повторения × вес, кг (вес можно не указывать)</p>
           <button class="strength-set-add" type="button" data-s-add-set="${idx}">＋ подход</button>
         </div>`;
     });
@@ -10376,6 +10578,11 @@ function renderStrengthDiary() {
   html += '<button class="btn btn-secondary" type="button" data-s-add-exercise>＋ Добавить упражнение</button>';
   html += '<button class="btn btn-primary training-add-btn" type="button" data-s-save>Сохранить силовую</button>';
   html += `<button class="btn btn-ghost" type="button" data-s-save-template>⭐ Сохранить как шаблон</button>`;
+  // 0.9.12: отмена заполнения. Показываем только когда есть что отменять —
+  // на пустом черновике кнопка была бы лишним элементом на экране.
+  if (strengthDraft.exercises.length || String(strengthDraft.title || '').trim() || String(strengthDraft.durationMinutes || '').trim()) {
+    html += '<button class="btn btn-ghost strength-cancel-btn" type="button" data-s-cancel>Отменить заполнение</button>';
+  }
 
   // Шаблоны: начать одним тапом
   const templates = state.strengthTemplates || [];
@@ -10451,7 +10658,7 @@ function saveStrengthSession() {
   }
   normalizeStrengthSessions();
   const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets), 0);
-  strengthDraft = { title: '', durationMinutes: '', templateId: null, exercises: [] };
+  resetStrengthDraft();
   saveState();
   renderTraining(); // обновляет и недельную цель, и дневник силовых
   // 0.8.6: моменты награды — какие упражнения подняли уровень.
@@ -14059,6 +14266,11 @@ function init() {
     if (addSet) return addStrengthSet(Number(addSet.dataset.sAddSet));
     const remSet = e.target.closest('[data-s-remove-set]');
     if (remSet) return removeStrengthSet(Number(remSet.dataset.sRemoveSet), Number(remSet.dataset.sSet));
+    // 0.9.12: быстрый ввод «подходы × повторения × вес»
+    const quick = e.target.closest('[data-s-quick-apply]');
+    if (quick) return applyQuickSetsFromInput(Number(quick.dataset.sQuickApply));
+    // 0.9.12: отмена заполнения
+    if (e.target.closest('[data-s-cancel]')) return cancelStrengthDraft();
     const save = e.target.closest('[data-s-save]');
     if (save) return saveStrengthSession();
     const saveTpl = e.target.closest('[data-s-save-template]');
@@ -14077,12 +14289,54 @@ function init() {
     // 0.9.9: создание шаблона прямо из пустого плана
     if (e.target.closest('[data-s-plan-create]')) return openStrengthTemplateCreation();
   });
-  // 0.8.10: таймер отдыха между подходами
-  $$('#strength-rest-presets [data-rest]').forEach((btn) =>
-    btn.addEventListener('click', () => setStrengthRestSeconds(Number(btn.dataset.rest))));
+  // 0.8.10: таймер отдыха между подходами.
+  // 0.9.12: кнопки перерисовываются из состояния, поэтому слушатель один —
+  // на контейнере (делегирование), иначе он терялся бы после каждой правки.
+  const restBox = document.getElementById('strength-rest-presets');
+  if (restBox) {
+    let restHoldTimer = null;
+    let restHeld = false;
+    const holdStart = (btn) => {
+      restHeld = false;
+      restHoldTimer = setTimeout(() => {
+        restHeld = true;
+        const res = removeStrengthRestPreset(Number(btn.dataset.rest));
+        if (res.ok) {
+          try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { }
+          renderStrengthRestTimer();
+          toast('Убрано: ' + formatRestSeconds(Number(btn.dataset.rest)));
+        } else if (res.reason === 'last') {
+          toast('Нужен хотя бы один вариант отдыха');
+        }
+      }, 550);
+    };
+    const holdCancel = () => { if (restHoldTimer) clearTimeout(restHoldTimer); restHoldTimer = null; };
+    restBox.addEventListener('pointerdown', (e) => {
+      const btn = e.target.closest('[data-rest]');
+      if (btn) holdStart(btn);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
+      restBox.addEventListener(ev, holdCancel));
+    restBox.addEventListener('click', (e) => {
+      if (e.target.closest('[data-rest-add]')) return promptStrengthRestPreset();
+      const btn = e.target.closest('[data-rest]');
+      if (!btn) return;
+      if (restHeld) { restHeld = false; return; } // это было удаление, не выбор
+      setStrengthRestSeconds(Number(btn.dataset.rest));
+    });
+  }
   bindEvent('#strength-rest-start', 'click', () => {
     if (strengthRestTimer.timerId) stopStrengthRest(false);
     else startStrengthRest();
+  });
+  // 0.9.12: Enter в поле быстрого ввода — как нажатие «Заполнить»,
+  // чтобы не тянуться к кнопке после набора на цифровой клавиатуре.
+  $('#strength-diary').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const quick = e.target.closest && e.target.closest('[data-s-quick]');
+    if (!quick) return;
+    e.preventDefault();
+    applyQuickSetsFromInput(Number(quick.dataset.sQuick));
   });
   $('#strength-diary').addEventListener('input', (e) => {
     if (e.target.hasAttribute && e.target.hasAttribute('data-s-title')) {
@@ -16907,6 +17161,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
+    parseQuickSets, parseRestInput, formatRestSeconds, // 0.9.12
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
     normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, mergeDuplicateFoodItems, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,

@@ -3248,6 +3248,21 @@ for (const id of ids) {
   if (!hasSleepReader) failed++;
   console.log(`${hasSleepReader ? '✓' : '✗'} 0.9.11 нативный мост умеет отдавать историю сна`);
 
+  // 0.9.12: чтение истории обязано быть постраничным. readRecords отдаёт до 1000
+  // записей за страницу; за 30 дней часы пишут шаги мелкими кусками, и без цикла
+  // свежие дни не доезжают — ровно этот баг оставил 20-21 августа без шагов.
+  const stepsHistFn = hcSrc.slice(hcSrc.indexOf('fun readStepsHistory'));
+  const stepsHistBody = stepsHistFn.slice(0, stepsHistFn.indexOf('\n    }\n'));
+  const stepsPaged = /pageToken/.test(stepsHistBody) && /while \(pageToken != null\)/.test(stepsHistBody);
+  if (!stepsPaged) failed++;
+  console.log(`${stepsPaged ? '✓' : '✗'} 0.9.12 история шагов читается постранично (иначе свежие дни теряются)`);
+
+  const sleepHistFn = hcSrc.slice(hcSrc.indexOf('fun readSleepHistory'));
+  const sleepHistBody = sleepHistFn.slice(0, sleepHistFn.indexOf('\n    }\n'));
+  const sleepPaged = /pageToken/.test(sleepHistBody) && /while \(pageToken != null\)/.test(sleepHistBody);
+  if (!sleepPaged) failed++;
+  console.log(`${sleepPaged ? '✓' : '✗'} 0.9.12 история сна читается постранично`);
+
   // Цепочка должна быть замкнута: Kotlin → Java → window.<колбэк> → JS-функция.
   // Без публикации на window нативный вызов молча уходит в никуда.
   const appSrc = fs.readFileSync('app.js', 'utf8');
@@ -3258,6 +3273,120 @@ for (const id of ids) {
     && /requestSleepHistorySync\(\);/.test(appSrc);
   if (!chainOk) failed++;
   console.log(`${chainOk ? '✓' : '✗'} 0.9.11 история сна: цепочка Kotlin → Java → window → JS замкнута`);
+}
+
+/* ============================================================
+   0.9.12: журнал силовых — быстрый ввод, отмена, таймер отдыха
+   ============================================================ */
+{
+  const appS = fs.readFileSync('app.js', 'utf8');
+  const htmlS = fs.readFileSync('index.html', 'utf8');
+  const api = require('./app.js');
+  // Guard: на откате функций ещё нет в module.exports, и без заглушек прогон
+  // упал бы аварийно, вместо того чтобы честно показать «✗».
+  const hasApi = typeof api.parseQuickSets === 'function'
+    && typeof api.parseRestInput === 'function'
+    && typeof api.formatRestSeconds === 'function';
+  const noop = () => null;
+
+  // --- Быстрый ввод «подходы × повторения × вес» ---
+  // Владелец: «5 подходов по 10 повторений с 12 кг» не должно стоить 10 нажатий.
+  const qs = hasApi ? api.parseQuickSets : noop;
+  const quickCases = [
+    ['5x10x12', { sets: 5, reps: 10, weight: 12 }],
+    ['5х10х12', { sets: 5, reps: 10, weight: 12 }], // кириллическая «х» — её и набирают
+    ['5 10 12', { sets: 5, reps: 10, weight: 12 }],
+    ['5*10*12', { sets: 5, reps: 10, weight: 12 }],
+    ['3x8', { sets: 3, reps: 8, weight: 0 }],       // без веса — отжимания
+    ['12', { sets: 1, reps: 12, weight: 0 }]
+  ];
+  const quickOk = hasApi && quickCases.every(([input, want]) => {
+    const got = qs(input);
+    return got && got.sets === want.sets && got.reps === want.reps && got.weight === want.weight;
+  });
+  if (!quickOk) failed++;
+  console.log(`${quickOk ? '✓' : '✗'} 0.9.12 быстрый ввод подходов понимает 5x10x12 / 5х10х12 / 5 10 12 / 3x8`);
+
+  // Мусор и выходы за границы не должны создавать подходы молча.
+  const quickBad = hasApi && ['', 'abc', '0x10', '41x10', '5x10x600'].every((t) => qs(t) === null);
+  if (!quickBad) failed++;
+  console.log(`${quickBad ? '✓' : '✗'} 0.9.12 быстрый ввод отбраковывает мусор и выход за пределы`);
+
+  // Дробный вес (12.5 кг блин) должен проходить — иначе половинки не записать.
+  const half = qs('4x8x12,5');
+  const halfOk = !!half && half.weight === 12.5 && half.sets === 4;
+  if (!halfOk) failed++;
+  console.log(`${halfOk ? '✓' : '✗'} 0.9.12 быстрый ввод принимает дробный вес (12,5 кг)`);
+
+  // Поле быстрого ввода и его обработчики должны существовать в разметке дневника.
+  const quickUi = /data-s-quick="\$\{idx\}"/.test(appS)
+    && /data-s-quick-apply="\$\{idx\}"/.test(appS)
+    && /closest\('\[data-s-quick-apply\]'\)/.test(appS)
+    && /applyQuickSetsFromInput/.test(appS);
+  if (!quickUi) failed++;
+  console.log(`${quickUi ? '✓' : '✗'} 0.9.12 поле быстрого ввода отрисовано и подключено к обработчику`);
+
+  // --- Термины: «повторы» ≠ «повторения» ---
+  // Владелец отдельно указал, что это разные вещи; в подходе — повторения.
+  const diaryStart = appS.indexOf('function renderStrengthDiary');
+  const diarySrc = appS.slice(diaryStart, appS.indexOf('\nfunction saveStrengthSession', diaryStart));
+  const termsOk = /placeholder="Повторения"/.test(diarySrc) && !/placeholder="Повторы"/.test(diarySrc);
+  if (!termsOk) failed++;
+  console.log(`${termsOk ? '✓' : '✗'} 0.9.12 поле подхода называется «Повторения», а не «Повторы»`);
+
+  // --- Отмена заполнения ---
+  const cancelOk = /function cancelStrengthDraft/.test(appS)
+    && /function resetStrengthDraft/.test(appS)
+    && /data-s-cancel/.test(appS)
+    && /closest\('\[data-s-cancel\]'\)/.test(appS);
+  if (!cancelOk) failed++;
+  console.log(`${cancelOk ? '✓' : '✗'} 0.9.12 отмена заполнения силовой есть в разметке и в обработчике`);
+
+  // Сохранение обязано чистить черновик тем же путём, что и отмена, —
+  // иначе два способа разъедутся при следующей правке.
+  const saveStart = appS.indexOf('function saveStrengthSession');
+  const saveSrc = appS.slice(saveStart, saveStart + 4000);
+  const saveResets = /resetStrengthDraft\(\);/.test(saveSrc);
+  if (!saveResets) failed++;
+  console.log(`${saveResets ? '✓' : '✗'} 0.9.12 сохранение силовой сбрасывает черновик общей функцией`);
+
+  // --- Таймер отдыха ---
+  // Пресеты больше не должны быть прибиты в HTML: нужны свои значения (3 мин).
+  const htmlHardcoded = /data-rest="(30|60|90|120)"/.test(htmlS);
+  if (htmlHardcoded) failed++;
+  console.log(`${!htmlHardcoded ? '✓' : '✗'} 0.9.12 пресеты отдыха не захардкожены в index.html`);
+
+  const restState = /strengthRest: \{ seconds: 90, presets: \[60, 90, 120, 180\] \}/.test(appS)
+    && /function normalizeStrengthRest/.test(appS)
+    && /function addStrengthRestPreset/.test(appS)
+    && /function removeStrengthRestPreset/.test(appS);
+  if (!restState) failed++;
+  console.log(`${restState ? '✓' : '✗'} 0.9.12 пресеты отдыха живут в состоянии (есть и 3 минуты по умолчанию)`);
+
+  // Ввод своего времени: «3 мин», «2:30», «180».
+  const ri = hasApi ? api.parseRestInput : noop;
+  const restParse = hasApi && ri('3 мин') === 180 && ri('2:30') === 150 && ri('180') === 180 && ri('abc') === null;
+  if (!restParse) failed++;
+  console.log(`${restParse ? '✓' : '✗'} 0.9.12 своё время отдыха понимает «3 мин», «2:30» и «180»`);
+
+  const rf = hasApi ? api.formatRestSeconds : noop;
+  const restFmt = hasApi && rf(45) === '45с' && rf(180) === '3 мин' && rf(90) === '1:30';
+  if (!restFmt) failed++;
+  console.log(`${restFmt ? '✓' : '✗'} 0.9.12 подпись пресета короткая: 45с / 1:30 / 3 мин`);
+
+  // Удаление последнего пресета запрещено — иначе таймер нечем запускать.
+  const restBody = appS.slice(appS.indexOf('function removeStrengthRestPreset'));
+  const lastGuard = /reason: 'last'/.test(restBody.slice(0, 900));
+  if (!lastGuard) failed++;
+  console.log(`${lastGuard ? '✓' : '✗'} 0.9.12 последний пресет отдыха удалить нельзя`);
+
+  // Кнопки рисуются из состояния и слушатель делегирован — иначе после
+  // перерисовки пресеты перестали бы реагировать на нажатия.
+  const restRender = /box\.innerHTML = rest\.presets/.test(appS)
+    && /restBox\.addEventListener\('click'/.test(appS)
+    && /data-rest-add/.test(appS);
+  if (!restRender) failed++;
+  console.log(`${restRender ? '✓' : '✗'} 0.9.12 пресеты перерисовываются из состояния, клик делегирован контейнеру`);
 }
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

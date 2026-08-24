@@ -199,14 +199,29 @@ object HealthConnectHelper {
             val zone = ZoneId.systemDefault()
             val start = today.minusDays((n - 1).toLong()).atStartOfDay(zone).toInstant()
             val end = today.plusDays(1).atStartOfDay(zone).toInstant()
-            val req = ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(start, end))
-            val resp = runBlocking { client.readRecords(req) }
+            // 0.9.12: читаем ПОСТРАНИЧНО. readRecords отдаёт до 1000 записей за
+            // страницу; за 30 дней часы пишут шаги мелкими кусками — это тысячи
+            // записей. Без цикла приходила только первая страница (самые старые
+            // дни), и свежие дни молча не доезжали до приложения. Именно поэтому
+            // сон дозаливался (1-2 записи за ночь), а шаги — нет.
+            val records = mutableListOf<StepsRecord>()
+            var pageToken: String? = null
+            do {
+                val req = ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageToken = pageToken
+                )
+                val resp = runBlocking { client.readRecords(req) }
+                records.addAll(resp.records)
+                pageToken = resp.pageToken
+            } while (pageToken != null)
             // 0.9.11: раньше суммировались ВСЕ источники — шаги телефона и часов
             // складывались в один день, завышая итог. Считаем раздельно, как в syncNow:
             // если за день есть данные с часов, день описывают именно они.
             val byDate = sortedMapOf<String, Long>()
             val byDateWatch = sortedMapOf<String, Long>()
-            for (rec in resp.records) {
+            for (rec in records) {
                 val isWatch = WEARABLE_PACKAGES.contains(rec.metadata.dataOrigin?.packageName ?: "")
                 // 0.9.11: запись, пересекающую полночь, раньше целиком относили к дню
                 // начала — из-за этого ночные шаги утекали во вчера. Делим количество
@@ -361,14 +376,25 @@ object HealthConnectHelper {
             // начинается ещё накануне вечером.
             val start = today.minusDays(n.toLong()).atStartOfDay(zone).toInstant()
             val end = today.plusDays(1).atStartOfDay(zone).toInstant()
-            val req = ReadRecordsRequest(SleepSessionRecord::class, TimeRangeFilter.between(start, end))
-            val resp = runBlocking { client.readRecords(req) }
+            // 0.9.12: постранично — как и шаги (страница ограничена 1000 записей).
+            val records = mutableListOf<SleepSessionRecord>()
+            var pageToken: String? = null
+            do {
+                val req = ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageToken = pageToken
+                )
+                val resp = runBlocking { client.readRecords(req) }
+                records.addAll(resp.records)
+                pageToken = resp.pageToken
+            } while (pageToken != null)
 
             val totals = sortedMapOf<String, Long>()
             val bestMs = mutableMapOf<String, Long>()
             val bestStart = mutableMapOf<String, Instant>()
             val bestEnd = mutableMapOf<String, Instant>()
-            for (rec in resp.records) {
+            for (rec in records) {
                 val ms = rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()
                 if (ms <= 0L) continue
                 val date = rec.endTime.atZone(zone).toLocalDate().toString()
