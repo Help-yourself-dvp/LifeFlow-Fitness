@@ -2564,12 +2564,18 @@ function parseOffProduct(json) {
     if (Number.isFinite(kj) && kj > 0) kcal = Math.round(kj / 4.184);
   }
   if (kcal == null || kcal < 1 || kcal > 900) return null;
-  const piece = Number(p.product_quantity);
+  /* product_quantity — это вес/объём ВСЕЙ упаковки (йогурт 130 г, творог 200 г),
+     а не вес одной штуки. Раньше он шёл в pieceG, из-за чего для многоштучных
+     пачек («печенье 400 г») счёт «2 шт» давал бы 800 г. Теперь храним его
+     отдельным полем packG и используем по прямому назначению — как размер
+     съеденной порции для кнопки «Съел это». Поле pieceG остаётся ручным. */
+  const pack = Number(p.product_quantity);
   return {
     name,
     kcal: Math.round(kcal),
     p: num(n.proteins_100g), f: num(n.fat_100g), c: num(n.carbohydrates_100g),
-    pieceG: (Number.isFinite(piece) && piece >= 5 && piece <= 2000) ? Math.round(piece) : null
+    pieceG: null,
+    packG: (Number.isFinite(pack) && pack >= 5 && pack <= 2000) ? Math.round(pack) : null
   };
 }
 
@@ -2756,6 +2762,80 @@ function fillCustomFoodForm(pr) {
   set('#custom-food-piece', pr.pieceG);
 }
 
+/* ============================================================
+   0.9.7: «Съел это» — запись отсканированного прямо в питание.
+   Замечание владельца: сканер был привязан только к пополнению
+   справочника, хотя самый частый случай — «я это съел». Никакого
+   выбора и полей: вес упаковки и калорийность уже известны, поэтому
+   всё посчитано заранее и написано на самой кнопке.
+   ============================================================ */
+let scannedProduct = null;   // последний удачно отсканированный продукт
+
+/* Сколько граммов считать съеденным. Приоритет — вес упаковки из
+   Open Food Facts (йогурт 130 г). Записи из кэша до 0.9.7 хранят этот же
+   вес в поле pieceG, поэтому учитываем и его. Если веса нет вовсе —
+   стандартные 100 г, и это честно написано на кнопке. */
+function scannedPortionGrams(pr) {
+  if (!pr) return 100;
+  const pack = Number(pr.packG);
+  if (Number.isFinite(pack) && pack >= 5 && pack <= 2000) return Math.round(pack);
+  const legacy = Number(pr.pieceG);
+  if (Number.isFinite(legacy) && legacy >= 5 && legacy <= 2000) return Math.round(legacy);
+  return 100;
+}
+
+function hideScannedEatButton() {
+  scannedProduct = null;
+  const btn = $('#custom-food-eat');
+  if (btn) { btn.hidden = true; btn.textContent = ''; }
+}
+
+/* Кнопка появляется только когда есть что записывать. */
+function showScannedEatButton(pr) {
+  const btn = $('#custom-food-eat');
+  if (!btn) return;
+  const kcal100 = Number(pr && pr.kcal);
+  if (!Number.isFinite(kcal100) || kcal100 <= 0) { hideScannedEatButton(); return; }
+  scannedProduct = pr;
+  const grams = scannedPortionGrams(pr);
+  const kcal = Math.round(kcal100 * grams / 100);
+  btn.textContent = '🍽 Съел это · ' + fmt(grams) + ' г, ' + fmt(kcal) + ' ккал';
+  btn.hidden = false;
+}
+
+/* Запись в дневник питания. Продукт в «Мои продукты» НЕ сохраняем: повторное
+   сканирование той же пачки берётся из кэша Open Food Facts (180 дней, офлайн),
+   поэтому засорять справочник разовыми покупками незачем. */
+async function eatScannedProduct() {
+  const pr = scannedProduct;
+  if (!pr) return;
+  const grams = scannedPortionGrams(pr);
+  const factor = grams / 100;
+  const round1 = (v) => Math.round((Number(v) || 0) * factor * 10) / 10;
+  const name = String(pr.name || '').trim() || 'Продукт со штрих-кодом';
+  const kcal = Math.round(Number(pr.kcal) * factor);
+  const entry = {
+    id: uid(), raw: name + ' ' + grams + ' г', name, amount: grams, unit: 'г',
+    grams, perPiece: false,
+    kcal, p: round1(pr.p), f: round1(pr.f), c: round1(pr.c),
+    ...applySelectedMealType([{}])[0]
+  };
+  // метку берём из самой записи: resetMealTypeAfterSave() ниже сбросит
+  // текущий выбор, и getSelectedMealType() уже показал бы другой приём
+  const mealLabel = entry.mealTypeLabel || '';
+  state.food.items.push(entry);
+  saveState();
+  resetMealTypeAfterSave();
+  renderFood();
+  hideScannedEatButton();
+  closeCustomFoodDialog();
+  // как и в остальных точках записи еды: снимаем напоминание о приёме,
+  // который уже состоялся
+  await syncMealRemindersForToday();
+  toast('🍽 «' + name + '» ' + fmt(grams) + ' г → ' + fmt(kcal) + ' ккал записано'
+    + (mealLabel ? ' в «' + mealLabel + '»' : '') + '. Тип можно сменить карандашом в списке');
+}
+
 /* Ответ нативного сканера. Вызывается из MainActivity.notifyBarcodeResult.
    Объявлено функцией, а не присваиванием в window: app.js подключается ещё и
    в Node (тесты разбора и базы), где window не существует. */
@@ -2777,6 +2857,7 @@ async function onBarcodeScanned(code, error) {
   resetBarcodeScanButton();
   if (result.ok) {
     fillCustomFoodForm(result.product);
+    showScannedEatButton(result.product);   // 0.9.7: «съел это» — сразу в питание
     toast(result.cached
       ? '✓ Уже знаю этот код: сверьте с упаковкой и нажмите «Сохранить продукт» — он попадёт в «Мои продукты»'
       : '✓ Найдено в Open Food Facts: сверьте с упаковкой и нажмите «Сохранить продукт» — он попадёт в «Мои продукты»');
@@ -2869,6 +2950,7 @@ function openCustomFoodDialog() {
   renderCustomFoodsList();
   syncBarcodeScanButton();      // 0.9.2: кнопка только там, где сканер работает
   resetBarcodeScanButton();     // сброс подписи, если прошлый заход прервали
+  hideScannedEatButton();       // 0.9.7: не показывать итог прошлого сканирования
   dialog.hidden = false;
   const nameInput = $('#custom-food-name');
   if (nameInput) nameInput.focus();
@@ -2877,6 +2959,7 @@ function openCustomFoodDialog() {
 function closeCustomFoodDialog() {
   const dialog = $('#custom-food-dialog');
   if (dialog) dialog.hidden = true;
+  hideScannedEatButton();       // 0.9.7
 }
 
 function saveCustomFoodFromDialog() {
@@ -2964,7 +3047,7 @@ const DEFAULTS = {
   strengthPlan: [] // 0.8.9: план тренировок — шаблоны по дням недели
 };
 
-const FITFLOW_VERSION = '0.9.6';
+const FITFLOW_VERSION = '0.9.7';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -6615,6 +6698,22 @@ function openFoodEditDialog(id) {
   $('#food-edit-p').value = item.p || '';
   $('#food-edit-f').value = item.f || '';
   $('#food-edit-c').value = item.c || '';
+  /* 0.9.7: список приёмов пищи. Показываем все известные типы плюс, если
+     запись пришла из импорта со «своим» типом, которого уже нет в настройках,
+     сохраняем его отдельным пунктом — иначе правка названия молча стёрла бы
+     привязку. Пункт «Без типа» нужен для записей быстрого ввода. */
+  const mealSelect = $('#food-edit-meal');
+  if (mealSelect) {
+    const types = getMealTypes();
+    const currentId = String(item.mealTypeId || '');
+    const options = types.map((t) => ({ id: t.id, label: t.label }));
+    if (currentId && !types.some((t) => t.id === currentId)) {
+      options.push({ id: currentId, label: String(item.mealTypeLabel || 'Другой приём пищи') });
+    }
+    mealSelect.innerHTML = '<option value="">Без типа</option>'
+      + options.map((o) => `<option value="${escapeHtml(o.id)}"${o.id === currentId ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
+    mealSelect.value = currentId;
+  }
   $('#food-edit-dialog').hidden = false;
   setTimeout(() => $('#food-edit-name').focus(), 100);
 }
@@ -6639,6 +6738,21 @@ function saveFoodEdit() {
   item.p = macro('#food-edit-p', 500);
   item.f = macro('#food-edit-f', 500);
   item.c = macro('#food-edit-c', 800);
+  // 0.9.7: перенос между приёмами пищи. Метку храним рядом с id — по ней
+  // группировка покажет читаемое имя даже после удаления своего типа.
+  const mealSelect = $('#food-edit-meal');
+  if (mealSelect) {
+    const chosenId = String(mealSelect.value || '');
+    if (!chosenId) {
+      item.mealTypeId = null;
+      item.mealTypeLabel = null;
+    } else {
+      const known = getMealTypes().find((t) => t.id === chosenId);
+      item.mealTypeId = chosenId;
+      item.mealTypeLabel = known ? known.label
+        : (mealSelect.options[mealSelect.selectedIndex] || {}).text || item.mealTypeLabel || null;
+    }
+  }
   item.editedAt = Date.now();
   saveState();
   renderFood();
@@ -14103,6 +14217,7 @@ function init() {
     if (f) { f.value = '500 мл воды, овсянка 150 г с бананом, гулял 40 мин'; f.focus(); }
   });
   bindEvent('#custom-food-open', 'click', openCustomFoodDialog);
+  bindEvent('#custom-food-eat', 'click', eatScannedProduct);    // 0.9.7
   bindEvent('#custom-food-save', 'click', saveCustomFoodFromDialog);
   bindEvent('#custom-food-scan', 'click', startBarcodeScan);   // 0.9.2
   bindEvent('#custom-food-close', 'click', closeCustomFoodDialog);
@@ -16494,7 +16609,7 @@ if (typeof module !== 'undefined' && module.exports) {
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,
     canUseLocalLlm, eggPortionCount, SAUSAGE_SLICE_GRAMS,
     normalizeParseLogList, buildParseLogEntry, formatParseLogForClipboard, readParseLog, logParseEvent, markParseLogSaved, PARSE_LOG_LIMIT,
-    normalizeCombos, COMBOS_LIMIT,
+    normalizeCombos, COMBOS_LIMIT, scannedPortionGrams,
     initSqliteStorage, syncStateToSqliteNow, getSqliteStats, createSqliteSchema, normalizeHealthSync, activityThemeEmoji, THEME_ACTIVITY_SETS, resolveHealthSteps,
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, computeFoodBudgetAdjustmentPure,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,

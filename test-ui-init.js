@@ -2842,5 +2842,65 @@ for (const id of ids) {
   console.log(`${okLegacy ? '✓' : '✗'} 0.9.6 классический виджет остался прежним`);
 }
 
+/* 0.9.7 — замечания владельца: сканер пишет съеденное сразу в питание,
+   а тип приёма пищи можно поменять у уже записанной строки. */
+{
+  const api = require('./app.js');
+
+  /* Вес порции: пример владельца — йогурт 130 г должен считаться за 130 г,
+     а не за дефолтные 100 г. Плюс совместимость с кэшем до 0.9.7 (packG
+     там нет, вес лежит в pieceG) и отсев мусорных значений. */
+  const okGrams = api.scannedPortionGrams({ packG: 130 }) === 130
+    && api.scannedPortionGrams({ pieceG: 200 }) === 200
+    && api.scannedPortionGrams({}) === 100
+    && api.scannedPortionGrams({ packG: 5000 }) === 100
+    && api.scannedPortionGrams(null) === 100;
+  if (!okGrams) failed++;
+  console.log(`${okGrams ? '✓' : '✗'} 0.9.7 порция берётся из веса упаковки (йогурт 130 г → 130 г)`);
+
+  /* Вес упаковки больше не подменяет «вес 1 шт»: иначе пачка печенья 400 г
+     превратила бы «2 шт» в 800 г. */
+  const off = api.parseOffProduct({ status: 1, product: { product_name: 'Печенье', product_quantity: '400',
+    nutriments: { 'energy-kcal_100g': 450 } } });
+  const okSplit = off && off.packG === 400 && off.pieceG === null;
+  if (!okSplit) failed++;
+  console.log(`${okSplit ? '✓' : '✗'} 0.9.7 вес упаковки не попадает в «вес 1 шт»`);
+
+  /* Кнопка есть в разметке, скрыта по умолчанию (правило «никаких видимых
+     заглушек») и привязана к обработчику. */
+  const okBtn = /id="custom-food-eat"[^>]*hidden/.test(html)
+    && app.includes("bindEvent('#custom-food-eat', 'click', eatScannedProduct)")
+    && app.includes('function eatScannedProduct');
+  if (!okBtn) failed++;
+  console.log(`${okBtn ? '✓' : '✗'} 0.9.7 кнопка «Съел это» скрыта до сканирования и подключена`);
+
+  /* Цифры считаются заранее и пишутся на самой кнопке — ни полей, ни выбора. */
+  const okLabel = app.includes("'🍽 Съел это · ' + fmt(grams) + ' г, ' + fmt(kcal) + ' ккал'")
+    && app.includes('showScannedEatButton(result.product)');
+  if (!okLabel) failed++;
+  console.log(`${okLabel ? '✓' : '✗'} 0.9.7 на кнопке уже посчитаны граммы и калории`);
+
+  /* Запись идёт в дневник питания с текущим приёмом пищи, и справочник
+     «Мои продукты» при этом не пополняется (разовые покупки не копятся). */
+  const eatFn = app.slice(app.indexOf('function eatScannedProduct'));
+  const eatBody = eatFn.slice(0, eatFn.indexOf('\n}'));
+  const okWrite = eatBody.includes('state.food.items.push')
+    && eatBody.includes('applySelectedMealType')
+    && eatBody.includes('saveState()')
+    && !eatBody.includes('addCustomFood');
+  if (!okWrite) failed++;
+  console.log(`${okWrite ? '✓' : '✗'} 0.9.7 съеденное идёт в питание, а не в «Мои продукты»`);
+
+  /* Смена типа приёма пищи у существующей записи: поле в диалоге,
+     заполнение при открытии и сохранение обоих полей (id + метка). */
+  const okMealUi = /id="food-edit-meal"/.test(html)
+    && app.includes("const mealSelect = $('#food-edit-meal')");
+  const saveFn = app.slice(app.indexOf('function saveFoodEdit'));
+  const saveBody = saveFn.slice(0, saveFn.indexOf('\n}'));
+  const okMealSave = saveBody.includes('item.mealTypeId') && saveBody.includes('item.mealTypeLabel');
+  if (!okMealUi || !okMealSave) failed++;
+  console.log(`${okMealUi && okMealSave ? '✓' : '✗'} 0.9.7 тип приёма пищи меняется у записанной строки`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

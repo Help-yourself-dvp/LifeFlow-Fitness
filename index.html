@@ -1352,7 +1352,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.6 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.7 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
@@ -1793,6 +1793,11 @@
           <label>Вес 1 шт, г<input class="dialog-text-input" id="custom-food-piece" type="number" inputmode="decimal" min="0" placeholder="—"></label>
         </div>
         <p class="settings-hint" style="margin:0">«Вес 1 шт» — только для штучных продуктов (батончик, сырник, печенье): тогда «2 шт» посчитается честно.</p>
+        <!-- 0.9.7 (замечание владельца): «я это съел, а не веду справочник».
+             Кнопка скрыта и появляется из showScannedEatButton() только после
+             удачного сканирования, когда уже известны и вес упаковки, и ккал:
+             никаких заглушек, пока считать нечего. -->
+        <button class="btn btn-primary" id="custom-food-eat" type="button" hidden></button>
         <button class="btn btn-primary" id="custom-food-save" type="button">Сохранить продукт</button>
       </div>
       <div class="custom-food-list" id="custom-food-list"></div>
@@ -1976,6 +1981,10 @@
       <form id="food-edit-form" autocomplete="off">
         <input id="food-edit-id" type="hidden">
         <label class="weight-field" for="food-edit-name"><span>Название</span><input id="food-edit-name" type="text" maxlength="80" aria-label="Название блюда"></label>
+        <!-- 0.9.7 (замечание владельца): перенос записи между приёмами пищи.
+             Тип ставится автоматически по времени, но поесть можно раньше или
+             позже — раньше исправить это было нельзя вообще. -->
+        <label class="weight-field" for="food-edit-meal"><span>Приём пищи</span><select id="food-edit-meal" aria-label="Приём пищи"></select></label>
         <label class="weight-field" for="food-edit-kcal"><span>Калории, ккал</span><input id="food-edit-kcal" type="number" min="0" max="5000" step="1" inputmode="numeric" aria-label="Калории"></label>
         <div class="food-edit-macros">
           <label class="weight-field" for="food-edit-p"><span>Белки, г</span><input id="food-edit-p" type="number" min="0" max="500" step="0.1" inputmode="decimal" aria-label="Белки, граммы"></label>

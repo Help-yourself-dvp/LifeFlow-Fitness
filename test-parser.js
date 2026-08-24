@@ -803,7 +803,10 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 {
   const full = parseOffProduct({ status: 1, product: { product_name_ru: 'Творог зерновой 5%', product_quantity: '150',
     nutriments: { 'energy-kcal_100g': 105, proteins_100g: 12.7, fat_100g: 5, carbohydrates_100g: 1.8 } } });
-  const okFull = full && full.name === 'творог зерновой 5%' && full.kcal === 105 && full.p === 12.7 && full.pieceG === 150;
+  // 0.9.7: product_quantity — вес всей упаковки, теперь он в packG, а не в pieceG
+  // (pieceG «вес 1 шт» остаётся ручным полем, иначе «2 шт печенья 400 г» = 800 г).
+  const okFull = full && full.name === 'творог зерновой 5%' && full.kcal === 105 && full.p === 12.7
+    && full.packG === 150 && full.pieceG === null;
   if (!okFull) failed++;
   console.log(`${okFull ? '✓' : '✗'} OFF-разбор: полный ответ → имя, ккал, БЖУ, вес упаковки`);
   const kj = parseOffProduct({ status: 1, product: { product_name: 'Bar', nutriments: { energy_100g: 837 } } });
