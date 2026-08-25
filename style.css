@@ -2480,11 +2480,23 @@ html[data-theme="dark"] .segmented button.active {
 /* ---------- Подсказка «нашли тренировки с часов» (0.8.0) ---------- */
 .watch-workouts-suggest {
   margin: 10px 0 4px;
-  padding: 12px;
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: 14px;
   background: var(--md-sys-color-primary-container);
+  overflow: hidden;
 }
+/* 0.9.21: список свёрнут под заголовок. Паддинг переехал с контейнера внутрь,
+   иначе в свёрнутом виде оставалась пустая полоса под строкой-заголовком. */
+.watch-workouts-block { border: none; background: none; }
+.watch-workouts-toggle {
+  background: transparent;
+  color: var(--md-sys-color-on-primary-container);
+  font-size: 0.8rem;
+  padding: 11px 12px;
+  gap: 10px;
+}
+.watch-workouts-toggle span:first-child { line-height: 1.35; }
+.watch-workouts-suggest .collapsible-content > div { padding: 0 12px 10px; }
 .watch-workout-hint {
   margin: 0 0 8px;
   font-size: 0.78rem;

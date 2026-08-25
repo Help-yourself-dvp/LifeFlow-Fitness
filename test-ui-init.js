@@ -4143,5 +4143,82 @@ for (const id of ids) {
   console.log(`${hintsOk ? '✓' : '✗'} 0.9.20 подсказки больше не утверждают, что фото умеет только Gemini`);
 }
 
+// ===== 0.9.21: список тренировок с часов сворачивается =====
+{
+  const collapseOk = app.includes('let watchSuggestExpanded = false')
+    && app.includes('data-watch-toggle')
+    && app.includes('id="watch-workouts-content"')
+    && /collapsible-toggle watch-workouts-toggle/.test(app);
+  if (!collapseOk) failed++;
+  console.log(`${collapseOk ? '✓' : '✗'} 0.9.21 список тренировок с часов — сворачиваемый блок`);
+
+  // По умолчанию свёрнут: aria-expanded считается от watchSuggestExpanded (false).
+  const defaultClosedOk = /aria-expanded="\$\{wasOpen \? 'true' : 'false'\}"/.test(app)
+    && /const wasOpen = watchSuggestExpanded;/.test(app);
+  if (!defaultClosedOk) failed++;
+  console.log(`${defaultClosedOk ? '✓' : '✗'} 0.9.21 список свёрнут по умолчанию, состояние переживает перерисовку`);
+
+  /* Кнопки строк обязаны лежать ВНУТРИ .collapsible-content: клик по самому
+     .collapsible-toggle сворачивает блок, кнопка внутри него не сработала бы. */
+  const render = app.slice(app.indexOf('function renderWatchWorkoutsSuggest()'),
+    app.indexOf('function mergeStepsBackfill'));
+  const tplStart = render.indexOf('<div class="collapsible-block watch-workouts-block">');
+  const rowsOk = tplStart > 0
+    && render.indexOf('collapsible-content', tplStart) < render.indexOf('${pendingBlock}${autoBlock}', tplStart);
+  if (!rowsOk) failed++;
+  console.log(`${rowsOk ? '✓' : '✗'} 0.9.21 строки и кнопки лежат внутри раскрываемой части`);
+
+  const css921 = fs.readFileSync('style.css', 'utf8');
+  const cssOk = css921.includes('.watch-workouts-toggle')
+    && css921.includes('.watch-workouts-suggest .collapsible-content > div');
+  if (!cssOk) failed++;
+  console.log(`${cssOk ? '✓' : '✗'} 0.9.21 стили свёрнутого списка на месте`);
+
+  const toggleHandlerOk = /const toggleBtn = e\.target\.closest\('\[data-watch-toggle\]'\)/.test(app)
+    && /setCollapsibleState\(toggleBtn, content, watchSuggestExpanded\)/.test(app);
+  if (!toggleHandlerOk) failed++;
+  console.log(`${toggleHandlerOk ? '✓' : '✗'} 0.9.21 тап по заголовку разворачивает список`);
+}
+
+// ===== 0.9.21: минуты активности в статистике — журнал как источник правды =====
+{
+  const helperOk = app.includes('function statsActivityMinutes(date, summary)')
+    && /Math\.max\(fromJournal, fromSummary\)/.test(app);
+  if (!helperOk) failed++;
+  console.log(`${helperOk ? '✓' : '✗'} 0.9.21 statsActivityMinutes берёт большее из журнала и сводки`);
+
+  const usedOk = /days\.push\(summary[\s\S]{0,220}statsActivityMinutes\(date, summary\)/.test(app)
+    && /prev\.push\(summary[\s\S]{0,220}statsActivityMinutes\(date, summary\)/.test(app);
+  if (!usedOk) failed++;
+  console.log(`${usedOk ? '✓' : '✗'} 0.9.21 и график, и сравнение периодов сверяются с журналом`);
+
+  /* Живая проверка дефекта владельца: в журнале 90 минут за прошлый день,
+     а в архивной сводке застряли 15 — график обязан показать 90. */
+  const appMod = require('./app.js');
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date(Date.now() - 86400000);
+  const yk = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const savedW = appMod.state.workouts;
+  const savedH = appMod.state.dailyHistory;
+  appMod.state.workouts = [
+    { id: 'a', date: yk, type: 'other', durationMinutes: 45, createdAt: Date.now() },
+    { id: 'b', date: yk, type: 'other', durationMinutes: 30, createdAt: Date.now() },
+    { id: 'c', date: yk, type: 'other', durationMinutes: 15, createdAt: Date.now() }
+  ];
+  appMod.state.dailyHistory = [{ date: yk, waterTotal: 1500, waterGoal: 2000, foodTotal: 1800,
+    foodGoal: 2000, foodP: 0, foodF: 0, foodC: 0, activityMinutes: 15 }];
+  const row = appMod.getStatsDays('week').find((x) => x.date === yk);
+  const liveOk = !!row && row.activityMinutes === 90;
+  if (!liveOk) failed++;
+  console.log(`${liveOk ? '✓' : '✗'} 0.9.21 тренировки с часов, доехавшие позже, попадают в график (90 мин, не 15)`);
+
+  // Сводка не должна затираться: вода и еда дня остаются на месте.
+  const keepsOk = !!row && row.waterTotal === 1500 && row.foodTotal === 1800;
+  if (!keepsOk) failed++;
+  console.log(`${keepsOk ? '✓' : '✗'} 0.9.21 вода и еда дня при этом не теряются`);
+  appMod.state.workouts = savedW;
+  appMod.state.dailyHistory = savedH;
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

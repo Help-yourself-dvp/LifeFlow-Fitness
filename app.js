@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.20';
+const FITFLOW_VERSION = '0.9.21';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -4719,6 +4719,24 @@ function activityMinutesForDate(date) {
   return (Array.isArray(state.workouts) ? state.workouts : [])
     .filter((workout) => workout && workout.date === date)
     .reduce((sum, workout) => sum + (Number(workout.durationMinutes) || 0), 0);
+}
+
+/* 0.9.21: минуты активности дня для Статистики.
+   Дефект, найденный владельцем: на графике за 24-е стояло 15 минут вместо
+   реальных 90. Причина — архивная сводка дня (dailyHistory) пишется в момент
+   события (глоток воды, приём пищи) и запоминает минуты, которые были ИЗВЕСТНЫ
+   на тот момент. Тренировки с часов доезжают позже (Health Connect отдаёт их
+   при следующем открытии приложения), а график читал сводку и больше никогда
+   к журналу не возвращался: день со сводкой считался «уже посчитанным».
+   syncPastDaySummary чинил только те дни, которые правились через приложение.
+   Журнал state.workouts хранит все тренировки с датами и ничем не обрезается,
+   поэтому он — источник правды. Берём большее из двух: журнал не может
+   занизить (он полный), а сводка страхует старые дни, если запись из журнала
+   когда-то была удалена вместе с историей. */
+function statsActivityMinutes(date, summary) {
+  const fromJournal = activityMinutesForDate(date);
+  const fromSummary = Math.max(0, Math.round(Number(summary && summary.activityMinutes) || 0));
+  return Math.max(fromJournal, fromSummary);
 }
 
 /* 0.8.22 (P24): компактная копия позиций еды для истории дня. */
@@ -6593,7 +6611,11 @@ function renderStatsCompare() {
   const prev = [];
   for (let offset = count * 2 - 1; offset >= count; offset--) {
     const date = statsDateKey(offset);
-    prev.push(historyByDate.get(date) || blank(date));
+    const summary = historyByDate.get(date);
+    // 0.9.21: сводка прошлого периода тоже могла устареть — сверяем с журналом.
+    prev.push(summary
+      ? Object.assign({}, summary, { activityMinutes: statsActivityMinutes(date, summary) })
+      : blank(date));
   }
   const cur = getStatsDays(period);
   const sum = (days, key) => days.reduce((s, d) => s + (Number(d[key]) || 0), 0);
@@ -8052,6 +8074,11 @@ function undoAutoWatchWorkout(recordId) {
   toast('Тренировка с часов убрана из дневника');
 }
 
+/* 0.9.21: развёрнут ли список тренировок с часов. По умолчанию свёрнут —
+   баннер не должен закрывать собой раздел; значение живёт в памяти вкладки
+   (интерфейсное состояние, в резервную копию и localStorage не просится). */
+let watchSuggestExpanded = false;
+
 /* Баннер «нашли тренировки с часов» в разделе Активность. */
 function renderWatchWorkoutsSuggest() {
   if (typeof document === 'undefined') return;
@@ -8136,7 +8163,35 @@ function renderWatchWorkoutsSuggest() {
   const autoBlock = autoRows
     ? '<p class="watch-workout-hint">⌚ Тренировки с часов за прошлые дни добавлены сами — можно отменить</p>' + autoRows
     : '';
-  box.innerHTML = pendingBlock + autoBlock;
+  /* 0.9.21: часы пишут «тренировкой» и обычную ходьбу, поэтому за несколько
+     дней здесь набиралось полтора десятка блоков — раздел «Активность»
+     превращался в простыню, и до дневника приходилось долго листать.
+     Сворачиваем список под одну строку-заголовок: видно, сколько тренировок
+     ждёт решения, а подробности — по тапу. Разметку строим тем же
+     механизмом, что и остальные раскрываемые блоки приложения
+     (.collapsible-toggle + .collapsible-content), чтобы поведение,
+     анимация и доступность совпадали с уже привычными разделами.
+     Важно: кнопки строк лежат ВНУТРИ .collapsible-content — клик по самому
+     .collapsible-toggle сворачивает блок, и кнопка внутри него не сработала бы. */
+  const total = pending.length + autoAdded.length;
+  const parts = [];
+  if (pending.length) parts.push(`${pending.length} ждёт решения`);
+  if (autoAdded.length) parts.push(`${autoAdded.length} добавлено само`);
+  const summary = parts.join(' · ');
+  /* Состояние раскрытия переживает перерисовку: список обновляется после
+     каждого «Добавить»/«Игнорировать», и схлопывать его на каждом клике
+     было бы издевательством — владелец разбирает сессии одну за другой. */
+  const wasOpen = watchSuggestExpanded;
+  box.innerHTML = `
+    <div class="collapsible-block watch-workouts-block">
+      <button class="collapsible-toggle watch-workouts-toggle" type="button" aria-expanded="${wasOpen ? 'true' : 'false'}" data-watch-toggle="1">
+        <span>⌚ Тренировки с часов: ${total} · ${escapeHtml(summary)}</span>
+        <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="collapsible-content${wasOpen ? ' is-open' : ''}" id="watch-workouts-content"><div>
+        ${pendingBlock}${autoBlock}
+      </div></div>
+    </div>`;
 }
 
 /* 0.8.11: обратная заливка истории шагов (P28) — нативный мост вернул JSON
@@ -9092,16 +9147,20 @@ function getStatsDays(period = activeStatsPeriod) {
   const days = [];
   for (let offset = count - 1; offset >= 0; offset--) {
     const date = statsDateKey(offset);
-    days.push(date === todayKey()
-      ? currentDaySummary()
-      : (historyByDate.get(date) || {
+    if (date === todayKey()) { days.push(currentDaySummary()); continue; }
+    const summary = historyByDate.get(date);
+    /* 0.4.9: сводки дня может не быть (см. урок normalizeDailyHistory), но
+       журнал тренировок хранит даты сам — минуты активности показываем
+       правдиво (это факт журнала, не выдумка), вода/еда без сводки — нули.
+       0.9.21: и при НАЛИЧИИ сводки минуты сверяем с журналом — тренировка
+       с часов могла доехать уже после того, как сводка была записана. */
+    days.push(summary
+      ? Object.assign({}, summary, { activityMinutes: statsActivityMinutes(date, summary) })
+      : {
         date, waterTotal: 0, waterGoal: DEFAULTS.water.goal,
         foodTotal: 0, foodGoal: DEFAULTS.food.goal,
-        // 0.4.9: сводки дня может не быть (см. урок normalizeDailyHistory), но
-        // журнал тренировок хранит даты сам — минуты активности показываем
-        // правдиво (это факт журнала, не выдумка), вода/еда без сводки — нули.
         activityMinutes: activityMinutesForDate(date)
-      }));
+      });
   }
   return days;
 }
@@ -14947,6 +15006,14 @@ function init() {
   });
   // 0.8.0: подсказка «нашли тренировку с часов» — добавить / игнорировать
   $('#watch-workouts-suggest').addEventListener('click', (e) => {
+    // 0.9.21: тап по заголовку разворачивает/сворачивает список.
+    const toggleBtn = e.target.closest('[data-watch-toggle]');
+    if (toggleBtn) {
+      const content = $('#watch-workouts-content');
+      watchSuggestExpanded = toggleBtn.getAttribute('aria-expanded') !== 'true';
+      if (content) setCollapsibleState(toggleBtn, content, watchSuggestExpanded);
+      return;
+    }
     const addBtn = e.target.closest('[data-watch-import]');
     if (addBtn) return importWatchWorkout(addBtn.dataset.watchImport);
     const ignoreBtn = e.target.closest('[data-watch-ignore]');
@@ -17963,7 +18030,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parseQuickSets, parseRestInput, formatRestSeconds, // 0.9.12
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
-    normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, mergeDuplicateFoodItems, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
+    normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, statsActivityMinutes, activityMinutesForDate, mergeDuplicateFoodItems, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
     normalizeNumberWords, computeGameTasks, computeGameRecords, renderStatsCompare,
     describeFoodItemLine, parseSandwichItem, parseDishFromItem,
     computeGameMedals, computeRunKmTotal, computeStepsTotal, computeWeightLostKg,
