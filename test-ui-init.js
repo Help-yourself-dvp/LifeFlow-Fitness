@@ -3881,5 +3881,67 @@ for (const id of ids) {
   console.log(`${profileOk ? '✓' : '✗'} 0.9.16 без веса в профиле объём не выдумывается`);
 }
 
+// --- 0.9.17: прогресс по упражнению «в прошлый раз 50, сейчас 57» ----------
+{
+  const api = require('./app.js');
+  const css = fs.readFileSync('style.css', 'utf8');
+
+  // 1. Главный сценарий владельца: рабочий вес вырос с 50 до 57 кг.
+  const s1 = [
+    { id: '1', date: '2026-08-17', exercises: [{ name: 'жим лёжа', sets: [{ weight: 50, reps: 8 }] }] },
+    { id: '2', date: '2026-08-24', exercises: [{ name: 'жим лёжа', sets: [{ weight: 57, reps: 8 }] }] }
+  ];
+  const p1 = api.computeExerciseProgress(s1)[0];
+  const growOk = p1 && p1.prev.weight === 50 && p1.last.weight === 57
+    && p1.deltaKg === 7 && api.formatStrengthProgress(p1) === '▲ +7 кг';
+  if (!growOk) failed++;
+  console.log(`${growOk ? '✓' : '✗'} 0.9.17 рост рабочего веса 50 → 57 показывается как +7 кг`);
+
+  // 2. Собственный вес: прогресс идёт по повторениям, а не по кг.
+  const s2 = [
+    { id: '1', date: '2026-08-17', exercises: [{ name: 'отжимания от пола', sets: [{ weight: 0, reps: 20 }] }] },
+    { id: '2', date: '2026-08-24', exercises: [{ name: 'отжимания от пола', sets: [{ weight: 0, reps: 25 }] }] }
+  ];
+  const p2 = api.computeExerciseProgress(s2)[0];
+  const repsOk = p2 && p2.deltaReps === 5 && api.formatStrengthProgress(p2) === '▲ +5 повт.'
+    && api.formatStrengthSet(p2.name, p2.last) === 'своим весом × 25';
+  if (!repsOk) failed++;
+  console.log(`${repsOk ? '✓' : '✗'} 0.9.17 у собственного веса прогресс считается в повторениях`);
+
+  // 3. Сравнивается ВНЕШНИЙ вес, а не нагрузка с массой тела: иначе похудение
+  //    выглядело бы откатом в подтягиваниях, хотя человек просто легче.
+  const s3 = [
+    { id: '1', date: '2026-08-17', exercises: [{ name: 'подтягивания', sets: [{ weight: 0, reps: 10 }] }] },
+    { id: '2', date: '2026-08-24', exercises: [{ name: 'подтягивания', sets: [{ weight: 5, reps: 8 }] }] }
+  ];
+  const p3 = api.computeExerciseProgress(s3)[0];
+  const addOk = p3 && p3.deltaKg === 5 && api.formatStrengthSet(p3.name, p3.last) === '+5 кг × 8';
+  if (!addOk) failed++;
+  console.log(`${addOk ? '✓' : '✗'} 0.9.17 динамика считается по добавке, масса тела её не искажает`);
+
+  // 4. Одна тренировка — сравнивать не с чем, блок не выдумывается.
+  const noneOk = api.computeExerciseProgress([s1[0]]).length === 0;
+  if (!noneOk) failed++;
+  console.log(`${noneOk ? '✓' : '✗'} 0.9.17 после первой тренировки прогресс не показывается`);
+
+  // 5. Две сессии в один день не должны давать «прогресс внутри дня» —
+  //    точка на день одна, берётся лучший подход.
+  const s5 = [
+    { id: '1', date: '2026-08-24', exercises: [{ name: 'присед', sets: [{ weight: 60, reps: 5 }] }] },
+    { id: '2', date: '2026-08-24', exercises: [{ name: 'присед', sets: [{ weight: 70, reps: 5 }] }] }
+  ];
+  const dayOk = api.computeExerciseProgress(s5).length === 0;
+  if (!dayOk) failed++;
+  console.log(`${dayOk ? '✓' : '✗'} 0.9.17 две сессии за один день не создают ложный прогресс`);
+
+  // 6. Блок выводится в истории раньше рекордов и имеет стили.
+  const uiOk = /Как идёт прогресс/.test(app)
+    && app.indexOf('Как идёт прогресс') < app.indexOf('Личные рекорды по упражнениям')
+    && /в прошлый раз \$\{formatStrengthSet/.test(app)
+    && /\.strength-progress-row/.test(css);
+  if (!uiOk) failed++;
+  console.log(`${uiOk ? '✓' : '✗'} 0.9.17 блок прогресса стоит перед рекордами и оформлен`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

@@ -2585,6 +2585,18 @@ html[data-theme="dark"] .segmented button.active {
 .strength-record strong { font-size: 0.8rem; overflow-wrap: anywhere; }
 .strength-record span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
 .strength-record-goal { color: var(--md-sys-color-primary); font-weight: 600; }
+/* 0.9.17: динамика по упражнению — «в прошлый раз 50, сейчас 57». */
+.strength-progress { display: grid; gap: 4px; min-width: 0; margin-bottom: 8px; }
+.strength-progress-row { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; border-left-width: 3px; min-width: 0; }
+.strength-progress-row strong { font-size: 0.8rem; overflow-wrap: anywhere; }
+.strength-progress-line { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); overflow-wrap: anywhere; }
+.strength-progress-delta { font-size: 0.72rem; font-weight: 700; }
+.strength-progress-row.up { border-left-color: #2e7d32; }
+.strength-progress-row.up .strength-progress-delta { color: #2e7d32; }
+.strength-progress-row.down { border-left-color: #b3261e; }
+.strength-progress-row.down .strength-progress-delta { color: #b3261e; }
+.strength-progress-row.same { border-left-color: var(--md-sys-color-outline-variant); }
+.strength-progress-row.same .strength-progress-delta { color: var(--md-sys-color-on-surface-variant); }
 /* Шаблоны силовых (0.8.8) */
 .strength-templates { display: grid; gap: 6px; min-width: 0; }
 .strength-templates-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }

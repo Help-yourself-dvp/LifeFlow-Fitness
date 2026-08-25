@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.16';
+const FITFLOW_VERSION = '0.9.17';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -11037,6 +11037,84 @@ function computeStrengthRecords(sessions) {
   return Array.from(map.values()).sort((a, b) => b.best1RM - a.best1RM);
 }
 
+/* 0.9.17: прогресс по упражнению — «в прошлый раз 50, сейчас 57».
+   Рекорды показывают абсолютный максимум за всё время, но вопрос владельца
+   другой: расту ли я от тренировки к тренировке. Сравниваем рабочий подход
+   последней тренировки с предыдущей — по каждому упражнению отдельно.
+
+   Сравниваем ВНЕШНИЙ вес (то, что в поле) и повторы, а не полную нагрузку с
+   массой тела: иначе похудение на 3 кг показалось бы откатом в подтягиваниях,
+   хотя человек стал лишь легче. Масса тела нужна для объёма и разового
+   максимума, для динамики она только мешает. */
+function strengthTopSet(sets) {
+  let top = null;
+  (Array.isArray(sets) ? sets : []).forEach((set) => {
+    const w = Number(set && set.weight) || 0;
+    const r = Number(set && set.reps) || 0;
+    if (r <= 0) return;
+    if (!top || w > top.weight || (w === top.weight && r > top.reps)) top = { weight: w, reps: r };
+  });
+  return top;
+}
+
+function computeExerciseProgress(sessions) {
+  const byName = new Map();
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return;
+    (Array.isArray(s.exercises) ? s.exercises : []).forEach((ex) => {
+      const name = String((ex && ex.name) || '').trim();
+      if (!name) return;
+      const top = strengthTopSet(ex.sets);
+      if (!top) return;
+      const key = name.toLowerCase();
+      const list = byName.get(key) || { name, entries: [] };
+      // Одна тренировка = одна точка. Если упражнение попало в сессию дважды,
+      // берём лучший подход дня, иначе «прогресс» скакал бы внутри дня.
+      const same = list.entries.find((e) => e.date === s.date);
+      if (same) {
+        if (top.weight > same.weight || (top.weight === same.weight && top.reps > same.reps)) {
+          same.weight = top.weight;
+          same.reps = top.reps;
+        }
+      } else {
+        list.entries.push({ date: s.date, weight: top.weight, reps: top.reps });
+      }
+      byName.set(key, list);
+    });
+  });
+  const out = [];
+  byName.forEach((item) => {
+    const entries = item.entries.sort((a, b) => (a.date < b.date ? 1 : (a.date > b.date ? -1 : 0)));
+    if (entries.length < 2) return;
+    const last = entries[0];
+    const prev = entries[1];
+    out.push({
+      name: item.name,
+      last,
+      prev,
+      deltaKg: Math.round((last.weight - prev.weight) * 10) / 10,
+      deltaReps: last.reps - prev.reps
+    });
+  });
+  return out.sort((a, b) => (a.last.date < b.last.date ? 1 : (a.last.date > b.last.date ? -1 : 0)));
+}
+
+/* Подпись подхода: у собственного веса поле веса — это добавка, поэтому
+   «своим весом × 10» или «+8 кг × 6», а у штанги обычное «57 кг × 8». */
+function formatStrengthSet(name, set) {
+  const isBw = bodyweightCoefFor(name) > 0;
+  if (isBw) return (set.weight > 0 ? `+${fmt(set.weight)} кг × ${set.reps}` : `своим весом × ${set.reps}`);
+  return `${fmt(set.weight)} кг × ${set.reps}`;
+}
+
+function formatStrengthProgress(item) {
+  if (item.deltaKg > 0) return `▲ +${fmt(item.deltaKg)} кг`;
+  if (item.deltaKg < 0) return `▼ −${fmt(Math.abs(item.deltaKg))} кг`;
+  if (item.deltaReps > 0) return `▲ +${item.deltaReps} повт.`;
+  if (item.deltaReps < 0) return `▼ −${Math.abs(item.deltaReps)} повт.`;
+  return '≈ как в прошлый раз';
+}
+
 function renderStrengthHistory() {
   if (typeof document === 'undefined') return;
   const box = $('#strength-history');
@@ -11044,6 +11122,24 @@ function renderStrengthHistory() {
   const sessions = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
   const records = computeStrengthRecords(sessions);
   let html = '';
+  /* 0.9.17: динамика идёт ПЕРВОЙ — это главный вопрос владельца («в прошлый
+     раз 50, в этот 57»), а рекорд за всё время отвечает на другой. */
+  const progress = computeExerciseProgress(sessions);
+  if (progress.length) {
+    html += '<p class="strength-history-hint">Как идёт прогресс</p><div class="strength-progress">';
+    progress.slice(0, 12).forEach((item) => {
+      const arrow = formatStrengthProgress(item);
+      const cls = item.deltaKg > 0 || (item.deltaKg === 0 && item.deltaReps > 0)
+        ? 'up'
+        : (item.deltaKg < 0 || (item.deltaKg === 0 && item.deltaReps < 0) ? 'down' : 'same');
+      html += `<div class="strength-progress-row ${cls}">`
+        + `<strong>${escapeHtml(item.name)}</strong>`
+        + `<span class="strength-progress-line">в прошлый раз ${formatStrengthSet(item.name, item.prev)} → сейчас ${formatStrengthSet(item.name, item.last)}</span>`
+        + `<span class="strength-progress-delta">${arrow}</span>`
+        + '</div>';
+    });
+    html += '</div>';
+  }
   if (records.length) {
     html += '<p class="strength-history-hint">Личные рекорды по упражнениям</p><div class="strength-records">';
     records.slice(0, 20).forEach((r) => {
@@ -17582,6 +17678,7 @@ if (typeof module !== 'undefined' && module.exports) {
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,
+    strengthTopSet, computeExerciseProgress, formatStrengthSet, formatStrengthProgress,
     STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, mergeSleepBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };
 }
