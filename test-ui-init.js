@@ -4027,5 +4027,57 @@ for (const id of ids) {
   console.log(`${helpOk ? '✓' : '✗'} 0.9.18 справка «?» объясняет оба показателя и влияние веса тела`);
 }
 
+// --- 0.9.19: кнопка «+250 мл» на умных часах ------------------------------
+// Владелец: «уведомление приходит на часы, но там его можно только смахнуть».
+// Действия из addAction() Wear OS бриджит сам, но кладёт во вторую карточку —
+// поэтому нужен явный WearableExtender. Ловушка, которую и стережёт тест:
+// как только WearableExtender.addAction() не пуст, на часах видны ТОЛЬКО эти
+// действия. Забыть продублировать в него «+250 мл» — значит оставить часы
+// вообще без кнопок, то есть сделать хуже, чем было.
+{
+  const waterSrc = fs.readFileSync('android-native/WaterReminderReceiver.java', 'utf8');
+  const courseSrc = fs.readFileSync('android-native/CourseReminderReceiver.java', 'utf8');
+
+  const wearWater = /new NotificationCompat\.WearableExtender\(\)/.test(waterSrc)
+    && /b\.extend\(/.test(waterSrc)
+    && /NotificationCompat\.Action\.Builder\([\s\S]{0,120}addPi\)/.test(waterSrc)
+    && /setDismissalId\(/.test(waterSrc);
+  if (!wearWater) failed++;
+  console.log(`${wearWater ? '✓' : '✗'} 0.9.19 напоминание о воде несёт кнопку добавления на часы`);
+
+  // Действие обязано быть тем же броадкастом, что и на телефоне (ADD_WATER_250),
+  // иначе нажатие на часах открывало бы приложение — ровно то, чего просили
+  // избежать и для витаминов, и для воды.
+  const reusesBroadcast = /PendingIntent addPi = PendingIntent\.getBroadcast/.test(waterSrc)
+    && /ADD_WATER_250/.test(waterSrc);
+  if (!reusesBroadcast) failed++;
+  console.log(`${reusesBroadcast ? '✓' : '✗'} 0.9.19 кнопка на часах пишет воду броадкастом, не открывая приложение`);
+
+  // «Настроить» на часах не нужна (настройки всё равно на телефоне), а вот
+  // на телефоне обе кнопки обязаны остаться — WearableExtender их не заменяет.
+  const wearOnlyWater = (waterSrc.match(/WearableExtender\(\)[\s\S]{0,400}?\)\);/) || [''])[0];
+  const phoneKept = /addAction\(R\.drawable\.ic_stat_icon, "\+ 250 мл воды", addPi\)/.test(waterSrc)
+    && /addAction\(R\.drawable\.ic_stat_icon, "⚙️ Настроить", nsetPi\)/.test(waterSrc)
+    && !/Настроить/.test(wearOnlyWater);
+  if (!phoneKept) failed++;
+  console.log(`${phoneKept ? '✓' : '✗'} 0.9.19 на телефоне обе кнопки остались, на часах — только нужная`);
+
+  // Курс: dismissalId обязан быть привязан к notifId, иначе смахивание одного
+  // приёма на часах убирало бы напоминание о другом (id уникален у каждой дозы).
+  const wearCourse = /new NotificationCompat\.WearableExtender\(\)/.test(courseSrc)
+    && /NotificationCompat\.Action\.Builder\([\s\S]{0,120}takenPi\)/.test(courseSrc)
+    && /setDismissalId\("fitflow-course-" \+ notifId\)/.test(courseSrc);
+  if (!wearCourse) failed++;
+  console.log(`${wearCourse ? '✓' : '✗'} 0.9.19 напоминание курса несёт кнопку «Принял» на часы, id смахивания свой`);
+
+  // Честность перед владельцем: FAQ обязан объяснять, что на Zepp/Amazfit
+  // кнопок не будет — это ограничение часов, и подсказывать рабочий обходной
+  // путь (виджет). Без этого пользователь решит, что функция сломана.
+  const faqOk = /На часах у уведомления нет кнопки/.test(app)
+    && /Wear OS/.test(app) && /Zepp/.test(app) && /виджет/i.test(app);
+  if (!faqOk) failed++;
+  console.log(`${faqOk ? '✓' : '✗'} 0.9.19 FAQ честно объясняет разницу между Wear OS и браслетами-компаньонами`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

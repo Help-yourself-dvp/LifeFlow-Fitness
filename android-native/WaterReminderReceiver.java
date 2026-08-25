@@ -255,6 +255,35 @@ public class WaterReminderReceiver extends BroadcastReceiver {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .addAction(R.drawable.ic_stat_icon, "+ 250 мл воды", addPi)
             .addAction(R.drawable.ic_stat_icon, "⚙️ Настроить", nsetPi);
+
+        /* 0.9.19 (владелец: «на часах уведомление можно только смахнуть») —
+           отдельный список действий для умных часов.
+
+           Как это работает. Обычные addAction() часы на Wear OS подхватывают
+           сами, но кладут их во вторую карточку, до которой доскроллить
+           получается не всегда. Как только WearableExtender.addAction() не
+           пуст, на часах видны ТОЛЬКО перечисленные здесь кнопки — поэтому
+           дублируем сюда «+250 мл» и НЕ дублируем «Настроить»: настройки
+           всё равно открываются на телефоне, а лишняя кнопка на маленьком
+           экране только мешает («простое приложение», один нужный жест).
+
+           Кнопка запускает тот же PendingIntent, что и на телефоне, — броадкаст
+           ADD_WATER_250. Приложение при этом не открывается: вода уходит
+           в очередь prefs и доезжает в дневник при следующем запуске.
+
+           setDismissalId связывает смахивание: убрали уведомление на часах —
+           оно исчезнет и с телефона (и сработает та же 45-минутная тишина),
+           убрали на телефоне — пропадёт с часов.
+
+           Важное ограничение: это протокол Wear OS. На часах Zepp/Amazfit
+           и других «компаньонных» браслетах кнопок не появится — их приложение
+           читает уведомление через Notification Listener и пересылает на часы
+           только текст, кнопки Android туда не пробрасываются в принципе. */
+        b.extend(new NotificationCompat.WearableExtender()
+            .addAction(new NotificationCompat.Action.Builder(
+                    R.drawable.ic_stat_icon, "+ 250 мл", addPi)
+                .build())
+            .setDismissalId("fitflow-water-" + WATER_NOTIFICATION_ID));
         try {
             NotificationManagerCompat.from(context).notify(WATER_NOTIFICATION_ID, b.build());
             // 0.4.15 (просьба владельца): подтверждение «+250 мл» показывает

@@ -208,6 +208,17 @@ public class CourseReminderReceiver extends BroadcastReceiver {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .addAction(R.drawable.ic_stat_icon, "✓ Принял", takenPi)
             .addAction(R.drawable.ic_stat_icon, "⚙️ Настроить", nsetPi);
+
+        /* 0.9.19 — та же логика, что у воды: на часах Wear OS оставляем одну
+           кнопку «✓ Принял», без «Настроить». Как только список WearableExtender
+           не пуст, на часах показываются только эти действия. dismissalId свой
+           у каждого приёма (notifId уникален), иначе смахивание одного приёма
+           убирало бы напоминание о другом. */
+        b.extend(new NotificationCompat.WearableExtender()
+            .addAction(new NotificationCompat.Action.Builder(
+                    R.drawable.ic_stat_icon, "✓ Принял", takenPi)
+                .build())
+            .setDismissalId("fitflow-course-" + notifId));
         try {
             NotificationManagerCompat.from(context).notify(notifId, b.build());
         } catch (SecurityException se) { } catch (Exception e) { }
