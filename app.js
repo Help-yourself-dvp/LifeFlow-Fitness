@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.17';
+const FITFLOW_VERSION = '0.9.18';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5580,6 +5580,10 @@ const GREETING_SUBTITLES = [
   'Любая запись лучше, чем день без записей'
 ];
 let activeStatsPeriod = 'week';
+/* 0.9.18: период блока «Как идёт прогресс» в дневнике силовых. Отдельно от
+   статистики: там смотрят воду и калории, здесь — конкретное упражнение,
+   которое может делаться раз в неделю. */
+let strengthProgressPeriod = 'month';
 let activeWaterDetailPeriod = 'week';
 let activeFoodDetailPeriod = 'week';
 let activeWeightPeriod = 'month';
@@ -10174,17 +10178,42 @@ function computeExercise1RM(sets, load) {
   return Math.max(...list.map((s) => estimate1RM(s.w, s.r)));
 }
 
-/* Контекст нагрузки для упражнения: доля тела + масса тела из профиля.
-   Собран одним местом, чтобы дневник, рекорды и сохранение считали одинаково. */
-function strengthLoadFor(name) {
-  const bodyKg = (typeof state !== 'undefined' && state && state.profileSettings)
-    ? (Number(state.profileSettings.weightKg) || 0) : 0;
+/* 0.9.18: масса тела на дату тренировки. Раньше объём всех прошлых тренировок
+   пересчитывался по СЕГОДНЯШНЕМУ весу: человек худел на 3 кг — и объём майской
+   тренировки задним числом уменьшался, хотя в мае он поднял ровно столько,
+   сколько поднял. Берём последнее взвешивание не позже даты тренировки. */
+function bodyWeightOnDate(dateKey) {
+  const profile = (typeof state !== 'undefined' && state && state.profileSettings) ? state.profileSettings : null;
+  if (!profile) return 0;
+  const current = Number(profile.weightKg) || 0;
+  const history = normalizeWeightHistory(profile.weightHistory);
+  const date = String(dateKey || '');
+  if (!history.length || !date) return current;
+  let found = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].date <= date) found = history[i].weightKg;
+    else break;
+  }
+  // Тренировка старше первого взвешивания — честнее взять самое раннее известное,
+  // чем сегодняшнее: оно ближе к правде того периода.
+  return found || history[0].weightKg || current;
+}
+
+/* Контекст нагрузки для упражнения: доля тела + масса тела.
+   Собран одним местом, чтобы дневник, рекорды и сохранение считали одинаково.
+   Без даты берётся текущий вес (дневник заполняется сегодня), с датой —
+   вес на тот день. */
+function strengthLoadFor(name, dateKey) {
+  const bodyKg = dateKey
+    ? bodyWeightOnDate(dateKey)
+    : ((typeof state !== 'undefined' && state && state.profileSettings) ? (Number(state.profileSettings.weightKg) || 0) : 0);
   return { coef: bodyweightCoefFor(name), bodyKg };
 }
 
 function computeSessionTonnage(session) {
   const exercises = (session && Array.isArray(session.exercises)) ? session.exercises : [];
-  return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets, strengthLoadFor(ex && ex.name)), 0);
+  const date = session && session.date;
+  return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets, strengthLoadFor(ex && ex.name, date)), 0);
 }
 
 /* ============================================================
@@ -10203,8 +10232,27 @@ const STRENGTH_LADDER_RULES = [
 ];
 const STRENGTH_GENERIC_LADDER = { base: 20, steps: [5, 5, 3, 3, 1] };
 
-function strengthLadderFor(name) {
+/* 0.9.18: лестница для упражнений с собственным весом.
+   С 0.9.16 рекорд подтягиваний считается вместе с массой тела, и 1RM сразу
+   оказывался около 100 кг. Прежняя общая лестница (старт 20 кг, шаг 1 кг)
+   выдавала за это «Lv 70» — бессмысленную цифру, которая к тому же росла
+   при наборе веса и падала при похудении.
+   Точка отсчёта — сама масса тела: «поднимаю себя» = первый уровень,
+   дальше шаги по добавке (жилет, блин на поясе). */
+function bodyweightLadderFor(bodyKg, coef) {
+  const base = Math.round(bodyKg * coef);
+  // Шаги здесь крупнее, чем у штанги, и РАСТУТ, а не сжимаются. Причина: в
+  // отжиманиях и подтягиваниях делают по 15-30 повторов, а формула 1RM от
+  // числа повторов растёт быстро — с мелким шагом уровни сыпались бы пачками
+  // за одну тренировку и обесценились.
+  return { base, steps: [5, 5, 5, 10, 10, 10, 15] };
+}
+
+function strengthLadderFor(name, bodyKg) {
   const n = String(name || '').toLowerCase();
+  const coef = bodyweightCoefFor(n);
+  const body = Number(bodyKg) || 0;
+  if (coef > 0 && body > 0) return bodyweightLadderFor(body, coef);
   const rule = STRENGTH_LADDER_RULES.find((r) => r.keys.some((k) => n.includes(k)));
   return rule ? { base: rule.base, steps: rule.steps } : STRENGTH_GENERIC_LADDER;
 }
@@ -10220,8 +10268,10 @@ function strengthTargetAt(ladder, level) {
 }
 
 /* Уровень по лучшему 1RM: сколько порогов ≤ PR + следующая цель. */
-function computeStrengthLevel(name, prKg) {
-  const ladder = strengthLadderFor(name);
+function computeStrengthLevel(name, prKg, bodyKg) {
+  const body = Number(bodyKg) || ((typeof state !== 'undefined' && state && state.profileSettings)
+    ? (Number(state.profileSettings.weightKg) || 0) : 0);
+  const ladder = strengthLadderFor(name, body);
   const pr = Math.max(0, Number(prKg) || 0);
   let level = 0;
   let target = strengthTargetAt(ladder, 0);
@@ -11018,7 +11068,9 @@ function computeStrengthRecords(sessions) {
       const rec = map.get(key) || { name, best1RM: 0, bestWeight: 0, bestReps: 0, bestSetTonnage: 0, lastDate: '' };
       // 0.9.16: рекорд по реальной нагрузке. Для подтягиваний это масса тела
       // плюс добавка, иначе рекорд у них всегда оставался бы нулевым.
-      const load = strengthLoadFor(name);
+      // 0.9.18: масса тела берётся на дату той тренировки, а не сегодняшняя —
+      // иначе рекорд прошлого года «переписывался» после каждого взвешивания.
+      const load = strengthLoadFor(name, s.date);
       const rm = computeExercise1RM(ex.sets, load);
       if (rm > rec.best1RM) rec.best1RM = rm;
       (Array.isArray(ex.sets) ? ex.sets : []).forEach((set) => {
@@ -11037,15 +11089,27 @@ function computeStrengthRecords(sessions) {
   return Array.from(map.values()).sort((a, b) => b.best1RM - a.best1RM);
 }
 
-/* 0.9.17: прогресс по упражнению — «в прошлый раз 50, сейчас 57».
-   Рекорды показывают абсолютный максимум за всё время, но вопрос владельца
-   другой: расту ли я от тренировки к тренировке. Сравниваем рабочий подход
-   последней тренировки с предыдущей — по каждому упражнению отдельно.
+/* ============================================================
+   📈 0.9.18: прогресс по упражнению — два разных показателя.
 
-   Сравниваем ВНЕШНИЙ вес (то, что в поле) и повторы, а не полную нагрузку с
-   массой тела: иначе похудение на 3 кг показалось бы откатом в подтягиваниях,
-   хотя человек стал лишь легче. Масса тела нужна для объёма и разового
-   максимума, для динамики она только мешает. */
+   Владелец точно указал на две проблемы версии 0.9.17:
+   1) «две последние тренировки» — слишком узкое окно. Веса плавают, а
+      упражнение может делаться раз в неделю и реже: случайный тяжёлый или
+      лёгкий день выдавался за тренд. Нужно окно периода (7/30 дней/всё время).
+   2) «своим весом × 10 → +5 кг × 8 ▲ +5 кг» — вес вырос, а повторов меньше.
+      По одному числу непонятно, стало лучше или хуже.
+
+   Поэтому считаем ДВА показателя, они отвечают на разные вопросы:
+   • Рекорд подхода (кг) — самый тяжёлый рабочий подход. «Стал ли я сильнее».
+     Считается по ВНЕШНЕМУ весу (что в поле), чтобы похудение не выглядело
+     откатом в подтягиваниях.
+   • Объём за тренировку (кг) — сумма (вес × повторы) по всем подходам.
+     «Больше ли я сделал в сумме». Здесь масса тела УЧАСТВУЕТ (иначе объём
+     подтягиваний всегда 0), но берётся на дату той тренировки, поэтому
+     похудение не переписывает прошлое задним числом.
+============================================================ */
+
+/* Рабочий подход по внешнему весу: максимум по весу, при равенстве — по повторам. */
 function strengthTopSet(sets) {
   let top = null;
   (Array.isArray(sets) ? sets : []).forEach((set) => {
@@ -11057,46 +11121,118 @@ function strengthTopSet(sets) {
   return top;
 }
 
-function computeExerciseProgress(sessions) {
-  const byName = new Map();
+/* Одна точка = одна тренировка (дата). Если упражнение попало в сессию дважды
+   или было две сессии за день, день схлопывается: лучший подход и суммарный
+   объём дня. */
+function collectExercisePoints(sessions, name) {
+  const key = String(name || '').toLowerCase().trim();
+  const byDate = new Map();
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return;
+    (Array.isArray(s.exercises) ? s.exercises : []).forEach((ex) => {
+      const exName = String((ex && ex.name) || '').trim();
+      if (!exName || exName.toLowerCase() !== key) return;
+      const top = strengthTopSet(ex.sets);
+      if (!top) return;
+      const volume = computeSetTonnage(ex.sets, strengthLoadFor(exName, s.date));
+      const point = byDate.get(s.date);
+      if (!point) {
+        byDate.set(s.date, { date: s.date, weight: top.weight, reps: top.reps, volume });
+      } else {
+        if (top.weight > point.weight || (top.weight === point.weight && top.reps > point.reps)) {
+          point.weight = top.weight;
+          point.reps = top.reps;
+        }
+        point.volume += volume;
+      }
+    });
+  });
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/* Список упражнений с датой последней тренировки — для сортировки блока. */
+function listStrengthExercises(sessions) {
+  const map = new Map();
   (Array.isArray(sessions) ? sessions : []).forEach((s) => {
     if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return;
     (Array.isArray(s.exercises) ? s.exercises : []).forEach((ex) => {
       const name = String((ex && ex.name) || '').trim();
       if (!name) return;
-      const top = strengthTopSet(ex.sets);
-      if (!top) return;
       const key = name.toLowerCase();
-      const list = byName.get(key) || { name, entries: [] };
-      // Одна тренировка = одна точка. Если упражнение попало в сессию дважды,
-      // берём лучший подход дня, иначе «прогресс» скакал бы внутри дня.
-      const same = list.entries.find((e) => e.date === s.date);
-      if (same) {
-        if (top.weight > same.weight || (top.weight === same.weight && top.reps > same.reps)) {
-          same.weight = top.weight;
-          same.reps = top.reps;
-        }
-      } else {
-        list.entries.push({ date: s.date, weight: top.weight, reps: top.reps });
-      }
-      byName.set(key, list);
+      const rec = map.get(key) || { name, lastDate: '' };
+      if (s.date > rec.lastDate) rec.lastDate = s.date;
+      map.set(key, rec);
     });
   });
+  return [...map.values()].sort((a, b) => b.lastDate.localeCompare(a.lastDate));
+}
+
+/* Среднее по точкам — устойчивее одиночного замера, когда веса плавают. */
+function averageOf(values) {
+  const list = (Array.isArray(values) ? values : []).filter((v) => Number.isFinite(v));
+  if (!list.length) return 0;
+  return list.reduce((a, b) => a + b, 0) / list.length;
+}
+
+/* 0.9.18: прогресс по упражнению за период.
+   period: 'week' (7 дней), 'month' (30 дней), 'all' (всё время).
+   Для 7/30 дней сравниваем окно с ПРЕДЫДУЩИМ таким же окном — как в общей
+   статистике, чтобы принцип был один на всё приложение. Внутри окна берём
+   среднее: одна случайная тяжёлая тренировка не выдаётся за рост.
+   Для 'all' сравниваем первую и последнюю тренировку — это весь путь. */
+function computeExerciseProgress(sessions, period, todayDate) {
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(String(todayDate || '')) ? String(todayDate) : todayKey();
+  const days = period === 'month' ? 30 : (period === 'week' ? 7 : 0);
+  const shift = (dateKey, back) => {
+    const parts = String(dateKey).split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() - back);
+    const p = (x) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
   const out = [];
-  byName.forEach((item) => {
-    const entries = item.entries.sort((a, b) => (a.date < b.date ? 1 : (a.date > b.date ? -1 : 0)));
-    if (entries.length < 2) return;
-    const last = entries[0];
-    const prev = entries[1];
+  listStrengthExercises(sessions).forEach((ex) => {
+    const points = collectExercisePoints(sessions, ex.name);
+    if (points.length < 2) return;
+    let curPoints;
+    let prevPoints;
+    if (days > 0) {
+      const curFrom = shift(today, days - 1);
+      const prevFrom = shift(today, days * 2 - 1);
+      curPoints = points.filter((p) => p.date >= curFrom && p.date <= today);
+      prevPoints = points.filter((p) => p.date >= prevFrom && p.date < curFrom);
+    } else {
+      // Всё время: половина на половину, чтобы сравнение оставалось честным
+      // и на длинной истории, и когда тренировок всего две.
+      const half = Math.floor(points.length / 2);
+      prevPoints = points.slice(0, half);
+      curPoints = points.slice(half);
+    }
+    if (!curPoints.length || !prevPoints.length) return;
+    const curBest = Math.max(...curPoints.map((p) => p.weight));
+    const prevBest = Math.max(...prevPoints.map((p) => p.weight));
+    const curBestPoint = curPoints.filter((p) => p.weight === curBest)
+      .sort((a, b) => b.reps - a.reps)[0];
+    const prevBestPoint = prevPoints.filter((p) => p.weight === prevBest)
+      .sort((a, b) => b.reps - a.reps)[0];
+    const curVolume = averageOf(curPoints.map((p) => p.volume));
+    const prevVolume = averageOf(prevPoints.map((p) => p.volume));
     out.push({
-      name: item.name,
-      last,
-      prev,
-      deltaKg: Math.round((last.weight - prev.weight) * 10) / 10,
-      deltaReps: last.reps - prev.reps
+      name: ex.name,
+      lastDate: curPoints[curPoints.length - 1].date,
+      sessions: curPoints.length,
+      prevSessions: prevPoints.length,
+      last: { weight: curBestPoint.weight, reps: curBestPoint.reps, date: curBestPoint.date },
+      prev: { weight: prevBestPoint.weight, reps: prevBestPoint.reps, date: prevBestPoint.date },
+      deltaKg: Math.round((curBest - prevBest) * 10) / 10,
+      deltaReps: curBestPoint.reps - prevBestPoint.reps,
+      volume: Math.round(curVolume),
+      prevVolume: Math.round(prevVolume),
+      deltaVolume: Math.round(curVolume - prevVolume),
+      volumePct: prevVolume > 0 ? Math.round(((curVolume - prevVolume) / prevVolume) * 100) : 0
     });
   });
-  return out.sort((a, b) => (a.last.date < b.last.date ? 1 : (a.last.date > b.last.date ? -1 : 0)));
+  return out.sort((a, b) => b.lastDate.localeCompare(a.lastDate));
 }
 
 /* Подпись подхода: у собственного веса поле веса — это добавка, поэтому
@@ -11107,12 +11243,38 @@ function formatStrengthSet(name, set) {
   return `${fmt(set.weight)} кг × ${set.reps}`;
 }
 
+/* Показатель 1 — рекорд подхода. Если вес не изменился, смотрим повторы:
+   у собственного веса рост идёт именно в них. */
 function formatStrengthProgress(item) {
   if (item.deltaKg > 0) return `▲ +${fmt(item.deltaKg)} кг`;
   if (item.deltaKg < 0) return `▼ −${fmt(Math.abs(item.deltaKg))} кг`;
   if (item.deltaReps > 0) return `▲ +${item.deltaReps} повт.`;
   if (item.deltaReps < 0) return `▼ −${Math.abs(item.deltaReps)} повт.`;
-  return '≈ как в прошлый раз';
+  return '≈ так же';
+}
+
+/* Показатель 2 — объём за тренировку. Порог 5%: меньше — обычный разброс
+   между тренировками, а не прогресс. */
+function formatVolumeProgress(item) {
+  if (!item.prevVolume) return '';
+  const p = item.volumePct;
+  if (p > 5) return `▲ +${p}%`;
+  if (p < -5) return `▼ −${Math.abs(p)}%`;
+  return '≈ так же';
+}
+
+/* Класс строки по паре показателей: если оба выросли — рост, если оба упали —
+   спад, если разошлись — «смешанно» (именно случай «вес больше, повторов
+   меньше», о котором говорил владелец). */
+function strengthTrendClass(item) {
+  const setDir = item.deltaKg > 0 ? 1 : (item.deltaKg < 0 ? -1 : (item.deltaReps > 0 ? 1 : (item.deltaReps < 0 ? -1 : 0)));
+  const volDir = !item.prevVolume ? 0 : (item.volumePct > 5 ? 1 : (item.volumePct < -5 ? -1 : 0));
+  if (setDir > 0 && volDir >= 0) return 'up';
+  if (setDir >= 0 && volDir > 0) return 'up';
+  if (setDir < 0 && volDir <= 0) return 'down';
+  if (setDir <= 0 && volDir < 0) return 'down';
+  if (setDir !== 0 && volDir !== 0 && setDir !== volDir) return 'mixed';
+  return 'same';
 }
 
 function renderStrengthHistory() {
@@ -11122,23 +11284,52 @@ function renderStrengthHistory() {
   const sessions = Array.isArray(state.strengthSessions) ? state.strengthSessions : [];
   const records = computeStrengthRecords(sessions);
   let html = '';
-  /* 0.9.17: динамика идёт ПЕРВОЙ — это главный вопрос владельца («в прошлый
-     раз 50, в этот 57»), а рекорд за всё время отвечает на другой. */
-  const progress = computeExerciseProgress(sessions);
+  /* 0.9.18: динамика идёт ПЕРВОЙ — это главный вопрос владельца («в прошлый
+     раз 50, в этот 57»), а рекорд за всё время отвечает на другой.
+     Период выбирается кнопками: веса плавают, и по двум тренировкам подряд
+     тренд не виден. Подписи периодов совпадают с общей статистикой. */
+  const period = strengthProgressPeriod;
+  const progress = computeExerciseProgress(sessions, period);
+  const periodLabel = period === 'week' ? '7 дней' : (period === 'month' ? '30 дней' : 'всё время');
+  html += '<div class="strength-progress-head">'
+    + '<p class="strength-history-hint">Как идёт прогресс'
+    + ' <span class="help-dot" role="button" tabindex="0" data-help="strength-progress" aria-label="Как считается прогресс. Подробнее" title="Как считается прогресс">?</span></p>'
+    + '<div class="segmented strength-progress-periods" role="radiogroup" aria-label="Период прогресса">'
+    + ['week', 'month', 'all'].map((id) => {
+      const label = id === 'week' ? '7 дней' : (id === 'month' ? '30 дней' : 'Всё время');
+      return `<button type="button" class="${id === period ? 'active' : ''}" data-strength-period="${id}" aria-checked="${id === period}" role="radio">${label}</button>`;
+    }).join('')
+    + '</div></div>';
   if (progress.length) {
-    html += '<p class="strength-history-hint">Как идёт прогресс</p><div class="strength-progress">';
+    html += '<div class="strength-progress">';
     progress.slice(0, 12).forEach((item) => {
       const arrow = formatStrengthProgress(item);
-      const cls = item.deltaKg > 0 || (item.deltaKg === 0 && item.deltaReps > 0)
-        ? 'up'
-        : (item.deltaKg < 0 || (item.deltaKg === 0 && item.deltaReps < 0) ? 'down' : 'same');
+      const volArrow = formatVolumeProgress(item);
+      const cls = strengthTrendClass(item);
+      // Две строки — два разных вопроса. «Рекорд подхода» отвечает «стал ли
+      // сильнее», «объём» — «сделал ли больше в сумме». Владелец просил
+      // видеть оба, потому что вес может вырасти при меньшем числе повторов.
       html += `<div class="strength-progress-row ${cls}">`
         + `<strong>${escapeHtml(item.name)}</strong>`
-        + `<span class="strength-progress-line">в прошлый раз ${formatStrengthSet(item.name, item.prev)} → сейчас ${formatStrengthSet(item.name, item.last)}</span>`
+        + '<span class="strength-progress-metric">'
+        + `<span class="strength-progress-line">Лучший подход: ${formatStrengthSet(item.name, item.prev)} → ${formatStrengthSet(item.name, item.last)}</span>`
         + `<span class="strength-progress-delta">${arrow}</span>`
-        + '</div>';
+        + '</span>';
+      if (volArrow) {
+        html += '<span class="strength-progress-metric">'
+          + `<span class="strength-progress-line">Объём за тренировку: ${fmt(item.prevVolume)} → ${fmt(item.volume)} кг</span>`
+          + `<span class="strength-progress-delta">${volArrow}</span>`
+          + '</span>';
+      }
+      const base = period === 'all'
+        ? `${item.prevSessions} ранних против ${item.sessions} поздних тренировок`
+        : `${item.prevSessions} трен. в прошлом периоде против ${item.sessions} в этом`;
+      html += `<span class="strength-progress-base">${base}</span>`;
+      html += '</div>';
     });
     html += '</div>';
+  } else if (sessions.length) {
+    html += `<p class="strength-progress-empty">За «${periodLabel}» сравнивать пока не с чем: нужно хотя бы по одной тренировке с одним и тем же упражнением в этом периоде и в предыдущем. Выберите период побольше или запишите ещё тренировку.</p>`;
   }
   if (records.length) {
     html += '<p class="strength-history-hint">Личные рекорды по упражнениям</p><div class="strength-records">';
@@ -12978,6 +13169,10 @@ const HELP_TOPICS = {
     title: 'Прогресс силовых — бета',
     text: 'Эта функция находится в разработке и тестировании.\n\n• Что здесь точно:\nВаши подходы — вес, повторы, даты и тоннаж (вес × повторы) — это ровно то, что вы записали. Здесь ошибок нет.\n\n• Что здесь оценка:\n«1RM ≈» — расчётный разовый максимум. Мы не просим вас поднимать его в зале: он вычисляется из обычного подхода по двум формулам (Эпли и Бржицки), берётся среднее. Реальный максимум может отличаться, особенно при большом числе повторов.\n\n• Уровни и цели:\nLv и «🏅 цель» — это шкала прогресса, придуманная для мотивации, а не спортивный норматив и не разряд. Пороги подобраны на глаз для типовых движений; для вашего телосложения и стажа они могут оказаться как лёгкими, так и завышенными.\n\n• Как относиться:\nСравнивайте себя с собой прошлым: растёт расчётный 1RM — растёт и реальная сила. Не гонитесь за цифрой цели в ущерб технике и не используйте её как медицинскую или тренерскую рекомендацию.\n\n• Основа приложения — напоминания о воде и ручной учёт калорий — работает стабильно и от этой функции не зависит.'
   },
+  'strength-progress': {
+    title: 'Как считается прогресс',
+    text: 'Здесь два разных числа, и это не одно и то же. Ниже — что каждое значит.\n\n• Лучший подход (в килограммах):\nСамый тяжёлый подход за период. Отвечает на вопрос «стал ли я сильнее». Если вес не изменился, сравниваются повторения: у подтягиваний и отжиманий рост идёт именно в них.\n\n• Объём за тренировку (в килограммах):\nВес умножается на повторения и складывается по всем подходам. Отвечает на другой вопрос — «сколько всего я поднял за тренировку». Три подхода по 10 раз с 50 кг дают 1500 кг.\n\n• Зачем оба:\nБывает, что вес вырос, а повторений стало меньше. По одному числу тут не понять, лучше стало или хуже. Первое число покажет, что вес больше, второе — сколько вышло в сумме. Если оба выросли — прогресс точно есть.\n\n• Про собственный вес:\nВ подтягиваниях, отжиманиях и брусьях вы поднимаете себя. В объём это входит: берётся доля вашего веса (отжимания — примерно две трети, подтягивания и брусья — почти весь) плюс жилет или блин, если вы их указали.\n\n• Почему похудение не портит цифры:\nВ первом числе (лучший подход) вес тела не участвует вообще — только то, что вы вписали в поле. Иначе минус 3 кг на весах выглядели бы как «стал слабее», хотя вы просто похудели.\nВ объёме вес тела участвует, но берётся тот, что был в день той тренировки. Прошлые тренировки не пересчитываются задним числом.\n\n• Период:\n7 дней сравниваются с предыдущими 7, 30 дней — с предыдущими 30. Внутри периода берётся среднее, поэтому один случайный тяжёлый или лёгкий день не выдаётся за прогресс. «Всё время» делит вашу историю пополам: ранние тренировки против поздних.\n\n• Если блок пуст:\nЗначит, за выбранный период упражнение встречается только в одном отрезке. Сравнивать не с чем — выберите период побольше.\n\n• Разброс до 5%:\nОбъём почти никогда не повторяется день в день. Разницу меньше 5% приложение считает обычным колебанием и показывает «так же».'
+  },
   'settings-general': {
     title: 'Общее',
     text: '• Тема оформления: авто, светлая или тёмная палитра.\n\n• Плотность экрана: выбор объёма отображаемых карточек (Минимум / Обычный / Полный).\n\n• Состав Главной: настройка порядка и видимости карточек.\n\n• Игровой режим: задания дня и система наградных медалей.'
@@ -14653,6 +14848,18 @@ function init() {
       activeStatsPeriod = button.dataset.statsPeriod;
       renderStats();
     }));
+
+  /* 0.9.18: период блока прогресса силовых. Кнопки рисуются внутри
+     #strength-history, поэтому слушаем контейнер, а не сами кнопки. */
+  const strengthHistoryBox = $('#strength-history');
+  if (strengthHistoryBox) {
+    strengthHistoryBox.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest && e.target.closest('[data-strength-period]');
+      if (!btn) return;
+      strengthProgressPeriod = btn.dataset.strengthPeriod;
+      renderStrengthHistory();
+    });
+  }
 
   $$('[data-open-detail]').forEach((button) =>
     button.addEventListener('click', () => switchView(`${button.dataset.openDetail}-details`)));
@@ -17679,6 +17886,9 @@ if (typeof module !== 'undefined' && module.exports) {
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,
     strengthTopSet, computeExerciseProgress, formatStrengthSet, formatStrengthProgress,
+    state, // 0.9.18: тестам нужна масса тела из профиля, чтобы проверить объём
+    bodyWeightOnDate, collectExercisePoints, listStrengthExercises, averageOf,
+    formatVolumeProgress, strengthTrendClass, bodyweightLadderFor,
     STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, mergeSleepBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };
 }

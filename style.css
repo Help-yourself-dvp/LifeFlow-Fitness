@@ -2597,6 +2597,21 @@ html[data-theme="dark"] .segmented button.active {
 .strength-progress-row.down .strength-progress-delta { color: #b3261e; }
 .strength-progress-row.same { border-left-color: var(--md-sys-color-outline-variant); }
 .strength-progress-row.same .strength-progress-delta { color: var(--md-sys-color-on-surface-variant); }
+/* 0.9.18: «смешанно» — один показатель вырос, другой упал (вес больше, повторов
+   меньше). Отдельный цвет, чтобы это не читалось ни как успех, ни как провал. */
+.strength-progress-row.mixed { border-left-color: #b26a00; }
+.strength-progress-row.mixed .strength-progress-delta { color: #b26a00; }
+/* Строка показателя: подпись слева, дельта справа — два показателя друг под другом. */
+.strength-progress-metric { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.strength-progress-metric .strength-progress-line { flex: 1 1 auto; }
+.strength-progress-metric .strength-progress-delta { flex: 0 0 auto; white-space: nowrap; }
+.strength-progress-base { font-size: 0.66rem; color: var(--md-sys-color-on-surface-variant); opacity: .8; margin-top: 2px; }
+/* Переключатель периода над блоком прогресса. */
+.strength-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.strength-progress-head .strength-history-hint { margin: 0; }
+.strength-progress-periods { flex: 0 0 auto; }
+.strength-progress-periods button { padding: 5px 9px; font-size: 0.7rem; }
+.strength-progress-empty { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin: 0 0 8px; }
 /* Шаблоны силовых (0.8.8) */
 .strength-templates { display: grid; gap: 6px; min-width: 0; }
 .strength-templates-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
