@@ -3760,8 +3760,11 @@ for (const id of ids) {
 
   // 7. Порог «день засчитан» — сумма минут, а не количество записей.
   //    Часы заводят «тренировкой» двухминутную ходьбу до магазина.
+  //    0.9.22: порог тот же, но минуты берутся из activityMinutesTodayWithWatch
+  //    (дневник + неподтверждённые сессии с часов), а не только из дневника.
   const thresholdOk = /const ACTIVITY_REMINDER_MIN_MINUTES = (\d+)/.test(appS)
-    && /function hasWorkoutToday\(\)[\s\S]{0,160}activityMinutesForDate\(todayKey\(\)\) >= ACTIVITY_REMINDER_MIN_MINUTES/.test(appS);
+    && /function hasWorkoutToday\(\)[\s\S]{0,160}activityMinutesTodayWithWatch\(\) >= ACTIVITY_REMINDER_MIN_MINUTES/.test(appS)
+    && /function activityMinutesTodayWithWatch\(\)[\s\S]{0,600}activityMinutesForDate\(today\)/.test(appS);
   if (!thresholdOk) failed++;
   console.log(`${thresholdOk ? '✓' : '✗'} 0.9.15 вечерний вопрос считает СУММУ минут за день`);
 
@@ -4219,6 +4222,99 @@ for (const id of ids) {
   appMod.state.workouts = savedW;
   appMod.state.dailyHistory = savedH;
 }
+
+/* ============================================================
+   0.9.22 — вечерний вопрос учитывает НЕПОДТВЕРЖДЁННЫЕ сессии с часов
+   ------------------------------------------------------------
+   Замечание владельца: часы передали тренировку, но он её намеренно
+   не подтверждает (чтобы она записалась сама на следующий день) —
+   и вечером всё равно прилетало «была сегодня активность?».
+   ============================================================ */
+(function test0922Reminder() {
+  const fs922 = require('fs');
+  const app922 = require(require('path').resolve('app.js')); // абсолютный путь: require('./app.js') зависит от cwd
+  const appS922 = fs922.readFileSync('app.js', 'utf8');
+  const { pendingWatchMinutesForDate, ACTIVITY_REMINDER_MIN_MINUTES: THR922 } = app922;
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  const d922 = new Date();
+  const pad922 = (n) => String(n).padStart(2, '0');
+  const today922 = `${d922.getFullYear()}-${pad922(d922.getMonth() + 1)}-${pad922(d922.getDate())}`;
+  const at922 = (h, m) => new Date(d922.getFullYear(), d922.getMonth(), d922.getDate(), h, m).getTime();
+  const sess = (over) => Object.assign({
+    recordId: 'r' + Math.random(), type: 'other', title: 'Тренировка',
+    start: at922(12, 0), end: at922(12, 45), minutes: 45,
+    date: today922, imported: false, ignored: false
+  }, over || {});
+
+  // 1. Главный сценарий владельца: сессия пришла, не подтверждена → минуты есть.
+  check(pendingWatchMinutesForDate([sess()], [], today922) >= THR922,
+    '0.9.22 неподтверждённая сессия с часов даёт минуты активности');
+
+  // 2. Пустой день остаётся пустым — вопрос вечером обязан прийти.
+  check(pendingWatchMinutesForDate([], [], today922) === 0,
+    '0.9.22 без сессий минут не появляется (вопрос придёт)');
+
+  // 3. Отклонённая владельцем сессия («пропустить») не считается: он сказал,
+  //    что тренировки не было.
+  check(pendingWatchMinutesForDate([sess({ ignored: true })], [], today922) === 0,
+    '0.9.22 отклонённая сессия не засчитывается');
+
+  // 4. Уже импортированная сессия не считается второй раз: она в дневнике.
+  check(pendingWatchMinutesForDate([sess({ imported: true })], [], today922) === 0,
+    '0.9.22 импортированная сессия не удваивает минуты');
+
+  // 5. Сессия за другой день не влияет на сегодняшнее решение.
+  check(pendingWatchMinutesForDate([sess({ date: '2020-01-01' })], [], today922) === 0,
+    '0.9.22 вчерашняя сессия не закрывает сегодняшний день');
+
+  // 6. Повтор уже записанной вручную тренировки не удваивает минуты.
+  const manual = [{
+    id: 'm1', date: today922, type: 'other', durationMinutes: 45,
+    createdAt: Date.now(), watchStart: at922(12, 0), watchEnd: at922(12, 45)
+  }];
+  check(pendingWatchMinutesForDate([sess()], manual, today922) === 0,
+    '0.9.22 сессия-дубль ручной записи не считается повторно');
+
+  // 7. Короткая «тренировка» от часов (ходьба до магазина) порог не берёт.
+  check(pendingWatchMinutesForDate([sess({ end: at922(12, 7), minutes: 7 })], [], today922) < THR922,
+    '0.9.22 семиминутная ходьба день не закрывает');
+
+  // 8. Решение принимает именно hasWorkoutToday — через новую функцию.
+  check(/function hasWorkoutToday\(\)[\s\S]{0,160}activityMinutesTodayWithWatch\(\)/.test(appS922),
+    '0.9.22 hasWorkoutToday спрашивает минуты вместе с часами');
+
+  // 9. Сумма = дневник + неподтверждённое с часов.
+  check(/function activityMinutesTodayWithWatch\(\)[\s\S]{0,600}confirmed \+ pendingWatchMinutesForDate/.test(appS922),
+    '0.9.22 минуты дня = дневник + неподтверждённые сессии');
+
+  // 10. Дыра: сессия доехала с часов, а напоминание осталось запланированным.
+  check(/function onHealthWorkoutsReceived[\s\S]{0,900}syncTrainingReminderForToday/.test(appS922),
+    '0.9.22 приход сессии с часов пересчитывает напоминание');
+
+  // 11. Обратный ход: «пропустить» возвращает вечерний вопрос.
+  check(/function dismissWatchWorkout[\s\S]{0,600}syncTrainingReminderForToday/.test(appS922),
+    '0.9.22 пропуск сессии возвращает вечерний вопрос');
+
+  // 12. Обратный ход: отмена авто-добавленной тренировки — тоже.
+  check(/function undoAutoWatchWorkout[\s\S]{0,900}syncTrainingReminderForToday/.test(appS922),
+    '0.9.22 отмена авто-записи возвращает вечерний вопрос');
+
+  // 13. Автозапись на следующий день не сломана: сегодняшние сессии
+  //     по-прежнему НЕ импортируются автоматически (владелец на это рассчитывает).
+  const stale = app922.pickStaleWatchWorkouts([sess()], today922);
+  check(Array.isArray(stale) && stale.length === 0,
+    '0.9.22 сегодняшняя сессия по-прежнему ждёт следующего дня');
+
+  // 14. Порог общий с фоновым ресивером — фон и приложение закрывают день одинаково.
+  const recv922 = fs922.readFileSync('android-native/HealthSyncReceiver.java', 'utf8');
+  const nat922 = (recv922.match(/ACTIVITY_REMINDER_MIN_MINUTES = (\d+)/) || [])[1];
+  check(String(THR922) === nat922,
+    `0.9.22 порог активности един: JS ${THR922} = фон ${nat922}`);
+
+  if (!bad) console.log('  (0.9.22: вечерний вопрос молчит, когда часы уже отчитались)');
+})();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

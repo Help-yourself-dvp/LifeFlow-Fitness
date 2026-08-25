@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.21';
+const FITFLOW_VERSION = '0.9.22';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -7761,6 +7761,8 @@ function onHealthWorkoutsHistoryReceived(json) {
   saveState();
   autoImportStaleWatchWorkouts(); // прошлые дни добавятся сами, с проверкой на дубли
   renderWatchWorkoutsSuggest();
+  // 0.9.22: в пачке истории может быть и сегодняшняя сессия — см. onHealthWorkoutsReceived.
+  Promise.resolve(syncTrainingReminderForToday()).catch(() => {});
   return merged.added;
 }
 
@@ -7776,6 +7778,10 @@ function onHealthWorkoutsReceived(json) {
   saveState();
   autoImportStaleWatchWorkouts(); // 0.8.25: вчерашние сессии не теряются
   renderWatchWorkoutsSuggest();
+  /* 0.9.22: сессия за сегодня доехала с часов — вечерний вопрос уже не нужен.
+     Раньше пересчёт звали только ручные сценарии и авто-импорт прошлых дней,
+     поэтому уведомление приходило поверх тренировки, о которой часы отчитались. */
+  Promise.resolve(syncTrainingReminderForToday()).catch(() => {});
 }
 
 /* ------------------------------------------------------------
@@ -8051,6 +8057,9 @@ function dismissWatchWorkout(recordId) {
   if (s) { s.ignored = true; s.imported = false; state.healthSync.watchWorkouts = list; }
   saveState();
   renderWatchWorkoutsSuggest();
+  /* 0.9.22: «пропустить» означает «тренировки не было» — значит вечерний
+     вопрос снова уместен, если за день больше ничего не набралось. */
+  Promise.resolve(syncTrainingReminderForToday()).catch(() => {});
 }
 
 /* 0.8.25: отменить авто-добавленную тренировку — убираем запись из дневника
@@ -8071,6 +8080,8 @@ function undoAutoWatchWorkout(recordId) {
   renderTraining();
   renderWatchWorkoutsSuggest();
   updateNativeWidget();
+  // 0.9.22: запись убрана из дневника и сессия отклонена — пересобираем напоминание.
+  Promise.resolve(syncTrainingReminderForToday()).catch(() => {});
   toast('Тренировка с часов убрана из дневника');
 }
 
@@ -10068,8 +10079,40 @@ function activityCountText(count) {
    одна двухминутная — нет. */
 const ACTIVITY_REMINDER_MIN_MINUTES = 15;
 
+/* 0.9.22: минуты сессий с часов за дату, которые ЕЩЁ НЕ подтверждены.
+   Замечание владельца: вечером приходил вопрос «была сегодня активность?»,
+   хотя часы уже передали тренировку — она просто висела в подсказке
+   неподтверждённой. Владелец не подтверждает намеренно: ему удобнее, чтобы
+   сессия записалась сама на следующий день (это делает autoImportStaleWatchWorkouts).
+   Значит, для напоминания «часы передали» обязано значить то же, что «активность была».
+
+   Чистая часть (тестируется node-прогоном, без state и DOM). Считаем только
+   сессии, которых ещё нет в дневнике: imported/ignored уже учтены в state.workouts
+   либо осознанно отброшены. Сессии, признанные повтором уже записанной вручную
+   тренировки, не добавляем — иначе одна тренировка учлась бы дважды; на решение
+   «спрашивать или нет» это не влияет, но пусть цифра будет честной. */
+function pendingWatchMinutesForDate(sessions, workouts, date) {
+  const day = String(date || '');
+  return (Array.isArray(sessions) ? sessions : [])
+    .filter((s) => s && String(s.date || '') === day && !s.imported && !s.ignored)
+    .filter((s) => classifyWatchWorkout(s, workouts, {}).verdict !== 'duplicate')
+    .reduce((sum, s) => sum + Math.max(0, Math.round(Number(s.minutes) || 0)), 0);
+}
+
+/* 0.9.22: минуты активности за сегодня «как их видит владелец» — записанные
+   в дневник плюс пришедшие с часов и ждущие подтверждения. Используется
+   ТОЛЬКО для вечернего напоминания: спрашивать «была активность?» у человека,
+   чьи часы уже отчитались о тренировке, — это шум. */
+function activityMinutesTodayWithWatch() {
+  const today = todayKey();
+  const confirmed = activityMinutesForDate(today);
+  const sessions = (state.healthSync && Array.isArray(state.healthSync.watchWorkouts))
+    ? state.healthSync.watchWorkouts : [];
+  return confirmed + pendingWatchMinutesForDate(sessions, state.workouts, today);
+}
+
 function hasWorkoutToday() {
-  return activityMinutesForDate(todayKey()) >= ACTIVITY_REMINDER_MIN_MINUTES;
+  return activityMinutesTodayWithWatch() >= ACTIVITY_REMINDER_MIN_MINUTES;
 }
 
 function renderActivityTypeSelection() {
@@ -18050,6 +18093,8 @@ if (typeof module !== 'undefined' && module.exports) {
     mapWatchWorkoutType, normalizeWatchWorkouts, onHealthWorkoutsReceived, mergeWatchWorkoutsBackfill, WATCH_MIN_WORKOUT_MINUTES, computeFoodBudgetAdjustmentPure,
     // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
+    pendingWatchMinutesForDate, ACTIVITY_REMINDER_MIN_MINUTES, // 0.9.22
+
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,
     strengthTopSet, computeExerciseProgress, formatStrengthSet, formatStrengthProgress,
