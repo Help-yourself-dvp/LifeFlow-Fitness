@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.15';
+const FITFLOW_VERSION = '0.9.16';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -10100,10 +10100,52 @@ const EXERCISE_CATALOG = {
 };
 const STRENGTH_GROUPS = Object.keys(EXERCISE_CATALOG);
 
-/* Тоннаж набора подходов: Σ (вес × повторы). */
-function computeSetTonnage(sets) {
+/* ============================================================
+   0.9.16 (P37): упражнения с собственным весом.
+   Раньше вес подхода означал только внешнее отягощение, поэтому
+   подтягивания без блина давали тоннаж 0, а отжимания с жилетом 12 кг —
+   тоннаж 12 x повторения вместо реальной нагрузки. Отсюда и вопрос
+   владельца, что вообще вводить в таких упражнениях.
+   Решение без нового поля в форме: доля тела берётся из названия
+   упражнения, масса тела — из профиля, а в поле веса пользователь
+   указывает ТОЛЬКО добавку (жилет, блин на поясе) или оставляет пусто.
+   Доли: отжимания 0,64 (Youdas и др., измерение на весах),
+   подтягивания и брусья 0,95 (ExRx даёт 92,8% за вычетом предплечий,
+   практика округляет до 95%). Порядок правил важен: «отжимания на
+   брусьях» должны сматчиться раньше, чем «отжимания». */
+const BODYWEIGHT_RULES = [
+  { coef: 0.95, keys: ['брусья', 'отжимания на брусьях'] },
+  { coef: 0.95, keys: ['подтягивания', 'подтягивание'] },
+  { coef: 0.64, keys: ['отжимания', 'отжимание'] }
+];
+
+/* Доля массы тела для упражнения; 0 — обычное упражнение с внешним весом. */
+function bodyweightCoefFor(name) {
+  const n = String(name || '').toLowerCase().trim();
+  if (!n) return 0;
+  const rule = BODYWEIGHT_RULES.find((r) => r.keys.some((k) => n.includes(k)));
+  return rule ? rule.coef : 0;
+}
+
+/* Рабочий вес подхода: для обычного упражнения — что ввели, для упражнения
+   с собственным весом — доля тела плюс введённая добавка. Без массы тела в
+   профиле честнее вернуть только добавку, чем выдумывать число. */
+function setLoadKg(set, coef, bodyKg) {
+  const extra = Number(set && set.weight) || 0;
+  const c = Number(coef) || 0;
+  const body = Number(bodyKg) || 0;
+  if (c > 0 && body > 0) return Math.round((c * body + extra) * 10) / 10;
+  return extra;
+}
+
+/* Тоннаж набора подходов: Σ (рабочий вес × повторы).
+   Второй аргумент необязателен: без него считается по внешнему весу, как и
+   раньше (на это опираются сохранённые данные и тесты). */
+function computeSetTonnage(sets, load) {
+  const coef = load ? (Number(load.coef) || 0) : 0;
+  const bodyKg = load ? (Number(load.bodyKg) || 0) : 0;
   return (Array.isArray(sets) ? sets : []).reduce((sum, s) => {
-    const w = Number(s && s.weight) || 0;
+    const w = setLoadKg(s, coef, bodyKg);
     const r = Number(s && s.reps) || 0;
     return sum + (w > 0 && r > 0 ? w * r : 0);
   }, 0);
@@ -10122,16 +10164,27 @@ function estimate1RM(weight, reps) {
 
 /* 1RM упражнения — максимум оценки по его подходам (лёгкий многоповторный и
    тяжёлый малоповторный дают честную оценку каждый по-своему). */
-function computeExercise1RM(sets) {
+function computeExercise1RM(sets, load) {
+  const coef = load ? (Number(load.coef) || 0) : 0;
+  const bodyKg = load ? (Number(load.bodyKg) || 0) : 0;
   const list = (Array.isArray(sets) ? sets : [])
-    .filter((s) => Number(s && s.weight) > 0 && Number(s && s.reps) > 0);
+    .map((s) => ({ w: setLoadKg(s, coef, bodyKg), r: Number(s && s.reps) || 0 }))
+    .filter((s) => s.w > 0 && s.r > 0);
   if (!list.length) return 0;
-  return Math.max(...list.map((s) => estimate1RM(s.weight, s.reps)));
+  return Math.max(...list.map((s) => estimate1RM(s.w, s.r)));
+}
+
+/* Контекст нагрузки для упражнения: доля тела + масса тела из профиля.
+   Собран одним местом, чтобы дневник, рекорды и сохранение считали одинаково. */
+function strengthLoadFor(name) {
+  const bodyKg = (typeof state !== 'undefined' && state && state.profileSettings)
+    ? (Number(state.profileSettings.weightKg) || 0) : 0;
+  return { coef: bodyweightCoefFor(name), bodyKg };
 }
 
 function computeSessionTonnage(session) {
   const exercises = (session && Array.isArray(session.exercises)) ? session.exercises : [];
-  return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets), 0);
+  return exercises.reduce((sum, ex) => sum + computeSetTonnage(ex && ex.sets, strengthLoadFor(ex && ex.name)), 0);
 }
 
 /* ============================================================
@@ -10226,7 +10279,7 @@ function normalizeStrengthSessions() {
               weight: Math.max(0, Math.min(2000, Math.round(Number(set && set.weight) || 0))),
               reps: Math.max(0, Math.min(1000, Math.round(Number(set && set.reps) || 0)))
             }))
-            .filter((set) => set.weight > 0 || set.reps > 0)
+            .filter((set) => set.reps > 0)
             .slice(0, 40);
           return { name, sets };
         })
@@ -10736,12 +10789,18 @@ function updateStrengthSummary(idx) {
   if (!el) return;
   const ex = strengthDraft.exercises[idx];
   if (!ex) return;
-  const valid = ex.sets.filter((s) => Number(s.weight) > 0 && Number(s.reps) > 0);
-  const tonnage = computeSetTonnage(valid);
-  const rm = computeExercise1RM(valid);
-  el.textContent = valid.length
-    ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг`
-    : 'укажите вес и повторения';
+  const load = strengthLoadFor(ex.name);
+  const isBw = load.coef > 0;
+  const valid = ex.sets.filter((s) => Number(s.reps) > 0 && (isBw || Number(s.weight) > 0));
+  const tonnage = computeSetTonnage(valid, load);
+  const rm = computeExercise1RM(valid, load);
+  if (!valid.length) {
+    el.textContent = isBw ? 'укажите повторения' : 'укажите вес и повторения';
+  } else if (isBw && !load.bodyKg) {
+    el.textContent = `${valid.length} подх. · укажите вес в профиле, чтобы считать объём`;
+  } else {
+    el.textContent = `объём ${fmt(tonnage)} кг · разовый максимум ≈ ${fmt(rm)} кг`;
+  }
 }
 
 /* 0.9.12: отмена заполнения силовой. Раньше сбросить черновик было нечем —
@@ -10797,17 +10856,39 @@ function renderStrengthDiary() {
   if (strengthDraft.exercises.length) {
     html += '<div class="strength-exercises">';
     strengthDraft.exercises.forEach((ex, idx) => {
+      // 0.9.16: для упражнений с собственным весом поле веса означает добавку,
+      // и подпись поля говорит об этом прямо — вместо прежнего «Вес, кг»,
+      // из-за которого было непонятно, что вводить при отжиманиях с жилетом.
+      const load = strengthLoadFor(ex.name);
+      const isBw = load.coef > 0;
+      const wPlaceholder = isBw ? '+ жилет, кг' : 'Вес, кг';
+      const wAria = isBw ? 'Дополнительный вес в килограммах, необязательно' : 'Вес в килограммах';
+      // Пример в подсказке подбираем под упражнение: для подтягиваний строка
+      // с весом сбивала с толку — там обычно веса нет.
+      const quickPlaceholder = isBw ? '3x10' : '5x10x12';
+      const quickHint = isBw
+        ? 'Заполнить разом: 3x10 — три подхода по десять. С жилетом — 3x10x8.'
+        : 'Заполнить разом: 5x10x12 — пять подходов по десять повторений с весом 12 кг.';
       const setsHtml = ex.sets.map((set, si) => `
         <div class="strength-set">
-          <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="Вес, кг" value="${escapeHtml(set.weight)}" data-s-field="weight" data-s-ex="${idx}" data-s-set="${si}" aria-label="Вес в килограммах">
+          <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="${wPlaceholder}" value="${escapeHtml(set.weight)}" data-s-field="weight" data-s-ex="${idx}" data-s-set="${si}" aria-label="${wAria}">
           <span class="strength-set-x">×</span>
           <input type="number" inputmode="numeric" min="0" step="1" placeholder="Повторения" value="${escapeHtml(set.reps)}" data-s-field="reps" data-s-ex="${idx}" data-s-set="${si}" aria-label="Повторения в подходе">
           <button class="strength-set-remove" type="button" data-s-remove-set="${idx}" data-s-set="${si}" aria-label="Удалить подход">×</button>
         </div>`).join('');
-      const valid = ex.sets.filter((s) => Number(s.weight) > 0 && Number(s.reps) > 0);
-      const tonnage = computeSetTonnage(valid);
-      const rm = computeExercise1RM(valid);
-      const summary = valid.length ? `тоннаж ${fmt(tonnage)} кг · 1RM ≈ ${fmt(rm)} кг` : 'укажите вес и повторения';
+      const valid = ex.sets.filter((s) => Number(s.reps) > 0 && (isBw || Number(s.weight) > 0));
+      const tonnage = computeSetTonnage(valid, load);
+      const rm = computeExercise1RM(valid, load);
+      let summary;
+      if (!valid.length) {
+        summary = isBw ? 'укажите повторения' : 'укажите вес и повторения';
+      } else if (isBw && !load.bodyKg) {
+        // Без массы тела в профиле честнее сказать об этом, чем показать
+        // заниженный объём, посчитанный по одной добавке.
+        summary = `${valid.length} подх. · укажите вес в профиле, чтобы считать объём`;
+      } else {
+        summary = `объём ${fmt(tonnage)} кг · разовый максимум ≈ ${fmt(rm)} кг`;
+      }
       html += `
         <div class="strength-exercise">
           <div class="strength-exercise-head">
@@ -10817,10 +10898,10 @@ function renderStrengthDiary() {
           </div>
           ${setsHtml}
           <div class="strength-quick-row">
-            <input type="text" inputmode="decimal" class="strength-quick-input" placeholder="5x10x12" value="" data-s-quick="${idx}" aria-label="Быстрый ввод: подходы, повторения, вес">
+            <input type="text" inputmode="decimal" class="strength-quick-input" placeholder="${quickPlaceholder}" value="" data-s-quick="${idx}" aria-label="Заполнить сразу все подходы одной строкой">
             <button class="strength-quick-apply" type="button" data-s-quick-apply="${idx}">Заполнить</button>
           </div>
-          <p class="strength-quick-hint">подходы × повторения × вес, кг (вес можно не указывать)</p>
+          <p class="strength-quick-hint">${quickHint}</p>
           <button class="strength-set-add" type="button" data-s-add-set="${idx}">＋ подход</button>
         </div>`;
     });
@@ -10866,16 +10947,20 @@ function renderStrengthDiary() {
 
 function saveStrengthSession() {
   const title = String(strengthDraft.title || '').trim();
+  // 0.9.16: подход засчитывается по повторениям. Раньше фильтр требовал
+  // weight > 0, и подтягивания без блина молча исчезали при сохранении —
+  // пользователь видел «Добавьте хотя бы один подход» на заполненной форме.
+  // Для упражнений с собственным весом вес не обязателен, он и так есть.
   const exercises = strengthDraft.exercises
     .map((ex) => ({
       name: ex.name,
       sets: ex.sets
         .map((s) => ({ weight: Math.round(Number(s.weight) || 0), reps: Math.round(Number(s.reps) || 0) }))
-        .filter((s) => s.weight > 0 && s.reps > 0)
+        .filter((s) => s.reps > 0)
     }))
     .filter((ex) => ex.sets.length > 0);
   if (!exercises.length) {
-    toast('Добавьте хотя бы один подход: вес (кг) × повторы');
+    toast('Добавьте хотя бы один подход: укажите повторения');
     return;
   }
   // 0.8.6: уровни ДО сохранения — чтобы поймать «уровень поднят» как момент награды.
@@ -10910,7 +10995,7 @@ function saveStrengthSession() {
     });
   }
   normalizeStrengthSessions();
-  const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets), 0);
+  const totalTonnage = exercises.reduce((s, ex) => s + computeSetTonnage(ex.sets, strengthLoadFor(ex.name)), 0);
   resetStrengthDraft();
   saveState();
   renderTraining(); // обновляет и недельную цель, и дневник силовых
@@ -10931,10 +11016,13 @@ function computeStrengthRecords(sessions) {
       if (!name) return;
       const key = name.toLowerCase();
       const rec = map.get(key) || { name, best1RM: 0, bestWeight: 0, bestReps: 0, bestSetTonnage: 0, lastDate: '' };
-      const rm = computeExercise1RM(ex.sets);
+      // 0.9.16: рекорд по реальной нагрузке. Для подтягиваний это масса тела
+      // плюс добавка, иначе рекорд у них всегда оставался бы нулевым.
+      const load = strengthLoadFor(name);
+      const rm = computeExercise1RM(ex.sets, load);
       if (rm > rec.best1RM) rec.best1RM = rm;
       (Array.isArray(ex.sets) ? ex.sets : []).forEach((set) => {
-        const w = Number(set && set.weight) || 0;
+        const w = setLoadKg(set, load.coef, load.bodyKg);
         const r = Number(set && set.reps) || 0;
         if (w > 0 && r > 0 && (w > rec.bestWeight || (w === rec.bestWeight && r > rec.bestReps))) {
           rec.bestWeight = w;
@@ -17493,6 +17581,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
+    BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,
     STRENGTH_LADDER_RULES, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, strengthTodayDow, computeLoadBalance, onHealthStepsHistoryReceived, exportWorkoutToHealthConnect, mergeStepsBackfill, mergeSleepBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics
   };
 }

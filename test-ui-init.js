@@ -3819,5 +3819,67 @@ for (const id of ids) {
   console.log(`${zeppOk ? '✓' : '✗'} 0.9.15 подсказка про экономию батареи приложения часов`);
 }
 
+// --- 0.9.16: дневник зала понятен и не теряет подходы ---------------------
+{
+  const appS = app;
+  const api = require('./app.js');
+
+  // 1. Главный баг: подход засчитывается по повторениям. Пока фильтр требовал
+  //    weight > 0, подтягивания без блина исчезали при сохранении целиком.
+  // Внимание: почти такой же код есть в saveStrengthTemplate, поэтому срез
+  // берём строго от объявления saveStrengthSession, а не по первому indexOf.
+  const saveStart = appS.indexOf('function saveStrengthSession');
+  const saveBlock = appS.slice(saveStart, saveStart + 1200);
+  const keepsBw = /\.filter\(\(s\) => s\.reps > 0\)/.test(saveBlock)
+    && !/s\.weight > 0 && s\.reps > 0/.test(saveBlock);
+  if (!keepsBw) failed++;
+  console.log(`${keepsBw ? '✓' : '✗'} 0.9.16 подход с собственным весом сохраняется без веса`);
+
+  // 2. Тот же фильтр в нормализации — иначе подходы пропадали бы при
+  //    перезагрузке уже сохранённых данных.
+  const normOk = /\.filter\(\(set\) => set\.reps > 0\)[\s\S]{0,60}return \{ name, sets \}/.test(appS);
+  if (!normOk) failed++;
+  console.log(`${normOk ? '✓' : '✗'} 0.9.16 нормализация сессий не выбрасывает подходы без веса`);
+
+  // 3. Коэффициенты собственного веса (P37). Порядок правил важен: «брусья»
+  //    и «подтягивания» должны срабатывать раньше «отжиманий».
+  const coefOk = api.bodyweightCoefFor('подтягивания') === 0.95
+    && api.bodyweightCoefFor('Отжимания от пола') === 0.64
+    && api.bodyweightCoefFor('брусья') === 0.95
+    && api.bodyweightCoefFor('жим лёжа') === 0;
+  if (!coefOk) failed++;
+  console.log(`${coefOk ? '✓' : '✗'} 0.9.16 коэффициенты собственного веса определяются по названию`);
+
+  // 4. Нагрузка подхода = доля массы тела + добавка в поле веса.
+  const loadOk = api.setLoadKg({ weight: 0, reps: 10 }, 0.95, 80) === 76
+    && api.setLoadKg({ weight: 10, reps: 10 }, 0.95, 80) === 86
+    && api.setLoadKg({ weight: 60, reps: 10 }, 0, 80) === 60;
+  if (!loadOk) failed++;
+  console.log(`${loadOk ? '✓' : '✗'} 0.9.16 вес в поле трактуется как добавка к собственному весу`);
+
+  // 5. Объём считается только когда нагрузка передана. Без второго аргумента
+  //    поведение прежнее — сохранённые данные и старые вызовы не ломаются.
+  const sets = [{ weight: 0, reps: 10 }, { weight: 0, reps: 10 }];
+  const compatOk = api.computeSetTonnage(sets, { coef: 0.95, bodyKg: 80 }) === 1520
+    && api.computeSetTonnage(sets) === 0;
+  if (!compatOk) failed++;
+  console.log(`${compatOk ? '✓' : '✗'} 0.9.16 объём учитывает массу тела, старая сигнатура сохранена`);
+
+  // 6. Название блока и подписи полей. Прежнее «Силовая: вес × повторы»
+  //    не объясняло, что вводить при отжиманиях с жилетом.
+  const uiOk = /Тренировка в зале: подходы/.test(html)
+    && !/Силовая: вес × повторы/.test(html)
+    && /\+ жилет, кг/.test(appS)
+    && /берётся из вашего профиля/.test(html);
+  if (!uiOk) failed++;
+  console.log(`${uiOk ? '✓' : '✗'} 0.9.16 блок переименован и объясняет ввод веса`);
+
+  // 7. Без массы тела в профиле показываем просьбу, а не заниженный объём.
+  const profileOk = /укажите вес в профиле, чтобы считать объём/.test(appS)
+    && /state\.profileSettings[\s\S]{0,120}weightKg/.test(appS);
+  if (!profileOk) failed++;
+  console.log(`${profileOk ? '✓' : '✗'} 0.9.16 без веса в профиле объём не выдумывается`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);
