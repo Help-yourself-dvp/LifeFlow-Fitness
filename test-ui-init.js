@@ -4079,5 +4079,69 @@ for (const id of ids) {
   console.log(`${faqOk ? '✓' : '✗'} 0.9.19 FAQ честно объясняет разницу между Wear OS и браслетами-компаньонами`);
 }
 
+/* ---- 0.9.20: облачное распознавание фото еды ---------------------------- */
+{
+  const compat = app.slice(app.indexOf('async function cloudCallOpenAiCompat'));
+  const body = compat.slice(0, compat.indexOf('\nasync function callCloudAi'));
+
+  // Главный дефект 0.9.19: options.image не доходил до запроса вообще.
+  const imageSentOk = body.includes('const image = options && options.image')
+    && body.includes("type: 'image_url'")
+    && body.includes("'data:' + (image.mimeType || 'image/jpeg') + ';base64,' + image.base64");
+  if (!imageSentOk) failed++;
+  console.log(`${imageSentOk ? '✓' : '✗'} 0.9.20 OpenAI-совместимый транспорт реально шлёт фото частью image_url (data-URL)`);
+
+  // Без фото content обязан остаться строкой: массив частей ломает простые
+  // OpenAI-совместимые серверы (custom, pollinations).
+  const textStaysStringOk = body.includes("} else {\n    messages.push({ role: 'user', content: userText });\n  }");
+  if (!textStaysStringOk) failed++;
+  console.log(`${textStaysStringOk ? '✓' : '✗'} 0.9.20 без фото content остаётся строкой (не ломает текстовые запросы)`);
+
+  // Владелец не должен вручную вписывать имя зрячей модели.
+  const fallbackOk = body.includes('(def.visionModels || []).forEach')
+    && body.includes('models.indexOf(m) === -1')
+    && /if \(res\.status !== 400 && res\.status !== 404\) break;/.test(body)
+    && body.includes('usedModel');
+  if (!fallbackOk) failed++;
+  console.log(`${fallbackOk ? '✓' : '✗'} 0.9.20 для фото сама подставляется зрячая модель, при 400/404 берётся следующая`);
+
+  const labelOk = body.includes("modelLabel: def.label + ' · ' + usedModel");
+  if (!labelOk) failed++;
+  console.log(`${labelOk ? '✓' : '✗'} 0.9.20 в подписи ответа указана модель, которая реально ответила`);
+
+  // GigaChat: картинка идёт не в сообщении, а через хранилище файлов.
+  const gigaOk = app.includes('async function gigachatUploadImage')
+    && app.includes("form.append('purpose', 'general')")
+    && app.includes("fetch(baseUrl + '/files'")
+    && body.includes('attachments: [fileId]')
+    && !/headers:.*'Content-Type'[^\n]*\n[^\n]*body: form/s.test(app.slice(app.indexOf('async function gigachatUploadImage'), app.indexOf('async function cloudCallOpenAiCompat')));
+  if (!gigaOk) failed++;
+  console.log(`${gigaOk ? '✓' : '✗'} 0.9.20 GigaChat: фото грузится в /files с purpose=general и уходит в attachments`);
+
+  // Флаги провайдеров и подсказки должны совпадать с новым поведением.
+  const providers = app.slice(app.indexOf('const CLOUD_PROVIDERS'), app.indexOf('const GEMINI_FALLBACK_MODELS'));
+  // Блок каждого провайдера вырезаем отдельно: сквозной regex по всему списку
+  // перепрыгивает границу и находит фразу у соседа (так этот тест уже соврал).
+  const block = (id) => {
+    const from = providers.indexOf('\n  ' + id + ': {');
+    return from === -1 ? '' : providers.slice(from, providers.indexOf('\n  },', from));
+  };
+  const flagsOk = /vision: true/.test(block('openrouter'))
+    && /vision: true/.test(block('gigachat'))
+    && /vision: false/.test(block('deepseek'))
+    && /vision: false/.test(block('pollinations'))
+    && !/фото не распознаёт/i.test(block('openrouter'))
+    && !/фото не распознаёт/i.test(block('gigachat'))
+    && /фото не распознаёт/i.test(block('deepseek'));
+  if (!flagsOk) failed++;
+  console.log(`${flagsOk ? '✓' : '✗'} 0.9.20 vision включён у OpenRouter и GigaChat, у безглазых провайдеров остался false`);
+
+  const hintsOk = !/нужен Gemini\)/.test(app)
+    && !/Для фото выберите Gemini/.test(app)
+    && /Gemini, OpenRouter или GigaChat/.test(app);
+  if (!hintsOk) failed++;
+  console.log(`${hintsOk ? '✓' : '✗'} 0.9.20 подсказки больше не утверждают, что фото умеет только Gemini`);
+}
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

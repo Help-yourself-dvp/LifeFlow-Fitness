@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.19';
+const FITFLOW_VERSION = '0.9.20';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -16626,7 +16626,7 @@ function generateAiRecipe() {
   }
 }
 
-/* Общее распознавание фото через зрение нейросети (Gemini). */
+/* Общее распознавание фото через зрение нейросети (Gemini, OpenRouter, GigaChat). */
 function readImageAsBase64(file, maxSide) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -16692,10 +16692,10 @@ function handleAiRecipeCameraPhoto(file) {
   }
   if (recipeInput) recipeInput.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
-    toast('📷 У выбранного провайдера нет распознавания фото. Для фото выберите Gemini, либо перечислите продукты текстом.');
+    toast('📷 У выбранного провайдера нет распознавания фото. Для фото подойдут Gemini, OpenRouter или GigaChat, либо перечислите продукты текстом.');
     return;
   }
-  toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
+  toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini, OpenRouter или GigaChat): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
 }
 
 /* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
@@ -17107,20 +17107,37 @@ const CLOUD_PROVIDERS = {
   openrouter: {
     id: 'openrouter',
     label: 'OpenRouter',
-    hint: 'Ключ: openrouter.ai → Keys. Есть бесплатные модели (метка «free»); название модели можно изменить ниже. Фото не распознаёт.',
-    vision: false,
+    hint: 'Ключ: openrouter.ai → Keys. Есть бесплатные модели (метка «free»); название модели можно изменить ниже. Фото еды распознаёт: для снимка приложение само берёт бесплатную зрячую модель, обычную модель для текста менять не нужно.',
+    vision: true,
     autoModel: false,
     baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'deepseek/deepseek-chat-v3-0324:free'
+    defaultModel: 'deepseek/deepseek-chat-v3-0324:free',
+    /* Текстовая модель по умолчанию зрения не имеет, а заставлять владельца
+       вручную вписывать имя зрячей модели — против принципа «один раз настроил
+       и пользуемся». Поэтому для фото подставляем бесплатную зрячую модель
+       сами. Список бесплатных моделей у OpenRouter регулярно меняется, поэтому
+       их несколько: при HTTP 400/404 (модель убрали или недоступна) берём
+       следующую. Если пользователь сам вписал зрячую модель — она пробуется
+       первой, его выбор важнее нашего списка. */
+    visionModels: [
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'nvidia/nemotron-nano-12b-v2-vl:free',
+      'openrouter/free'
+    ]
   },
   gigachat: {
     id: 'gigachat',
     label: 'GigaChat (Сбер)',
-    hint: 'Ключ: личный кабинет GigaChat (developers.sber.ru) → «Authorization Key» (Base64, scope GIGACHAT_API_PERS). Для физлиц бесплатно (~1 млн токенов в год), из РФ без VPN; тексты запросов уходят Сберу. Фото не распознаёт. Если ошибка сертификата — обновите сертификаты Android.',
-    vision: false,
+    hint: 'Ключ: личный кабинет GigaChat (developers.sber.ru) → «Authorization Key» (Base64, scope GIGACHAT_API_PERS). Для физлиц бесплатно (~1 млн токенов в год), из РФ без VPN; тексты запросов уходят Сберу. Фото еды распознаёт (снимок сначала загружается в ваше хранилище GigaChat). Если ошибка сертификата — обновите сертификаты Android.',
+    vision: true,
     autoModel: false,
     baseUrl: 'https://gigachat.devices.sberbank.ru/api/v1',
     defaultModel: 'GigaChat',
+    /* Зрение у GigaChat заявлено не для всех моделей: источники расходятся,
+       нужен ли для картинки GigaChat-2-Pro / -Max. Поэтому для фото пробуем
+       сначала модель пользователя, а при отказе (400/404) — старшие модели. */
+    visionModels: ['GigaChat-2-Pro', 'GigaChat-2-Max'],
     oauth: { url: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth', scope: 'GIGACHAT_API_PERS' }
   },
   pollinations: {
@@ -17327,6 +17344,39 @@ async function getGigaChatAccessToken(key) {
   return data.access_token;
 }
 
+/* GigaChat не принимает картинку прямо в сообщении, как OpenAI-совместимые
+   API: файл сначала кладётся в хранилище (POST /files, multipart, обязательный
+   purpose="general"), а в сообщение уходит только его идентификатор в массиве
+   attachments. Возвращаем id загруженного файла.
+
+   base64 → Blob вручную (atob + Uint8Array): FormData умеет отправлять только
+   Blob/File, а строку base64 сервер принял бы за текст и вернул бы 400. */
+async function gigachatUploadImage(baseUrl, token, image) {
+  const raw = atob(String(image.base64 || ''));
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const mime = image.mimeType || 'image/jpeg';
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type: mime }), 'photo.jpg');
+  form.append('purpose', 'general');
+  const res = await fetch(baseUrl + '/files', {
+    method: 'POST',
+    // Content-Type не задаём: его выставит сам FormData вместе с boundary.
+    headers: { 'Accept': 'application/json', 'RqUID': uid(), 'Authorization': 'Bearer ' + token },
+    body: form
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.message || ''; } catch (e) { /* не JSON */ }
+    const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : '') + ' при загрузке фото в GigaChat');
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  if (!data || !data.id) throw new Error('GigaChat не вернул идентификатор файла');
+  return data.id;
+}
+
 async function cloudCallOpenAiCompat(systemText, userText, options) {
   const def = getCloudProviderDef();
   const model = (state.aiSettings.cloudModel || def.defaultModel).trim();
@@ -17340,18 +17390,67 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
   (Array.isArray(options && options.history) ? options.history.slice(-6) : []).forEach((turn) => {
     messages.push({ role: turn.role === 'model' ? 'assistant' : 'user', content: turn.parts.map((p) => p.text || '').join('') });
   });
-  messages.push({ role: 'user', content: userText });
+
   const headers = { 'Content-Type': 'application/json', 'RqUID': uid() };
-  if (def.oauth) headers['Authorization'] = 'Bearer ' + await getGigaChatAccessToken(key); // GigaChat: OAuth-обмен
+  let token = '';
+  if (def.oauth) { token = await getGigaChatAccessToken(key); headers['Authorization'] = 'Bearer ' + token; } // GigaChat: OAuth-обмен
   else if (key) headers['Authorization'] = 'Bearer ' + key;
-  const res = await fetch(baseUrl + '/chat/completions', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 1400 })
-  });
+
+  /* 0.9.20: фото. Раньше options.image здесь просто игнорировался — картинка
+     никуда не уходила, и модель отвечала по одному тексту «Что на фото?»
+     (выдуманным списком продуктов). Теперь два честных пути. */
+  const image = options && options.image;
+  const models = [model];
+  if (image && def.oauth) {
+    // GigaChat: файл в хранилище + attachments (см. gigachatUploadImage).
+    const fileId = await gigachatUploadImage(baseUrl, token, image);
+    messages.push({ role: 'user', content: userText, attachments: [fileId] });
+  } else if (image) {
+    // OpenAI-совместимый формат: массив частей с image_url (data-URL).
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'text', text: userText },
+        { type: 'image_url', image_url: { url: 'data:' + (image.mimeType || 'image/jpeg') + ';base64,' + image.base64 } }
+      ]
+    });
+  } else {
+    messages.push({ role: 'user', content: userText });
+  }
+  /* Текстовая модель зрения может не иметь, поэтому для снимка держим наготове
+     зрячие. Модель пользователя пробуется первой: вдруг он уже выбрал зрячую
+     сам. Дубликаты убираем, иначе один и тот же запрос уйдёт дважды. */
+  if (image) (def.visionModels || []).forEach((m) => { if (models.indexOf(m) === -1) models.push(m); });
+
+  let res = null;
+  let usedModel = model;
+  let lastError = null;
+  for (const candidate of models) {
+    usedModel = candidate;
+    res = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: candidate, messages, temperature: 0.6, max_tokens: 1400 })
+    });
+    if (res.ok) { lastError = null; break; }
+    // 400/404 — модель убрали, переименовали или она не принимает картинки:
+    // пробуем следующую зрячую. Остальные коды (401, 402, 429) осмысленны
+    // сами по себе, перебор их не исправит — выходим сразу.
+    lastError = res;
+    if (res.status !== 400 && res.status !== 404) break;
+  }
+  if (lastError) res = lastError;
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json())?.error?.message || ''; } catch (e) { /* не JSON */ }
+    /* Если перебрали все зрячие модели и ни одна не ответила — сырое «404: no
+       endpoints» владельцу ничего не объясняет. Бесплатный список моделей у
+       провайдеров меняется, так что чаще всего это именно их отсутствие. */
+    if (image && models.length > 1 && (res.status === 400 || res.status === 404)) {
+      const err = new Error('HTTP ' + res.status + ': бесплатные модели с распознаванием фото сейчас недоступны у провайдера. Попробуйте позже, впишите зрячую модель вручную в настройках облака или выберите Gemini.');
+      err.status = res.status;
+      throw err;
+    }
     const err = new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
     err.status = res.status;
     throw err;
@@ -17359,7 +17458,7 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
   const data = await res.json();
   const text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
   if (!text) throw new Error('Пустой ответ модели');
-  return { text, modelLabel: def.label + ' · ' + model };
+  return { text, modelLabel: def.label + ' · ' + usedModel };
 }
 
 /* Единая точка входа в облако. */
@@ -17847,10 +17946,10 @@ function handleAiQuickCamera(file) {
   }
   input.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
-    toast('📷 У выбранного облачного провайдера нет зрения (нужен Gemini). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
+    toast('📷 У выбранного облачного провайдера нет зрения (подойдут Gemini, OpenRouter или GigaChat). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
     return;
   }
-  toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный Gemini.', 6000);
+  toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный ИИ (Gemini, OpenRouter, GigaChat).', 6000);
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */
