@@ -2759,10 +2759,9 @@ for (const id of ids) {
   const appW = fs.readFileSync('app.js', 'utf8');
 
   const variants = [
-    'FitFlowWidgetRingProvider',
-    'FitFlowWidgetRingsProvider',
-    'FitFlowWidgetDialProvider',
-    'FitFlowWidgetTilesProvider'
+    'FitFlowWidgetDropProvider',
+    'FitFlowWidgetBentoProvider',
+    'FitFlowWidgetNeonProvider'
   ];
 
   /* Файлы вариантов реально лежат в репозитории. */
@@ -2790,8 +2789,8 @@ for (const id of ids) {
   console.log(`${okCopy ? '✓' : '✗'} 0.9.6 все нативные исходники копируются в сборку`);
 
   /* Каждый вариант объявлен ресивером и получил собственный appwidget-info. */
-  const infos = ['fitflow_widget_ring_info', 'fitflow_widget_rings_info',
-                 'fitflow_widget_dial_info', 'fitflow_widget_tiles_info'];
+  const infos = ['fitflow_widget_drop_info', 'fitflow_widget_bento_info',
+                 'fitflow_widget_neon_info'];
   const okManifest = variants.every((v) => yml.includes(`'${v}'`))
     && infos.every((i) => yml.includes(i));
   if (!okManifest) failed++;
@@ -2799,8 +2798,8 @@ for (const id of ids) {
 
   /* Разметка «рисованного» виджета генерируется и содержит все нужные id. */
   const canvasIds = ['widget_canvas_root', 'widget_canvas_image',
-                     'widget_canvas_water_btn', 'widget_canvas_record_btn', 'widget_canvas_refresh_btn'];
-  const okLayout = yml.includes('fitflow_widget_canvas.xml')
+                     'widget_canvas_water_btn', 'widget_canvas_record_btn', 'widget_canvas_dose_btn'];
+  const okLayout = yml.includes('fitflow_widget_p5.xml')
     && canvasIds.every((id) => yml.includes('@+id/' + id));
   if (!okLayout) failed++;
   console.log(`${okLayout ? '✓' : '✗'} 0.9.6 разметка рисованного виджета описана`);
@@ -2816,7 +2815,7 @@ for (const id of ids) {
     const tpl = m.replace('@+id/', '');
     for (let i = 1; i <= 10; i++) declaredIds.add(tpl.replace('%d', String(i)));
   });
-  const declaredLayouts = new Set((yml.match(/'(fitflow_widget[a-z_]*)\.xml'/g) || [])
+  const declaredLayouts = new Set((yml.match(/'(fitflow_widget[a-z0-9_]*)\.xml'/g) || [])
     .map((m) => m.replace(/'/g, '').replace('.xml', '')));
   let usedIds = new Set();
   let usedLayouts = new Set();
@@ -2850,10 +2849,11 @@ for (const id of ids) {
   console.log(`${okGoals ? '✓' : '✗'} 0.9.6 цели шагов и активности доходят до виджета`);
 
   /* Картинка рисуется без области кнопок — иначе содержимое уезжает под них. */
-  const okRoom = /BUTTON_ROW_DP/.test(bundle)
-    && /maxHeightDp - BUTTON_ROW_DP/.test(bundle);
+  const okRoom = /fitflow_widget_p5/.test(bundle)
+    && /configureButtons/.test(bundle)
+    && /WIDGET_COURSE_DOSE/.test(bundle);
   if (!okRoom) failed++;
-  console.log(`${okRoom ? '✓' : '✗'} 0.9.6 картинка не залезает под кнопки`);
+  console.log(`${okRoom ? '✓' : '✗'} 0.9.24 overlay-кнопки и отметка курса на рисованном виджете`);
 
   /* Классический виджет не тронут: его разметка и слоты на месте. */
   const okLegacy = yml.includes('widget_layout_xml(5,') && yml.includes('widget_layout_xml(10,')
@@ -4399,11 +4399,68 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.23', '0.9.23 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.23'/.test(app923), '0.9.23 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.23 \(build 0\)/.test(html923), '0.9.23 #about-version');
+  check(ver923 === '0.9.24', '0.9.24 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.24'/.test(app923), '0.9.24 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.24 \(build 0\)/.test(html923), '0.9.24 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
+})();
+
+
+/* ============================================================
+   0.9.24 — три оформления виджета пункта 5 в APK
+   ------------------------------------------------------------
+   Классический строчный остаётся. Ring / Rings / Dial / Tiles
+   убраны. Новые: капля, бенто, неоновые кольца. Честный потолок:
+   полупрозрачная карточка, без wallpaper-blur.
+   ============================================================ */
+(function test0924Widgets() {
+  const fs924 = require('fs');
+  const yml924 = fs924.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const paint924 = fs924.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf8');
+  const data924 = fs924.readFileSync('android-native/FitFlowWidgetData.java', 'utf8');
+  const can924 = fs924.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  check(fs924.existsSync('android-native/FitFlowWidgetDropProvider.java')
+    && fs924.existsSync('android-native/FitFlowWidgetBentoProvider.java')
+    && fs924.existsSync('android-native/FitFlowWidgetNeonProvider.java')
+    && fs924.existsSync('android-native/FitFlowWidgetPaint.java'),
+    '0.9.24 исходники капли / бенто / колец на месте');
+
+  check(!fs924.existsSync('android-native/FitFlowWidgetRingProvider.java')
+    && !fs924.existsSync('android-native/FitFlowWidgetDialProvider.java')
+    && !fs924.existsSync('android-native/FitFlowWidgetTilesProvider.java')
+    && !fs924.existsSync('android-native/FitFlowWidgetRingsProvider.java'),
+    '0.9.24 старые Ring / Rings / Dial / Tiles убраны');
+
+  check(/void drawDrop\(/.test(paint924) && /void drawBento\(/.test(paint924)
+    && /void drawNeon\(/.test(paint924) && /Path dropPath\(/.test(paint924)
+    && /void neonRing\(/.test(paint924) && /sWaveY\(/.test(paint924)
+    && /void glass\(/.test(paint924),
+    '0.9.24 капля, S-волна, neon-glow и стекло рисуются в Canvas');
+
+  check(/@android:color\/transparent/.test(yml924)
+    && /fitflow_widget_p5\.xml/.test(yml924)
+    && /FrameLayout/.test(yml924),
+    '0.9.24 карточка полупрозрачная: FrameLayout без непрозрачного фона');
+
+  check(/boolean shows\(/.test(data924) && /parseMood\(/.test(data924)
+    && /coursesLine/.test(data924) && /widgetItems/.test(data924),
+    '0.9.24 раскладка, самочувствие и курс доходят до рисованных виджетов');
+
+  check(/WIDGET_COURSE_DOSE/.test(can924)
+    && /FitFlowWidgetDropProvider/.test(can924)
+    && /FitFlowWidgetBentoProvider/.test(can924)
+    && /FitFlowWidgetNeonProvider/.test(can924)
+    && !/FitFlowWidgetRingProvider/.test(can924),
+    '0.9.24 список провайдеров новый, витамины отмечаются тем же действием');
+
+  check(fs924.existsSync('android-native/FitFlowWidgetProvider.java'),
+    '0.9.24 классический виджет на месте');
+
+  if (!bad) console.log('  (0.9.24: три новых виджета, классический сохранён)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

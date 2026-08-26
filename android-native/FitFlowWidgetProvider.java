@@ -72,10 +72,9 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
         ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
         int[] ids = manager.getAppWidgetIds(component);
         for (int id : ids) updateWidget(context, manager, id);
-        /* 0.9.6 (пункт 5 владельца — несколько оформлений для сравнения):
-           единая точка обновления. Все, кто уже звал updateAll (приложение,
-           фоновая синхронизация, кнопка воды, полуночный будильник),
-           автоматически перерисовывают и «рисованные» варианты виджета. */
+        /* 0.9.24: единая точка обновления. Все, кто уже звал updateAll
+           (приложение, фоновая синхронизация, кнопка воды, полуночный
+           будильник), перерисовывают и рисованные виджеты капля/бенто/кольца. */
         FitFlowWidgetCanvasProvider.updateAllCanvas(context);
         scheduleMidnightRefresh(context);
     }

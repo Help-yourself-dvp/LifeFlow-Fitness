@@ -3,31 +3,33 @@ package com.fitflow.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/* 0.9.6 (пункт 5 владельца — сравнение оформлений виджета).
-   Все варианты виджета читают одни и те же показатели за сегодня, поэтому
-   чтение prefs вынесено в один класс: иначе каждая новая визуализация
-   тащила бы свою копию правил (дата-страж, приоритет источника шагов,
-   деление недельной цели активности на день) и они бы разъезжались.
+import java.util.HashSet;
 
-   Важное правило, унаследованное от 0.4.12: прогресс дня валиден только
-   для своей даты. Если в prefs лежит вчерашняя дата — показываем честные
-   нули, а не вчерашние цифры. */
+/* Один источник цифр для всех виджетов: prefs, дата-страж, приоритет шагов.
+   0.9.24: плюс выбранные пункты раскладки, самочувствие и строка курса —
+   новым оформлениям они нужны, чтобы не рисовать выключенное
+   (правило «никаких видимых заглушек»). */
 class FitFlowWidgetData {
     int water;
     int waterGoal;
     int food;
     int foodGoal;
-    int activity;      // минуты за сегодня
-    int activityGoal;  // дневная доля недельной цели активности
+    int activity;
+    int activityGoal;
     int steps;
     int stepsGoal;
+    int mood; // 0 = не отмечено, 1..5
     String profileName = "Мой профиль";
+    String moodLine = "";
+    String coursesLine = "";
+    final HashSet<String> items = new HashSet<String>();
 
     static FitFlowWidgetData load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
         FitFlowWidgetData d = new FitFlowWidgetData();
         String savedDate = prefs.getString("date", "");
-        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(new java.util.Date());
         boolean fresh = savedDate != null && savedDate.equals(today);
 
         d.water = fresh ? prefs.getInt("waterTotal", 0) : 0;
@@ -37,17 +39,59 @@ class FitFlowWidgetData {
         d.activity = fresh ? prefs.getInt("activityMinutes", 0) : 0;
         d.activityGoal = Math.max(1, prefs.getInt("activityGoal", 21));
         d.stepsGoal = Math.max(1, prefs.getInt("stepsGoal", 8000));
-        // Шаги живут в сенсорных prefs и подчиняются приоритету «часы vs телефон» —
-        // берём ровно ту же функцию, что и классический виджет, без второй копии правил.
         d.steps = FitFlowWidgetProvider.resolveWidgetSteps(context);
 
         String name = prefs.getString("profileName", "Мой профиль");
         if (name != null && name.trim().length() > 0) d.profileName = name.trim();
+
+        String raw = prefs.getString("widgetItems", "water,food,steps");
+        if (raw == null) raw = "";
+        for (String part : raw.split(",")) {
+            String id = part == null ? "" : part.trim();
+            if (id.length() > 0) d.items.add(id);
+        }
+        if (d.items.isEmpty()) {
+            d.items.add("water");
+            d.items.add("food");
+            d.items.add("steps");
+        }
+
+        d.moodLine = prefs.getString("moodLine", "");
+        if (d.moodLine == null) d.moodLine = "";
+        d.mood = parseMood(d.moodLine);
+        try {
+            d.coursesLine = FitFlowCourses.widgetLine(context, today);
+        } catch (Exception e) {
+            d.coursesLine = "";
+        }
+        if (d.coursesLine == null) d.coursesLine = "";
         return d;
     }
 
-    /* Проценты для заливки колец/дуг — обрезаны сверху сотней: перелив
-       не должен рисовать второй круг поверх первого. */
+    boolean shows(String id) {
+        return items.contains(id);
+    }
+
+    String moodLineShort() {
+        if (mood <= 0) return "не отмечено";
+        String s = moodLine;
+        int slash = s.lastIndexOf("/5");
+        if (slash > 2) {
+            int from = Math.max(0, slash - 8);
+            return s.substring(from, Math.min(s.length(), slash + 2)).trim();
+        }
+        return mood + " из 5";
+    }
+
+    private static int parseMood(String line) {
+        if (line == null) return 0;
+        int slash = line.lastIndexOf("/5");
+        if (slash <= 0) return 0;
+        char ch = line.charAt(slash - 1);
+        if (ch >= '1' && ch <= '5') return ch - '0';
+        return 0;
+    }
+
     int waterPct() { return pct(water, waterGoal); }
     int foodPct() { return pct(food, foodGoal); }
     int stepsPct() { return pct(steps, stepsGoal); }
@@ -60,13 +104,11 @@ class FitFlowWidgetData {
         return Math.min(100, p);
     }
 
-    /* Подписи под легенду: короткие, чтобы влезали в узкий виджет. */
     String waterValue() { return water + "/" + waterGoal + " мл"; }
     String foodValue() { return food + "/" + foodGoal + " ккал"; }
     String stepsValue() { return compact(steps) + "/" + compact(stepsGoal); }
     String activityValue() { return activity + "/" + activityGoal + " мин"; }
 
-    /* 8000 → «8 тыс.»: полное число шагов не помещается в плитку 2×2. */
     static String compact(int value) {
         if (value < 10000) return String.valueOf(value);
         return (value / 1000) + " тыс.";

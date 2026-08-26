@@ -10,13 +10,13 @@
 |---|---|
 | `MainActivity.java` | Точка входа, мост JS↔Android: будильники, батарея, сохранение бэкапа, распознавание речи |
 | `FitFlowWidgetProvider.java` | Классический виджет (0.9.4): RemoteViews, кнопки «+250 мл» и «Обновить» |
-| `FitFlowWidgetDraw.java` | Общие примитивы canvas-виджетов 0.9.6: фон, кольцо, дуга, бар, карточка, подгонка текста |
-| `FitFlowWidgetData.java` | Один источник цифр для всех виджетов: prefs, дата-страж, приоритет шагов |
-| `FitFlowWidgetCanvasProvider.java` | Bitmap-виджет на minSdk 26: рисует в картинку, кнопки — overlay 38 dp |
-| `FitFlowWidgetRingProvider.java` | Вариант «Кольцо»: вода кольцом, остальные показатели строками |
-| `FitFlowWidgetRingsProvider.java` | Вариант «4 кольца»: вода, калории, шаги, активность — вложенные дуги |
-| `FitFlowWidgetDialProvider.java` | Вариант «Циферблат»: круговая шкала дня, в центре среднее |
-| `FitFlowWidgetTilesProvider.java` | Вариант «Плитки»: крупные цифры 2×2 |
+| `FitFlowWidgetDraw.java` | Примитивы canvas: фон, кольцо, дуга, бар, карточка, подгонка текста |
+| `FitFlowWidgetPaint.java` | 0.9.24: капля, S-волна, neon-glow, полупрозрачное стекло |
+| `FitFlowWidgetData.java` | Один источник цифр для всех виджетов: prefs, дата-страж, приоритет шагов, раскладка |
+| `FitFlowWidgetCanvasProvider.java` | Bitmap-виджет: рисует в картинку, кнопки — overlay на прозрачной карточке |
+| `FitFlowWidgetDropProvider.java` | Капля: вода слева, плитки шаги/питание/активность/самочувствие |
+| `FitFlowWidgetBentoProvider.java` | Бенто: кольцо шагов, волна воды, бар питания |
+| `FitFlowWidgetNeonProvider.java` | Три неоновых кольца: вода / питание / шаги + витамины |
 | `FitFlowCourses.java` | Курсы 0.9.13: строка виджета и отметка дозы без открытия приложения |
 | `CourseReminderReceiver.java` | Нативное уведомление курса: «принята» не открывает приложение (как вода) |
 | `WaterReminderReceiver.java` | Напоминания о воде: канал, расписание, пауза, кнопки в уведомлении |
