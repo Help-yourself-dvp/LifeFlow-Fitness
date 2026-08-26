@@ -4316,5 +4316,95 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.22: вечерний вопрос молчит, когда часы уже отчитались)');
 })();
 
+/* ============================================================
+   0.9.23 — свёрнутый список с часов снова одна пластина
+   ------------------------------------------------------------
+   На теме «Лес» свёрнутый блок выглядел как зелёная карточка с
+   серой полосой-заголовком. Причина — каскад: одноклассные
+   `.watch-workouts-block` / `.watch-workouts-toggle` (0,1,0)
+   проигрывали общим `.collapsible-block` / `.collapsible-toggle`
+   ниже по файлу. Лечение — две класса (0,2,0). Голый
+   `margin-top: 0` ту же войну проиграл бы.
+   ============================================================ */
+(function test0923WatchHalo() {
+  const fs923 = require('fs');
+  const css923 = fs923.readFileSync('style.css', 'utf8');
+  const html923 = fs923.readFileSync('index.html', 'utf8');
+  const app923 = fs923.readFileSync('app.js', 'utf8');
+  const ver923 = fs923.readFileSync('version.txt', 'utf8').trim();
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  // Комментарии выкидываем, чтобы поиск «последнего правила» не цеплял их.
+  const stripped = css923.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  function lastRule(sel) {
+    const re = new RegExp(sel.replace(/\./g, '\\.') + '\\s*\\{([^}]+)\\}', 'g');
+    let m, last = null;
+    while ((m = re.exec(stripped))) last = { body: m[1], index: m.index };
+    return last;
+  }
+
+  const twoBlock = lastRule('.collapsible-block.watch-workouts-block');
+  const twoToggle = lastRule('.collapsible-toggle.watch-workouts-toggle');
+  check(!!twoBlock, '0.9.23 есть правило .collapsible-block.watch-workouts-block');
+  check(!!twoToggle, '0.9.23 есть правило .collapsible-toggle.watch-workouts-toggle');
+
+  const bBody = twoBlock ? twoBlock.body : '';
+  const tBody = twoToggle ? twoToggle.body : '';
+  check(/margin-top:\s*0/.test(bBody)
+    && /border:\s*none/.test(bBody)
+    && /background:\s*none/.test(bBody)
+    && /border-radius:\s*0/.test(bBody),
+    '0.9.23 внутренний блок без отступа, рамки и своего фона');
+  check(/background:\s*transparent/.test(tBody)
+    && /on-primary-container/.test(tBody),
+    '0.9.23 заголовок прозрачный, цвет текста на зелёной пластине');
+
+  const genBlock = lastRule('.collapsible-block');
+  const genToggle = lastRule('.collapsible-toggle');
+  check(!!genBlock && /margin-top:\s*12px/.test(genBlock.body),
+    '0.9.23 общее .collapsible-block по-прежнему с отступом 12px');
+  check(!!genToggle && /surface-container-high/.test(genToggle.body),
+    '0.9.23 общее .collapsible-toggle по-прежнему с серым фоном');
+
+  // Именно поэтому нужны две класса: общее правило идёт ПОЗЖЕ и при (0,1,0)
+  // победило бы одноклассный фикс.
+  check(!!twoBlock && !!genBlock && genBlock.index > twoBlock.index,
+    '0.9.23 общее .collapsible-block стоит ниже двухклассного — одна класса проиграла бы');
+  check(!!twoToggle && !!genToggle && genToggle.index > twoToggle.index,
+    '0.9.23 общее .collapsible-toggle стоит ниже двухклассного — одна класса проиграла бы');
+
+  function leftover(cls) {
+    const re = new RegExp('(?:^|[^\\w.-])\\.' + cls + '\\s*\\{', 'g');
+    const hits = [];
+    let m;
+    while ((m = re.exec(stripped))) {
+      const before = stripped.slice(Math.max(0, m.index - 48), m.index);
+      if (/\.collapsible-(?:block|toggle)\s*$/.test(before)) continue;
+      hits.push(m.index);
+    }
+    return hits;
+  }
+  check(leftover('watch-workouts-block').length === 0,
+    '0.9.23 нет одноклассного leftover .watch-workouts-block {');
+  check(leftover('watch-workouts-toggle').length === 0,
+    '0.9.23 нет одноклассного leftover .watch-workouts-toggle {');
+
+  check(/class="collapsible-block watch-workouts-block"/.test(app923),
+    '0.9.23 разметка блока несёт оба класса');
+  check(/class="collapsible-toggle watch-workouts-toggle"/.test(app923),
+    '0.9.23 разметка заголовка несёт оба класса');
+
+  check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
+    '0.9.23 внешняя пластина по-прежнему primary-container');
+
+  check(ver923 === '0.9.23', '0.9.23 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.23'/.test(app923), '0.9.23 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.23 \(build 0\)/.test(html923), '0.9.23 #about-version');
+
+  if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
+})();
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

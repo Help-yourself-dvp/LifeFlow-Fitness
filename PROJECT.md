@@ -4,7 +4,7 @@
 >
 > Этот файл является основным источником информации о проекте и используется для продолжения разработки в новых диалогах.
 
-Текущая версия: **0.9.22**
+Текущая версия: **0.9.23**
 
 > Точка входа для нового диалога/агента — `SESSION_HANDOFF.md`:
 > порядок действий, текущие приоритеты, грабли и карта кода.
@@ -520,7 +520,36 @@ node test-parser.js
 
 # 14. История версий
 
+## 0.9.23 — Зелёный ореол свёрнутого списка с часов (26.08.2026)
+
+**Дефект.** На теме «Лес» свёрнутый `#watch-workouts-suggest` читался как
+две пластины: внешняя зелёная (`primary-container` `#d9f0d0`) и внутри —
+серо-белая полоса-тоггл плюс зелёный зазор сверху. Владелец: «ореол».
+
+**Причина — каскад, не отступ.** 0.9.21 повесил на внутренний блок классы
+`.watch-workouts-block` / `.watch-workouts-toggle` (специфичность 0,1,0) и
+задал `border:none; background:transparent`. Ниже по `style.css` идут общие
+`.collapsible-block { margin-top:12px; border:1px; border-radius:16px }` и
+`.collapsible-toggle { background: surface-container-high; color: on-surface }`
+той же специфичности — они побеждают по порядку. Голый
+`.watch-workouts-block { margin-top:0 }` ту же войну проиграл бы.
+
+**Решение.** Две класса (0,2,0):
+
+* `.collapsible-block.watch-workouts-block` — `margin-top:0; border:none;
+  background:none; border-radius:0`;
+* `.collapsible-toggle.watch-workouts-toggle` — `background:transparent;
+  color: on-primary-container` (как текст на зелёной пластине).
+
+Общие `.collapsible-*` живы: «Своё блюдо» и шаблоны не меняются.
+
+**Тесты.** Проверка в `test-ui-init.js`: обе правила содержат нужные
+объявления и не отменяются позже равной специфичностью; общие
+`.collapsible-block` / `.collapsible-toggle` по-прежнему с `margin-top:12px`
+и `surface-container-high`.
+
 ## 0.9.22 — Неподтверждённые сессии с часов закрывают день (25.08.2026)
+
 
 **Дефект.** Вечернее напоминание «была сегодня активность?» приходило при
 наличии сессии с часов за сегодня. Причина: `hasWorkoutToday()` считал

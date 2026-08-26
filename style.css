@@ -2486,9 +2486,18 @@ html[data-theme="dark"] .segmented button.active {
   overflow: hidden;
 }
 /* 0.9.21: список свёрнут под заголовок. Паддинг переехал с контейнера внутрь,
-   иначе в свёрнутом виде оставалась пустая полоса под строкой-заголовком. */
-.watch-workouts-block { border: none; background: none; }
-.watch-workouts-toggle {
+   иначе в свёрнутом виде оставалась пустая полоса под строкой-заголовком.
+   0.9.23: две класса (0,2,0). Одноклассные .watch-workouts-block /
+   .watch-workouts-toggle проигрывают общим .collapsible-block /
+   .collapsible-toggle ниже по файлу (margin-top:12px, серый фон тоггла) —
+   на теме «Лес» это зелёный зазор сверху и серо-белая полоса-заголовок. */
+.collapsible-block.watch-workouts-block {
+  margin-top: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+}
+.collapsible-toggle.watch-workouts-toggle {
   background: transparent;
   color: var(--md-sys-color-on-primary-container);
   font-size: 0.8rem;
