@@ -1,852 +1,903 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Макеты виджетов пункта 5.
+"""Макеты виджета п.5 — потолок Canvas + вид «лаунчер блюрит обои».
 
-Не APK и не RemoteViews: Pillow-картинки, чтобы владелец увидел три
-оформления до правок в android-native. Цифры и поля — наши
-(вода / питание / шаги / активность / самочувствие / витамины).
-Сон и burned kcal с референсов Midjourney не рисуем.
+Не APK. Числа и кнопки — наши (вода / питание съедено / шаги / активность /
+самочувствие / витамины). Сон, burned kcal, remaining, 4-е кольцо не рисуем.
 
-Запуск из корня репозитория:
-
-    python3 tools/widget-preview-p5.py
+Два режима карточки:
+  frost=True  — размытые обои под стеклом. Так умеет лаунчер (Samsung One UI
+                и подобные), не RemoteViews.
+  frost=False — полупрозрачный слой без blur. Обои под карточкой резкие.
+                Это потолок самого приложения: alpha + Canvas (капля, волна,
+                glow). Живой wallpaper-blur только если лаунчер рисует сам.
 """
-
 from __future__ import annotations
 
 import math
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "design"
-FONT_MANROPE = ROOT / "assets" / "fonts" / "manrope.ttf"
-FONT_DV = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-FONT_DVB = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+FONT = ROOT / "assets" / "fonts" / "manrope.ttf"
 
-# Одни цифры на все три макета. Питание — съедено/цель, не remaining.
-WATER = 1750
-WATER_GOAL = 2500
-FOOD = 1450
-FOOD_GOAL = 2000
-STEPS = 8420
-STEPS_GOAL = 10000
-ACT = 45
-ACT_GOAL = 60
-MOOD_N = 4
-MOOD_WORD = "хороший"
-VIT_LINE = "Витамины: принято 1 из 2 · след. 21:00"
+WATER, WATER_G = 1750, 2500
+FOOD, FOOD_G = 1450, 2000
+STEPS, STEPS_G = 8420, 10000
+ACT, ACT_G = 45, 60
+MOOD, MOOD_G = 4, 5
+VIT_TAKEN, VIT_TOTAL = 1, 2
+VIT_NEXT = "21:00"
 
+P_WATER = WATER / WATER_G
+P_FOOD = FOOD / FOOD_G
+P_STEPS = STEPS / STEPS_G
+P_ACT = ACT / ACT_G
+P_MOOD = MOOD / MOOD_G
+P_DAY = (P_WATER + P_FOOD + P_STEPS) / 3.0
 
-def pct(n: int, d: int) -> int:
-    if d <= 0:
-        return 0
-    return max(0, min(100, int(round(100.0 * n / d))))
+# Внутренний масштаб (паддинги, шрифты). Холст сцен — 1280x800.
+s = 2
 
 
-P_WATER = pct(WATER, WATER_GOAL)
-P_FOOD = pct(FOOD, FOOD_GOAL)
-P_STEPS = pct(STEPS, STEPS_GOAL)
-P_ACT = pct(ACT, ACT_GOAL)
-P_DAY = int(round((P_WATER + P_FOOD + P_STEPS) / 3.0))
-
-
-def ru_int(n: int) -> str:
-    """Разрядность обычным пробелом: в Manrope нет U+202F, он рисует тофу."""
-    s = str(int(n))
-    parts = []
-    while s:
-        parts.append(s[-3:])
-        s = s[:-3]
-    return " ".join(reversed(parts))
-
-
-_FONT_CACHE: dict[tuple[int], ImageFont.FreeTypeFont] = {}
-
-
-def font(size: int) -> ImageFont.FreeTypeFont:
-    size = max(10, int(round(size)))
-    key = (size,)
-    if key in _FONT_CACHE:
-        return _FONT_CACHE[key]
-    path = FONT_MANROPE if FONT_MANROPE.is_file() else FONT_DV
-    try:
-        f = ImageFont.truetype(str(path), size)
-    except OSError:
-        f = ImageFont.load_default()
-    _FONT_CACHE[key] = f
-    return f
-
-
-def fs(min_side: float, frac: float, lo: int = 11, hi: int = 96) -> ImageFont.FreeTypeFont:
-    return font(max(lo, min(hi, int(min_side * frac))))
-
-
-def text_w(fnt: ImageFont.ImageFont, s: str) -> float:
-    return float(fnt.getlength(s))
-
-
-def draw_text(d, xy, s, fnt, fill, anchor="lt"):
-    d.text(xy, s, font=fnt, fill=fill, anchor=anchor)
-
-
-def draw_text_strong(d, xy, s, fnt, fill, anchor="lt"):
-    x, y = xy
-    d.text((x + 0.7, y), s, font=fnt, fill=fill, anchor=anchor)
-    d.text((x, y), s, font=fnt, fill=fill, anchor=anchor)
-
-
-def rounded_mask(w: int, h: int, r: int) -> Image.Image:
-    m = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(m).rounded_rectangle((0, 0, w - 1, h - 1), radius=max(1, r), fill=255)
-    return m
-
-
-def apply_round(im: Image.Image, r: int) -> Image.Image:
-    im = im.convert("RGBA")
-    mask = rounded_mask(im.width, im.height, r)
-    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    out.paste(im, (0, 0))
-    out.putalpha(ImageChops.multiply(out.split()[-1], mask))
-    return out
-
-
-def lerp(a: float, b: float, t: float) -> float:
+def lerp(a, b, t):
     return a + (b - a) * t
 
 
-def lerp_rgb(c0, c1, t: float):
-    return tuple(int(lerp(c0[i], c1[i], t)) for i in range(3))
+def font(px, *, bold=False):
+    if not FONT.exists():
+        return ImageFont.load_default()
+    return ImageFont.truetype(str(FONT), max(10, int(px)))
 
 
-def vgrad(size, c0, c1) -> Image.Image:
+def fmt(n):
+    return f"{int(n):,}".replace(",", " ")
+
+
+def cover(im, size):
+    tw, th = size
+    w, h = im.size
+    scale = max(tw / w, th / h)
+    nw, nh = max(1, int(w * scale + 0.5)), max(1, int(h * scale + 0.5))
+    im = im.resize((nw, nh), Image.Resampling.LANCZOS)
+    x = max(0, (nw - tw) // 2)
+    y = max(0, (nh - th) // 2)
+    return im.crop((x, y, x + tw, y + th))
+
+
+def load_wallpaper(kind, size):
+    """Живые обои из design/wp-*.jpg; иначе синтетика."""
+    names = {
+        "dawn": ("wp-dawn.jpg", "wp-dawn.png"),
+        "night": ("wp-night.jpg", "wp-night.png"),
+        "night-warm": ("wp-night.jpg", "wp-night.png"),
+    }[kind]
+    for name in names:
+        p = OUT / name
+        if p.exists():
+            im = Image.open(p).convert("RGB")
+            out = cover(im, size).convert("RGBA")
+            if kind == "night-warm":
+                r, g, b, a = out.split()
+                r = r.point(lambda v: min(255, int(v * 1.06 + 6)))
+                b = b.point(lambda v: min(255, int(v * 1.04)))
+                out = Image.merge("RGBA", (r, g, b, a))
+            return out
+    return wallpaper_synth(kind, size)
+
+
+def wallpaper_synth(kind, size):
     w, h = size
     im = Image.new("RGB", (w, h))
     px = im.load()
-    for y in range(h):
-        c = lerp_rgb(c0, c1, y / max(1, h - 1))
-        for x in range(w):
-            px[x, y] = c
-    return im
-
-
-def hgrad(size, c0, c1) -> Image.Image:
-    w, h = size
-    im = Image.new("RGB", (w, h))
-    px = im.load()
-    for x in range(w):
-        c = lerp_rgb(c0, c1, x / max(1, w - 1))
+    if kind == "dawn":
         for y in range(h):
-            px[x, y] = c
-    return im
-
-
-def soft_orb(canvas: Image.Image, cx: float, cy: float, r: float, color, blur: int) -> None:
-    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    ImageDraw.Draw(layer).ellipse((cx - r, cy - r, cx + r, cy + r), fill=color)
-    if blur > 0:
-        layer = layer.filter(ImageFilter.GaussianBlur(blur))
-    canvas.alpha_composite(layer)
-
-
-def wallpaper_dawn(w: int, h: int) -> Image.Image:
-    im = vgrad((w, h), (255, 214, 176), (232, 168, 176)).convert("RGBA")
-    d = ImageDraw.Draw(im)
-    sx, sy, sr = int(w * 0.78), int(h * 0.22), int(min(w, h) * 0.11)
-    soft_orb(im, sx, sy, sr * 2.4, (255, 236, 190, 90), max(8, sr // 3))
-    d.ellipse((sx - sr, sy - sr, sx + sr, sy + sr), fill=(255, 236, 196, 255))
-    d.polygon(
-        [
-            (0, h),
-            (0, int(h * 0.70)),
-            (int(w * 0.18), int(h * 0.58)),
-            (int(w * 0.38), int(h * 0.66)),
-            (int(w * 0.55), int(h * 0.52)),
-            (int(w * 0.78), int(h * 0.64)),
-            (w, int(h * 0.56)),
-            (w, h),
-        ],
-        fill=(214, 140, 132, 210),
-    )
-    d.polygon(
-        [
-            (0, h),
-            (0, int(h * 0.82)),
-            (int(w * 0.22), int(h * 0.70)),
-            (int(w * 0.48), int(h * 0.78)),
-            (int(w * 0.72), int(h * 0.66)),
-            (w, int(h * 0.76)),
-            (w, h),
-        ],
-        fill=(176, 108, 118, 230),
-    )
-    # жёсткие детали — чтобы было видно blur стекла
-    for i, fx in enumerate((0.08, 0.16, 0.24, 0.33)):
-        x = int(w * fx)
-        top = int(h * (0.34 + 0.04 * (i % 2)))
-        d.rectangle((x, top, x + max(3, w // 180), int(h * 0.62)), fill=(190, 90, 80, 90))
-        d.ellipse((x - 18, top - 22, x + 22, top + 10), fill=(80, 140, 90, 110))
-    return im
-
-
-def wallpaper_night(w: int, h: int, warm: bool = False) -> Image.Image:
-    if warm:
-        im = vgrad((w, h), (38, 22, 48), (12, 10, 22)).convert("RGBA")
-        orbs = [
-            (0.18, 0.22, 0.28, (120, 60, 140, 70)),
-            (0.78, 0.18, 0.22, (80, 50, 160, 60)),
-            (0.62, 0.78, 0.30, (40, 80, 140, 50)),
-            (0.88, 0.62, 0.16, (180, 90, 80, 45)),
-        ]
+            t = y / max(1, h - 1)
+            if t < 0.42:
+                u = t / 0.42
+                col = (
+                    int(lerp(255, 255, u)),
+                    int(lerp(176, 210, u)),
+                    int(lerp(140, 186, u)),
+                )
+            elif t < 0.62:
+                u = (t - 0.42) / 0.20
+                col = (
+                    int(lerp(255, 232, u)),
+                    int(lerp(210, 168, u)),
+                    int(lerp(186, 168, u)),
+                )
+            else:
+                u = (t - 0.62) / 0.38
+                col = (
+                    int(lerp(196, 142, u)),
+                    int(lerp(118, 78, u)),
+                    int(lerp(128, 96, u)),
+                )
+            for x in range(w):
+                px[x, y] = col
+        d = ImageDraw.Draw(im)
+        d.ellipse((int(w * 0.62), int(h * 0.10), int(w * 0.86), int(h * 0.38)), fill=(255, 236, 176))
     else:
-        im = vgrad((w, h), (18, 28, 48), (8, 12, 22)).convert("RGBA")
-        orbs = [
-            (0.20, 0.20, 0.26, (40, 90, 140, 70)),
-            (0.82, 0.16, 0.20, (60, 40, 140, 55)),
-            (0.70, 0.80, 0.28, (20, 120, 140, 50)),
-            (0.12, 0.72, 0.18, (30, 70, 120, 40)),
-        ]
-    for fx, fy, fr, col in orbs:
-        soft_orb(im, w * fx, h * fy, min(w, h) * fr, col, int(min(w, h) * fr * 0.45))
-    d = ImageDraw.Draw(im)
-    # окна-точки с жёсткими краями — blur их смазывает, честное стекло нет
-    for i in range(40):
-        x = 20 + int((i * 137) % max(1, w - 40))
-        y = 20 + int((i * 89) % max(1, h - 40))
-        ww = 5 + (i % 3) * 3
-        hh = 7 + (i % 2) * 4
-        col = (255, 214, 150, 70 + (i * 13) % 90) if warm else (170, 210, 255, 55 + (i * 11) % 80)
-        d.rectangle((x, y, x + ww, y + hh), fill=col)
-    return im
+        warm = kind == "night-warm"
+        for y in range(h):
+            t = y / max(1, h - 1)
+            if warm:
+                col = (
+                    int(lerp(48, 18, t)),
+                    int(lerp(16, 10, t)),
+                    int(lerp(64, 28, t)),
+                )
+            else:
+                col = (
+                    int(lerp(10, 6, t)),
+                    int(lerp(18, 12, t)),
+                    int(lerp(44, 28, t)),
+                )
+            for x in range(w):
+                px[x, y] = col
+        d = ImageDraw.Draw(im)
+        import random
+        rng = random.Random(7 if warm else 3)
+        for _ in range(70):
+            x = rng.randint(0, w - 1)
+            y = rng.randint(0, int(h * 0.85))
+            r = rng.choice((1, 1, 2))
+            col = (255, 236, 180) if warm else (210, 230, 255)
+            d.ellipse((x, y, x + r, y + r), fill=col)
+    return im.convert("RGBA")
 
 
-def glass_card(
-    wallpaper: Image.Image | None,
-    pos: tuple[int, int],
-    size: tuple[int, int],
-    radius: int,
-    tint,
-    frost: bool,
-    blur: int = 22,
-    border=None,
-) -> Image.Image:
-    """Стекло.
-
-    frost=True — размытый кусок обоев + тинт (цель, нарисована в превью).
-    frost=False — только полупрозрачный rounded rect: так умеет RemoteViews.
-    """
-    w, h = size
-    card = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    mask = rounded_mask(w, h, radius)
-
-    if frost and wallpaper is not None:
-        x0, y0 = pos
-        pad = blur * 2
-        cx0 = max(0, x0 - pad)
-        cy0 = max(0, y0 - pad)
-        cx1 = min(wallpaper.width, x0 + w + pad)
-        cy1 = min(wallpaper.height, y0 + h + pad)
-        crop = wallpaper.crop((cx0, cy0, cx1, cy1)).convert("RGB")
-        blurred = crop.filter(ImageFilter.GaussianBlur(blur))
-        lx, ly = x0 - cx0, y0 - cy0
-        piece = blurred.crop((lx, ly, lx + w, ly + h)).convert("RGBA")
-        card.paste(piece, (0, 0))
-    card.putalpha(mask)
-
-    overlay = Image.new("RGBA", (w, h), tuple(tint))
-    overlay.putalpha(ImageChops.multiply(overlay.split()[-1], mask))
-    card = Image.alpha_composite(card, overlay)
-
-    hi = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(hi).rectangle((0, 0, w, int(h * 0.22)), fill=(255, 255, 255, 18))
-    hi.putalpha(ImageChops.multiply(hi.split()[-1], mask))
-    hi = hi.filter(ImageFilter.GaussianBlur(max(4, h // 40)))
-    card = Image.alpha_composite(card, hi)
-
-    d = ImageDraw.Draw(card)
-    if border is None:
-        border = (255, 255, 255, 70)
-    d.rounded_rectangle((1, 1, w - 2, h - 2), radius=radius, outline=border, width=max(2, w // 420))
-    return card
-
-
-def drop_mask(w: int, h: int) -> Image.Image:
+def rounded_mask(w, h, r):
     m = Image.new("L", (w, h), 0)
-    d = ImageDraw.Draw(m)
-    d.ellipse((int(w * 0.08), int(h * 0.26), int(w * 0.92), int(h * 0.98)), fill=255)
-    tip = (w // 2, int(h * 0.02))
-    d.polygon([tip, (int(w * 0.12), int(h * 0.52)), (int(w * 0.88), int(h * 0.52))], fill=255)
-    m = m.filter(ImageFilter.GaussianBlur(max(2, w // 55)))
-    m = m.point(lambda p: 255 if p > 88 else 0)
-    m = m.filter(ImageFilter.GaussianBlur(1))
+    ImageDraw.Draw(m).rounded_rectangle((0, 0, w - 1, h - 1), radius=r, fill=255)
     return m
 
 
-def draw_drop(card: Image.Image, box, fill_pct: float) -> None:
-    x0, y0, x1, y1 = [int(v) for v in box]
-    w, h = x1 - x0, y1 - y0
-    mask = drop_mask(w, h)
-    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-
-    fat = mask.filter(ImageFilter.MaxFilter(9))
-    inner = mask.filter(ImageFilter.MinFilter(7))
-    ring = ImageChops.subtract(fat, inner)
-    outline = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    outline.paste(Image.new("RGBA", (w, h), (48, 168, 160, 255)), (0, 0), ring)
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    glow.paste(Image.new("RGBA", (w, h), (90, 210, 200, 70)), (0, 0), fat)
-    glow = glow.filter(ImageFilter.GaussianBlur(5))
-
-    water = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    wd = ImageDraw.Draw(water)
-    top = int(h * (0.94 - 0.68 * fill_pct))
-    amp = max(4, h // 36)
-    pts = [(x, top + int(amp * math.sin(x / max(8.0, w / 14) + 0.5))) for x in range(0, w + 3, 2)]
-    pts += [(w, h), (0, h)]
-    wd.polygon(pts, fill=(72, 198, 190, 230))
-    deep = top + int(h * 0.20)
-    dpts = [(x, deep + int(amp * 0.6 * math.sin(x / max(8.0, w / 11) + 1.6))) for x in range(0, w + 3, 2)]
-    dpts += [(w, h), (0, h)]
-    wd.polygon(dpts, fill=(46, 168, 164, 200))
-    crest = []
-    for x in range(0, w + 3, 2):
-        crest.append((x, top + int(amp * math.sin(x / max(8.0, w / 14) + 0.5))))
-    for x in range(w, -1, -2):
-        crest.append((x, top + int(amp * math.sin(x / max(8.0, w / 14) + 0.5)) + max(5, h // 40)))
-    wd.polygon(crest, fill=(190, 245, 238, 140))
-    water.putalpha(ImageChops.multiply(water.split()[-1], mask))
-
-    hi = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(hi).ellipse((int(w * 0.30), int(h * 0.22), int(w * 0.48), int(h * 0.36)), fill=(255, 255, 255, 55))
-    hi = hi.filter(ImageFilter.GaussianBlur(3))
-    hi.putalpha(ImageChops.multiply(hi.split()[-1], mask))
-
-    layer.alpha_composite(glow)
-    layer.alpha_composite(water)
-    layer.alpha_composite(outline)
-    layer.alpha_composite(hi)
-    card.alpha_composite(layer, (x0, y0))
+def cubic(p0, p1, p2, p3, n=28):
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        u = 1.0 - t
+        x = u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0]
+        y = u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1]
+        pts.append((x, y))
+    return pts
 
 
-def icon_steps(d, cx, cy, s, color):
-    def one(x, y, sc):
-        d.ellipse((x - 0.22 * sc, y + 0.08 * sc, x + 0.16 * sc, y + 0.50 * sc), fill=color)
-        d.ellipse((x - 0.18 * sc, y - 0.46 * sc, x + 0.20 * sc, y + 0.16 * sc), fill=color)
+def drop_mask(w, h):
+    """Капля вверх: круглое брюхо, короткий носик. Кубики Безье."""
+    def pt(nx, ny):
+        return (nx * (w - 1), ny * (h - 1))
 
-    one(cx - 0.22 * s, cy + 0.10 * s, s * 0.78)
-    one(cx + 0.26 * s, cy - 0.12 * s, s * 0.66)
-
-
-def icon_food(d, cx, cy, s, color):
-    d.arc((cx - 0.55 * s, cy - 0.05 * s, cx + 0.55 * s, cy + 0.80 * s), 12, 168, fill=color, width=max(2, int(s * 0.14)))
-    d.line((cx - 0.48 * s, cy + 0.34 * s, cx + 0.48 * s, cy + 0.34 * s), fill=color, width=max(2, int(s * 0.12)))
-    for dx in (-0.20, 0.0, 0.20):
-        d.arc(
-            (cx + dx * s - 0.10 * s, cy - 0.62 * s, cx + dx * s + 0.10 * s, cy + 0.02 * s),
-            200,
-            340,
-            fill=color,
-            width=max(2, int(s * 0.09)),
-        )
+    left = cubic(pt(0.50, 0.04), pt(0.18, 0.14), pt(0.00, 0.42), pt(0.02, 0.66), 32)
+    bot_l = cubic(pt(0.02, 0.66), pt(0.02, 0.94), pt(0.26, 0.995), pt(0.50, 0.995), 24)
+    bot_r = cubic(pt(0.50, 0.995), pt(0.74, 0.995), pt(0.98, 0.94), pt(0.98, 0.66), 24)
+    right = cubic(pt(0.98, 0.66), pt(1.00, 0.42), pt(0.82, 0.14), pt(0.50, 0.04), 32)
+    pts = left + bot_l[1:] + bot_r[1:] + right[1:]
+    m = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(m).polygon(pts, fill=255)
+    return m
 
 
-def icon_act(d, cx, cy, s, color):
-    d.ellipse((cx - 0.46 * s, cy - 0.28 * s, cx + 0.46 * s, cy + 0.64 * s), outline=color, width=max(2, int(s * 0.13)))
-    d.rounded_rectangle((cx - 0.16 * s, cy - 0.56 * s, cx + 0.16 * s, cy - 0.26 * s), radius=s * 0.08, fill=color)
-    d.line((cx, cy + 0.18 * s, cx + 0.22 * s, cy - 0.02 * s), fill=color, width=max(2, int(s * 0.11)))
-    d.ellipse((cx - 0.07 * s, cy + 0.10 * s, cx + 0.07 * s, cy + 0.24 * s), fill=color)
+def mask_fill_y(mask, pct):
+    w, h = mask.size
+    raw = mask.tobytes()
+    totals = [0] * h
+    for y in range(h):
+        row = raw[y * w : (y + 1) * w]
+        totals[y] = sum(1 for v in row if v > 128)
+    total = sum(totals) or 1
+    need = total * pct
+    acc = 0
+    for y in range(h - 1, -1, -1):
+        acc += totals[y]
+        if acc >= need:
+            return y
+    return int(h * (1.0 - pct))
 
 
-def icon_mood(d, cx, cy, s, color):
-    d.ellipse((cx - 0.50 * s, cy - 0.50 * s, cx + 0.50 * s, cy + 0.50 * s), fill=color)
-    eye = (90, 64, 40, 255)
-    d.ellipse((cx - 0.22 * s, cy - 0.16 * s, cx - 0.08 * s, cy - 0.02 * s), fill=eye)
-    d.ellipse((cx + 0.08 * s, cy - 0.16 * s, cx + 0.22 * s, cy - 0.02 * s), fill=eye)
-    d.arc((cx - 0.22 * s, cy - 0.04 * s, cx + 0.22 * s, cy + 0.32 * s), 20, 160, fill=eye, width=max(2, int(s * 0.09)))
+def apply_mask(im, mask):
+    r, g, b, a = im.split()
+    a = ImageChops.multiply(a, mask)
+    return Image.merge("RGBA", (r, g, b, a))
 
 
-def icon_sneaker(d, cx, cy, s, color, sole_col=None):
-    if sole_col is None:
-        sole_col = color
-    sole = [
-        (cx - 0.72 * s, cy + 0.16 * s),
-        (cx + 0.74 * s, cy + 0.06 * s),
-        (cx + 0.72 * s, cy + 0.34 * s),
-        (cx - 0.74 * s, cy + 0.40 * s),
-    ]
-    d.polygon(sole, fill=sole_col)
-    upper = [
-        (cx - 0.58 * s, cy + 0.16 * s),
-        (cx - 0.52 * s, cy - 0.22 * s),
-        (cx - 0.18 * s, cy - 0.38 * s),
-        (cx + 0.10 * s, cy - 0.12 * s),
-        (cx + 0.58 * s, cy + 0.00 * s),
-        (cx + 0.62 * s, cy + 0.16 * s),
-    ]
-    d.polygon(upper, fill=color)
-    swoosh = (255, 255, 255, 200)
-    d.arc((cx - 0.18 * s, cy - 0.08 * s, cx + 0.52 * s, cy + 0.30 * s), 200, 345, fill=swoosh, width=max(2, int(s * 0.08)))
-    for i, dx in enumerate((-0.28, -0.14, 0.00)):
-        d.line(
-            (cx + dx * s, cy - 0.18 * s + i * 0.02 * s, cx + dx * s + 0.10 * s, cy - 0.04 * s),
-            fill=(255, 255, 255, 160),
-            width=max(2, int(s * 0.05)),
-        )
-
-
-def icon_plus(d, cx, cy, r, bg, fg):
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=bg)
-    t = max(2, int(r * 0.16))
-    arm = r * 0.42
-    d.rounded_rectangle((cx - arm, cy - t, cx + arm, cy + t), radius=t, fill=fg)
-    d.rounded_rectangle((cx - t, cy - arm, cx + t, cy + arm), radius=t, fill=fg)
-
-
-def pill(d, box, fill, text, text_fill, fnt):
-    x0, y0, x1, y1 = box
-    d.rounded_rectangle(box, radius=(y1 - y0) / 2, fill=fill)
-    d.text(((x0 + x1) / 2, (y0 + y1) / 2), text, font=fnt, fill=text_fill, anchor="mm")
-
-
-def widget_light(size, wallpaper=None, pos=(0, 0), frost=True) -> Image.Image:
+def drop_shadow(size, radius, blur=22, alpha=70, dy=8):
     w, h = size
-    m = min(w, h)
-    pill_h = int(h * 0.12)
-    gap = int(h * 0.035)
-    card_h = h - pill_h - gap
-    radius = int(m * 0.09)
+    pad = blur * 2
+    sh = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    core = Image.new("RGBA", (w, h), (0, 0, 0, alpha))
+    core = apply_mask(core, rounded_mask(w, h, radius))
+    sh.paste(core, (pad, pad + dy), core)
+    return sh.filter(ImageFilter.GaussianBlur(blur * 0.55)), pad
+
+
+def glass_card(size, radius, tint, wallpaper=None, pos=(0, 0), frost=False, blur=36, border=(255, 255, 255, 90)):
+    """frost: размытый кроп обоев (лаунчер). Иначе — только tint с alpha."""
+    w, h = size
+    card = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    mask = rounded_mask(w, h, radius)
+    if frost and wallpaper is not None:
+        x, y = pos
+        # чуть шире кроп, чтобы blur не тащил край холста
+        m = blur * 2
+        cx0, cy0 = max(0, x - m), max(0, y - m)
+        cx1, cy1 = min(wallpaper.size[0], x + w + m), min(wallpaper.size[1], y + h + m)
+        crop = wallpaper.crop((cx0, cy0, cx1, cy1)).convert("RGBA")
+        crop = crop.filter(ImageFilter.GaussianBlur(blur))
+        crop = crop.filter(ImageFilter.GaussianBlur(max(8, blur // 2)))
+        crop = ImageEnhance.Brightness(crop).enhance(1.10)
+        crop = ImageEnhance.Color(crop).enhance(0.62)
+        # вырезаем обратно размер карточки
+        ox, oy = x - cx0, y - cy0
+        crop = crop.crop((ox, oy, ox + w, oy + h))
+        if crop.size != (w, h):
+            crop = crop.resize((w, h), Image.Resampling.LANCZOS)
+        card = crop
+    veil = Image.new("RGBA", (w, h), tint)
+    card = Image.alpha_composite(card.convert("RGBA"), veil)
+    card = apply_mask(card, mask)
+    # верхний блик
+    sheen = Image.new("L", (w, h), 0)
+    sp = sheen.load()
+    band = max(8, h // 3)
+    for y in range(band):
+        v = int(48 * (1.0 - y / band))
+        for x in range(w):
+            sp[x, y] = v
+    sheen = ImageChops.multiply(sheen, mask)
+    glow = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+    glow.putalpha(sheen)
+    card = Image.alpha_composite(card, glow)
+    # обводка
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(ov).rounded_rectangle((1, 1, w - 2, h - 2), radius=max(1, radius - 1), outline=border, width=2)
+    card = Image.alpha_composite(card, apply_mask(ov, mask))
+    return card
+
+
+def wave_poly(w, h, fy, amp, phase, extra=0.0):
+    pts = []
+    for x in range(w):
+        t = x / max(1, w - 1)
+        yy = fy + int(amp * math.sin(t * math.pi * 2 + phase)) + int(amp * 0.35 * math.sin(t * math.pi * 4 + phase * 1.7))
+        pts.append((x, yy + extra))
+    pts += [(w - 1, h - 1), (0, h - 1)]
+    return pts
+
+
+def s_wave_y(x, w, fy, amp, phase, left_lift):
+    """S-кромка: слева выше, справа ниже."""
+    t = x / max(1.0, w - 1)
+    base = math.cos(t * math.pi)
+    wobble = math.sin(t * math.pi * 2.3 + phase) * 0.30
+    return fy - int(left_lift * (1.0 - t)) - int(amp * (base * 0.50 + wobble))
+
+
+def s_wave_poly(w, h, fy, amp, phase=0.0, left_lift=0):
+    pts = [(x, s_wave_y(x, w, fy, amp, phase, left_lift)) for x in range(w)]
+    pts += [(w - 1, h - 1), (0, h - 1)]
+    return pts
+
+
+def paint_drop(size, fill_pct, ss=3):
+    """Капля: вода снизу, S-кромка (лево выше). Без контура. Блик — черта."""
+    w, h = size
+    W, H = w * ss, h * ss
+    mask = drop_mask(W, H)
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    # тело капли почти прозрачное — обои читаются сквозь пустую часть
+    body = Image.new("RGBA", (W, H), (255, 255, 255, 28))
+    layer = Image.alpha_composite(layer, apply_mask(body, mask))
+    fy = mask_fill_y(mask, fill_pct)
+    amp = int(W * 0.075)
+    lift = int(H * 0.09)
+    water = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    dw = ImageDraw.Draw(water)
+    dw.polygon(s_wave_poly(W, H, fy + int(H * 0.06), int(amp * 1.05), 0.3, lift), fill=(36, 152, 148, 175))
+    dw.polygon(s_wave_poly(W, H, fy, amp, 1.05, lift), fill=(118, 228, 214, 168))
+    layer = Image.alpha_composite(layer, apply_mask(water, mask))
+    # объём: левая сторона воды чуть темнее
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sp = shade.load()
+    for x in range(W):
+        t = x / max(1, W - 1)
+        a = int(56 * (1.0 - t) ** 1.35)
+        if a <= 0:
+            continue
+        y0 = s_wave_y(x, W, fy, amp, 1.05, lift)
+        for y in range(max(0, y0), H):
+            sp[x, y] = (18, 86, 82, a)
+    layer = Image.alpha_composite(layer, apply_mask(shade, mask))
+    # блик — мягкая капля на гребне слева, не полоска на всю ширину
+    hi = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    hd = ImageDraw.Draw(hi)
+    hx = int(W * 0.34)
+    hy = s_wave_y(hx, W, fy, amp, 1.05, lift)
+    rx, ry = int(W * 0.24), int(H * 0.08)
+    hd.ellipse((hx - rx, hy - ry, hx + rx, hy + int(ry * 0.4)), fill=(255, 255, 255, 165))
+    hi = hi.filter(ImageFilter.GaussianBlur(max(2, ss * 3)))
+    water_m = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(water_m).polygon(s_wave_poly(W, H, fy, amp, 1.05, lift), fill=255)
+    ha = hi.split()[-1]
+    hi.putalpha(ImageChops.multiply(ha, water_m))
+    layer = Image.alpha_composite(layer, apply_mask(hi, mask))
+    # мягкий внутренний ободок, не тёмный контур MinFilter
+    inner = mask.filter(ImageFilter.MinFilter(ss * 2 + 1))
+    rim_m = ImageChops.subtract(mask, inner).filter(ImageFilter.GaussianBlur(ss))
+    rim = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+    rim.putalpha(rim_m.point(lambda v: int(v * 0.18)))
+    layer = Image.alpha_composite(layer, apply_mask(rim, mask))
+    out = layer.resize((w, h), Image.Resampling.LANCZOS)
+    return out, int(fy / ss)
+
+
+def arc_caps(draw, box, start, end, color, width):
+    draw.arc(box, start, end, fill=color, width=width)
+    cx = (box[0] + box[2]) / 2
+    cy = (box[1] + box[3]) / 2
+    rx = (box[2] - box[0]) / 2
+    ry = (box[3] - box[1]) / 2
+    r = width / 2
+    for ang in (start, end):
+        a = math.radians(ang)
+        x = cx + rx * math.cos(a)
+        y = cy + ry * math.sin(a)
+        draw.ellipse((x - r, y - r, x + r, y + r), fill=color)
+
+
+def neon_ring(size, box, pct, color, width, track=None):
+    """Кольцо с bloom. Углы Pillow: 0 = 3 часа, по часовой."""
+    w, h = size
+    start = -90
+    sweep = max(8, min(350, 360 * pct))
+    end = start + sweep
     out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    card = glass_card(
-        wallpaper,
-        (pos[0], pos[1]),
-        (w, card_h),
-        radius,
-        (255, 250, 246, 205 if frost else 175),
-        frost,
-        blur=26,
-        border=(255, 255, 255, 120),
-    )
-    drop_box = (int(w * 0.045), int(card_h * 0.08), int(w * 0.37), int(card_h * 0.92))
-    draw_drop(card, drop_box, P_WATER / 100.0)
-    d = ImageDraw.Draw(card)
-    dxc = (drop_box[0] + drop_box[2]) / 2
-    top = drop_box[1]
-    bot = drop_box[3]
-    draw_text(d, (dxc, top + (bot - top) * 0.16), "Вода", fs(m, 0.045), (36, 100, 102), "mm")
-    draw_text_strong(d, (dxc, top + (bot - top) * 0.52), ru_int(WATER), fs(m, 0.095), (16, 64, 66), "mm")
-    draw_text(d, (dxc, top + (bot - top) * 0.66), "мл", fs(m, 0.040), (30, 90, 92), "mm")
-    draw_text(d, (dxc, top + (bot - top) * 0.78), f"из {ru_int(WATER_GOAL)} мл", fs(m, 0.036), (40, 100, 102), "mm")
-    draw_text_strong(d, (dxc, top + (bot - top) * 0.90), f"{P_WATER}%", fs(m, 0.042), (20, 88, 90), "mm")
-
-    gx0, gy0 = int(w * 0.40), int(card_h * 0.09)
-    gx1, gy1 = int(w * 0.955), int(card_h * 0.91)
-    gap_t = max(10, int(m * 0.025))
-    tw = (gx1 - gx0 - gap_t) // 2
-    th = (gy1 - gy0 - gap_t) // 2
-    cells = [
-        ((gx0, gy0), (196, 228, 224), (40, 140, 132), icon_steps, "Шаги", ru_int(STEPS), f"из {ru_int(STEPS_GOAL)}"),
-        ((gx0 + tw + gap_t, gy0), (244, 214, 196), (190, 108, 70), icon_food, "Питание", ru_int(FOOD), "ккал съедено"),
-        ((gx0, gy0 + th + gap_t), (206, 226, 200), (70, 130, 80), icon_act, "Активность", f"{ACT} мин", f"из {ACT_GOAL} мин"),
-        ((gx0 + tw + gap_t, gy0 + th + gap_t), (244, 226, 176), (220, 170, 50), icon_mood, "Самочувствие", MOOD_WORD, f"{MOOD_N} из 5"),
-    ]
-    f_lab = fs(m, 0.032)
-    f_val = fs(m, 0.055)
-    f_sub = fs(m, 0.028)
-    for (x, y), bg, icc, ic, lab, val, sub in cells:
-        d.rounded_rectangle((x, y, x + tw, y + th), radius=max(14, int(m * 0.035)), fill=bg)
-        ic(d, x + tw - int(m * 0.055), y + int(m * 0.055), int(m * 0.042), icc)
-        pad = int(m * 0.035)
-        draw_text(d, (x + pad, y + th * 0.22), lab, f_lab, (90, 100, 110), "lm")
-        draw_text_strong(d, (x + pad, y + th * 0.52), val, f_val, (28, 34, 42), "lm")
-        draw_text(d, (x + pad, y + th * 0.78), sub, f_sub, (110, 118, 126), "lm")
-
-    out.alpha_composite(card, (0, 0))
-    pd = ImageDraw.Draw(out)
-    pw = int(w * 0.30)
-    px0 = (w - pw) // 2
-    py0 = card_h + gap
-    pill(pd, (px0, py0, px0 + pw, py0 + pill_h), (72, 198, 188, 245), "+250 мл", (255, 255, 255, 255), fs(m, 0.048))
+    if track:
+        tr = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(tr).arc(box, 0, 360, fill=track, width=width)
+        out = Image.alpha_composite(out, tr)
+    # bloom: широкий мягкий ореол + более плотный
+    for br, extra, al in (
+        (26, int(width * 2.4), 64),
+        (12, int(width * 1.2), 110),
+        (5, int(width * 0.45), 160),
+    ):
+        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        col = (color[0], color[1], color[2], al)
+        arc_caps(ImageDraw.Draw(glow), inflate(box, extra // 2), start, end, col, width + extra)
+        out = Image.alpha_composite(out, glow.filter(ImageFilter.GaussianBlur(br)))
+    core = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    hi = (min(255, color[0] + 40), min(255, color[1] + 40), min(255, color[2] + 30), 255)
+    arc_caps(ImageDraw.Draw(core), box, start, end, color, width)
+    arc_caps(ImageDraw.Draw(core), box, start, end, hi, max(2, width // 3))
+    out = Image.alpha_composite(out, core)
     return out
 
 
-def wave_band(w: int, h: int, fill_pct: float) -> Image.Image:
+def inflate(box, d):
+    return (box[0] - d, box[1] - d, box[2] + d, box[3] + d)
+
+
+def rounded_tile(size, radius, fill, border=None):
+    w, h = size
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    base = int(h * (1.0 - 0.82 * fill_pct))
-    amp = max(5, h // 16)
-    pts = []
-    for x in range(0, w + 4, 3):
-        y = base + int(amp * math.sin(x / max(10.0, w / 16) + 0.3)) + int(amp * 0.35 * math.sin(x / max(6.0, w / 28) + 1.2))
-        pts.append((x, y))
-    pts += [(w, h), (0, h)]
-    d.polygon(pts, fill=(34, 200, 210, 205))
-    deep = base + int(h * 0.32)
-    dpts = [(x, deep + int(amp * 0.5 * math.sin(x / max(10.0, w / 14) + 2.0))) for x in range(0, w + 4, 3)]
-    dpts += [(w, h), (0, h)]
-    d.polygon(dpts, fill=(20, 140, 170, 185))
-    foam = []
-    for x in range(0, w + 4, 3):
-        y = base + int(amp * math.sin(x / max(10.0, w / 16) + 0.3))
-        foam.append((x, y))
-    for x in range(w, -1, -3):
-        y = base + int(amp * math.sin(x / max(10.0, w / 16) + 0.3)) + max(5, h // 18)
-        foam.append((x, y))
-    d.polygon(foam, fill=(180, 250, 255, 120))
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=fill, outline=border, width=1 if border else 0)
     return im
 
 
-def widget_bento(size, wallpaper=None, pos=(0, 0), frost=True) -> Image.Image:
-    w, h = size
-    m = min(w, h)
-    radius = int(m * 0.09)
-    card = glass_card(
-        wallpaper,
-        pos,
-        (w, h),
-        radius,
-        (24, 18, 40, 216 if frost else 192),
-        frost,
-        blur=24,
-        border=(255, 255, 255, 40),
-    )
-    d = ImageDraw.Draw(card)
-
-    cx, cy = int(w * 0.23), int(h * 0.48)
-    R = int(m * 0.30)
-    track_w = max(12, int(R * 0.20))
-    d.ellipse((cx - R, cy - R, cx + R, cy + R), outline=(50, 42, 78, 255), width=track_w)
-    start, end = -90, -90 + int(360 * P_STEPS / 100.0)
-    bbox = (cx - R, cy - R, cx + R, cy + R)
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).arc(bbox, start, end, fill=(176, 148, 255, 150), width=track_w + 10)
-    card.alpha_composite(glow.filter(ImageFilter.GaussianBlur(7)))
-    d = ImageDraw.Draw(card)
-    d.arc(bbox, start, end, fill=(176, 148, 255, 255), width=track_w)
-    icon_sneaker(d, cx, cy - int(m * 0.04), int(R * 0.42), (214, 204, 255, 255), (150, 136, 210, 255))
-    draw_text_strong(d, (cx, cy + int(R * 0.28)), ru_int(STEPS), fs(m, 0.085), (245, 242, 255), "mm")
-    draw_text(d, (cx, cy + int(R * 0.48)), f"{P_STEPS}%", fs(m, 0.040), (176, 148, 255), "mm")
-    draw_text(d, (int(w * 0.055), int(h * 0.075)), "Шаги", fs(m, 0.038), (170, 160, 200), "lt")
-    draw_text(d, (cx, int(h * 0.92)), f"цель {ru_int(STEPS_GOAL)}", fs(m, 0.032), (150, 142, 180), "mm")
-
-    rx0, rx1 = int(w * 0.46), int(w * 0.955)
-    wy0, wy1 = int(h * 0.08), int(h * 0.52)
-    d.rounded_rectangle((rx0, wy0, rx1, wy1), radius=max(16, int(m * 0.04)), fill=(28, 24, 50, 200))
-    # текст сверху, волна снизу — не пересекаются
-    split = wy0 + int((wy1 - wy0) * 0.46)
-    inner = (rx0 + 8, split, rx1 - 8, wy1 - 8)
-    wave = apply_round(wave_band(inner[2] - inner[0], inner[3] - inner[1], P_WATER / 100.0), 12)
-    card.alpha_composite(wave, (inner[0], inner[1]))
-    d = ImageDraw.Draw(card)
-    draw_text(d, (rx0 + int(m * 0.04), wy0 + int(m * 0.055)), "Вода", fs(m, 0.034), (140, 200, 210), "lm")
-    draw_text_strong(
-        d,
-        (rx0 + int(m * 0.04), wy0 + int(m * 0.13)),
-        f"{ru_int(WATER)} мл",
-        fs(m, 0.062),
-        (235, 250, 255),
-        "lm",
-    )
-    draw_text(
-        d,
-        (rx0 + int(m * 0.04), wy0 + int(m * 0.20)),
-        f"из {ru_int(WATER_GOAL)} мл",
-        fs(m, 0.032),
-        (150, 190, 200),
-        "lm",
-    )
-    icon_plus(d, rx1 - int(m * 0.07), wy0 + int(m * 0.08), int(m * 0.042), (34, 211, 238, 235), (12, 30, 40, 255))
-    draw_text(d, (rx1 - int(m * 0.035), wy1 - int(m * 0.035)), "+250 мл", fs(m, 0.028), (190, 245, 250), "rb")
-
-    fy0, fy1 = int(h * 0.56), int(h * 0.92)
-    d.rounded_rectangle((rx0, fy0, rx1, fy1), radius=max(16, int(m * 0.04)), fill=(38, 26, 42, 200))
-    draw_text(d, (rx0 + int(m * 0.04), fy0 + int(m * 0.055)), "Питание", fs(m, 0.034), (230, 180, 140), "lm")
-    draw_text_strong(
-        d,
-        (rx0 + int(m * 0.04), fy0 + int(m * 0.145)),
-        f"{ru_int(FOOD)} ккал",
-        fs(m, 0.056),
-        (255, 240, 230),
-        "lm",
-    )
-    draw_text_strong(d, (rx1 - int(m * 0.04), fy0 + int(m * 0.145)), f"{P_FOOD}%", fs(m, 0.048), (251, 160, 80), "rm")
-    bx0, by0 = rx0 + int(m * 0.04), fy1 - int(m * 0.11)
-    bx1, by1 = rx1 - int(m * 0.04), fy1 - int(m * 0.075)
-    d.rounded_rectangle((bx0, by0, bx1, by1), radius=7, fill=(60, 40, 48, 255))
-    fill_w = int((bx1 - bx0) * P_FOOD / 100.0)
-    if fill_w > 10:
-        d.rounded_rectangle((bx0, by0, bx0 + fill_w, by1), radius=7, fill=(251, 146, 60, 255))
-    draw_text(
-        d,
-        (bx0, fy1 - int(m * 0.038)),
-        f"съедено · цель {ru_int(FOOD_GOAL)}",
-        fs(m, 0.028),
-        (170, 150, 150),
-        "lm",
-    )
-    return card
+def text_w(d, t, fnt):
+    b = d.textbbox((0, 0), t, font=fnt)
+    return b[2] - b[0], b[3] - b[1]
 
 
-def glow_arc(size, bbox, start, end, color, width, blur):
-    im = Image.new("RGBA", size, (0, 0, 0, 0))
-    ImageDraw.Draw(im).arc(bbox, start, end, fill=color, width=width)
-    return im.filter(ImageFilter.GaussianBlur(blur)) if blur else im
+def icon_layer(size, painter, ss=4):
+    S = size * ss
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    painter(ImageDraw.Draw(im), S)
+    return im.resize((size, size), Image.Resampling.LANCZOS)
 
 
-def widget_rings(size, wallpaper=None, pos=(0, 0), frost=True) -> Image.Image:
-    w, h = size
-    m = min(w, h)
-    radius = int(m * 0.09)
-    card = glass_card(
-        wallpaper,
-        pos,
-        (w, h),
-        radius,
-        (10, 16, 28, 220 if frost else 196),
-        frost,
-        blur=24,
-        border=(120, 200, 220, 50),
-    )
-    d = ImageDraw.Draw(card)
+def icon_foot(size, color):
+    def p(d, S):
+        d.ellipse((int(S * 0.30), int(S * 0.55), int(S * 0.70), int(S * 0.94)), fill=color)
+        d.polygon(
+            [
+                (int(S * 0.32), int(S * 0.62)),
+                (int(S * 0.28), int(S * 0.38)),
+                (int(S * 0.68), int(S * 0.32)),
+                (int(S * 0.70), int(S * 0.62)),
+            ],
+            fill=color,
+        )
+        d.ellipse((int(S * 0.22), int(S * 0.18), int(S * 0.72), int(S * 0.48)), fill=color)
+        d.ellipse((int(S * 0.12), int(S * 0.20), int(S * 0.30), int(S * 0.40)), fill=color)
+        d.ellipse((int(S * 0.22), int(S * 0.08), int(S * 0.36), int(S * 0.22)), fill=color)
+        d.ellipse((int(S * 0.38), int(S * 0.04), int(S * 0.50), int(S * 0.18)), fill=color)
+        d.ellipse((int(S * 0.52), int(S * 0.06), int(S * 0.62), int(S * 0.18)), fill=color)
 
-    cx, cy = int(w * 0.28), int(h * 0.40)
-    R = int(m * 0.28)
-    rings = [
-        (R, (34, 211, 238), P_WATER),
-        (int(R * 0.70), (251, 146, 60), P_FOOD),
-        (int(R * 0.40), (192, 132, 252), P_STEPS),
-    ]
-    tw = max(10, int(R * 0.13))
-    for rr, col, p in rings:
-        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline=(28, 40, 58, 255), width=tw)
-    for rr, col, p in rings:
-        start, end = -90, -90 + int(360 * p / 100.0)
-        bbox = (cx - rr, cy - rr, cx + rr, cy + rr)
-        card.alpha_composite(glow_arc((w, h), bbox, start, end, col + (140,), tw + 10, 7))
-        d = ImageDraw.Draw(card)
-        d.arc(bbox, start, end, fill=col + (255,), width=tw)
-
-    draw_text_strong(d, (cx, cy - int(m * 0.018)), "FitFlow", fs(m, 0.048), (230, 240, 250), "mm")
-    draw_text(d, (cx, cy + int(m * 0.038)), f"{P_DAY}% дня", fs(m, 0.032), (150, 185, 205), "mm")
-
-    lx = int(w * 0.54)
-    ly0 = int(h * 0.12)
-    row_h = int(h * 0.145)
-    rows = [
-        ((34, 211, 238), "Вода", f"{ru_int(WATER)} мл", f"{P_WATER}%"),
-        ((251, 146, 60), "Питание", f"{ru_int(FOOD)} ккал", f"{P_FOOD}%"),
-        ((192, 132, 252), "Шаги", ru_int(STEPS), f"{P_STEPS}%"),
-    ]
-    for i, (col, name, val, pr) in enumerate(rows):
-        y = ly0 + i * row_h
-        d.ellipse((lx, y + int(m * 0.012), lx + int(m * 0.028), y + int(m * 0.040)), fill=col + (255,))
-        draw_text(d, (lx + int(m * 0.045), y), name, fs(m, 0.030), (160, 175, 190), "lt")
-        draw_text_strong(d, (lx + int(m * 0.045), y + int(m * 0.048)), val, fs(m, 0.044), (240, 245, 250), "lt")
-        draw_text_strong(d, (int(w * 0.945), y + int(m * 0.048)), pr, fs(m, 0.038), col + (255,), "rt")
-
-    # витамины — отдельная строка над кнопками, не на кольцах
-    draw_text(d, (int(w * 0.05), int(h * 0.72)), VIT_LINE, fs(m, 0.030), (150, 168, 184), "lt")
-
-    bw = int(w * 0.28)
-    gapb = int(w * 0.025)
-    total = 3 * bw + 2 * gapb
-    bx0 = (w - total) // 2
-    by0, by1 = int(h * 0.80), int(h * 0.93)
-    pills = [
-        ((34, 211, 238, 235), (8, 24, 32, 255), "+250 мл"),
-        ((251, 146, 60, 235), (40, 20, 8, 255), "Еда"),
-        ((192, 132, 252, 235), (28, 16, 40, 255), "Витамины"),
-    ]
-    fnt = fs(m, 0.036)
-    for i, (bg, fg, lab) in enumerate(pills):
-        x = bx0 + i * (bw + gapb)
-        pill(d, (x, by0, x + bw, by1), bg, lab, fg, fnt)
-    return card
+    return icon_layer(size, p, ss=4)
 
 
-def stamp(im: Image.Image, text: str) -> Image.Image:
+def icon_bowl(size, color):
+    def p(d, S):
+        d.chord((int(S * 0.08), int(S * 0.30), int(S * 0.92), int(S * 0.98)), 0, 180, fill=color)
+        d.arc((int(S * 0.08), int(S * 0.22), int(S * 0.92), int(S * 0.50)), 200, 340, fill=color, width=max(2, S // 12))
+        wln = max(2, S // 14)
+        d.arc((int(S * 0.28), int(S * 0.02), int(S * 0.44), int(S * 0.36)), 210, 330, fill=color, width=wln)
+        d.arc((int(S * 0.44), int(S * 0.00), int(S * 0.58), int(S * 0.32)), 210, 330, fill=color, width=wln)
+        d.arc((int(S * 0.58), int(S * 0.02), int(S * 0.74), int(S * 0.36)), 210, 330, fill=color, width=wln)
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_clock(size, color):
+    def p(d, S):
+        m = max(2, S // 10)
+        d.ellipse((int(S * 0.10), int(S * 0.10), int(S * 0.90), int(S * 0.90)), outline=color, width=m)
+        d.line((S // 2, S // 2, S // 2, int(S * 0.28)), fill=color, width=m)
+        d.line((S // 2, S // 2, int(S * 0.70), int(S * 0.62)), fill=color, width=m)
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_mood(size, color):
+    def p(d, S):
+        d.ellipse((int(S * 0.08), int(S * 0.08), int(S * 0.92), int(S * 0.92)), outline=color, width=max(2, S // 10))
+        d.ellipse((int(S * 0.30), int(S * 0.32), int(S * 0.42), int(S * 0.46)), fill=color)
+        d.ellipse((int(S * 0.58), int(S * 0.32), int(S * 0.70), int(S * 0.46)), fill=color)
+        d.arc((int(S * 0.28), int(S * 0.40), int(S * 0.72), int(S * 0.78)), 20, 160, fill=color, width=max(2, S // 11))
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_drop(size, color):
+    def p(d, S):
+        m = drop_mask(S, S)
+        d.bitmap((0, 0), m, fill=color)
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_flame(size, color):
+    def p(d, S):
+        pts = [
+            (S * 0.50, S * 0.08),
+            (S * 0.78, S * 0.48),
+            (S * 0.70, S * 0.86),
+            (S * 0.30, S * 0.86),
+            (S * 0.22, S * 0.48),
+        ]
+        d.polygon(pts, fill=color)
+        d.polygon(
+            [(S * 0.50, S * 0.40), (S * 0.62, S * 0.66), (S * 0.50, S * 0.82), (S * 0.38, S * 0.66)],
+            fill=(255, 255, 255, 90),
+        )
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_sneaker(size, color):
+    def p(d, S):
+        sole = (int(S * 0.08), int(S * 0.60), int(S * 0.94), int(S * 0.78))
+        d.rounded_rectangle(sole, radius=S // 8, fill=color)
+        d.polygon(
+            [
+                (int(S * 0.16), int(S * 0.62)),
+                (int(S * 0.24), int(S * 0.34)),
+                (int(S * 0.52), int(S * 0.28)),
+                (int(S * 0.62), int(S * 0.46)),
+                (int(S * 0.90), int(S * 0.62)),
+            ],
+            fill=color,
+        )
+        stripe = (max(0, color[0] - 40), max(0, color[1] - 40), max(0, color[2] - 40), color[3] if len(color) > 3 else 255)
+        d.line((int(S * 0.30), int(S * 0.58), int(S * 0.52), int(S * 0.40)), fill=stripe, width=max(2, S // 14))
+
+    return icon_layer(size, p, ss=4)
+
+
+def icon_plus(size, color, bg):
+    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    f = font(max(14, im.width // 70))
-    pad = 10
-    tw = text_w(f, text)
-    d.rounded_rectangle((pad, pad, pad + tw + 16, pad + 26), radius=10, fill=(0, 0, 0, 110))
-    d.text((pad + 8, pad + 13), text, font=f, fill=(255, 255, 255, 220), anchor="lm")
+    d.ellipse((0, 0, size - 1, size - 1), fill=bg)
+    m = max(2, size // 8)
+    c = size // 2
+    d.line((c, size * 0.28, c, size * 0.72), fill=color, width=m)
+    d.line((size * 0.28, c, size * 0.72, c), fill=color, width=m)
     return im
 
 
-def scene(kind: str, frost: bool, size=(1280, 800)) -> Image.Image:
-    scale = 2
-    W, H = size[0] * scale, size[1] * scale
-    if kind == "light":
-        wp = wallpaper_dawn(W, H)
-        ww, wh = int(W * 0.80), int(H * 0.60)
-        draw = widget_light
-    elif kind == "bento":
-        wp = wallpaper_night(W, H, warm=True)
-        ww, wh = int(W * 0.80), int(H * 0.58)
-        draw = widget_bento
-    else:
-        wp = wallpaper_night(W, H, warm=False)
-        ww, wh = int(W * 0.82), int(H * 0.58)
-        draw = widget_rings
-    x = (W - ww) // 2
-    y = (H - wh) // 2
-    card = draw((ww, wh), wallpaper=wp, pos=(x, y), frost=frost)
-    wp.alpha_composite(card, (x, y))
-    return wp.resize(size, Image.Resampling.LANCZOS)
+def icon_check(size, color):
+    def p(d, S):
+        w = max(2, S // 8)
+        d.line((int(S * 0.18), int(S * 0.52), int(S * 0.42), int(S * 0.76)), fill=color, width=w)
+        d.line((int(S * 0.42), int(S * 0.76), int(S * 0.84), int(S * 0.24)), fill=color, width=w)
+
+    return icon_layer(size, p, ss=4)
 
 
-def wrap(text: str, fnt, max_w: float) -> list[str]:
-    words = text.split()
-    lines, cur = [], ""
-    for word in words:
-        t = (cur + " " + word).strip()
-        if text_w(fnt, t) <= max_w:
-            cur = t
-        else:
-            if cur:
-                lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
-    return lines
+def icon_bottle(size, color):
+    def p(d, S):
+        d.rounded_rectangle((int(S * 0.34), int(S * 0.08), int(S * 0.66), int(S * 0.22)), radius=S // 14, outline=color, width=max(2, S // 12))
+        d.rounded_rectangle((int(S * 0.28), int(S * 0.20), int(S * 0.72), int(S * 0.90)), radius=S // 6, outline=color, width=max(2, S // 12))
+        d.rectangle((int(S * 0.34), int(S * 0.52), int(S * 0.66), int(S * 0.80)), fill=color)
+
+    return icon_layer(size, p, ss=4)
 
 
-def draw_paragraph(d, xy, text, fnt, fill, max_w, leading=1.38):
+def pill_filled(size, fill, text, tcol=(255, 255, 255, 255), fnt=None):
+    w, h = size
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=h // 2, fill=fill)
+    fnt = fnt or font(22)
+    tw, th = text_w(d, text, fnt)
+    d.text(((w - tw) / 2, (h - th) / 2 - 1), text, font=fnt, fill=tcol)
+    return im
+
+
+def pill_outline(size, stroke, text, icon=None, fnt=None):
+    w, h = size
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((1, 1, w - 2, h - 2), radius=h // 2, outline=stroke, width=3)
+    fnt = fnt or font(18)
+    tw, th = text_w(d, text, fnt)
+    gap = 8
+    iw = icon.size[0] if icon is not None else 0
+    total = tw + (iw + gap if icon is not None else 0)
+    x = (w - total) / 2
+    y = (h - th) / 2 - 1
+    if icon is not None:
+        iy = (h - icon.size[1]) // 2
+        im.alpha_composite(icon, (int(x), iy))
+        x += iw + gap
+    d.text((x, y), text, font=fnt, fill=stroke)
+    return im
+
+
+def widget_light(frost, wallpaper, pos):
+    ww, wh = int(1000 * s / 2), int(430 * s / 2)
+    radius = 36
+    # frost: тонкая вуаль, чтобы был виден размытый пейзаж
+    # honest: тоже просвечивает, но обои резкие
+    tint = (255, 250, 246, 92 if frost else 118)
+    border = (255, 255, 255, 210 if frost else 150)
+    card = glass_card((ww, wh), radius, tint, wallpaper, pos, frost, blur=40, border=border)
+    d = ImageDraw.Draw(card)
+    ink = (28, 34, 46, 255)
+    mute = (110, 120, 132, 255)
+    pad = 28
+    left_w = int(ww * 0.36)
+    f_num = font(42)
+    f_lab = font(24)
+    f_sub = font(15)
+    t1 = f"{fmt(WATER)} мл"
+    d.text((pad, 18), t1, font=f_num, fill=ink)
+    d.text((pad, 64), "Вода", font=f_lab, fill=ink)
+    dw, dh = 190, 214
+    dx = pad + 4
+    dy = 94
+    drop, fy = paint_drop((dw, dh), P_WATER, ss=3)
+    card.alpha_composite(drop, (dx, dy))
+    pct = f"~{int(P_WATER * 100)}%"
+    d.text((dx + int(dw * 0.50), dy + fy + 4), pct, font=font(13), fill=(255, 255, 255, 235))
+    pill = pill_filled((148, 36), (94, 214, 196, 255), "+250 мл", tcol=(18, 48, 46, 255), fnt=font(15))
+    card.alpha_composite(pill, (pad, wh - 52))
+    d.text((pad + 156, wh - 42), f"из {fmt(WATER_G)} мл", font=f_sub, fill=mute)
+
+    gx = left_w + 4
+    gy = 20
+    gap = 12
+    tw = (ww - gx - pad - gap) // 2
+    th = (wh - gy - 20 - gap) // 2
+    tiles = [
+        ("Шаги", fmt(STEPS), f"из {fmt(STEPS_G)}", icon_foot(22, (72, 196, 168, 255))),
+        ("Питание", fmt(FOOD), "ккал съедено", icon_bowl(22, (232, 140, 96, 255))),
+        ("Активность", f"{ACT} мин", f"из {ACT_G} мин", icon_clock(22, (96, 176, 120, 255))),
+        ("Самочувствие", "хороший", f"{MOOD} из {MOOD_G}", icon_mood(22, (232, 176, 64, 255))),
+    ]
+    for i, (lab, val, sub, ico) in enumerate(tiles):
+        col, row = i % 2, i // 2
+        x = gx + col * (tw + gap)
+        y = gy + row * (th + gap)
+        tile = rounded_tile((tw, th), 22, (255, 255, 255, 228), border=(255, 255, 255, 90))
+        card.alpha_composite(tile, (x, y))
+        td = ImageDraw.Draw(card)
+        card.alpha_composite(ico, (x + 14, y + 14))
+        td.text((x + 42, y + 16), lab, font=font(13), fill=mute)
+        td.text((x + 14, y + 46), val, font=font(28), fill=ink)
+        td.text((x + 14, y + th - 28), sub, font=font(13), fill=mute)
+    return card
+
+
+def widget_bento(frost, wallpaper, pos):
+    ww, wh = int(1000 * s / 2), int(430 * s / 2)
+    radius = 36
+    tint = (16, 12, 28, 100 if frost else 132)
+    border = (255, 255, 255, 36)
+    card = glass_card((ww, wh), radius, tint, wallpaper, pos, frost, blur=36, border=border)
+    pad = 20
+    ink = (255, 255, 255, 255)
+    mute = (168, 176, 196, 255)
+    left_w = int(ww * 0.46)
+    left_h = wh - pad * 2
+    left = rounded_tile((left_w, left_h), 24, (255, 255, 255, 14), border=(255, 255, 255, 22))
+    card.alpha_composite(left, (pad, pad))
+    d = ImageDraw.Draw(card)
+    d.text((pad + 18, pad + 14), "Шаги", font=font(16), fill=mute)
+    d.text((pad + 18, pad + 48), fmt(STEPS), font=font(40), fill=ink)
+    d.text((pad + 18, pad + 100), "шагов", font=font(15), fill=mute)
+    d.text((pad + 18, pad + left_h - 32), f"цель {fmt(STEPS_G)}", font=font(14), fill=mute)
+
+    # кольцо справа в левой плитке
+    rs = 176
+    rx = pad + left_w - rs - 10
+    ry = pad + (left_h - rs) // 2 - 2
+    ring = neon_ring(
+        (ww, wh),
+        (rx, ry, rx + rs, ry + rs),
+        P_STEPS,
+        (196, 160, 255, 255),
+        18,
+        track=(183, 148, 246, 48),
+    )
+    card.alpha_composite(ring, (0, 0))
+    shoe = icon_sneaker(34, (240, 236, 255, 255))
+    card.alpha_composite(shoe, (rx + rs // 2 - 17, ry + rs // 2 - 26))
+    pct = f"{int(P_STEPS * 100)}%"
+    tw, _ = text_w(d, pct, font(14))
+    d.text((rx + (rs - tw) / 2, ry + rs // 2 + 14), pct, font=font(14), fill=(220, 200, 255, 255))
+
+    # вода
+    rw = ww - pad * 3 - left_w
+    rh = (left_h - 12) // 2
+    rx0 = pad * 2 + left_w
+    water_tile = rounded_tile((rw, rh), 22, (10, 24, 44, 140), border=(34, 211, 238, 55))
+    card.alpha_composite(water_tile, (rx0, pad))
+    wave = Image.new("RGBA", (rw, rh), (0, 0, 0, 0))
+    fy = int(rh * 0.50)
+    ImageDraw.Draw(wave).polygon(s_wave_poly(rw, rh, fy + 14, 26, 0.15, 22), fill=(6, 130, 168, 220))
+    ImageDraw.Draw(wave).polygon(s_wave_poly(rw, rh, fy, 22, 1.0, 20), fill=(34, 211, 238, 195))
+    wave = apply_mask(wave, rounded_mask(rw, rh, 22))
+    card.alpha_composite(wave, (rx0, pad))
+    blob = Image.new("RGBA", (rw, rh), (0, 0, 0, 0))
+    ImageDraw.Draw(blob).ellipse(
+        (int(rw * 0.66), int(rh * 0.40), int(rw * 0.86), int(rh * 0.68)),
+        fill=(200, 252, 255, 70),
+    )
+    blob = blob.filter(ImageFilter.GaussianBlur(7))
+    water_m = Image.new("L", (rw, rh), 0)
+    ImageDraw.Draw(water_m).polygon(s_wave_poly(rw, rh, fy, 22, 1.0, 20), fill=255)
+    blob = apply_mask(blob, water_m)
+    blob = apply_mask(blob, rounded_mask(rw, rh, 22))
+    card.alpha_composite(blob, (rx0, pad))
+    d.text((rx0 + 16, pad + 12), "Вода", font=font(14), fill=(148, 210, 230, 255))
+    d.text((rx0 + 16, pad + 34), f"{fmt(WATER)} / {fmt(WATER_G)} мл", font=font(22), fill=ink)
+    plus = icon_plus(44, (8, 20, 32, 255), (34, 211, 238, 255))
+    card.alpha_composite(plus, (rx0 + rw - 58, pad + 10))
+    tw, _ = text_w(d, "+250 мл", font(13))
+    d.text((rx0 + rw - tw - 14, pad + rh - 26), "+250 мл", font=font(13), fill=(180, 240, 250, 255))
+
+    # питание
+    fy0 = pad + rh + 12
+    food_tile = rounded_tile((rw, rh), 22, (28, 16, 22, 150), border=(255, 255, 255, 18))
+    card.alpha_composite(food_tile, (rx0, fy0))
+    d.text((rx0 + 16, fy0 + 12), "Питание", font=font(14), fill=mute)
+    d.text((rx0 + 16, fy0 + 36), f"{fmt(FOOD)} ккал съедено", font=font(20), fill=ink)
+    d.text((rx0 + rw - 58, fy0 + 16), f"{int(P_FOOD * 100)}%", font=font(16), fill=(251, 146, 60, 255))
+    bx, by, bw, bh = rx0 + 16, fy0 + rh - 36, rw - 32, 10
+    ImageDraw.Draw(card).rounded_rectangle((bx, by, bx + bw, by + bh), radius=5, fill=(60, 40, 36, 255))
+    ImageDraw.Draw(card).rounded_rectangle((bx, by, bx + int(bw * P_FOOD), by + bh), radius=5, fill=(251, 146, 60, 255))
+    d.text((rx0 + 16, fy0 + rh - 22), f"цель {fmt(FOOD_G)} ккал", font=font(12), fill=mute)
+    return card
+
+
+def widget_rings(frost, wallpaper, pos):
+    ww, wh = int(1000 * s / 2), int(430 * s / 2)
+    radius = 36
+    tint = (10, 16, 32, 96 if frost else 128)
+    border = (255, 255, 255, 36)
+    card = glass_card((ww, wh), radius, tint, wallpaper, pos, frost, blur=36, border=border)
+    d = ImageDraw.Draw(card)
+    ink = (255, 255, 255, 255)
+    mute = (168, 184, 204, 255)
+    cx, cy, R = 22, 16, 220
+    colors = [(34, 211, 238, 255), (251, 146, 60, 255), (192, 132, 252, 255)]
+    pcts = [P_WATER, P_FOOD, P_STEPS]
+    widths = [20, 17, 15]
+    for i, (col, pct, wd) in enumerate(zip(colors, pcts, widths)):
+        inset = 6 + i * 30
+        box = (cx + inset, cy + inset, cx + R - inset, cy + R - inset)
+        ring = neon_ring((ww, wh), box, pct, col, wd, track=(col[0], col[1], col[2], 42))
+        card.alpha_composite(ring, (0, 0))
+    mid = f"{int(P_DAY * 100)}%"
+
+    def ctr_txt(txt, fy, fnt, col):
+        tw, _ = text_w(d, txt, fnt)
+        d.text((cx + (R - tw) / 2, fy), txt, font=fnt, fill=col)
+
+    ctr_txt(f"FitFlow · {mid}", cy + 88, font(14), ink)
+    ctr_txt("дня", cy + 112, font(13), mute)
+
+    rows = [
+        (icon_drop(24, (34, 211, 238, 255)), "Вода", f"{fmt(WATER)} / {fmt(WATER_G)} мл", colors[0]),
+        (icon_bowl(24, (251, 146, 60, 255)), "Питание", f"{fmt(FOOD)} / {fmt(FOOD_G)} ккал", colors[1]),
+        (icon_sneaker(24, (192, 132, 252, 255)), "Шаги", f"{fmt(STEPS)} / {fmt(STEPS_G)}", colors[2]),
+    ]
+    rx = cx + R + 18
+    ry = 32
+    for ico, lab, val, col in rows:
+        ImageDraw.Draw(card).ellipse((rx, ry + 10, rx + 8, ry + 18), fill=col)
+        card.alpha_composite(ico, (rx + 16, ry + 2))
+        d.text((rx + 46, ry + 2), f"{lab}:  {val}", font=font(18), fill=ink)
+        ry += 50
+
+    vit = f"Витамины:  принято {VIT_TAKEN} из {VIT_TOTAL}   след. {VIT_NEXT}"
+    d.text((28, 242), vit, font=font(14), fill=mute)
+
+    # outline-пилюли
+    pw, ph = 292, 48
+    gap = 12
+    total = pw * 3 + gap * 2
+    x0 = (ww - total) // 2
+    y0 = wh - ph - 22
+    pills = [
+        ((34, 211, 238, 255), "+250 мл", icon_bottle(18, (34, 211, 238, 255))),
+        ((251, 146, 60, 255), "Еда", icon_bowl(18, (251, 146, 60, 255))),
+        ((52, 211, 153, 255), "Витамины", icon_check(18, (52, 211, 153, 255))),
+    ]
+    for i, (col, lab, ico) in enumerate(pills):
+        pill = pill_outline((pw, ph), col, lab, icon=ico, fnt=font(16))
+        card.alpha_composite(pill, (x0 + i * (pw + gap), y0))
+    return card
+
+
+def badge(im, text="FitFlow · макет п.5 · не APK"):
+    d = ImageDraw.Draw(im)
+    fnt = font(13)
+    tw, th = text_w(d, text, fnt)
+    pad = 8
+    x, y = 16, 14
+    d.rounded_rectangle((x, y, x + tw + pad * 2, y + th + pad), radius=10, fill=(8, 10, 16, 200))
+    d.text((x + pad, y + pad // 2), text, font=fnt, fill=(255, 255, 255, 230))
+
+
+def caption(im, text, y=None):
+    d = ImageDraw.Draw(im)
+    fnt = font(16)
+    tw, th = text_w(d, text, fnt)
+    W, H = im.size
+    yy = H - 36 if y is None else y
+    d.rounded_rectangle(((W - tw) / 2 - 12, yy - 6, (W + tw) / 2 + 12, yy + th + 6), radius=10, fill=(8, 10, 16, 170))
+    d.text(((W - tw) / 2, yy), text, font=fnt, fill=(255, 255, 255, 230))
+
+
+def place_widget(bg, card, xy, radius=36):
     x, y = xy
-    lines = wrap(text, fnt, max_w)
-    ascent = fnt.size
-    for i, line in enumerate(lines):
-        d.text((x, y + i * ascent * leading), line, font=fnt, fill=fill)
-    return len(lines) * ascent * leading
+    sh, pad = drop_shadow(card.size, radius)
+    bg.alpha_composite(sh, (x - pad, y - pad))
+    bg.alpha_composite(card, (x, y))
 
 
-def make_sheet() -> Image.Image:
+def scene(kind, frost=True, caption_text=None, show_badge=True):
+    W, H = 1280, 800
+    wp_kind = {"light": "dawn", "bento": "night-warm", "rings": "night"}[kind]
+    bg = load_wallpaper(wp_kind, (W, H))
+    ww = int(1000 * s / 2)
+    wh = int(430 * s / 2)
+    x = (W - ww) // 2
+    # светлый — ниже, на горы: так frost/honest читаются
+    y = 168 if kind == "light" else 150
+    pos = (x, y)
+    if kind == "light":
+        card = widget_light(frost, bg, pos)
+        place_widget(bg, card, pos)
+    elif kind == "bento":
+        card = widget_bento(frost, bg, pos)
+        place_widget(bg, card, pos)
+    else:
+        card = widget_rings(frost, bg, pos)
+        place_widget(bg, card, pos)
+    if show_badge:
+        badge(bg)
+    if caption_text:
+        caption(bg, caption_text)
+    return bg.convert("RGB")
+
+
+def scene_honest_board():
+    W, H = 1280, 1600
+    im = Image.new("RGB", (W, H), (12, 14, 20))
+    d = ImageDraw.Draw(im)
+    d.text((40, 28), "Честный вид RemoteViews — без blur обоев", font=font(26), fill=(255, 255, 255))
+    d.text((40, 66), "Полупрозрачная карточка. Обои под ней резкие. Капля, волна, glow — Canvas.", font=font(16), fill=(180, 188, 200))
+    kinds = [("light", "Капля"), ("bento", "Бенто"), ("rings", "Кольца")]
+    y = 110
+    for kind, title in kinds:
+        shot = scene(kind, frost=False, caption_text=None, show_badge=False)
+        shot = shot.resize((1200, 750), Image.Resampling.LANCZOS)
+        # crop widget band
+        band = shot.crop((0, 40, 1200, 700))
+        band = band.resize((1200, 460), Image.Resampling.LANCZOS)
+        im.paste(band, (40, y))
+        d = ImageDraw.Draw(im)
+        d.text((52, y + 12), title, font=font(14), fill=(255, 255, 255, 230))
+        y += 480
+    return im
+
+
+def scene_ceiling():
+    """A/B: лаунчерный blur vs честный RemoteViews. Один виджет, живые обои."""
+    W, H = 1280, 1680
+    im = Image.new("RGB", (W, H), (10, 12, 18))
+    d = ImageDraw.Draw(im)
+    d.text((40, 24), "Потолок виджета FitFlow  (макет, не APK)", font=font(26), fill=(255, 255, 255))
+
+    a = scene("light", frost=True, caption_text=None, show_badge=False)
+    b = scene("light", frost=False, caption_text=None, show_badge=False)
+    a = a.resize((1200, 750), Image.Resampling.LANCZOS)
+    b = b.resize((1200, 750), Image.Resampling.LANCZOS)
+    d.text((40, 72), "1. Лаунчер блюрит обои (Samsung One UI и подобные). Это не API приложения.", font=font(16), fill=(186, 220, 210))
+    im.paste(a.crop((0, 20, 1200, 720)), (40, 104))
+    d = ImageDraw.Draw(im)
+    d.text((40, 840), "2. RemoteViews: полупрозрачность без blur. Обои резкие. Так умеем сами.", font=font(16), fill=(210, 196, 170))
+    im.paste(b.crop((0, 20, 1200, 720)), (40, 872))
+    d = ImageDraw.Draw(im)
+    note = "3D нет. Постоянной анимации волны нет. Glow/капля/волна — статичный Canvas. Ripple на нажатии — системный."
+    d.text((40, 1610), note, font=font(14), fill=(160, 168, 180))
+    return im
+
+
+def scene_sheet():
     W = 1080
-    light_f = scene("light", True, (1000, 620))
-    bento_f = scene("bento", True, (1000, 620))
-    rings_f = scene("rings", True, (1000, 620))
-    light_h = scene("light", False, (480, 300))
-    bento_h = scene("bento", False, (480, 300))
-    rings_h = scene("rings", False, (480, 300))
-    light_ft = scene("light", True, (480, 300))
-    bento_ft = scene("bento", True, (480, 300))
-    rings_ft = scene("rings", True, (480, 300))
-
-    H = 3720
-    sheet = Image.new("RGB", (W, H), (18, 20, 26))
-    sheet.paste(hgrad((W, 8), (34, 211, 238), (192, 132, 252)), (0, 0))
-    canvas = sheet.convert("RGBA")
-    d = ImageDraw.Draw(canvas)
-
-    x, y = 40, 36
-    draw_text_strong(d, (x, y), "FitFlow · пункт 5 · три оформления", font(34), (240, 244, 250))
-    y += 48
-    y += draw_paragraph(
-        d,
-        (x, y),
-        "Макет, не APK. Одни цифры на всех трёх. Поля наши: вода, питание (съедено / цель), "
-        "шаги, активность, самочувствие, витамины. Сон и «сожжённые ккал» с картинок Midjourney не переносим.",
-        font(20),
-        (170, 178, 190),
-        W - 80,
-    )
-    y += 18
-
-    sections = [
-        ("1 · Капля", "Светлая карточка. Капля — вода. Плитки: шаги, питание, активность, самочувствие. Пилюля +250 мл.", light_f),
-        ("2 · Бенто", "Тёмная сетка. Кольцо шагов, волна воды с «+», полоска питания (съедено, не remaining).", bento_f),
-        ("3 · Кольца", "Три неоновых кольца — вода / питание / шаги. Кнопки +250 мл, Еда, Витамины.", rings_f),
+    blocks = [
+        ("light", True, "Капля · лаунчерное стекло"),
+        ("bento", True, "Бенто · лаунчерное стекло"),
+        ("rings", True, "Кольца · лаунчерное стекло"),
+        ("light", False, "Капля · честный RemoteViews (обои резкие)"),
     ]
-    for title, cap, img in sections:
-        draw_text_strong(d, (x, y), title, font(26), (230, 236, 244))
-        y += 34
-        y += draw_paragraph(d, (x, y), cap, font(18), (150, 158, 170), W - 80)
-        y += 10
-        frame = apply_round(img, 18)
-        canvas.alpha_composite(frame, ((W - frame.width) // 2, int(y)))
-        y += frame.height + 28
-
-    draw_text_strong(d, (x, y), "Стекло: как хочется и как умеет виджет", font(26), (230, 236, 244))
-    y += 36
-    y += draw_paragraph(
-        d,
-        (x, y),
-        "Слева размытие обоев нарисовано в превью. Справа — честный вид: полупрозрачный "
-        "скруглённый прямоугольник без blur. Живой RemoteViews обои не семплирует, "
-        "постоянной анимации нет. Glow, волна и капля на устройстве — Canvas Path + BlurMaskFilter.",
-        font(18),
-        (150, 158, 170),
-        W - 80,
-    )
-    y += 16
-
-    pairs = [
-        ("Капля · цель", light_ft, "Капля · честно", light_h),
-        ("Бенто · цель", bento_ft, "Бенто · честно", bento_h),
-        ("Кольца · цель", rings_ft, "Кольца · честно", rings_h),
-    ]
-    col_w, gap = 480, 40
-    left = (W - (col_w * 2 + gap)) // 2
-    for lcap, limg, rcap, rimg in pairs:
-        draw_text(d, (left, y), lcap, font(16), (120, 200, 190))
-        draw_text(d, (left + col_w + gap, y), rcap, font(16), (200, 170, 130))
-        y += 24
-        canvas.alpha_composite(apply_round(limg, 14), (left, int(y)))
-        canvas.alpha_composite(apply_round(rimg, 14), (left + col_w + gap, int(y)))
-        y += 320
-
-    y += draw_paragraph(
-        d,
-        (x, y),
-        f"Цифры макета: вода {ru_int(WATER)}/{ru_int(WATER_GOAL)} мл ({P_WATER}%), "
-        f"питание {ru_int(FOOD)}/{ru_int(FOOD_GOAL)} ккал съедено ({P_FOOD}%), "
-        f"шаги {ru_int(STEPS)}/{ru_int(STEPS_GOAL)} ({P_STEPS}%), "
-        f"активность {ACT}/{ACT_GOAL} мин ({P_ACT}%), самочувствие {MOOD_WORD} {MOOD_N}/5. "
-        f"{VIT_LINE}. Кнопки: +250 мл = ADD_WATER_250, Еда = smart_entry, Витамины = ACTION_COURSE_DOSE. "
-        "Кнопки «Обновить» на макетах нет. Если оформления примут — текущие Ring / Rings / Dial / Tiles "
-        "из приложения уберём.",
-        font(17),
-        (140, 148, 160),
-        W - 80,
-    )
-    return canvas.crop((0, 0, W, min(H, int(y + 40)))).convert("RGB")
+    pieces = []
+    for kind, frost, title in blocks:
+        shot = scene(kind, frost=frost, caption_text=None, show_badge=False)
+        shot = shot.resize((1008, 630), Image.Resampling.LANCZOS)
+        band = shot.crop((0, 30, 1008, 600))
+        pieces.append((title, band))
+    header_h = 110
+    H = header_h + sum(36 + band.size[1] + 28 for _, band in pieces) + 48
+    im = Image.new("RGB", (W, H), (12, 14, 22))
+    d = ImageDraw.Draw(im)
+    d.text((36, 28), "FitFlow · три макета виджета", font=font(28), fill=(255, 255, 255))
+    d.text((36, 68), "Поля наши. Стекло — лаунчерный blur (верх) или честная полупрозрачность.", font=font(15), fill=(176, 184, 196))
+    y = header_h
+    for title, band in pieces:
+        d = ImageDraw.Draw(im)
+        d.text((36, y), title, font=font(16), fill=(210, 220, 230))
+        y += 36
+        im.paste(band, (36, y))
+        y += band.size[1] + 28
+    return im
 
 
-def main() -> None:
+def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    light = stamp(scene("light", True), "FitFlow · макет п.5 · не APK")
-    bento = stamp(scene("bento", True), "FitFlow · макет п.5 · не APK")
-    rings = stamp(scene("rings", True), "FitFlow · макет п.5 · не APK")
-
-    honest = Image.new("RGB", (1280, 900), (16, 18, 24))
-    hc = honest.convert("RGBA")
-    hd = ImageDraw.Draw(hc)
-    draw_text_strong(hd, (40, 24), "Честный вид RemoteViews — без blur обоев", font(28), (230, 236, 244))
-    draw_text(
-        hd,
-        (40, 62),
-        "Полупрозрачное стекло, обои под карточкой резкие. Так виджет умеет сейчас.",
-        font(18),
-        (150, 158, 170),
-    )
-    for i, kind in enumerate(("light", "bento", "rings")):
-        hc.alpha_composite(apply_round(scene(kind, False, (380, 240)), 14), (40 + i * 410, 100))
-    hc.alpha_composite(apply_round(scene("bento", False, (1200, 500)), 16), (40, 370))
-    honest = hc.convert("RGB")
-
-    sheet = make_sheet()
-    files = {
-        "widget-p5-light.png": light,
-        "widget-p5-bento.png": bento,
-        "widget-p5-rings.png": rings,
-        "widget-p5-honest.png": honest,
-        "widget-p5-sheet.png": sheet,
-    }
-    for name, im in files.items():
+    jobs = [
+        ("widget-p5-light.png", lambda: scene("light", True)),
+        ("widget-p5-bento.png", lambda: scene("bento", True)),
+        ("widget-p5-rings.png", lambda: scene("rings", True)),
+        ("widget-p5-honest.png", scene_honest_board),
+        ("widget-p5-ceiling.png", scene_ceiling),
+        ("widget-p5-sheet.png", scene_sheet),
+    ]
+    for name, fn in jobs:
+        im = fn()
         path = OUT / name
         im.save(path, "PNG", optimize=True)
-        print(f"wrote {path.relative_to(ROOT)}  {im.size[0]}×{im.size[1]}")
+        print(f"wrote {path.relative_to(ROOT)} {im.size}")
 
 
 if __name__ == "__main__":
