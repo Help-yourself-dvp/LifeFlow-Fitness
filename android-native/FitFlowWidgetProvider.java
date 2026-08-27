@@ -76,6 +76,7 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
            (приложение, фоновая синхронизация, кнопка воды, полуночный
            будильник), перерисовывают и рисованные виджеты капля/бенто/кольца. */
         FitFlowWidgetCanvasProvider.updateAllCanvas(context);
+        FitFlowWidgetBentoProvider.updateAll(context);
         scheduleMidnightRefresh(context);
     }
 

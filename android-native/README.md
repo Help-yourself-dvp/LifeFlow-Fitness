@@ -15,7 +15,7 @@
 | `FitFlowWidgetData.java` | Один источник цифр для всех виджетов: prefs, дата-страж, приоритет шагов, раскладка |
 | `FitFlowWidgetCanvasProvider.java` | Bitmap-виджет: рисует в картинку, кнопки — overlay на прозрачной карточке |
 | `FitFlowWidgetDropProvider.java` | Капля: вода слева, плитки шаги/питание/активность/самочувствие |
-| `FitFlowWidgetBentoProvider.java` | Бенто: кольцо шагов, волна воды, бар питания |
+| `FitFlowWidgetBentoProvider.java` | Бенто 0.9.25: XML-карточки 4×2, «+250 мл» внутри воды |
 | `FitFlowWidgetNeonProvider.java` | Три неоновых кольца: вода / питание / шаги + витамины |
 | `FitFlowCourses.java` | Курсы 0.9.13: строка виджета и отметка дозы без открытия приложения |
 | `CourseReminderReceiver.java` | Нативное уведомление курса: «принята» не открывает приложение (как вода) |

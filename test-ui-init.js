@@ -4399,9 +4399,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.24', '0.9.24 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.24'/.test(app923), '0.9.24 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.24 \(build 0\)/.test(html923), '0.9.24 #about-version');
+  check(ver923 === '0.9.25', '0.9.25 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.25'/.test(app923), '0.9.25 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.25 \(build 0\)/.test(html923), '0.9.25 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4452,7 +4452,6 @@ for (const id of ids) {
 
   check(/WIDGET_COURSE_DOSE/.test(can924)
     && /FitFlowWidgetDropProvider/.test(can924)
-    && /FitFlowWidgetBentoProvider/.test(can924)
     && /FitFlowWidgetNeonProvider/.test(can924)
     && !/FitFlowWidgetRingProvider/.test(can924),
     '0.9.24 список провайдеров новый, витамины отмечаются тем же действием');
@@ -4461,6 +4460,56 @@ for (const id of ids) {
     '0.9.24 классический виджет на месте');
 
   if (!bad) console.log('  (0.9.24: три новых виджета, классический сохранён)');
+})();
+
+
+/* ============================================================
+   0.9.25 — бенто XML RemoteViews: карточки, кнопка внутри воды
+   ============================================================ */
+(function test0925BentoXml() {
+  const fs925 = require('fs');
+  const yml = fs925.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const bento = fs925.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
+  const can = fs925.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
+  const prov = fs925.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  check(/fitflow_widget_bento\.xml/.test(yml) && /widget_bento_root/.test(yml)
+    && /widget_bento_water_btn/.test(yml) && /widget_bento_steps_ring/.test(yml)
+    && /widget_bento_food_bar/.test(yml),
+    '0.9.25 разметка бенто описана в зеркале workflow');
+
+  check(/#16181C/.test(yml) && /#1F2228/.test(yml) && /#9D5CFF/.test(yml)
+    && /#00D2B4/.test(yml) && /#FF6B4A/.test(yml) && /#8E95A2/.test(yml),
+    '0.9.25 палитра бенто: графит, карточки, неон, бирюза, коралл');
+
+  const waterCard = yml.slice(yml.indexOf('widget_bento_water_card'), yml.indexOf('widget_bento_food_card'));
+  check(/widget_bento_water_btn/.test(waterCard)
+    && /layout_gravity="bottom\|end"/.test(waterCard),
+    '0.9.25 кнопка +250 мл лежит внутри карточки воды, справа снизу');
+
+  check(!/остаток/.test(bento) && !/осталось/.test(yml)
+    && /съедено/.test(bento)
+    && /Питание/.test(yml),
+    '0.9.25 питание = съедено / цель, не «остаток»');
+
+  check(/R\.layout\.fitflow_widget_bento/.test(bento)
+    && /setProgressBar\(R\.id\.widget_bento_steps_ring/.test(bento)
+    && /ADD_WATER_250/.test(bento)
+    && !/drawBento\(/.test(bento)
+    && !/extends FitFlowWidgetCanvasProvider/.test(bento),
+    '0.9.25 бенто обновляет XML RemoteViews, не bitmap-холст');
+
+  check(!/FitFlowWidgetBentoProvider\.class/.test(can)
+    && /FitFlowWidgetBentoProvider\.updateAll/.test(prov),
+    '0.9.25 бенто обновляется из общей точки, но не через canvas-список');
+
+  const bentoInfo = yml.slice(yml.indexOf("fitflow_widget_bento_info"), yml.indexOf("fitflow_widget_neon_info"));
+  check(/fitflow_widget_bento/.test(bentoInfo),
+    '0.9.25 appwidget-info бенто указывает на свою разметку');
+
+  if (!bad) console.log('  (0.9.25: бенто — XML-карточки, кнопка внутри воды)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

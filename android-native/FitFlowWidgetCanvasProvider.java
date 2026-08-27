@@ -40,7 +40,6 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
 
     static final Class<?>[] CANVAS_PROVIDERS = {
         FitFlowWidgetDropProvider.class,
-        FitFlowWidgetBentoProvider.class,
         FitFlowWidgetNeonProvider.class
     };
 
