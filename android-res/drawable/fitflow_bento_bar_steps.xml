@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 0.9.28: шкала показателя «Питание». Дорожка и заливка скруглены
+<!-- 0.9.28: шкала показателя «Шаги». Дорожка и заливка скруглены
      одним радиусом 6dp = половина высоты 12dp, поэтому пилюля круглая
      с обеих сторон. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -10,6 +10,6 @@
         </shape>
     </item>
     <item android:id="@android:id/progress">
-        <scale android:scaleWidth="100%" android:drawable="@drawable/fitflow_bento_bar_food_fill"/>
+        <scale android:scaleWidth="100%" android:drawable="@drawable/fitflow_bento_bar_steps_fill"/>
     </item>
 </layer-list>

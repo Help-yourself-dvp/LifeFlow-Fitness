@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.27', '0.9.27 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.27'/.test(app923), '0.9.27 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.27 \(build 0\)/.test(html923), '0.9.27 #about-version');
+  check(ver923 === '0.9.28', '0.9.28 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.28'/.test(app923), '0.9.28 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.28 \(build 0\)/.test(html923), '0.9.28 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4483,59 +4483,104 @@ for (const id of ids) {
 
 
 /* ============================================================
-   0.9.27 — бенто: кольцо шагов, две строки, круглая +250 мл
+   0.9.28 — бенто: настраиваемые слоты, единый шрифт, иконка в кольце
    ============================================================ */
-(function test0927BentoField() {
-  const fs927 = require('fs');
-  const yml = fs927.readFileSync('tools/github-workflows/build.yml', 'utf8');
-  const bento = fs927.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
-  const lay = fs927.readFileSync('android-res/layout/fitflow_widget_bento.xml', 'utf8');
-  const can = fs927.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
-  const prov = fs927.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+(function test0928BentoField() {
+  const fs928 = require('fs');
+  const yml = fs928.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const bento = fs928.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
+  const lay = fs928.readFileSync('android-res/layout/fitflow_widget_bento.xml', 'utf8');
+  const prep = fs928.readFileSync('tools/prepare-bento-bg.py', 'utf8');
+  const can = fs928.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
+  const prov = fs928.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
 
-  check(fs927.existsSync('design/widget_bento_bg.png')
-    && fs927.existsSync('tools/prepare-bento-bg.py')
-    && fs927.existsSync('android-res/layout/fitflow_widget_bento.xml'),
-    '0.9.27 подложка, скрипт подготовки и XML-оверлей на месте');
+  check(fs928.existsSync('design/widget_bento_bg_round.png')
+    && fs928.existsSync('design/widget_bento_shoe.png')
+    && fs928.existsSync('design/widget_bento_ic_drop.png')
+    && fs928.existsSync('design/widget_bento_ic_plate.png')
+    && fs928.existsSync('design/widget_bento_ic_clock.png')
+    && fs928.existsSync('design/widget_bento_ic_pencil.png'),
+    '0.9.28 подложка и иконки слотов собраны отдельными файлами');
 
-  check(/widget_bento_steps_ring/.test(lay)
-    && /fitflow_bento_ring/.test(lay)
-    && /setProgressBar\(R\.id\.widget_bento_steps_ring/.test(bento),
-    '0.9.27 кольцо прогресса шагов вокруг кроссовка');
+  /* Главный инвариант архитектуры: на подложке НЕТ ни одного показателя.
+     Как только на картинку вернут кроссовок или подпись, слоты перестанут
+     быть настраиваемыми, а иконка снова разъедется с кольцом. */
+  const buildBg = prep.slice(prep.indexOf('def build_background'), prep.indexOf('def main'));
+  check(/подложка бенто = только геометрия/.test(prep)
+    && /rounded_rectangle/.test(buildBg)
+    && !/\.text\(/.test(buildBg)
+    && !/paste/.test(buildBg),
+    '0.9.28 подложка несёт только оболочку и плиты, без показателей');
 
-  check(/widget_bento_water_goal/.test(lay)
-    && /widget_bento_food_goal/.test(lay)
-    && /из \" \+ FitFlowWidgetPaint\.spaced\(d\.waterGoal\)/.test(bento)
-    && /из \" \+ FitFlowWidgetPaint\.spaced\(d\.foodGoal\)/.test(bento),
-    '0.9.27 вода и калории в две строки — длинные числа не обрезаются');
+  /* Иконка и кольцо — в одном центрированном контейнере, поэтому
+     кроссовок не наступает на дугу (полевой дефект 0.9.27). */
+  check(/widget_bento_a_ringbox/.test(lay)
+    && /widget_bento_a_icon/.test(lay)
+    && /setImageViewResource\(R\.id\.widget_bento_a_icon/.test(bento),
+    '0.9.28 иконка лежит в центре кольца одним контейнером');
 
-  check(/android:text=\"\+250\\nмл\"/.test(lay)
-    && /android:layout_width=\"44dp\"/.test(lay)
-    && /fitflow_bento_btn/.test(lay)
-    && /android:shape=\"oval\"/.test(fs927.readFileSync('android-res/drawable/fitflow_bento_btn.xml', 'utf8')),
-    '0.9.27 кнопка воды — круг 44dp с подписью +250 мл');
+  /* Единый шрифт: ни одного sans-serif-medium, жирность только у значения. */
+  /* Разнобой 0.9.27 («Шаги» обычным, «Вода»/«Калории» жирным) был из-за
+     того, что часть подписей жила в картинке. Теперь всё в разметке:
+     одно семейство, а bold — только у значений и надписи на кнопке. */
+  check(!/sans-serif-medium/.test(lay)
+    && (lay.match(/android:textStyle="normal"/g) || []).length === 6
+    && (lay.match(/android:textStyle="bold"/g) || []).length === 5
+    && (lay.match(/android:fontFamily="sans-serif"/g) || []).length === 11,
+    '0.9.28 один шрифт на все подписи, bold только у значений и кнопки');
 
-  check(/android:layout_height=\"12dp\"/.test(lay)
-    && /#2A2E36/.test(fs927.readFileSync('android-res/drawable/fitflow_bento_bar_water.xml', 'utf8')),
-    '0.9.27 полосы 12dp с тёмной пилюлей-дорожкой');
+  /* «0 из ххх» одинаково во всех трёх плитах — две строки. */
+  check(/widget_bento_a_value/.test(lay) && /widget_bento_a_goal/.test(lay)
+    && /widget_bento_b_value/.test(lay) && /widget_bento_b_goal/.test(lay)
+    && /widget_bento_c_value/.test(lay) && /widget_bento_c_goal/.test(lay)
+    && /"из " \+ FitFlowWidgetPaint\.spaced\(goalOf\(d, a\)\) \+ unitOf\(a\)/.test(bento),
+    '0.9.28 «значение / из цели» единым видом во всех слотах');
 
-  check(!/остаток/.test(bento) && /съедено/.test(bento)
-    && /ADD_WATER_250/.test(bento)
-    && !/drawBento\(/.test(bento)
-    && !/extends FitFlowWidgetCanvasProvider/.test(bento),
-    '0.9.27 питание = съедено / цель, вода пишется броадкастом');
+  /* Состав слотов идёт из выбора пользователя, а не зашит. */
+  check(/SUPPORTED/.test(bento) && /d\.shows\(id\)/.test(bento)
+    && /slotsFor/.test(bento),
+    '0.9.28 показатели слотов берутся из выбора пользователя');
+
+  /* Пустой слот прячется целиком — никаких полуживых плит. */
+  check(/views\.setViewVisibility\(cardId, android\.view\.View\.GONE\)/.test(bento),
+    '0.9.28 незанятый слот скрыт полностью');
+
+  /* Цвет шкалы следует показателю: RemoteViews не меняет progressDrawable,
+     поэтому шкалы наложены и переключаются видимостью. */
+  check(/widget_bento_b_bar_water/.test(lay) && /widget_bento_b_bar_food/.test(lay)
+    && /widget_bento_b_bar_activity/.test(lay) && /widget_bento_b_bar_steps/.test(lay)
+    && /showBar\(views, barIds, indexOf\(slot\), pctOf\(d, slot\)\)/.test(bento),
+    '0.9.28 цвет шкалы и кольца следует показателю');
+
+  /* Кнопка питания открывает быстрый ввод — то же действие, что «Записать». */
+  check(/widget_bento_c_btn_icon/.test(lay)
+    && /widget_action", "smart_entry"/.test(bento)
+    && /ADD_WATER_250/.test(bento),
+    '0.9.28 карандаш открывает быстрый ввод, вода уходит броадкастом');
+
+  /* Шкала прижата распоркой к низу плиты и не срезается. */
+  check(/android:layout_weight="1"\s+android:minHeight="4dp"/.test(lay.replace(/\n\s+/g, ' ')),
+    '0.9.28 шкала прижата к низу — пилюля не обрезается');
+
+  /* Высота ячейки поднята: на 150 dp две строки и шкала не помещались. */
+  check(/'FitFlow · бенто', 250, 180/.test(yml)
+    && /targetCellHeight=\\?"3\\?"/.test(yml),
+    '0.9.28 бенто занимает 4x3 — контенту хватает высоты');
+
+  check(/widget_bento_ic_pencil/.test(yml) && /widget_bento_shoe/.test(yml),
+    '0.9.28 зеркало кладёт иконки слотов в drawable');
+
+  check(!/остаток/.test(bento) && /Питание = съедено/.test(bento)
+    && !/drawBento\(/.test(bento),
+    '0.9.28 питание = съедено / цель');
 
   check(!/FitFlowWidgetBentoProvider\.class/.test(can)
     && /FitFlowWidgetBentoProvider\.updateAll/.test(prov),
-    '0.9.27 бенто обновляется из общей точки');
+    '0.9.28 бенто обновляется из общей точки');
 
-  check(/prepare-bento-bg\.py/.test(yml)
-    && /widget_bento_bg_round\.png/.test(yml),
-    '0.9.27 зеркало готовит подложку скриптом');
-
-  if (!bad) console.log('  (0.9.27: бенто — кольцо шагов, две строки, круглая +250 мл)');
+  if (!bad) console.log('  (0.9.28: бенто — настраиваемые слоты, единый шрифт, иконка в кольце)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

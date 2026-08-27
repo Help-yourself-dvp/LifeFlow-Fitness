@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 0.9.28: кольцо показателя «Шаги» вокруг иконки. -->
+<!-- 0.9.28: кольцо показателя «Вода» вокруг иконки. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape android:shape="ring" android:innerRadiusRatio="2.7" android:thickness="7dp" android:useLevel="false">
-            <solid android:color="#339D5CFF"/>
+            <solid android:color="#3300D2B4"/>
         </shape>
     </item>
     <item android:id="@android:id/progress">
         <rotate android:fromDegrees="-90" android:toDegrees="-90" android:pivotX="50%" android:pivotY="50%">
             <shape android:shape="ring" android:innerRadiusRatio="2.7" android:thickness="7dp" android:useLevel="true">
-                <solid android:color="#C084FC"/>
+                <solid android:color="#00D2B4"/>
             </shape>
         </rotate>
     </item>

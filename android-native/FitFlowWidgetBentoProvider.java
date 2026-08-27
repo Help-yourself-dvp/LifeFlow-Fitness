@@ -9,13 +9,51 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
-/* 0.9.27: подложка PNG + overlay. Кольцо шагов, две строки цифр,
-   полосы в пилюлях, круглая кнопка «+250 мл» в dp (не с картинки).
+import java.util.ArrayList;
+
+/* Бенто: подложка PNG (оболочка + три плиты) и полный overlay поверх.
+
+   0.9.28 — три изменения по полевому скрину 0.9.27.
+
+   1. Слоты обезличены. Подписи «Вода» / «Калории» больше не впечатаны
+      в картинку: их пишет TextView. Значит, показатель в слоте можно
+      менять — берём его из выбора пользователя (prefs widgetItems,
+      тот же список, что у классического виджета).
+   2. Единый шрифт. Всё, что рисует overlay, идёт одним семейством
+      sans-serif; жирный только у значения, подпись и цель — обычные.
+      Раньше «Шаги» рисовал TextView, а «Вода» и «Калории» были частью
+      картинки другим начертанием — отсюда разнобой.
+   3. Кнопка быстрого ввода в слоте питания — по просьбе владельца:
+      круг с карандашом открывает «Быстрый ввод» (widget_action =
+      smart_entry), тот же экран, что кнопка «📝 Записать»
+      классического виджета.
 
    Питание = съедено / цель, не remaining. */
 public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
     private static final int REQ = 600;
+
+    /* Что бенто умеет показывать. Порядок важен: слот A (крупный,
+       с кольцом) получает первый выбранный показатель, B и C — следующие.
+       Показатели, у которых нет числовой пары «значение / цель», на бенто
+       не идут: три плиты — это три шкалы, текстовой строке тут не место
+       (правило «никаких видимых заглушек»). */
+    private static final String[] SUPPORTED = { "steps", "water", "food", "activity" };
+
+    /* Порядок во всех трёх массивах — water, food, activity, steps
+       (см. indexOf). Он же порядок наложенных ProgressBar в разметке. */
+    private static final int[] RINGS_A = {
+        R.id.widget_bento_a_ring_water, R.id.widget_bento_a_ring_food,
+        R.id.widget_bento_a_ring_activity, R.id.widget_bento_a_ring_steps
+    };
+    private static final int[] BARS_B = {
+        R.id.widget_bento_b_bar_water, R.id.widget_bento_b_bar_food,
+        R.id.widget_bento_b_bar_activity, R.id.widget_bento_b_bar_steps
+    };
+    private static final int[] BARS_C = {
+        R.id.widget_bento_c_bar_water, R.id.widget_bento_c_bar_food,
+        R.id.widget_bento_c_bar_activity, R.id.widget_bento_c_bar_steps
+    };
 
     static void updateAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
@@ -37,29 +75,129 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         render(context, manager, id);
     }
 
+    /* Выбор пользователя, суженный до того, что бенто умеет рисовать.
+       Если пересечение пустое (например, оставили только «Вес» и «План
+       дня») — возвращаем классическую тройку, чтобы виджет не оказался
+       пустым прямоугольником. */
+    private static ArrayList<String> slotsFor(FitFlowWidgetData d) {
+        ArrayList<String> out = new ArrayList<String>();
+        for (String id : SUPPORTED) {
+            if (d.shows(id) && !out.contains(id)) out.add(id);
+        }
+        if (out.isEmpty()) {
+            out.add("steps");
+            out.add("water");
+            out.add("food");
+        }
+        return out;
+    }
+
+    private static String labelOf(String id) {
+        if ("water".equals(id)) return "Вода";
+        if ("food".equals(id)) return "Калории";
+        if ("activity".equals(id)) return "Активность";
+        return "Шаги";
+    }
+
+    private static int iconOf(String id) {
+        if ("water".equals(id)) return R.drawable.widget_bento_ic_drop;
+        if ("food".equals(id)) return R.drawable.widget_bento_ic_plate;
+        if ("activity".equals(id)) return R.drawable.widget_bento_ic_clock;
+        return R.drawable.widget_bento_shoe;
+    }
+
+    private static int valueOf(FitFlowWidgetData d, String id) {
+        if ("water".equals(id)) return d.water;
+        if ("food".equals(id)) return d.food;
+        if ("activity".equals(id)) return d.activity;
+        return d.steps;
+    }
+
+    private static int goalOf(FitFlowWidgetData d, String id) {
+        if ("water".equals(id)) return d.waterGoal;
+        if ("food".equals(id)) return d.foodGoal;
+        if ("activity".equals(id)) return d.activityGoal;
+        return d.stepsGoal;
+    }
+
+    private static int pctOf(FitFlowWidgetData d, String id) {
+        if ("water".equals(id)) return d.waterPct();
+        if ("food".equals(id)) return d.foodPct();
+        if ("activity".equals(id)) return d.activityPct();
+        return d.stepsPct();
+    }
+
+    /* Единица измерения ставится ТОЛЬКО в строку цели, у всех слотов
+       одинаково: «0» сверху, «из 2 300 мл» снизу. Владелец просил один
+       подход для обоих блоков — две строки везде, включая крупный слот. */
+    private static String unitOf(String id) {
+        if ("water".equals(id)) return " мл";
+        if ("food".equals(id)) return " ккал";
+        if ("activity".equals(id)) return " мин";
+        return "";
+    }
+
+    /* RemoteViews на minSdk 26 не умеет менять progressDrawable у
+       ProgressBar (setProgressDrawable не входит в белый список удалённых
+       методов). Цвет же обязан следовать показателю, иначе «Активность»
+       в слоте воды осталась бы бирюзовой. Поэтому в разметке лежат четыре
+       шкалы (и четыре кольца) одна поверх другой, а провайдер показывает
+       нужную и прячет остальные. */
+    private static void showBar(RemoteViews views, int[] ids, int pick, int pct) {
+        for (int i = 0; i < ids.length; i++) {
+            boolean on = i == pick;
+            views.setViewVisibility(ids[i], on ? android.view.View.VISIBLE : android.view.View.GONE);
+            if (on) views.setProgressBar(ids[i], 100, pct, false);
+        }
+    }
+
+    /* Индекс показателя в порядке water, food, activity, steps —
+       он же порядок наложенных шкал и колец в разметке. */
+    private static int indexOf(String id) {
+        if ("water".equals(id)) return 0;
+        if ("food".equals(id)) return 1;
+        if ("activity".equals(id)) return 2;
+        return 3;
+    }
+
     void render(Context context, AppWidgetManager manager, int id) {
         try {
             FitFlowWidgetData d = FitFlowWidgetData.load(context);
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.fitflow_widget_bento);
+            ArrayList<String> slots = slotsFor(d);
 
-            views.setTextViewText(R.id.widget_bento_steps_value, FitFlowWidgetPaint.spaced(d.steps));
-            views.setTextViewText(R.id.widget_bento_steps_goal, "из " + FitFlowWidgetPaint.spaced(d.stepsGoal));
-            views.setProgressBar(R.id.widget_bento_steps_ring, 100, d.stepsPct(), false);
+            String a = slots.get(0);
+            String b = slots.size() > 1 ? slots.get(1) : null;
+            String c = slots.size() > 2 ? slots.get(2) : null;
 
-            views.setTextViewText(R.id.widget_bento_water_value, FitFlowWidgetPaint.spaced(d.water));
-            views.setTextViewText(R.id.widget_bento_water_goal,
-                "из " + FitFlowWidgetPaint.spaced(d.waterGoal) + " мл");
-            views.setProgressBar(R.id.widget_bento_water_bar, 100, d.waterPct(), false);
+            // --- Слот A: крупный, кольцо вокруг иконки ---
+            views.setTextViewText(R.id.widget_bento_a_label, labelOf(a));
+            views.setImageViewResource(R.id.widget_bento_a_icon, iconOf(a));
+            views.setTextViewText(R.id.widget_bento_a_value,
+                FitFlowWidgetPaint.spaced(valueOf(d, a)));
+            views.setTextViewText(R.id.widget_bento_a_goal,
+                "из " + FitFlowWidgetPaint.spaced(goalOf(d, a)) + unitOf(a));
+            showBar(views, RINGS_A, indexOf(a), pctOf(d, a));
 
-            views.setTextViewText(R.id.widget_bento_food_value, FitFlowWidgetPaint.spaced(d.food));
-            views.setTextViewText(R.id.widget_bento_food_goal,
-                "из " + FitFlowWidgetPaint.spaced(d.foodGoal) + " ккал");
-            views.setProgressBar(R.id.widget_bento_food_bar, 100, d.foodPct(), false);
+            renderSmallSlot(context, views, b,
+                R.id.widget_bento_b_card, R.id.widget_bento_b_label,
+                R.id.widget_bento_b_value, R.id.widget_bento_b_goal,
+                BARS_B, R.id.widget_bento_b_btn,
+                R.id.widget_bento_b_btn_icon, d, REQ + 1);
 
-            views.setContentDescription(R.id.widget_bento_root,
-                "FitFlow. Шаги " + d.steps + " из " + d.stepsGoal
-                    + ". Вода " + d.water + " из " + d.waterGoal + " миллилитров"
-                    + ". Питание " + d.food + " из " + d.foodGoal + " килокалорий, съедено.");
+            renderSmallSlot(context, views, c,
+                R.id.widget_bento_c_card, R.id.widget_bento_c_label,
+                R.id.widget_bento_c_value, R.id.widget_bento_c_goal,
+                BARS_C, R.id.widget_bento_c_btn,
+                R.id.widget_bento_c_btn_icon, d, REQ + 2);
+
+            StringBuilder talk = new StringBuilder("FitFlow.");
+            for (String slot : slots) {
+                talk.append(' ').append(labelOf(slot)).append(' ')
+                    .append(valueOf(d, slot)).append(" из ").append(goalOf(d, slot))
+                    .append(unitOf(slot)).append('.');
+            }
+            views.setContentDescription(R.id.widget_bento_root, talk.toString());
 
             Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
             if (launch == null) launch = new Intent(context, MainActivity.class);
@@ -67,14 +205,56 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
             views.setOnClickPendingIntent(R.id.widget_bento_root, PendingIntent.getActivity(
                 context, REQ, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
-            Intent waterBtn = new Intent(context, FitFlowWidgetProvider.class);
-            waterBtn.setAction("com.fitflow.app.ADD_WATER_250");
-            views.setOnClickPendingIntent(R.id.widget_bento_water_btn, PendingIntent.getBroadcast(
-                context, REQ + 1, waterBtn, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-
             manager.updateAppWidget(id, views);
         } catch (Throwable t) {
             // не роняем лаунчер
+        }
+    }
+
+    /* Маленькая плита: подпись, значение, цель, шкала и — если показателю
+       есть что нажать — круглая кнопка. Пустой слот прячем целиком:
+       полуживых плит на виджете быть не должно. */
+    private void renderSmallSlot(Context context, RemoteViews views, String slot,
+                                 int cardId, int labelId, int valueId, int goalId,
+                                 int[] barIds, int btnId, int btnIconId,
+                                 FitFlowWidgetData d, int req) {
+        if (slot == null) {
+            views.setViewVisibility(cardId, android.view.View.GONE);
+            return;
+        }
+        views.setViewVisibility(cardId, android.view.View.VISIBLE);
+        views.setTextViewText(labelId, labelOf(slot));
+        views.setTextViewText(valueId, FitFlowWidgetPaint.spaced(valueOf(d, slot)));
+        views.setTextViewText(goalId,
+            "из " + FitFlowWidgetPaint.spaced(goalOf(d, slot)) + unitOf(slot));
+        showBar(views, barIds, indexOf(slot), pctOf(d, slot));
+
+        boolean textBtn = "water".equals(slot);
+        boolean iconBtn = "food".equals(slot);
+        views.setViewVisibility(btnId, textBtn ? android.view.View.VISIBLE : android.view.View.GONE);
+        views.setViewVisibility(btnIconId, iconBtn ? android.view.View.VISIBLE : android.view.View.GONE);
+
+        if (textBtn) {
+            // Вода уходит броадкастом — приложение не открывается.
+            views.setTextViewText(btnId, "+250\nмл");
+            views.setContentDescription(btnId, "Добавить 250 миллилитров воды");
+            Intent waterBtn = new Intent(context, FitFlowWidgetProvider.class);
+            waterBtn.setAction("com.fitflow.app.ADD_WATER_250");
+            views.setOnClickPendingIntent(btnId, PendingIntent.getBroadcast(
+                context, req, waterBtn, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
+        if (iconBtn) {
+            /* 0.9.28 (просьба владельца): карандаш открывает «Быстрый ввод» —
+               то же действие, что кнопка «📝 Записать» классического виджета.
+               Записать еду одним тапом с рабочего стола, как воду, нельзя:
+               блюдо и его калории надо ввести, поэтому здесь честный переход
+               в приложение, а не тихая запись. */
+            views.setContentDescription(btnIconId, "Записать приём пищи");
+            Intent record = new Intent(context, MainActivity.class);
+            record.putExtra("widget_action", "smart_entry");
+            record.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            views.setOnClickPendingIntent(btnIconId, PendingIntent.getActivity(
+                context, req, record, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
     }
 }

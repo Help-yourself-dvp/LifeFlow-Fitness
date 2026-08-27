@@ -450,11 +450,21 @@ jobs:
                   shutil.copy2(src, dest)
                   print('res copy', dest)
 
-          # 0.9.27: подложка — tools/prepare-bento-bg.py (кромка, кроссовок, без пилюль).
+          # 0.9.28: подложка и иконки бенто — tools/prepare-bento-bg.py.
+          # Подложка теперь несёт ТОЛЬКО оболочку и три плиты; кроссовок,
+          # капля, тарелка, часы и карандаш едут отдельными PNG, потому что
+          # их кладёт overlay (иначе иконка не попадает в центр кольца).
           import runpy
           runpy.run_path('tools/prepare-bento-bg.py')
           drawable.mkdir(parents=True, exist_ok=True)
           shutil.copy2('design/widget_bento_bg_round.png', drawable / 'widget_bento_bg.png')
+          for _png in ('widget_bento_shoe', 'widget_bento_ic_drop', 'widget_bento_ic_plate',
+                       'widget_bento_ic_clock', 'widget_bento_ic_pencil'):
+              _src = Path('design') / (_png + '.png')
+              if not _src.exists():
+                  raise SystemExit('ОШИБКА: нет %s — иконки бенто не собраны' % _src)
+              shutil.copy2(_src, drawable / (_png + '.png'))
+              print('bento icon', _png)
           print('bento bg from prepare-bento-bg.py')
 
           # 0.9.4 (пункт 4 владельца — конфигуратор виджета): строки виджета
@@ -581,7 +591,11 @@ jobs:
           # строками нужна ширина, плиткам — квадрат.
           canvas_infos = [
               ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140, 'fitflow_widget_p5'),
-              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento'),
+              # 0.9.28: бенто выше (180 dp, 4x3). На 150 dp малой плите
+              # доставалось 62 dp, а «подпись + значение + цель + шкала»
+              # требуют 71 dp — именно поэтому в поле у пилюли срезало
+              # нижнее закругление. Сжимать текст нельзя: цифры уже 11 sp.
+              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 180, 'fitflow_widget_bento'),
               ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_p5'),
           ]
           for info_name, label, min_w, min_h, layout_name in canvas_infos:
@@ -589,7 +603,7 @@ jobs:
               resize = 'none' if info_name == 'fitflow_widget_bento_info' else 'horizontal|vertical'
               extra = (
                   '    android:targetCellWidth="4"\n'
-                  '    android:targetCellHeight="2"\n'
+                  '    android:targetCellHeight="3"\n'
               ) if info_name == 'fitflow_widget_bento_info' else ''
               (xml / (info_name + '.xml')).write_text(
                   '<?xml version="1.0" encoding="utf-8"?>\n'

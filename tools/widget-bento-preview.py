@@ -1,0 +1,281 @@
+#!/usr/bin/env python3
+"""0.9.28: предпросмотр бенто — как его соберёт Android из подложки и overlay.
+
+Скрипт НЕ участвует в сборке APK. Он существует ровно затем, чтобы
+проверять вёрстку в песочнице, где нет Android SDK: повторяет ту же
+сетку весов, что лежит в android-res/layout/fitflow_widget_bento.xml,
+и рисует поверх подложки те же тексты, кольца, шкалы и кнопки.
+
+Если правите разметку — правьте и проценты здесь, иначе предпросмотр
+начнёт врать.
+
+    python3 tools/widget-bento-preview.py
+
+Пишет design/widget-bento-preview.png (три варианта состава слотов).
+"""
+import math
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
+
+BG = Path('design/widget_bento_bg_round.png')
+OUT = Path('design/widget-bento-preview.png')
+
+ICONS = {
+    'steps': 'design/widget_bento_shoe.png',
+    'water': 'design/widget_bento_ic_drop.png',
+    'food': 'design/widget_bento_ic_plate.png',
+    'activity': 'design/widget_bento_ic_clock.png',
+}
+PENCIL = 'design/widget_bento_ic_pencil.png'
+
+COLORS = {
+    'water': '#00D2B4',
+    'food': '#FF6B4A',
+    'activity': '#38BDF8',
+    'steps': '#C084FC',
+}
+LABEL = {'water': 'Вода', 'food': 'Калории', 'activity': 'Активность', 'steps': 'Шаги'}
+UNIT = {'water': ' мл', 'food': ' ккал', 'activity': ' мин', 'steps': ''}
+
+TRACK = '#2A2E36'
+WHITE = '#FFFFFF'
+MUTED = '#98A0AE'
+
+# Веса из разметки (см. weightSum в fitflow_widget_bento.xml).
+PAD_V = 59 / 1000.0
+ROW = 882 / 1000.0
+PAD_H = 30 / 1000.0
+LEFT = 448 / 1000.0
+MID = 25 / 1000.0
+RIGHT = 467 / 1000.0
+SMALL = 472 / 1000.0
+GAP_V = 56 / 1000.0
+
+
+def font(size, bold=False):
+    # На виджете стоит sans-serif (Roboto). В песочнице берём DejaVu —
+    # метрики близкие, для проверки вёрстки этого достаточно.
+    name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
+    for base in ('/usr/share/fonts/truetype/dejavu/',
+                 '/usr/share/fonts/truetype/'):
+        p = Path(base) / name
+        if p.exists():
+            return ImageFont.truetype(str(p), size)
+    return ImageFont.load_default()
+
+
+def spaced(n):
+    s = str(abs(int(n)))
+    out = ''
+    for i, ch in enumerate(s):
+        if i and (len(s) - i) % 3 == 0:
+            out += ' '
+        out += ch
+    return out
+
+
+def ellipsize(draw, text, f, max_w):
+    """Обрезает строку многоточием — как android:ellipsize="end".
+
+    Предпросмотр обязан врать не в нашу пользу: если текст не влезает,
+    он должен обрезаться здесь так же, как обрежется на телефоне.
+    """
+    if draw.textbbox((0, 0), text, font=f)[2] <= max_w:
+        return text
+    cut = text
+    while cut and draw.textbbox((0, 0), cut + '…', font=f)[2] > max_w:
+        cut = cut[:-1]
+    return (cut + '…') if cut else ''
+
+
+def pct(value, goal):
+    if goal <= 0:
+        return 0
+    return max(0, min(100, round(value * 100.0 / goal)))
+
+
+def paste_icon(im, path, box, target_h):
+    icon = Image.open(path).convert('RGBA')
+    k = target_h / icon.height
+    icon = icon.resize((max(1, int(icon.width * k)), target_h), Image.Resampling.LANCZOS)
+    cx = (box[0] + box[2]) // 2
+    cy = (box[1] + box[3]) // 2
+    im.alpha_composite(icon, (cx - icon.width // 2, cy - icon.height // 2))
+
+
+def ring(im, cx, cy, r, thickness, colour, percent):
+    layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    box = (cx - r, cy - r, cx + r, cy + r)
+    d.arc(box, 0, 360, fill=colour + '55', width=thickness)
+    if percent > 0:
+        d.arc(box, -90, -90 + 360 * percent / 100.0, fill=colour, width=thickness)
+    im.alpha_composite(layer)
+
+
+def pill(im, box, colour, percent):
+    """Шкала-пилюля. Радиус = половина высоты, поэтому оба конца круглые."""
+    x0, y0, x1, y1 = box
+    h = y1 - y0
+    r = h // 2
+    layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.rounded_rectangle(box, radius=r, fill=TRACK)
+    if percent > 0:
+        w = max(h, int((x1 - x0) * percent / 100.0))
+        d.rounded_rectangle((x0, y0, x0 + w, y1), radius=r, fill=colour)
+    im.alpha_composite(layer)
+
+
+def circle_button(im, cx, cy, r, colour, text=None, icon=None):
+    layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=colour)
+    im.alpha_composite(layer)
+    if text:
+        d2 = ImageDraw.Draw(im)
+        f = font(max(9, int(r * 0.44)), bold=True)
+        lines = text.split('\n')
+        total = sum(d2.textbbox((0, 0), ln, font=f)[3] for ln in lines)
+        y = cy - total // 2
+        for ln in lines:
+            bb = d2.textbbox((0, 0), ln, font=f)
+            d2.text((cx - bb[2] // 2, y), ln, font=f, fill='#082028')
+            y += bb[3]
+    if icon:
+        ic = Image.open(icon).convert('RGBA')
+        k = (r * 1.05) / max(ic.width, ic.height)
+        ic = ic.resize((max(1, int(ic.width * k)), max(1, int(ic.height * k))),
+                       Image.Resampling.LANCZOS)
+        im.alpha_composite(ic, (cx - ic.width // 2, cy - ic.height // 2))
+
+
+def small_slot(im, box, slot, data, dp):
+    """Плита B/C: подпись, значение, цель, шкала внизу, кнопка справа."""
+    d = ImageDraw.Draw(im)
+    x0, y0, x1, y1 = box
+    value, goal = data[slot]
+    colour = COLORS[slot]
+
+    has_btn = slot in ('water', 'food')
+    pad_end = int(56 * dp) if has_btn else int(14 * dp)
+    tx = x0 + int(14 * dp)
+    ty = y0 + int(7 * dp)
+
+    f_label = font(int(12 * dp))
+    f_value = font(int(17 * dp), bold=True)
+    f_goal = font(int(11 * dp))
+
+    d.text((tx, ty), LABEL[slot], font=f_label, fill=MUTED)
+    ty += f_label.getbbox('Ag')[3] + int(1 * dp)
+    d.text((tx, ty), ellipsize(d, spaced(value), f_value, x1 - pad_end - tx),
+           font=f_value, fill=WHITE)
+    ty += f_value.getbbox('0')[3]
+    d.text((tx, ty), ellipsize(d, 'из ' + spaced(goal) + UNIT[slot], f_goal,
+                               x1 - pad_end - tx), font=f_goal, fill=MUTED)
+
+    bar_h = int(10 * dp)
+    bar_bottom = y1 - int(8 * dp)
+    pill(im, (tx, bar_bottom - bar_h, x1 - pad_end, bar_bottom),
+         colour, pct(value, goal))
+
+    if has_btn:
+        r = int(23 * dp)
+        cx = x1 - int(12 * dp) - r
+        cy = (y0 + y1) // 2
+        if slot == 'water':
+            circle_button(im, cx, cy, r, '#00D2B4', text='+250\nмл')
+        else:
+            circle_button(im, cx, cy, r, '#FF8A5C', icon=PENCIL)
+
+
+def render(slots, data, width=960):
+    bg = Image.open(BG).convert('RGBA')
+    k = width / bg.width
+    im = bg.resize((width, int(bg.height * k)), Image.Resampling.LANCZOS)
+    W, H = im.size
+    dp = W / 320.0  # ячейка 4x3 ≈ 320 dp по ширине
+
+    top = H * PAD_V
+    row_h = H * ROW
+    x = W * PAD_H
+    left_w = W * LEFT
+    a_box = (int(x), int(top), int(x + left_w), int(top + row_h))
+
+    x2 = x + left_w + W * MID
+    right_w = W * RIGHT
+    small_h = row_h * SMALL
+    b_box = (int(x2), int(top), int(x2 + right_w), int(top + small_h))
+    c_top = top + small_h + row_h * GAP_V
+    c_box = (int(x2), int(c_top), int(x2 + right_w), int(c_top + small_h))
+
+    d = ImageDraw.Draw(im)
+
+    # --- слот A ---
+    a = slots[0]
+    value, goal = data[a]
+    f_label = font(int(12 * dp))
+    d.text((a_box[0] + int(14 * dp), a_box[1] + int(10 * dp)),
+           LABEL[a], font=f_label, fill=MUTED)
+
+    ring_r = int(52 * dp)
+    cx = (a_box[0] + a_box[2]) // 2
+    cy = (a_box[1] + a_box[3]) // 2 - int(20 * dp)
+    ring(im, cx, cy, ring_r, int(7 * dp), COLORS[a], pct(value, goal))
+    paste_icon(im, ICONS[a], (cx - 1, cy - 1, cx + 1, cy + 1), int(56 * dp))
+
+    # Значение и цель — две строки, как в малых плитах.
+    f_value = font(int(20 * dp), bold=True)
+    f_goal = font(int(11 * dp))
+    txt = spaced(value)
+    g = 'из ' + spaced(goal) + UNIT[a]
+    bb = d.textbbox((0, 0), txt, font=f_value)
+    gb = d.textbbox((0, 0), g, font=f_goal)
+    cxm = (a_box[0] + a_box[2]) // 2
+    by = a_box[3] - int(10 * dp) - bb[3] - gb[3]
+    d.text((cxm - bb[2] // 2, by), txt, font=f_value, fill=WHITE)
+    d.text((cxm - gb[2] // 2, by + bb[3]), g, font=f_goal, fill=MUTED)
+
+    for slot, box in ((slots[1] if len(slots) > 1 else None, b_box),
+                      (slots[2] if len(slots) > 2 else None, c_box)):
+        if slot:
+            small_slot(im, box, slot, data, dp)
+
+    return im
+
+
+def main():
+    data = {
+        'steps': (39, 8000),
+        'water': (1000, 2300),
+        'food': (0, 2500),
+        'activity': (18, 21),
+    }
+    variants = [
+        ('по умолчанию: шаги · вода · калории', ['steps', 'water', 'food']),
+        ('питание заменено активностью', ['steps', 'water', 'activity']),
+        ('вода крупно, без питания', ['water', 'steps', 'activity']),
+    ]
+    shots = [(title, render(slots, data)) for title, slots in variants]
+
+    pad = 28
+    f = font(20, bold=True)
+    w = max(s.width for _, s in shots) + pad * 2
+    line = f.getbbox('Ag')[3] + 12
+    h = sum(s.height + line + pad for _, s in shots) + pad
+    sheet = Image.new('RGBA', (w, h), (12, 14, 18, 255))
+    d = ImageDraw.Draw(sheet)
+    y = pad
+    for title, shot in shots:
+        d.text((pad, y), title, font=f, fill='#C7CEDA')
+        y += line
+        sheet.alpha_composite(shot, (pad, y))
+        y += shot.height + pad
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(OUT, format='PNG')
+    print('wrote', OUT, sheet.size)
+
+
+if __name__ == '__main__':
+    main()

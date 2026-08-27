@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 0.9.28: шкала показателя «Вода». Дорожка и заливка скруглены
+     одним радиусом 6dp = половина высоты 12dp, поэтому пилюля круглая
+     с обеих сторон. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape android:shape="rectangle">
-            <corners android:radius="7dp"/>
+            <corners android:radius="6dp"/>
             <solid android:color="#2A2E36"/>
         </shape>
     </item>
