@@ -9,10 +9,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
-/* 0.9.26: бенто — подложка PNG (карточки, тени, кроссовок, «+250»)
-   плюс overlay живых цифр и полос. Не рисуем тени и неон в XML.
+/* 0.9.27: подложка PNG + overlay. Кольцо шагов, две строки цифр,
+   полосы в пилюлях, круглая кнопка «+250 мл» в dp (не с картинки).
 
-   Питание = съедено / цель, не remaining: такого поля в FitFlow нет. */
+   Питание = съедено / цель, не remaining. */
 public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
     private static final int REQ = 600;
@@ -44,13 +44,16 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
             views.setTextViewText(R.id.widget_bento_steps_value, FitFlowWidgetPaint.spaced(d.steps));
             views.setTextViewText(R.id.widget_bento_steps_goal, "из " + FitFlowWidgetPaint.spaced(d.stepsGoal));
+            views.setProgressBar(R.id.widget_bento_steps_ring, 100, d.stepsPct(), false);
 
-            views.setTextViewText(R.id.widget_bento_water_value,
-                FitFlowWidgetPaint.spaced(d.water) + " / " + FitFlowWidgetPaint.spaced(d.waterGoal) + " мл");
+            views.setTextViewText(R.id.widget_bento_water_value, FitFlowWidgetPaint.spaced(d.water));
+            views.setTextViewText(R.id.widget_bento_water_goal,
+                "из " + FitFlowWidgetPaint.spaced(d.waterGoal) + " мл");
             views.setProgressBar(R.id.widget_bento_water_bar, 100, d.waterPct(), false);
 
-            views.setTextViewText(R.id.widget_bento_food_value,
-                FitFlowWidgetPaint.spaced(d.food) + " / " + FitFlowWidgetPaint.spaced(d.foodGoal) + " ккал");
+            views.setTextViewText(R.id.widget_bento_food_value, FitFlowWidgetPaint.spaced(d.food));
+            views.setTextViewText(R.id.widget_bento_food_goal,
+                "из " + FitFlowWidgetPaint.spaced(d.foodGoal) + " ккал");
             views.setProgressBar(R.id.widget_bento_food_bar, 100, d.foodPct(), false);
 
             views.setContentDescription(R.id.widget_bento_root,

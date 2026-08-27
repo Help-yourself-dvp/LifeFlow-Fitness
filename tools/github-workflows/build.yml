@@ -450,21 +450,12 @@ jobs:
                   shutil.copy2(src, dest)
                   print('res copy', dest)
 
-          # Подложка бенто: скругляем внешний контур, кладём в drawable.
-          bg_src = Path('design/widget_bento_bg.png')
-          if not bg_src.exists():
-              raise SystemExit('ОШИБКА: нет design/widget_bento_bg.png')
-          raw = Image.open(bg_src).convert('RGBA')
-          tw = 960
-          th = max(1, int(tw * raw.height / raw.width))
-          raw = raw.resize((tw, th), Image.Resampling.LANCZOS)
-          radius = max(32, int(min(tw, th) * 0.12))
-          mask = Image.new('L', (tw, th), 0)
-          ImageDraw.Draw(mask).rounded_rectangle((0, 0, tw - 1, th - 1), radius=radius, fill=255)
-          raw.putalpha(mask)
+          # 0.9.27: подложка — tools/prepare-bento-bg.py (кромка, кроссовок, без пилюль).
+          import runpy
+          runpy.run_path('tools/prepare-bento-bg.py')
           drawable.mkdir(parents=True, exist_ok=True)
-          raw.save(drawable / 'widget_bento_bg.png', format='PNG')
-          print('bento bg', tw, th, 'radius', radius)
+          shutil.copy2('design/widget_bento_bg_round.png', drawable / 'widget_bento_bg.png')
+          print('bento bg from prepare-bento-bg.py')
 
           # 0.9.4 (пункт 4 владельца — конфигуратор виджета): строки виджета
           # больше не зашиты в layout. Генерируем пул универсальных слотов
