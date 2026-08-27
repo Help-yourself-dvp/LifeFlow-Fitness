@@ -209,7 +209,8 @@ jobs:
           sudo apt-get install -y python3-pil
           python3 << 'ENDSCRIPT'
           from pathlib import Path
-          from PIL import Image
+          from PIL import Image, ImageDraw
+          import shutil
 
           man = Path('android/app/src/main/AndroidManifest.xml')
           t = man.read_text(encoding='utf-8')
@@ -438,6 +439,33 @@ jobs:
           layout = res / 'layout'
           layout.mkdir(parents=True, exist_ok=True)
 
+          # 0.9.26: готовые res (оверлей бенто) копируем файлами, не heredoc.
+          extra_res = Path('android-res')
+          if extra_res.exists():
+              for src in extra_res.rglob('*'):
+                  if not src.is_file():
+                      continue
+                  dest = res / src.relative_to(extra_res)
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, dest)
+                  print('res copy', dest)
+
+          # Подложка бенто: скругляем внешний контур, кладём в drawable.
+          bg_src = Path('design/widget_bento_bg.png')
+          if not bg_src.exists():
+              raise SystemExit('ОШИБКА: нет design/widget_bento_bg.png')
+          raw = Image.open(bg_src).convert('RGBA')
+          tw = 960
+          th = max(1, int(tw * raw.height / raw.width))
+          raw = raw.resize((tw, th), Image.Resampling.LANCZOS)
+          radius = max(32, int(min(tw, th) * 0.12))
+          mask = Image.new('L', (tw, th), 0)
+          ImageDraw.Draw(mask).rounded_rectangle((0, 0, tw - 1, th - 1), radius=radius, fill=255)
+          raw.putalpha(mask)
+          drawable.mkdir(parents=True, exist_ok=True)
+          raw.save(drawable / 'widget_bento_bg.png', format='PNG')
+          print('bento bg', tw, th, 'radius', radius)
+
           # 0.9.4 (пункт 4 владельца — конфигуратор виджета): строки виджета
           # больше не зашиты в layout. Генерируем пул универсальных слотов
           # (текст + необязательная полоса прогресса); FitFlowWidgetProvider
@@ -540,6 +568,10 @@ jobs:
               '    </LinearLayout>\n'
               '</FrameLayout>\n', encoding='utf-8')
 
+          # 0.9.26: разметка бенто — android-res/layout/fitflow_widget_bento.xml
+          # (копируется выше). Фон — design/widget_bento_bg.png → drawable/widget_bento_bg.png.
+          # Старые shape-карточки 0.9.25 больше не генерируем: тени и неон на подложке.
+
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
           (xml / 'fitflow_widget_info.xml').write_text(
@@ -557,19 +589,26 @@ jobs:
           # из них ставит на экран. Размеры по умолчанию разные: кольцу с
           # строками нужна ширина, плиткам — квадрат.
           canvas_infos = [
-              ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140),
-              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 140),
-              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150),
+              ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140, 'fitflow_widget_p5'),
+              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento'),
+              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_p5'),
           ]
-          for info_name, label, min_w, min_h in canvas_infos:
+          for info_name, label, min_w, min_h, layout_name in canvas_infos:
+              # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.
+              resize = 'none' if info_name == 'fitflow_widget_bento_info' else 'horizontal|vertical'
+              extra = (
+                  '    android:targetCellWidth="4"\n'
+                  '    android:targetCellHeight="2"\n'
+              ) if info_name == 'fitflow_widget_bento_info' else ''
               (xml / (info_name + '.xml')).write_text(
                   '<?xml version="1.0" encoding="utf-8"?>\n'
                   '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"\n'
                   '    android:minWidth="%ddp"\n' % min_w +
                   '    android:minHeight="%ddp"\n' % min_h +
+                  extra +
                   '    android:updatePeriodMillis="0"\n'
-                  '    android:initialLayout="@layout/fitflow_widget_p5"\n'
-                  '    android:resizeMode="horizontal|vertical"\n'
+                  '    android:initialLayout="@layout/%s"\n' % layout_name +
+                  '    android:resizeMode="%s"\n' % resize +
                   '    android:label="%s"\n' % label +
                   '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
 
