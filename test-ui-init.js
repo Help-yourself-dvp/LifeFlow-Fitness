@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.27', '0.9.27 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.27'/.test(app923), '0.9.27 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.27 \(build 0\)/.test(html923), '0.9.27 #about-version');
+  check(ver923 === '0.9.28', '0.9.28 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.28'/.test(app923), '0.9.28 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.28 \(build 0\)/.test(html923), '0.9.28 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4536,6 +4536,66 @@ for (const id of ids) {
     '0.9.27 зеркало готовит подложку скриптом');
 
   if (!bad) console.log('  (0.9.27: бенто — кольцо шагов, две строки, круглая +250 мл)');
+})();
+
+
+/* ============================================================
+   0.9.28 — бенто: живые заголовки, кроссовок в центре кольца,
+   карандаш у калорий, пилюли с честным радиусом
+   ============================================================ */
+(function test0928BentoPolish() {
+  const fs928 = require('fs');
+  const bento = fs928.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
+  const lay = fs928.readFileSync('android-res/layout/fitflow_widget_bento.xml', 'utf8');
+  const prep = fs928.readFileSync('tools/prepare-bento-bg.py', 'utf8');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  // Заголовки — живые TextView единым стилем (#8E95A2, без bold): цифры не
+  // наезжают, шрифт один на всех. С подложки надписи стёрты скриптом.
+  const labels = lay.match(/widget_bento_(steps|water|food)_label/g) || [];
+  check(new Set(labels).size === 3, '0.9.28 три живых заголовка в layout');
+  const labelBlocks = lay.split('<TextView').filter((s) => /_label"/.test(s));
+  check(labelBlocks.length === 3
+    && labelBlocks.every((s) => /#8E95A2/.test(s) && /android:textSize="12sp"/.test(s)
+      && !/textStyle="bold"/.test(s)),
+    '0.9.28 заголовки единым стилем: 12sp, серые, без bold');
+  check(/«Вода» и «Калории»/.test(prep) || /Стираем нарисованные заголовки/.test(prep),
+    '0.9.28 скрипт стирает нарисованные заголовки с подложки');
+
+  // Кроссовок — отдельный слой в одном FrameLayout с кольцом, оба center:
+  // мимо центра не промахнётся ни на каком экране.
+  check(/widget_bento_steps_icon/.test(lay)
+    && /widget_bento_sneaker/.test(lay)
+    && fs928.existsSync('android-res/drawable/widget_bento_sneaker.png'),
+    '0.9.28 кроссовок — отдельный PNG-слой');
+  const iconBlock = lay.split('<ImageView').find((s) => /widget_bento_steps_icon/.test(s)) || '';
+  check(/layout_gravity="center"/.test(iconBlock),
+    '0.9.28 кроссовок отцентрован в контейнере кольца');
+
+  // Оба правых блока зеркальны: у калорий такая же круглая кнопка (карандаш),
+  // открывает умный ввод еды тем же widget_action=smart_entry.
+  check(/widget_bento_food_btn/.test(lay)
+    && /fitflow_bento_btn_food/.test(lay)
+    && /android:shape="oval"/.test(fs928.readFileSync('android-res/drawable/fitflow_bento_btn_food.xml', 'utf8')),
+    '0.9.28 круглая кнопка-карандаш у калорий');
+  check(/widget_action", "smart_entry"/.test(bento)
+    && /R\.id\.widget_bento_food_btn/.test(bento),
+    '0.9.28 карандаш открывает умный ввод еды');
+
+  // Пилюли: радиус 6dp — ровно половина высоты 12dp, дуга не срезается;
+  // полоса прижата к низу карточки отдельным слоем, а не концом столбика.
+  const barFiles = ['fitflow_bento_bar_water', 'fitflow_bento_bar_water_fill',
+    'fitflow_bento_bar_food', 'fitflow_bento_bar_food_fill'];
+  check(barFiles.every((f) => /android:radius="6dp"/.test(
+    fs928.readFileSync('android-res/drawable/' + f + '.xml', 'utf8'))),
+    '0.9.28 радиус пилюль 6dp = половина высоты 12dp');
+  const barBlocks = lay.split('<ProgressBar').filter((s) => /_bar"/.test(s));
+  check(barBlocks.length === 2
+    && barBlocks.every((s) => /layout_gravity="bottom"/.test(s)),
+    '0.9.28 полосы прижаты к низу карточки — скругление не обрезается');
+
+  if (!bad) console.log('  (0.9.28: живые заголовки, кроссовок в центре, карандаш у калорий)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

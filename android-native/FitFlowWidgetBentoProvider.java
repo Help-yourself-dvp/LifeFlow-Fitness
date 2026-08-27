@@ -9,8 +9,11 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
-/* 0.9.27: подложка PNG + overlay. Кольцо шагов, две строки цифр,
-   полосы в пилюлях, круглая кнопка «+250 мл» в dp (не с картинки).
+/* 0.9.28: подложка PNG + overlay. Заголовки «Шаги» / «Вода» / «Калории» —
+   живые TextView в layout (единый стиль, цифры не наезжают). Кроссовок —
+   отдельный слой по центру кольца. У калорий круглая кнопка-карандаш:
+   открывает умный ввод еды (widget_action=smart_entry, как «Записать»
+   классического виджета).
 
    Питание = съедено / цель, не remaining. */
 public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
@@ -71,6 +74,14 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
             waterBtn.setAction("com.fitflow.app.ADD_WATER_250");
             views.setOnClickPendingIntent(R.id.widget_bento_water_btn, PendingIntent.getBroadcast(
                 context, REQ + 1, waterBtn, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+
+            /* Карандаш у калорий: тот же smart_entry, что у кнопки «Записать»
+               классического виджета — приложение открывает умный ввод еды. */
+            Intent foodBtn = new Intent(context, MainActivity.class);
+            foodBtn.putExtra("widget_action", "smart_entry");
+            foodBtn.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            views.setOnClickPendingIntent(R.id.widget_bento_food_btn, PendingIntent.getActivity(
+                context, REQ + 2, foodBtn, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
             manager.updateAppWidget(id, views);
         } catch (Throwable t) {
