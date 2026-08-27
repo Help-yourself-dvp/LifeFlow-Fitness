@@ -9,12 +9,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
-/* 0.9.25: бенто — настоящая XML-разметка RemoteViews, не одна картинка.
-   4×2, тёмные карточки, кольцо шагов, полосы воды и питания, кнопка
-   «+250 мл» внутри карточки воды (не на всю ширину виджета).
+/* 0.9.26: бенто — подложка PNG (карточки, тени, кроссовок, «+250»)
+   плюс overlay живых цифр и полос. Не рисуем тени и неон в XML.
 
-   Цвет ProgressBar на minSdk 26 из Java не меняется — фиолетовое кольцо
-   и цветные полосы зашиты в drawable. Питание = съедено / цель, не remaining. */
+   Питание = съедено / цель, не remaining: такого поля в FitFlow нет. */
 public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
     private static final int REQ = 600;
@@ -46,7 +44,6 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
             views.setTextViewText(R.id.widget_bento_steps_value, FitFlowWidgetPaint.spaced(d.steps));
             views.setTextViewText(R.id.widget_bento_steps_goal, "из " + FitFlowWidgetPaint.spaced(d.stepsGoal));
-            views.setProgressBar(R.id.widget_bento_steps_ring, 100, d.stepsPct(), false);
 
             views.setTextViewText(R.id.widget_bento_water_value,
                 FitFlowWidgetPaint.spaced(d.water) + " / " + FitFlowWidgetPaint.spaced(d.waterGoal) + " мл");

@@ -2808,6 +2808,20 @@ for (const id of ids) {
      в генерируемой разметке. Именно это ломает сборку в первую очередь. */
   const declaredIds = new Set((yml.match(/@\+id\/([A-Za-z0-9_]+)/g) || [])
     .map((m) => m.replace('@+id/', '')));
+  /* 0.9.26: оверлей бенто лежит файлами в android-res/, не heredoc в yml. */
+  if (fs.existsSync('android-res')) {
+    const walk = (dir) => {
+      for (const name of fs.readdirSync(dir)) {
+        const fp = dir + '/' + name;
+        if (fs.statSync(fp).isDirectory()) walk(fp);
+        else if (/\.(xml)$/.test(name)) {
+          const body = fs.readFileSync(fp, 'utf8');
+          (body.match(/@\+id\/([A-Za-z0-9_]+)/g) || []).forEach((m) => declaredIds.add(m.replace('@+id/', '')));
+        }
+      }
+    };
+    walk('android-res');
+  }
   /* Слоты классического виджета генерируются шаблоном ('widget_slot_%d'),
      поэтому в тексте workflow буквальных widget_slot_1..10 нет. Разворачиваем
      шаблоны в конкретные номера — до 10 слотов большой раскладки. */
@@ -2817,6 +2831,11 @@ for (const id of ids) {
   });
   const declaredLayouts = new Set((yml.match(/'(fitflow_widget[a-z0-9_]*)\.xml'/g) || [])
     .map((m) => m.replace(/'/g, '').replace('.xml', '')));
+  if (fs.existsSync('android-res/layout')) {
+    for (const name of fs.readdirSync('android-res/layout')) {
+      if (name.endsWith('.xml')) declaredLayouts.add(name.replace(/\.xml$/, ''));
+    }
+  }
   let usedIds = new Set();
   let usedLayouts = new Set();
   for (const f of fs.readdirSync('android-native').filter((f) => f.endsWith('.java'))) {
@@ -4399,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.25', '0.9.25 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.25'/.test(app923), '0.9.25 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.25 \(build 0\)/.test(html923), '0.9.25 #about-version');
+  check(ver923 === '0.9.26', '0.9.26 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.26'/.test(app923), '0.9.26 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.26 \(build 0\)/.test(html923), '0.9.26 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4464,52 +4483,70 @@ for (const id of ids) {
 
 
 /* ============================================================
-   0.9.25 — бенто XML RemoteViews: карточки, кнопка внутри воды
+   0.9.26 — бенто: подложка PNG + overlay живых данных
+   ------------------------------------------------------------
+   Карточки, тени, кроссовок и круг «+250» — на картинке.
+   Java только подставляет цифры, проценты полос и клик.
+   Питание = съедено / цель, не remaining.
    ============================================================ */
-(function test0925BentoXml() {
-  const fs925 = require('fs');
-  const yml = fs925.readFileSync('tools/github-workflows/build.yml', 'utf8');
-  const bento = fs925.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
-  const can = fs925.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
-  const prov = fs925.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+(function test0926BentoOverlay() {
+  const fs926 = require('fs');
+  const yml = fs926.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const bento = fs926.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf8');
+  const can = fs926.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
+  const prov = fs926.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+  const lay = fs926.readFileSync('android-res/layout/fitflow_widget_bento.xml', 'utf8');
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
 
-  check(/fitflow_widget_bento\.xml/.test(yml) && /widget_bento_root/.test(yml)
-    && /widget_bento_water_btn/.test(yml) && /widget_bento_steps_ring/.test(yml)
-    && /widget_bento_food_bar/.test(yml),
-    '0.9.25 разметка бенто описана в зеркале workflow');
+  check(fs926.existsSync('design/widget_bento_bg.png')
+    && fs926.existsSync('android-res/layout/fitflow_widget_bento.xml'),
+    '0.9.26 подложка PNG и XML-оверлей на месте');
 
-  check(/#16181C/.test(yml) && /#1F2228/.test(yml) && /#9D5CFF/.test(yml)
-    && /#00D2B4/.test(yml) && /#FF6B4A/.test(yml) && /#8E95A2/.test(yml),
-    '0.9.25 палитра бенто: графит, карточки, неон, бирюза, коралл');
+  check(/widget_bento_bg/.test(lay) && /scaleType="fitXY"/.test(lay)
+    && /widget_bento_root/.test(lay) && /widget_bento_water_btn/.test(lay)
+    && /widget_bento_water_bar/.test(lay) && /widget_bento_food_bar/.test(lay)
+    && /widget_bento_steps_value/.test(lay),
+    '0.9.26 разметка: фон ImageView + живые TextView/ProgressBar');
 
-  const waterCard = yml.slice(yml.indexOf('widget_bento_water_card'), yml.indexOf('widget_bento_food_card'));
-  check(/widget_bento_water_btn/.test(waterCard)
-    && /layout_gravity="bottom\|end"/.test(waterCard),
-    '0.9.25 кнопка +250 мл лежит внутри карточки воды, справа снизу');
+  check(/ImageButton/.test(lay) && /widget_bento_water_btn/.test(lay)
+    && /@android:color\/transparent/.test(lay)
+    && /layout_gravity="end\|center_vertical"/.test(lay),
+    '0.9.26 прозрачная кнопка +250 лежит над нарисованным кругом');
 
-  check(!/остаток/.test(bento) && !/осталось/.test(yml)
-    && /съедено/.test(bento)
-    && /Питание/.test(yml),
-    '0.9.25 питание = съедено / цель, не «остаток»');
+  check(!/остаток/.test(bento) && !/осталось/.test(lay)
+    && /съедено/.test(bento),
+    '0.9.26 питание = съедено / цель, не «остаток»');
 
   check(/R\.layout\.fitflow_widget_bento/.test(bento)
-    && /setProgressBar\(R\.id\.widget_bento_steps_ring/.test(bento)
+    && /setTextViewText\(R\.id\.widget_bento_steps_value/.test(bento)
+    && /setProgressBar\(R\.id\.widget_bento_water_bar/.test(bento)
+    && /setProgressBar\(R\.id\.widget_bento_food_bar/.test(bento)
     && /ADD_WATER_250/.test(bento)
+    && !/widget_bento_steps_ring/.test(bento)
     && !/drawBento\(/.test(bento)
     && !/extends FitFlowWidgetCanvasProvider/.test(bento),
-    '0.9.25 бенто обновляет XML RemoteViews, не bitmap-холст');
+    '0.9.26 бенто подставляет цифры в overlay, без кольца и без canvas');
 
   check(!/FitFlowWidgetBentoProvider\.class/.test(can)
     && /FitFlowWidgetBentoProvider\.updateAll/.test(prov),
-    '0.9.25 бенто обновляется из общей точки, но не через canvas-список');
+    '0.9.26 бенто обновляется из общей точки, но не через canvas-список');
+
+  check(/android-res\/layout\/fitflow_widget_bento\.xml/.test(yml)
+    && /design\/widget_bento_bg\.png/.test(yml)
+    && /rounded_rectangle/.test(yml)
+    && /extra_res = Path\('android-res'\)/.test(yml),
+    '0.9.26 зеркало копирует оверлей и скругляет подложку');
 
   const bentoInfo = yml.slice(yml.indexOf("fitflow_widget_bento_info"), yml.indexOf("fitflow_widget_neon_info"));
   check(/fitflow_widget_bento/.test(bentoInfo),
-    '0.9.25 appwidget-info бенто указывает на свою разметку');
+    '0.9.26 appwidget-info бенто указывает на свою разметку');
 
-  if (!bad) console.log('  (0.9.25: бенто — XML-карточки, кнопка внутри воды)');
+  check(/resize = 'none' if info_name == 'fitflow_widget_bento_info'/.test(yml)
+    && /targetCellWidth/.test(yml),
+    '0.9.26 бенто фиксированного размера 4×2, без растягивания');
+
+  if (!bad) console.log('  (0.9.26: бенто — подложка PNG + overlay цифр)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

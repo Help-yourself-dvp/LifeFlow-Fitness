@@ -209,7 +209,8 @@ jobs:
           sudo apt-get install -y python3-pil
           python3 << 'ENDSCRIPT'
           from pathlib import Path
-          from PIL import Image
+          from PIL import Image, ImageDraw
+          import shutil
 
           man = Path('android/app/src/main/AndroidManifest.xml')
           t = man.read_text(encoding='utf-8')
@@ -438,6 +439,33 @@ jobs:
           layout = res / 'layout'
           layout.mkdir(parents=True, exist_ok=True)
 
+          # 0.9.26: готовые res (оверлей бенто) копируем файлами, не heredoc.
+          extra_res = Path('android-res')
+          if extra_res.exists():
+              for src in extra_res.rglob('*'):
+                  if not src.is_file():
+                      continue
+                  dest = res / src.relative_to(extra_res)
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, dest)
+                  print('res copy', dest)
+
+          # Подложка бенто: скругляем внешний контур, кладём в drawable.
+          bg_src = Path('design/widget_bento_bg.png')
+          if not bg_src.exists():
+              raise SystemExit('ОШИБКА: нет design/widget_bento_bg.png')
+          raw = Image.open(bg_src).convert('RGBA')
+          tw = 960
+          th = max(1, int(tw * raw.height / raw.width))
+          raw = raw.resize((tw, th), Image.Resampling.LANCZOS)
+          radius = max(32, int(min(tw, th) * 0.12))
+          mask = Image.new('L', (tw, th), 0)
+          ImageDraw.Draw(mask).rounded_rectangle((0, 0, tw - 1, th - 1), radius=radius, fill=255)
+          raw.putalpha(mask)
+          drawable.mkdir(parents=True, exist_ok=True)
+          raw.save(drawable / 'widget_bento_bg.png', format='PNG')
+          print('bento bg', tw, th, 'radius', radius)
+
           # 0.9.4 (пункт 4 владельца — конфигуратор виджета): строки виджета
           # больше не зашиты в layout. Генерируем пул универсальных слотов
           # (текст + необязательная полоса прогресса); FitFlowWidgetProvider
@@ -540,149 +568,9 @@ jobs:
               '    </LinearLayout>\n'
               '</FrameLayout>\n', encoding='utf-8')
 
-          # 0.9.25: бенто — XML RemoteViews, не bitmap. Цвета ProgressBar
-          # зашиты в drawable: из Java на minSdk 26 tint не меняется.
-          (drawable / 'fitflow_bento_bg.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#16181C"/>\n'
-              '    <corners android:radius="24dp"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_card.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#1F2228"/>\n'
-              '    <corners android:radius="16dp"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_btn.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#00D2B4"/>\n'
-              '    <corners android:radius="16dp"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_ring.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
-              '    <item android:id="@android:id/background">\n'
-              '        <shape android:shape="ring" android:innerRadiusRatio="2.5" android:thickness="8dp" android:useLevel="false">\n'
-              '            <solid android:color="#339D5CFF"/>\n'
-              '        </shape>\n'
-              '    </item>\n'
-              '    <item android:id="@android:id/progress">\n'
-              '        <rotate android:fromDegrees="-90" android:toDegrees="-90" android:pivotX="50%" android:pivotY="50%">\n'
-              '            <shape android:shape="ring" android:innerRadiusRatio="2.5" android:thickness="8dp" android:useLevel="true">\n'
-              '                <solid android:color="#9D5CFF"/>\n'
-              '            </shape>\n'
-              '        </rotate>\n'
-              '    </item>\n'
-              '</layer-list>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_bar_water.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
-              '    <item android:id="@android:id/background">\n'
-              '        <shape android:shape="rectangle">\n'
-              '            <corners android:radius="4dp"/>\n'
-              '            <solid android:color="#3316181C"/>\n'
-              '        </shape>\n'
-              '    </item>\n'
-              '    <item android:id="@android:id/progress">\n'
-              '        <scale android:scaleWidth="100%" android:drawable="@drawable/fitflow_bento_bar_water_fill"/>\n'
-              '    </item>\n'
-              '</layer-list>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_bar_water_fill.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <corners android:radius="4dp"/>\n'
-              '    <solid android:color="#00D2B4"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_bar_food.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
-              '    <item android:id="@android:id/background">\n'
-              '        <shape android:shape="rectangle">\n'
-              '            <corners android:radius="4dp"/>\n'
-              '            <solid android:color="#3316181C"/>\n'
-              '        </shape>\n'
-              '    </item>\n'
-              '    <item android:id="@android:id/progress">\n'
-              '        <scale android:scaleWidth="100%" android:drawable="@drawable/fitflow_bento_bar_food_fill"/>\n'
-              '    </item>\n'
-              '</layer-list>\n', encoding='utf-8')
-          (drawable / 'fitflow_bento_bar_food_fill.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <corners android:radius="4dp"/>\n'
-              '    <solid android:color="#FF6B4A"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (layout / 'fitflow_widget_bento.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
-              '    android:id="@+id/widget_bento_root" android:layout_width="match_parent"\n'
-              '    android:layout_height="match_parent" android:orientation="horizontal"\n'
-              '    android:weightSum="2" android:padding="8dp"\n'
-              '    android:background="@drawable/fitflow_bento_bg">\n'
-              '    <LinearLayout android:id="@+id/widget_bento_steps_card" android:layout_width="0dp"\n'
-              '        android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical"\n'
-              '        android:background="@drawable/fitflow_bento_card" android:padding="10dp" android:layout_marginEnd="6dp">\n'
-              '        <TextView android:id="@+id/widget_bento_steps_label" android:layout_width="match_parent"\n'
-              '            android:layout_height="wrap_content" android:text="Шаги" android:textColor="#8E95A2"\n'
-              '            android:textSize="12sp" android:fontFamily="sans-serif" android:includeFontPadding="false"/>\n'
-              '        <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">\n'
-              '            <ProgressBar android:id="@+id/widget_bento_steps_ring" style="?android:attr/progressBarStyleHorizontal"\n'
-              '                android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center"\n'
-              '                android:max="100" android:progress="0" android:progressDrawable="@drawable/fitflow_bento_ring"\n'
-              '                android:indeterminate="false"/>\n'
-              '            <TextView android:id="@+id/widget_bento_steps_value" android:layout_width="wrap_content"\n'
-              '                android:layout_height="wrap_content" android:layout_gravity="center" android:text="0"\n'
-              '                android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold"\n'
-              '                android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:maxLines="1"/>\n'
-              '        </FrameLayout>\n'
-              '        <TextView android:id="@+id/widget_bento_steps_goal" android:layout_width="match_parent"\n'
-              '            android:layout_height="wrap_content" android:text="из 0" android:textColor="#8E95A2"\n'
-              '            android:textSize="11sp" android:fontFamily="sans-serif" android:includeFontPadding="false"\n'
-              '            android:maxLines="1" android:ellipsize="end"/>\n'
-              '    </LinearLayout>\n'
-              '    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"\n'
-              '        android:orientation="vertical">\n'
-              '        <FrameLayout android:id="@+id/widget_bento_water_card" android:layout_width="match_parent"\n'
-              '            android:layout_height="0dp" android:layout_weight="1" android:background="@drawable/fitflow_bento_card"\n'
-              '            android:padding="8dp">\n'
-              '            <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"\n'
-              '                android:orientation="vertical" android:paddingEnd="72dp">\n'
-              '                <TextView android:id="@+id/widget_bento_water_label" android:layout_width="match_parent"\n'
-              '                    android:layout_height="wrap_content" android:text="Вода" android:textColor="#8E95A2"\n'
-              '                    android:textSize="12sp" android:fontFamily="sans-serif" android:includeFontPadding="false"/>\n'
-              '                <TextView android:id="@+id/widget_bento_water_value" android:layout_width="match_parent"\n'
-              '                    android:layout_height="wrap_content" android:text="0 / 0 мл" android:textColor="#FFFFFF"\n'
-              '                    android:textSize="13sp" android:textStyle="bold" android:fontFamily="sans-serif-medium"\n'
-              '                    android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end"/>\n'
-              '                <ProgressBar android:id="@+id/widget_bento_water_bar" style="?android:attr/progressBarStyleHorizontal"\n'
-              '                    android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="6dp"\n'
-              '                    android:max="100" android:progress="0" android:progressDrawable="@drawable/fitflow_bento_bar_water"/>\n'
-              '            </LinearLayout>\n'
-              '            <TextView android:id="@+id/widget_bento_water_btn" android:layout_width="wrap_content"\n'
-              '                android:layout_height="28dp" android:layout_gravity="bottom|end" android:gravity="center"\n'
-              '                android:minHeight="0dp" android:minWidth="0dp" android:paddingStart="10dp" android:paddingEnd="10dp"\n'
-              '                android:text="+250 мл" android:textSize="11sp" android:textColor="#111111"\n'
-              '                android:fontFamily="sans-serif-medium" android:background="@drawable/fitflow_bento_btn"\n'
-              '                android:includeFontPadding="false"/>\n'
-              '        </FrameLayout>\n'
-              '        <LinearLayout android:id="@+id/widget_bento_food_card" android:layout_width="match_parent"\n'
-              '            android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical"\n'
-              '            android:background="@drawable/fitflow_bento_card" android:padding="8dp" android:layout_marginTop="6dp">\n'
-              '            <TextView android:id="@+id/widget_bento_food_label" android:layout_width="match_parent"\n'
-              '                android:layout_height="wrap_content" android:text="Питание" android:textColor="#8E95A2"\n'
-              '                android:textSize="12sp" android:fontFamily="sans-serif" android:includeFontPadding="false"/>\n'
-              '            <TextView android:id="@+id/widget_bento_food_value" android:layout_width="match_parent"\n'
-              '                android:layout_height="wrap_content" android:text="0 / 0 ккал" android:textColor="#FFFFFF"\n'
-              '                android:textSize="13sp" android:textStyle="bold" android:fontFamily="sans-serif-medium"\n'
-              '                android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end"/>\n'
-              '            <ProgressBar android:id="@+id/widget_bento_food_bar" style="?android:attr/progressBarStyleHorizontal"\n'
-              '                android:layout_width="match_parent" android:layout_height="8dp" android:layout_marginTop="6dp"\n'
-              '                android:max="100" android:progress="0" android:progressDrawable="@drawable/fitflow_bento_bar_food"/>\n'
-              '        </LinearLayout>\n'
-              '    </LinearLayout>\n'
-              '</LinearLayout>\n', encoding='utf-8')
+          # 0.9.26: разметка бенто — android-res/layout/fitflow_widget_bento.xml
+          # (копируется выше). Фон — design/widget_bento_bg.png → drawable/widget_bento_bg.png.
+          # Старые shape-карточки 0.9.25 больше не генерируем: тени и неон на подложке.
 
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
@@ -706,14 +594,21 @@ jobs:
               ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_p5'),
           ]
           for info_name, label, min_w, min_h, layout_name in canvas_infos:
+              # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.
+              resize = 'none' if info_name == 'fitflow_widget_bento_info' else 'horizontal|vertical'
+              extra = (
+                  '    android:targetCellWidth="4"\n'
+                  '    android:targetCellHeight="2"\n'
+              ) if info_name == 'fitflow_widget_bento_info' else ''
               (xml / (info_name + '.xml')).write_text(
                   '<?xml version="1.0" encoding="utf-8"?>\n'
                   '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"\n'
                   '    android:minWidth="%ddp"\n' % min_w +
                   '    android:minHeight="%ddp"\n' % min_h +
+                  extra +
                   '    android:updatePeriodMillis="0"\n'
                   '    android:initialLayout="@layout/%s"\n' % layout_name +
-                  '    android:resizeMode="horizontal|vertical"\n'
+                  '    android:resizeMode="%s"\n' % resize +
                   '    android:label="%s"\n' % label +
                   '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
 
