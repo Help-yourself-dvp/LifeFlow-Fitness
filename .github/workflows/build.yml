@@ -255,6 +255,8 @@ jobs:
               ('FitFlowWidgetDropProvider', 'fitflow_widget_drop_info'),
               ('FitFlowWidgetBentoProvider', 'fitflow_widget_bento_info'),
               ('FitFlowWidgetNeonProvider', 'fitflow_widget_neon_info'),
+              # 0.9.34: те же кольца в светлой палитре — для светлых обоев.
+              ('FitFlowWidgetNeonLightProvider', 'fitflow_widget_neon_light_info'),
           ]
           for cls, info in canvas_widgets:
               if cls in t:
@@ -647,6 +649,9 @@ jobs:
               # уменьшения шрифтов — расчёт в design/WIDGET-HOWTO.md § 4.
               ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento'),
               ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'),
+              # 0.9.34: светлый вариант делит разметку с тёмным — отличается
+              # только палитрой в FitFlowWidgetPaint (NEON_LIGHT).
+              ('fitflow_widget_neon_light_info', 'FitFlow · кольца (светлый)', 250, 150, 'fitflow_widget_neon'),
           ]
           for info_name, label, min_w, min_h, layout_name in canvas_infos:
               # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.
