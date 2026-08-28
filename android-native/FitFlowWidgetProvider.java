@@ -67,6 +67,19 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
     private static final int LARGE_CHROME_DP = 110;
     private static final int LARGE_ROW_DP = 30;
 
+    /* 0.9.38: только САМ списочный виджет, без каскада на остальные и без
+       перевооружения полуночного будильника. Нужно для анимации: там
+       обновление идёт десятки раз подряд, и полный updateAll() (который
+       дёргает ещё бенто, канвасы и AlarmManager) — это те самые рывки,
+       которые владелец видел на устройстве. */
+    static void updateListOnly(Context context) {
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+        ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);
+        int[] ids = manager.getAppWidgetIds(component);
+        if (ids == null) return;
+        for (int id : ids) updateWidget(context, manager, id);
+    }
+
     public static void updateAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         ComponentName component = new ComponentName(context, FitFlowWidgetProvider.class);

@@ -225,6 +225,18 @@ final class FitFlowWidgetPaint {
         return p;
     }
 
+    /* 0.9.38: ЯВНО жирный текст. Сравнение `face == fontBold` по ссылке —
+       хрупкое: Typeface.create кеширует объекты и на одновесном шрифте
+       вполне может вернуть тот же экземпляр, что и обычный. Тогда условие
+       либо не срабатывает (кнопки остаются тонкими — ровно то, что видел
+       владелец), либо жирным становится вообще всё. Поэтому там, где
+       жирность обязана быть, зовём этот метод. */
+    static Paint textBold(int color, float size, Paint.Align align) {
+        Paint p = text(color, size, fontBold, align);
+        p.setFakeBoldText(true);
+        return p;
+    }
+
     static void centered(Canvas c, String s, float cx, float midY, Paint p) {
         Paint.FontMetrics fm = p.getFontMetrics();
         c.drawText(s, cx, midY - (fm.ascent + fm.descent) / 2f, p);
@@ -784,7 +796,7 @@ final class FitFlowWidgetPaint {
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
-        Paint p = text(color, 9.5f * den, fontBold, Paint.Align.LEFT);
+        Paint p = textBold(color, 9.5f * den, Paint.Align.LEFT);
         Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
         /* Значок тот же, что у показателя в списке справа (пункт 1):
            вода — капля и там, и там. Ширину меряем одинаково для эмодзи
@@ -809,7 +821,7 @@ final class FitFlowWidgetPaint {
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
-        Paint p = text(color, 9.5f * den, fontBold, Paint.Align.LEFT);
+        Paint p = textBold(color, 9.5f * den, Paint.Align.LEFT);
         Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
         float s = 11f * den;
         float ew = (allDone || partial) ? s : pe.measureText(neonEmoji("courses"));
@@ -1130,12 +1142,15 @@ final class FitFlowWidgetPaint {
     private static Paint fitPaint(String s, float maxW, float start, float floor,
                                   int color, Typeface tf) {
         float size = start;
+        boolean bold = (tf == fontBold);
         while (size > floor) {
-            Paint p = text(color, size, tf, Paint.Align.LEFT);
+            Paint p = bold ? textBold(color, size, Paint.Align.LEFT)
+                           : text(color, size, tf, Paint.Align.LEFT);
             if (p.measureText(s) <= maxW) return p;
             size -= 1f;
         }
-        return text(color, floor, tf, Paint.Align.LEFT);
+        return bold ? textBold(color, floor, Paint.Align.LEFT)
+                    : text(color, floor, tf, Paint.Align.LEFT);
     }
 
     static void drawTiles(Context ctx, Canvas c, int w, int h, float den,

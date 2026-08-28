@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.37', '0.9.37 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.37'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.37 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.38', '0.9.38 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.38'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.38 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4958,9 +4958,15 @@ for (const id of ids) {
     && /if \(!last\) handler\.postDelayed\(frame\[0\], ANIM_MIN_STEP_MS\);/.test(anim935)
     && /sWaterOverride = last \? -1 : value/.test(anim935)
     && /if \(sWaterOverride >= 0\) d\.water = sWaterOverride/.test(data935)
-    && /FitFlowWidgetProvider\.updateAll/.test(anim935)
-    && /FitFlowWidgetBentoProvider\.updateAll/.test(anim935)
+    /* 0.9.38: в КАДРЕ анимации — только лёгкое обновление списка и канвасы.
+       updateAll() каскадом дёргает бенто, канвасы и полуночный будильник —
+       на кадре это недопустимо дорого. Бенто исключён из анимации совсем
+       (решение владельца) и получает итог одним обновлением в конце. */
+    && /FitFlowWidgetProvider\.updateListOnly\(context\)/.test(anim935)
+    && !/FitFlowWidgetProvider\.updateAll\(context\)/.test(anim935)
     && /FitFlowWidgetCanvasProvider\.updateAllCanvas/.test(anim935)
+    && /if \(last && sHasBento\)/.test(anim935)
+    && /static void updateListOnly\(Context context\)/.test(wprov)
     && /FitFlowWidgetAnimator\.animateWater\(context, beforeTotal, waterTotal\)/.test(wprov)
     /* 0.9.36: updateAll() перед анимацией запрещён — из-за него виджет
        прыгал на конечное значение и лишь потом отматывался назад. */
@@ -5006,7 +5012,13 @@ for (const id of ids) {
   /* Подписи на кнопках — жирные (на «кольцах» плохо читались). Только
      подписи кнопок: остальной текст остаётся обычным. */
   check(/static Typeface fontBold/.test(paint)
-    && (paint.match(/Paint p = text\(color, 9\.5f \* den, fontBold, Paint\.Align\.LEFT\);/g) || []).length === 2
+    /* 0.9.38: жирность ставится ЯВНО (textBold), а не сравнением Typeface
+       по ссылке — на одновесном шрифте create() возвращает тот же объект,
+       и условие не срабатывало: кнопки оставались тонкими. */
+    && /static Paint textBold\(int color, float size, Paint\.Align align\)/.test(paint)
+    && /p\.setFakeBoldText\(true\);\s*\n\s*return p;/.test(paint)
+    && (paint.match(/Paint p = textBold\(color, 9\.5f \* den, Paint\.Align\.LEFT\);/g) || []).length === 2
+    && /boolean bold = \(tf == fontBold\);/.test(paint)
     && /fitPaint\("\+250 мл", leftW - 12f \* den, 11f \* den, 7f \* den,\s*th\.btnInk, fontBold\)/.test(paint)
     && /fontBold = Typeface\.create\(t, Typeface\.BOLD\)/.test(paint),
     '0.9.36 подписи на кнопках жирные');
@@ -5070,13 +5082,25 @@ for (const id of ids) {
     && /static java\.util\.ArrayList<String> tilesSlots/.test(paint),
     '0.9.37 ловушки плиток: сетка, порядок и свои requestCode');
 
+  /* 0.9.38: шаблон капли владельца — с настоящей прозрачностью и
+     полутонами по краю. Прошлый файл был скриншотом (альфа 255 везде),
+     маска из него получалась ступенчатой. */
+  check((() => {
+    const buf = fs932.readFileSync('assets/widget-icons/drop-shape.png');
+    /* PNG с альфа-каналом: тип цвета 6 (RGBA) или 4 (Gray+A) в IHDR */
+    const colorType = buf[25];
+    return buf.length > 2000 && (colorType === 6 || colorType === 4);
+  })()
+    && fs932.existsSync('tools/compare-icon-packs.py')
+    && fs932.existsSync('design/icon-packs-compare.png'),
+    '0.9.38 шаблон капли с прозрачностью и лист сравнения значков');
+
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */
   check(/private static final Bitmap\[\] sAnimBuffers = new Bitmap\[2\];/.test(canvas)
     && /sAnimBufferIdx \^= 1;/.test(canvas)
     && /ANIM_DURATION_MS = 900L/.test(anim935)
     && /if \(sHasList\)/.test(anim935)
-    && /if \(sHasBento\)/.test(anim935)
     && /if \(sHasCanvas\)/.test(anim935)
     && /detectFamilies\(context\);/.test(anim935),
     '0.9.37 анимация: два буфера и только присутствующие виджеты');

@@ -68,6 +68,10 @@ class FitFlowWidgetAnimator {
                    иначе на экране осталось бы промежуточное значение. */
                 FitFlowWidgetData.sWaterOverride = last ? -1 : value;
                 redrawAll(context);
+                if (last && sHasBento) {
+                    /* Бенто пропустил анимацию — показываем ему итог. */
+                    try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable t) { }
+                }
                 if (!last) handler.postDelayed(frame[0], ANIM_MIN_STEP_MS);
             }
         };
@@ -85,11 +89,16 @@ class FitFlowWidgetAnimator {
        рывки, которые владелец видел на устройстве. */
     private static void redrawAll(Context context) {
         if (sHasList) {
-            try { FitFlowWidgetProvider.updateAll(context); } catch (Throwable t) { }
+            /* updateListOnly, а НЕ updateAll: полный вариант каскадом
+               перерисовывает бенто и канвасы и каждый раз перевооружает
+               полуночный будильник — на кадре анимации это недопустимо
+               дорого (и рисовало всё по два раза). */
+            try { FitFlowWidgetProvider.updateListOnly(context); } catch (Throwable t) { }
         }
-        if (sHasBento) {
-            try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable t) { }
-        }
+        /* 0.9.38: бенто в анимации НЕ участвует (решение владельца).
+           Он собран из готовой картинки-подложки и десятка вложенных
+           вьюх, перерисовка тяжелее прочих, а выигрыш незаметен.
+           Итоговое значение он получит обычным обновлением. */
         if (sHasCanvas) {
             try { FitFlowWidgetCanvasProvider.updateAllCanvas(context); } catch (Throwable t) { }
         }
@@ -104,6 +113,7 @@ class FitFlowWidgetAnimator {
             android.appwidget.AppWidgetManager.getInstance(context);
         sHasList = present(m, context, FitFlowWidgetProvider.class);
         sHasBento = present(m, context, FitFlowWidgetBentoProvider.class);
+        /* бенто в кадрах не участвует — его обновим один раз по окончании */
         sHasCanvas = false;
         for (Class<?> cls : FitFlowWidgetCanvasProvider.CANVAS_PROVIDERS) {
             if (present(m, context, cls)) { sHasCanvas = true; break; }
