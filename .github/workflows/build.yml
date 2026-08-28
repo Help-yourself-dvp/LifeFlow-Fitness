@@ -580,6 +580,13 @@ jobs:
           # там настоящие — эти два оформления больше не делят один layout.
           # Отступы обязаны совпадать с neonPill(): кнопка 26dp, снизу 7dp,
           # по бокам 10dp, между кнопками 8dp.
+          #
+          # 0.9.33: кнопок может быть от одной до трёх — набор следует составу
+          # виджета (выключили «Питание» — пропала и дуга, и кнопка «Еда»).
+          # Ширину делит layout_weight, а лишние кнопки провайдер прячет через
+          # View.GONE, поэтому оставшиеся сами занимают всю ширину — ровно так
+          # же, как их рисует Canvas. Плюс ловушка шестерёнки в правом верхнем
+          # углу: её размер и положение совпадают с neonGear().
           (layout / 'fitflow_widget_neon.xml').write_text(
               '<?xml version="1.0" encoding="utf-8"?>\n'
               '<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
@@ -588,18 +595,23 @@ jobs:
               '    <ImageView android:id="@+id/widget_canvas_image" android:layout_width="match_parent"\n'
               '        android:layout_height="match_parent" android:scaleType="fitXY"\n'
               '        android:contentDescription="Показатели дня FitFlow" />\n'
+              '    <Button android:id="@+id/widget_canvas_gear_btn" android:layout_width="26dp"\n'
+              '        android:layout_height="26dp" android:layout_gravity="top|end"\n'
+              '        android:layout_marginTop="4dp" android:layout_marginEnd="4dp" android:text=""\n'
+              '        android:background="@android:color/transparent"\n'
+              '        android:contentDescription="Настроить показатели виджета" />\n'
               '    <LinearLayout android:id="@+id/widget_p5_buttons" android:layout_width="match_parent"\n'
               '        android:layout_height="wrap_content" android:layout_gravity="bottom"\n'
               '        android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="10dp"\n'
               '        android:paddingBottom="7dp">\n'
               '        <Button android:id="@+id/widget_canvas_water_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
-              '            android:layout_weight="1" android:layout_marginEnd="8dp" android:text=""\n'
+              '            android:layout_weight="1" android:layout_marginEnd="4dp" android:text=""\n'
               '            android:background="@android:color/transparent" android:contentDescription="Добавить 250 миллилитров воды" />\n'
               '        <Button android:id="@+id/widget_canvas_record_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
-              '            android:layout_weight="1" android:layout_marginEnd="8dp" android:text=""\n'
+              '            android:layout_weight="1" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:text=""\n'
               '            android:background="@android:color/transparent" android:contentDescription="Записать приём пищи" />\n'
               '        <Button android:id="@+id/widget_canvas_dose_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
-              '            android:layout_weight="1" android:text=""\n'
+              '            android:layout_weight="1" android:layout_marginStart="4dp" android:text=""\n'
               '            android:background="@android:color/transparent" android:contentDescription="Отметить витамины" />\n'
               '    </LinearLayout>\n'
               '</FrameLayout>\n', encoding='utf-8')
