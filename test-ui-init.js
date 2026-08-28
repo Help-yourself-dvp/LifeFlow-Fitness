@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.31', '0.9.31 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.31'/.test(app923), '0.9.31 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.31 \(build 0\)/.test(html923), '0.9.31 #about-version');
+  check(ver923 === '0.9.32', '0.9.32 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.32'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.32 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4664,6 +4664,104 @@ for (const id of ids) {
     '0.9.28 бенто обновляется из общей точки');
 
   if (!bad) console.log('  (0.9.28: бенто — настраиваемые слоты, единый шрифт, иконка в кольце)');
+})();
+
+/* ============================================================
+   0.9.32 — «кольца»: стекло по референсу владельца
+   ============================================================ */
+(function test0932GlassRings() {
+  const fs932 = require('fs');
+  const yml = fs932.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf8');
+  const data = fs932.readFileSync('android-native/FitFlowWidgetData.java', 'utf8');
+  const neonProv = fs932.readFileSync('android-native/FitFlowWidgetNeonProvider.java', 'utf8');
+  const canvas = fs932.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
+  const prev = fs932.readFileSync('tools/widget-glass-preview.py', 'utf8');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  const neon = paint.slice(paint.indexOf('NEON_RINGED'));
+
+  /* Кольцо рисуется ТОЛЬКО у показателей с парой «значение / цель».
+     Иначе «Тренировка» получила бы пустую дугу — та самая нелогичность,
+     которой опасался владелец. */
+  check(/NEON_RINGED = \{ "water", "food", "steps", "activity" \}/.test(paint)
+    && /if \(isRinged\(id\)\) ringed\.add\(id\)/.test(neon)
+    && /isRinged\(id\) \|\| "workout"\.equals\(id\)/.test(neon),
+    '0.9.32 кольцо только у числовых показателей, тренировка — строкой');
+
+  /* Состав и ПОРЯДОК берутся из выбора пользователя. HashSet порядок
+     теряет, поэтому в данных появился отдельный упорядоченный список. */
+  check(/ArrayList<String> ordered/.test(data)
+    && /List<String> order\(\)/.test(data)
+    && /for \(String id : d\.order\(\)\)/.test(neon),
+    '0.9.32 состав и порядок колец — из выбора пользователя');
+
+  /* В центре дата, а не средний процент: такого показателя в приложении
+     нет, он менялся бы при каждой смене состава (решение владельца). */
+  check(/neonCenter/.test(neon)
+    && /dd\.MM\.yyyy/.test(neon) && /dd\.MM/.test(neon)
+    && /"воскресенье", "понедельник"/.test(neon)
+    && !/FitFlow · " \+ day/.test(neon),
+    '0.9.32 в центре кольца дата и день недели, без среднего процента');
+
+  /* Дата подбирается по месту: полная -> короткая -> только число. */
+  check(/\{ full, dowFull\[dw\] \}, \{ shortDate, dowShort\[dw\] \}, \{ shortDate, "" \}/.test(neon),
+    '0.9.32 дата ужимается, а не обрезается многоточием');
+
+  /* Значки референса: капля, пламя, кроссовок; гантель у тренировки. */
+  check(/static void iconFlame/.test(paint) && /static void iconDumbbell/.test(paint)
+    && /static void iconBottle/.test(paint) && /static void iconCheck/.test(paint)
+    && /"food"\.equals\(id\)\) iconFlame/.test(neon),
+    '0.9.32 значки: пламя у питания, гантель у тренировки, значки на кнопках');
+
+  /* Единый кегль строк, подобранный по самой длинной. */
+  check(/while \(size > minSize\)/.test(neon) && /probe\.measureText/.test(neon),
+    '0.9.32 кегль строк общий и подобран по самой длинной');
+
+  /* Кнопки нарисованы в Canvas, а в разметке — прозрачные ловушки.
+     Иначе поверх нарисованной пилюли легла бы вторая, системная. */
+  const neonLayout = yml.slice(yml.indexOf("fitflow_widget_neon.xml"),
+    yml.indexOf("xml = res / 'xml'"));
+  check(/neonPill/.test(paint)
+    && /android:background="@android:color\/transparent" android:contentDescription="Добавить 250/.test(neonLayout)
+    && !/fitflow_widget_btn_p5_water/.test(neonLayout),
+    '0.9.32 пилюли рисует Canvas, кнопки в разметке прозрачные');
+
+  /* «Капля» осталась на своей разметке с настоящими кнопками. */
+  const p5Layout = yml.slice(yml.indexOf("fitflow_widget_p5.xml"),
+    yml.indexOf("fitflow_widget_neon.xml"));
+  check(/fitflow_widget_btn_p5_water/.test(p5Layout)
+    && /'FitFlow · капля', 250, 140, 'fitflow_widget_p5'/.test(yml)
+    && /'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'/.test(yml)
+    && /int layoutRes\(\) \{ return R\.layout\.fitflow_widget_neon; \}/.test(neonProv)
+    && /return R\.layout\.fitflow_widget_p5;/.test(canvas),
+    '0.9.32 у «капли» своя разметка с настоящими кнопками');
+
+  /* Строка тренировки идёт из app.js: натив не знает про план и шаблоны. */
+  check(/workoutLine/.test(data) && /String workoutShort\(\)/.test(data)
+    && /"workout"\.equals\(id\)\) return d\.workoutShort\(\)/.test(neon),
+    '0.9.32 «Тренировка» приходит готовой строкой из приложения');
+
+  /* Предпросмотр — зеркало Java. Сверяем не «на глаз», а числами: те же
+     пропорции кольца, шаги строк и геометрия кнопок должны встречаться
+     и в drawNeon(), и в скрипте. Разъедутся — предпросмотр начнёт врать,
+     и вёрстку придётся проверять только сборкой APK. */
+  const mirrorPairs = [
+    [/w \* 0\.38f/, /width \* 0\.38/, 'радиус кольца'],
+    [/3\.5f \* den \+ drawn \* 9\.5f \* den/, /3\.5 \* den \+ i \* 9\.5 \* den/, 'шаг колец'],
+    [/\{ 7f \* den, 6f \* den, 5f \* den \}/, /\[7 \* den, 6 \* den, 5 \* den\]/, 'толщины колец'],
+    [/rowH = 22f \* den/, /row_h = 22 \* den/, 'шаг строк'],
+    [/bh = 26f \* den/, /bh = 26 \* den/, 'высота кнопки'],
+    [/by1 = h - 7f \* den/, /by1 = height - 7 \* den/, 'отступ кнопок снизу']
+  ];
+  const drift = mirrorPairs
+    .filter(([inJava, inPy]) => !(inJava.test(neon) && inPy.test(prev)))
+    .map(([, , what]) => what);
+  check(/ЗЕРКАЛО Java-кода/.test(prev) && drift.length === 0,
+    `0.9.32 предпросмотр — зеркало drawNeon${drift.length ? ' — разошлось: ' + drift.join(', ') : ''}`);
+
+  if (!bad) console.log('  (0.9.32: «кольца» — стекло, дата в центре, настраиваемый состав)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

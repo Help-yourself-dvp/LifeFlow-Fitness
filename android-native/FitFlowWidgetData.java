@@ -22,7 +22,15 @@ class FitFlowWidgetData {
     String profileName = "Мой профиль";
     String moodLine = "";
     String coursesLine = "";
+    /* 0.9.32: строка тренировки («Ноги и плечи» / «отдых»). Её считает
+       app.js (widgetWorkoutLine) — натив не знает про шаблоны и план.
+       Нужна «кольцам»: там это показатель-статус, без пары значение/цель. */
+    String workoutLine = "";
     final HashSet<String> items = new HashSet<String>();
+    /* 0.9.32: тот же список, но С СОХРАНЕНИЕМ ПОРЯДКА пользователя.
+       HashSet порядок теряет, а «кольцам» он нужен: первая выбранная
+       строка получает внешнее кольцо и идёт первой в списке справа. */
+    final java.util.ArrayList<String> ordered = new java.util.ArrayList<String>();
 
     static FitFlowWidgetData load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
@@ -48,14 +56,17 @@ class FitFlowWidgetData {
         if (raw == null) raw = "";
         for (String part : raw.split(",")) {
             String id = part == null ? "" : part.trim();
-            if (id.length() > 0) d.items.add(id);
+            if (id.length() > 0 && d.items.add(id)) d.ordered.add(id);
         }
         if (d.items.isEmpty()) {
-            d.items.add("water");
-            d.items.add("food");
-            d.items.add("steps");
+            for (String id : new String[] { "water", "food", "steps" }) {
+                d.items.add(id);
+                d.ordered.add(id);
+            }
         }
 
+        d.workoutLine = prefs.getString("workoutLine", "");
+        if (d.workoutLine == null) d.workoutLine = "";
         d.moodLine = prefs.getString("moodLine", "");
         if (d.moodLine == null) d.moodLine = "";
         d.mood = parseMood(d.moodLine);
@@ -70,6 +81,11 @@ class FitFlowWidgetData {
 
     boolean shows(String id) {
         return items.contains(id);
+    }
+
+    /* Выбранные показатели в порядке пользователя. */
+    java.util.List<String> order() {
+        return ordered;
     }
 
     String moodLineShort() {
@@ -102,6 +118,15 @@ class FitFlowWidgetData {
         int p = Math.round(value * 100f / goal);
         if (p < 0) return 0;
         return Math.min(100, p);
+    }
+
+    /* Хвост строки после «Тренировка: » — на виджете подпись рисуется
+       отдельно, дублировать её в значении незачем. Пусто -> «отдых». */
+    String workoutShort() {
+        String s = workoutLine == null ? "" : workoutLine.trim();
+        int colon = s.indexOf(':');
+        if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1).trim();
+        return s.length() == 0 ? "отдых" : s;
     }
 
     String waterValue() { return water + "/" + waterGoal + " мл"; }

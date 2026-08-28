@@ -38,6 +38,13 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
     /* Какие overlay-кнопки видны у этого оформления. */
     abstract void configureButtons(RemoteViews views);
 
+    /* Разметка оформления. По умолчанию — общая карточка с настоящими
+       кнопками (её использует «капля»). «Кольца» переопределяют: там
+       пилюли нарисованы в картинке, а кнопки поверх прозрачные. */
+    int layoutRes() {
+        return R.layout.fitflow_widget_p5;
+    }
+
     static final Class<?>[] CANVAS_PROVIDERS = {
         FitFlowWidgetDropProvider.class,
         FitFlowWidgetNeonProvider.class
@@ -90,7 +97,7 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
             Canvas canvas = new Canvas(bitmap);
             drawWidget(canvas, width, height, density, data);
 
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.fitflow_widget_p5);
+            RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes());
             views.setImageViewBitmap(R.id.widget_canvas_image, bitmap);
             views.setContentDescription(R.id.widget_canvas_image, describe(data));
             configureButtons(views);
