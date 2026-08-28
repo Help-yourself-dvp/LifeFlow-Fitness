@@ -40,12 +40,16 @@ DOW_INDEX = 4  # пятница — только для предпросмотр
 
 # Показатели, у которых есть кольцо (числовая пара «значение / цель»).
 RINGED = ('water', 'food', 'steps', 'activity')
+# Запасные контуры только для этого предпросмотра — в APK их нет.
+FALLBACK_ICON = {}
 
 LABEL = {'water': 'Вода', 'food': 'Питание', 'steps': 'Шаги',
-         'activity': 'Активность', 'workout': 'Тренировка'}
+         'activity': 'Активность', 'workout': 'Тренировка',
+         'courses': 'Витамины', 'weight': 'Вес'}
 UNIT = {'water': ' мл', 'food': ' ккал', 'steps': '', 'activity': ' мин'}
 COLOR = {'water': CYAN, 'food': ORANGE, 'steps': PURPLE,
-         'activity': GREEN, 'workout': (148, 163, 184)}
+         'activity': GREEN, 'workout': (148, 163, 184),
+         'courses': (154, 230, 180), 'weight': (148, 163, 184)}
 
 
 def font(size, bold=False):
@@ -55,6 +59,53 @@ def font(size, bold=False):
         if p.exists():
             return ImageFont.truetype(str(p), size)
     return ImageFont.load_default()
+
+
+def emoji_font(size):
+    """Шрифт цветных эмодзи. На телефоне их рисует система, здесь берём
+    NotoColorEmoji, если он есть; иначе предпросмотр покажет квадратики —
+    это нормально, на устройстве значки будут цветными."""
+    for path in ('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+                 '/usr/share/fonts/noto/NotoColorEmoji.ttf',
+                 '/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf'):
+        p = Path(path)
+        if p.exists():
+            for s in (size, 109):        # у NotoColorEmoji фиксированный кегль
+                try:
+                    return ImageFont.truetype(str(p), s)
+                except OSError:
+                    continue
+    return None
+
+
+def draw_emoji(im, d, ch, x, mid_y, size, slot=None, colour=None):
+    """Рисует эмодзи по левому краю x с центром по вертикали mid_y.
+
+    На телефоне значки рисует система (drawText по шрифту), и они цветные.
+    Если в этой машине шрифта эмодзи нет, подставляем старые векторные
+    контуры — иначе предпросмотр выглядит рядом пустых квадратов.
+    """
+    f = emoji_font(size)
+    if f is None:
+        fn = FALLBACK_ICON.get(slot)
+        if fn is not None:
+            fn(d, x, mid_y - size / 2, size, colour or (230, 236, 245))
+        else:
+            d.text((x, mid_y - size / 2), ch, font=font(size), fill=(230, 236, 245))
+        return
+    try:
+        tmp = Image.new('RGBA', (160, 160), (0, 0, 0, 0))
+        ImageDraw.Draw(tmp).text((0, 0), ch, font=f, embedded_color=True)
+        bb = tmp.getbbox()
+        if bb:
+            glyph = tmp.crop(bb)
+            k = size / max(glyph.width, glyph.height)
+            glyph = glyph.resize((max(1, int(glyph.width * k)),
+                                  max(1, int(glyph.height * k))),
+                                 Image.Resampling.LANCZOS)
+            im.alpha_composite(glyph, (int(x), int(mid_y - glyph.height / 2)))
+    except Exception:
+        d.text((x, mid_y - size / 2), ch, font=font(size), fill=(230, 236, 245))
 
 
 def spaced(n):
@@ -203,11 +254,42 @@ def icon_check(d, x, y, s, colour):
            fill=colour, width=m)
 
 
-ICON = {'water': icon_drop, 'food': icon_flame, 'steps': icon_sneaker,
-        'activity': icon_clock, 'workout': icon_dumbbell}
+# 0.9.33: значки — системные эмодзи, как на референсе владельца.
+# Свои контуры из линий в 11 dp читались как клякса.
+EMOJI = {'water': '💧', 'food': '🔥', 'steps': '👟', 'activity': '🏃',
+         'workout': '🏋️', 'courses': '💊', 'weight': '⚖️',
+         'day-mood': '🌗', 'day-plan': '📋'}
+RINGED = ('water', 'food', 'steps', 'activity')
+# Запасные контуры только для этого предпросмотра — в APK их нет.
+FALLBACK_ICON = {}
 
 
-def pill_button(im, box, colour, label, icon_fn, den):
+def draw_gear(d, cx, cy, s, den):
+    """Шестерёнка настроек. Середину не вырезаем прозрачностью: под виджетом
+    обои пользователя, дыра в стекле выглядела бы браком. Обод — обводкой."""
+    colour = (150, 160, 176)
+    r_out, r_in = s * 0.50, s * 0.30
+    for i in range(8):
+        a = math.radians(i * 45)
+        pts = []
+        for da, r in ((-14, r_in), (-10, r_out), (10, r_out), (14, r_in)):
+            ang = a + math.radians(da)
+            pts.append((cx + math.cos(ang) * r, cy + math.sin(ang) * r))
+        d.polygon(pts, fill=colour + (140,))
+    rr = r_in * 0.82
+    d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline=colour + (140,),
+              width=max(1, int(s * 0.16)))
+
+
+FALLBACK_ICON.update({
+    'water': icon_drop, 'food': icon_flame, 'steps': icon_sneaker,
+    'activity': icon_clock, 'workout': icon_dumbbell,
+    'courses': icon_check, 'weight': icon_clock,
+    'btn-water': icon_bottle, 'btn-food': icon_flame, 'btn-dose': icon_check,
+})
+
+
+def pill_button(im, box, colour, emoji, label, den, btn_slot=None):
     """Кнопка-пилюля: полупрозрачная заливка, цветная кромка, значок + текст."""
     d = ImageDraw.Draw(im)
     x0, y0, x1, y1 = box
@@ -224,13 +306,27 @@ def pill_button(im, box, colour, label, icon_fn, den):
     tw = d.textbbox((0, 0), label, font=f)[2]
     total = s + int(5 * den) + tw
     ix = (x0 + x1) / 2 - total / 2
-    icon_fn(d, ix, (y0 + y1) / 2 - s / 2, s, colour)
+    draw_emoji(im, d, emoji, ix, (y0 + y1) / 2, s,
+               slot=btn_slot, colour=colour)
     th = d.textbbox((0, 0), label, font=f)[3]
     d.text((ix + s + int(5 * den), (y0 + y1) / 2 - th / 2), label, font=f, fill=colour)
 
 
+def slot_line(slot, data):
+    """Текст строки справа. Кольцевые — «значение / цель», прочие — статус."""
+    v = data.get(slot)
+    if isinstance(v, tuple):
+        return '%s: %s / %s%s' % (LABEL[slot], spaced(v[0]), spaced(v[1]),
+                                  UNIT.get(slot, ''))
+    return '%s: %s' % (LABEL[slot], v)
+
+
 def render(slots, data, today, width=760, height=428):
-    """slots — список показателей в порядке пользователя (как widgetItems)."""
+    """slots — список показателей в порядке пользователя (как widgetItems).
+
+    ЗЕРКАЛО FitFlowWidgetPaint.drawNeon(). Все числа обязаны совпадать —
+    их сверяет тест «0.9.32 предпросмотр — зеркало drawNeon».
+    """
     im = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     den = width / 250.0            # ячейка ~250 dp по ширине
     glass(im, den)
@@ -239,27 +335,42 @@ def render(slots, data, today, width=760, height=428):
     pad = 10 * den
     chrome = 34 * den              # полоса кнопок внизу
 
-    # ---- кольца: только показатели с числовой парой ----
-    ringed = [s for s in slots if s in RINGED]
+    # 0.9.33: сколько строк влезает по высоте, столько и показываем —
+    # шрифт при этом не уменьшаем (решение владельца «автоматически»).
+    row_h = 23 * den
+    # Полоса списка начинается ПОД шестерёнкой (14 dp + зазор), иначе
+    # последняя строка вылезала бы под значок настроек.
+    list_top = pad + 14 * den + 4 * den
+    list_bottom = height - chrome - 4 * den
+    max_rows = int((list_bottom - list_top) // row_h)
+    max_rows = max(1, min(6, max_rows))
+
+    # Кольца достаются только показателям с парой «значение / цель»,
+    # и их не больше трёх. Остальные живут строкой справа.
+    ringed, others = [], []
+    for s in slots:
+        (ringed if s in RINGED and len(ringed) < 3 else others).append(s)
+    shown = (ringed + others)[:max_rows]
+
     R = min(width * 0.38, height - chrome - pad * 2)
     R = max(R, 48 * den)
-    cx = pad
-    cy = pad
+    cx = cy = pad
     widths = [7 * den, 6 * den, 5 * den]
-    for i, slot in enumerate(ringed[:3]):
-        inset = 3.5 * den + i * 9.5 * den
+    drawn = 0
+    for slot in ringed:
+        if drawn >= 3:
+            break
+        inset = 3.5 * den + drawn * 9.5 * den
         box = (cx + inset, cy + inset, cx + R - inset, cy + R - inset)
         if box[2] - box[0] < 16 * den:
             break
-        neon_ring(im, box, pct(*data[slot]) / 100.0, COLOR[slot], widths[i], den)
+        neon_ring(im, box, pct(*data[slot]) / 100.0, COLOR[slot], widths[drawn], den)
+        drawn += 1
 
     # ---- центр кольца: дата и день недели ----
     # Средний процент не показываем: он не хранится в приложении и «плывёт»
     # при смене состава показателей (решение владельца, 0.9.32).
-    # Дырка внутри последнего кольца. Кегль и сама надпись подбираются под
-    # неё: сначала пробуем «28.08.2026 / пятница», если не лезет — «28.08 / пт».
-    # Так виджет не врёт и не обрезает дату многоточием на узких ячейках.
-    rings_n = max(1, min(3, len(ringed)))
+    rings_n = max(1, drawn)
     hole = R - 2 * (3.5 * den + (rings_n - 1) * 9.5 * den) - 2 * widths[rings_n - 1]
     avail = hole * 0.86
     dt_long, dow_long = today
@@ -291,56 +402,69 @@ def render(slots, data, today, width=760, height=428):
         else:
             d.text((ccx - bb[2] / 2, ccy - bb[3] / 2), dt, font=f_date, fill=WHITE)
 
-    # ---- правая колонка: значок, подпись, значения ----
-    lx = cx + R + 10 * den
-    rows = slots[:3]
-    row_h = 22 * den
-    ly = pad + 8 * den
-    # Вертикально центрируем блок строк относительно кольца.
-    block = len(rows) * row_h
-    ly = cy + R / 2 - block / 2 + 2 * den
-    def row_text(slot):
-        if slot == 'workout':
-            return LABEL[slot] + ': ' + data[slot]
-        v, g = data[slot]
-        return '%s: %s / %s%s' % (LABEL[slot], spaced(v), spaced(g), UNIT[slot])
+    # ---- шестерёнка в правом верхнем углу (пункт 4) ----
+    gear_s = 14 * den
+    gear_cy = pad + gear_s / 2
+    draw_gear(d, width - pad - gear_s / 2, gear_cy, gear_s, den)
 
-    # Кегль общий для всех строк и подобран по самой длинной: разнобой
-    # размеров в списке выглядит неряшливо, а срезать подпись нельзя —
-    # без неё «1 600 / 2 200 ккал» читается хуже.
-    room0 = width - (lx + 15 * den) - pad
+    # ---- правая колонка: значок, подпись, значения ----
+    # 0.9.33: отодвинута от кольца (10 -> 16 dp) и укрупнена (10 -> 11.5 dp).
+    lx = cx + R + 16 * den
+    tx = lx + 17 * den
+    room = width - tx - pad
+    size = 11.5 * den
+    min_size = max(6, 7 * den)
     f_row = None
-    for size in range(int(10 * den), max(6, int(6.5 * den)) - 1, -1):
-        cand = font(size, bold=True)
-        if all(d.textbbox((0, 0), row_text(s), font=cand)[2] <= room0
-               for s in rows if s != 'workout'):
+    while size > min_size:
+        cand = font(int(size), bold=True)
+        if all(d.textbbox((0, 0), slot_line(s, data), font=cand)[2] <= room
+               for s in shown):
             f_row = cand
             break
+        size -= 0.5
     if f_row is None:
-        f_row = font(max(6, int(6.5 * den)), bold=True)
-    for slot in rows:
-        colour = COLOR[slot]
-        ICON[slot](d, lx, ly + 1 * den, 11 * den, colour)
-        txt = row_text(slot)
-        tx = lx + 15 * den
-        room = width - tx - pad
-        txt = ellipsize(d, txt, f_row, room)
+        f_row = font(int(min_size), bold=True)
+    # Список центрирован по кольцу, но при большом числе строк центрирование
+    # вынесло бы их за карточку — зажимаем блок в отведённую полосу.
+    block = len(shown) * row_h
+    ly = cy + R / 2 - block / 2 + 2 * den
+    ly = max(list_top, min(ly, list_bottom - block))
+    for slot in shown:
+        mid = ly + 6 * den
+        draw_emoji(im, d, EMOJI.get(slot, '•'), lx, mid, size,
+                   slot=slot, colour=COLOR.get(slot, (230, 236, 245)))
+        # Строка под шестерёнкой обрывается раньше, чтобы не лезть под неё.
+        row_room = room - (gear_s + 6 * den) if mid < gear_cy + gear_s else room
+        txt = ellipsize(d, slot_line(slot, data), f_row, row_room)
         th = d.textbbox((0, 0), txt, font=f_row)[3]
-        d.text((tx, ly + 6 * den - th / 2), txt, font=f_row, fill=WHITE)
+        d.text((tx, mid - th / 2), txt, font=f_row, fill=WHITE)
         ly += row_h
 
-    # ---- кнопки ----
+    # ---- кнопки: набор следует составу виджета (пункт 6) ----
+    btns = []
+    if 'water' in slots:
+        btns.append((CYAN, '🍶', '+250 мл', 'btn-water'))
+    if 'food' in slots:
+        btns.append((ORANGE, '🍽️', 'Еда', 'btn-food'))
+    if 'courses' in slots:
+        done, total = data.get('courses_done', (0, 0))
+        all_done = done > 0 and done >= total
+        btns.append(((52, 211, 153) if all_done else (154, 230, 180),
+                     '✅' if all_done else '💊',
+                     'готово' if all_done else ('%d/%d' % (done, total) if total else 'Витамины'),
+                     'btn-dose'))
+    if not btns:
+        return im
     bh = 26 * den
     by1 = height - 7 * den
     by0 = by1 - bh
     gap = 8 * den
-    inner = width - 2 * (10 * den)
-    bw = (inner - gap * 2) / 3
-    bx = 10 * den
-    for colour, label, icon_fn in ((CYAN, '+250 мл', icon_bottle),
-                                   (ORANGE, 'Еда', icon_flame),
-                                   (GREEN, 'Витамины', icon_check)):
-        pill_button(im, (bx, by0, bx + bw, by1), colour, label, icon_fn, den)
+    inner = width - 2 * pad
+    bw = (inner - gap * (len(btns) - 1)) / len(btns)
+    bx = pad
+    for colour, emoji, label, bslot in btns:
+        pill_button(im, (bx, by0, bx + bw, by1), colour, emoji, label, den,
+                    btn_slot=bslot)
         bx += bw + gap
     return im
 
@@ -352,14 +476,24 @@ def main():
         'steps': (8430, 10000),
         'activity': (18, 21),
         'workout': 'Ноги и плечи',
+        'courses': '1 из 2',
+        'weight': '78,4 кг',
+        'courses_done': (1, 2),
     }
     today = ('28.08.2026', 'пятница')
     variants = [
         ('как на референсе: вода · питание · шаги', ['water', 'food', 'steps']),
-        ('шаги · активность · тренировка (строка-статус)', ['steps', 'activity', 'workout']),
-        ('два показателя: вода · шаги', ['water', 'steps']),
+        ('высокая ячейка 4x3: строк влезает больше, шрифт тот же',
+         ['water', 'food', 'steps', 'activity', 'workout', 'weight']),
+        ('без питания: пропала и дуга, и кнопка «Еда»',
+         ['water', 'steps', 'courses']),
     ]
-    shots = [(t, render(s, data, today)) for t, s in variants]
+    # У высокого варианта ячейка выше — на ней видно, что число строк
+    # подбирается автоматически, а кегль остаётся прежним.
+    shots = []
+    for i, (title, s) in enumerate(variants):
+        shots.append((title, render(s, data, today,
+                                    height=620 if i == 1 else 428)))
 
     pad = 28
     f = font(20, bold=True)

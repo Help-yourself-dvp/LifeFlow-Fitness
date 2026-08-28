@@ -24,6 +24,12 @@ public class FitFlowWidgetNeonProvider extends FitFlowWidgetCanvasProvider {
         showThreeActions(views);
     }
 
+    /* 0.9.33: набор кнопок следует составу виджета — см. showActionsFor. */
+    @Override
+    void configureButtons(RemoteViews views, FitFlowWidgetData data) {
+        showActionsFor(views, data);
+    }
+
     @Override
     void drawWidget(Canvas canvas, int width, int height, float density, FitFlowWidgetData d) {
         FitFlowWidgetPaint.drawNeon(canvas, width, height, density, d);

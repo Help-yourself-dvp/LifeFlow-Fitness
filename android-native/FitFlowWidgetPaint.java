@@ -237,66 +237,6 @@ final class FitFlowWidgetPaint {
             20, 140, false, stroke(color, m));
     }
 
-    static void iconDropSmall(Canvas c, float x, float y, float s, int color) {
-        Path p = dropPath(s, s);
-        p.offset(x, y);
-        c.drawPath(p, fill(color));
-    }
-
-    /* 0.9.32: пламя — показатель «Питание» на «кольцах» (референс владельца).
-       Тарелка там читалась хуже: значок мелкий, 11 dp, а у пламени
-       узнаваемый силуэт даже в таком размере. */
-    static void iconFlame(Canvas c, float x, float y, float s, int color) {
-        Path p = new Path();
-        for (int i = 0; i <= 100; i++) {
-            double a = Math.PI * 2 * i / 100.0;
-            double r = 0.34 + 0.10 * Math.cos(a * 3);
-            float px = x + s / 2f + (float) (Math.sin(a) * s * r);
-            float py = y + s * 0.56f - (float) (Math.cos(a) * s
-                * (Math.cos(a) > 0 ? r * 1.30 : r));
-            if (i == 0) p.moveTo(px, py); else p.lineTo(px, py);
-        }
-        p.close();
-        c.drawPath(p, fill(color));
-        Path in = new Path();
-        for (int i = 0; i <= 100; i++) {
-            double a = Math.PI * 2 * i / 100.0;
-            double r = 0.17;
-            float px = x + s / 2f + (float) (Math.sin(a) * s * r);
-            float py = y + s * 0.66f - (float) (Math.cos(a) * s
-                * (Math.cos(a) > 0 ? r * 1.15 : r));
-            if (i == 0) in.moveTo(px, py); else in.lineTo(px, py);
-        }
-        in.close();
-        c.drawPath(in, fill(0xFFFFECC8));
-    }
-
-    /* Гантель — строка-статус «Тренировка» (у неё нет пары значение/цель). */
-    static void iconDumbbell(Canvas c, float x, float y, float s, int color) {
-        float m = Math.max(2f, s / 7f);
-        float cy = y + s / 2f;
-        c.drawLine(x + s * 0.20f, cy, x + s * 0.80f, cy, stroke(color, m));
-        for (float bx : new float[] { 0.16f, 0.84f }) {
-            c.drawRoundRect(new RectF(x + s * bx - m, cy - s * 0.26f,
-                x + s * bx + m, cy + s * 0.26f), m, m, fill(color));
-        }
-    }
-
-    /* Значки на кнопках: бутылка (+250 мл) и галочка в круге (витамины). */
-    static void iconBottle(Canvas c, float x, float y, float s, int color) {
-        c.drawRoundRect(new RectF(x + s * 0.40f, y + s * 0.06f, x + s * 0.60f, y + s * 0.24f),
-            s / 12f, s / 12f, fill(color));
-        c.drawRoundRect(new RectF(x + s * 0.28f, y + s * 0.22f, x + s * 0.72f, y + s * 0.94f),
-            s / 5f, s / 5f, fill(color));
-    }
-
-    static void iconCheck(Canvas c, float x, float y, float s, int color) {
-        float m = Math.max(2f, s / 7f);
-        c.drawCircle(x + s / 2f, y + s / 2f, s * 0.44f, stroke(color, m));
-        c.drawLine(x + s * 0.30f, y + s * 0.52f, x + s * 0.45f, y + s * 0.68f, stroke(color, m));
-        c.drawLine(x + s * 0.45f, y + s * 0.68f, x + s * 0.72f, y + s * 0.33f, stroke(color, m));
-    }
-
     static void ellipsizeDraw(Canvas c, String value, float x, float y, Paint p, float maxW) {
         String s = value == null ? "" : value;
         if (p.measureText(s) > maxW) {
@@ -487,7 +427,30 @@ final class FitFlowWidgetPaint {
         if ("steps".equals(id)) return "Шаги";
         if ("activity".equals(id)) return "Активность";
         if ("workout".equals(id)) return "Тренировка";
+        if ("courses".equals(id)) return "Витамины";
+        if ("weight".equals(id)) return "Вес";
+        if ("day-mood".equals(id)) return "Самочувствие";
+        if ("day-plan".equals(id)) return "План дня";
         return id;
+    }
+
+    /* 0.9.33 (пункт 1 владельца): значки — СИСТЕМНЫЕ ЭМОДЗИ, а не
+       нарисованные вручную фигуры. На референсе стоят именно они: цветные,
+       узнаваемые, одинаковые во всём Android. Свои контуры из линий и
+       дуг в 11 dp читались как «клякса» — владелец забраковал.
+       Рисуются обычным drawText: шрифт эмодзи в системе уже есть,
+       никаких PNG в проект класть не нужно. */
+    private static String neonEmoji(String id) {
+        if ("water".equals(id)) return "💧";
+        if ("food".equals(id)) return "🔥";
+        if ("steps".equals(id)) return "👟";
+        if ("activity".equals(id)) return "🏃";
+        if ("workout".equals(id)) return "🏋️";
+        if ("courses".equals(id)) return "💊";
+        if ("weight".equals(id)) return "⚖️";
+        if ("day-mood".equals(id)) return "🌗";
+        if ("day-plan".equals(id)) return "📋";
+        return "•";
     }
 
     private static int neonPct(FitFlowWidgetData d, String id) {
@@ -504,27 +467,51 @@ final class FitFlowWidgetPaint {
         if ("steps".equals(id)) return spaced(d.steps) + " / " + spaced(d.stepsGoal);
         if ("activity".equals(id)) return spaced(d.activity) + " / " + spaced(d.activityGoal) + " мин";
         if ("workout".equals(id)) return d.workoutShort();
+        if ("courses".equals(id)) return d.coursesShort();
+        if ("weight".equals(id)) return tail(d.weightLine);
+        if ("day-mood".equals(id)) return d.moodLineShort();
+        if ("day-plan".equals(id)) return tail(d.dayPlanLine);
         return "";
     }
 
-    private static void neonIcon(Canvas c, String id, float x, float y, float s, int color) {
-        if ("water".equals(id)) iconDropSmall(c, x, y, s, color);
-        else if ("food".equals(id)) iconFlame(c, x, y, s, color);
-        else if ("steps".equals(id)) iconSneaker(c, x, y, s, color);
-        else if ("activity".equals(id)) iconClock(c, x, y, s, color);
-        else iconDumbbell(c, x, y, s, color);
+    /* Хвост строки после двоеточия: подпись слева рисуется отдельно,
+       дублировать её в значении незачем. */
+    private static String tail(String line) {
+        String s = line == null ? "" : line.trim();
+        int colon = s.indexOf(':');
+        if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1).trim();
+        return s;
     }
 
-    /* Строки виджета в порядке, который выбрал пользователь. Порядок берём
-       из d.order() (widgetItems), а не из фиксированного массива:
-       иначе «Активность» никогда не попала бы на виджет вперёд «Воды».
-       Больше трёх строк не рисуем — не помещаются по высоте. */
-    private static java.util.ArrayList<String> neonSlots(FitFlowWidgetData d) {
+    /* Показатели без кольца, которые всё же можно показать строкой.
+       Строку для них считает app.js — натив их не вычисляет. */
+    private static boolean isLineOnly(FitFlowWidgetData d, String id) {
+        if ("workout".equals(id)) return true;
+        if ("courses".equals(id)) return true;
+        if ("weight".equals(id)) return d.weightLine != null && d.weightLine.length() > 0;
+        if ("day-mood".equals(id)) return d.moodLine != null && d.moodLine.length() > 0;
+        if ("day-plan".equals(id)) return d.dayPlanLine != null && d.dayPlanLine.length() > 0;
+        return false;
+    }
+
+    /* 0.9.33 (пункт 5 владельца): строк может быть больше трёх.
+       Кольцо получают максимум ТРИ показателя с парой «значение / цель» —
+       больше дуг не помещается и они сливаются. Остальные выбранные идут
+       строками без кольца, пока хватает высоты (maxRows считает вызывающий
+       код по реальной высоте ячейки, шрифт при этом не уменьшается). */
+    private static java.util.ArrayList<String> neonSlots(FitFlowWidgetData d, int maxRows) {
         java.util.ArrayList<String> out = new java.util.ArrayList<String>();
+        int rings = 0;
         for (String id : d.order()) {
-            if (out.size() >= 3) break;
+            if (out.size() >= maxRows) break;
             if (out.contains(id)) continue;
-            if (isRinged(id) || "workout".equals(id)) out.add(id);
+            if (isRinged(id)) {
+                if (rings >= 3) continue;   // четвёртой дуге места нет
+                out.add(id);
+                rings++;
+            } else if (isLineOnly(d, id)) {
+                out.add(id);
+            }
         }
         if (out.isEmpty()) {
             out.add("water");
@@ -534,27 +521,54 @@ final class FitFlowWidgetPaint {
         return out;
     }
 
-    /* Кнопка-пилюля: полупрозрачная заливка, цветная кромка, значок + текст.
+    /* Кнопка-пилюля: полупрозрачная заливка, цветная кромка, эмодзи + текст.
        Рисуется в картинке, а нажатие ловит прозрачная Button поверх неё
        (RemoteViews не умеет рисовать такие кнопки сам). */
-    private static void neonPill(Canvas c, RectF box, int color, String label,
-                                 int icon, float den) {
+    private static void neonPill(Canvas c, RectF box, int color, String emoji,
+                                 String label, float den) {
         float r = box.height() / 2f;
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
-        Paint p = text(color, 9f * den, font, Paint.Align.LEFT);
-        float s = 11f * den;
+        Paint p = text(color, 9.5f * den, font, Paint.Align.LEFT);
+        Paint pe = text(0xFFFFFFFF, 11f * den, fontReg, Paint.Align.LEFT);
+        float ew = pe.measureText(emoji);
         float tw = p.measureText(label);
-        float total = s + 5f * den + tw;
+        float total = ew + 4f * den + tw;
         float ix = box.centerX() - total / 2f;
-        float iy = box.centerY() - s / 2f;
-        if (icon == 0) iconBottle(c, ix, iy, s, color);
-        else if (icon == 1) iconFlame(c, ix, iy, s, color);
-        else iconCheck(c, ix, iy, s, color);
+        Paint.FontMetrics fme = pe.getFontMetrics();
+        c.drawText(emoji, ix, box.centerY() - (fme.ascent + fme.descent) / 2f, pe);
         Paint.FontMetrics fm = p.getFontMetrics();
-        c.drawText(label, ix + s + 5f * den,
+        c.drawText(label, ix + ew + 4f * den,
             box.centerY() - (fm.ascent + fm.descent) / 2f, p);
+    }
+
+    /* Шестерёнка настроек в правом верхнем углу (пункт 4 владельца).
+       Серая и полупрозрачная: служебная кнопка не должна спорить с
+       показателями. Нажатие ловит прозрачная Button из разметки. */
+    static void neonGear(Canvas c, float cx, float cy, float s, float den) {
+        /* Зубцы по кругу плюс кольцо-обод. Середину НЕ вырезаем прозрачностью:
+           под виджетом обои пользователя, и PorterDuff.CLEAR пробил бы в
+           стеклянной карточке настоящую дыру. Поэтому обод рисуется
+           обводкой — просвет получается сам собой. */
+        int color = 0x8C96A0B0;
+        float rOut = s * 0.50f;
+        float rIn = s * 0.30f;
+        Paint p = fill(color);
+        for (int i = 0; i < 8; i++) {
+            double a = Math.toRadians(i * 45);
+            Path tooth = new Path();
+            double[][] pts = { { -14, rIn }, { -10, rOut }, { 10, rOut }, { 14, rIn } };
+            for (int k = 0; k < pts.length; k++) {
+                double ang = a + Math.toRadians(pts[k][0]);
+                float px = cx + (float) (Math.cos(ang) * pts[k][1]);
+                float py = cy + (float) (Math.sin(ang) * pts[k][1]);
+                if (k == 0) tooth.moveTo(px, py); else tooth.lineTo(px, py);
+            }
+            tooth.close();
+            c.drawPath(tooth, p);
+        }
+        c.drawCircle(cx, cy, rIn * 0.82f, stroke(color, Math.max(1.6f, s * 0.16f)));
     }
 
     /* Дата в середине колец. Владелец отказался от среднего процента:
@@ -602,18 +616,40 @@ final class FitFlowWidgetPaint {
     }
 
     /* 0.9.32 — «кольца» по референсу владельца: стекло, неоновые дуги,
-       список показателей со значками справа, три кнопки-пилюли внизу.
+       список показателей со значками справа, кнопки-пилюли внизу.
 
-       Состав настраивается тем же списком, что у остальных виджетов
-       (Настройки → Виджет на рабочем столе). Кольцо рисуется только у
-       показателей с парой «значение / цель»; «Тренировка» приходит
-       строкой-статусом и кольца не получает — поэтому пустых дуг здесь
-       быть не может. */
+       0.9.33 — правки по полевому скрину:
+       1. значки — системные эмодзи (свои контуры не читались);
+       2. список отодвинут от кольца и укрупнён;
+       3. кнопка витаминов появляется только если показатель выбран,
+          и показывает, сколько приёмов отмечено;
+       4. шестерёнка настроек в правом верхнем углу;
+       5. строк может быть больше трёх — сколько влезает по высоте;
+       6. набор кнопок следует составу виджета: выключили «Питание» —
+          пропала и дуга, и кнопка «Еда».
+
+       Кольцо рисуется только у показателей с парой «значение / цель»;
+       «Тренировка», «Витамины» и прочие приходят строкой-статусом —
+       поэтому пустых дуг здесь быть не может. */
     static void drawNeon(Canvas c, int w, int h, float den, FitFlowWidgetData d) {
         glass(c, w, h, den, 0x800A1020, 0x24FFFFFF);
         float pad = 10f * den;
         float chrome = 34f * den;
-        java.util.ArrayList<String> slots = neonSlots(d);
+
+        /* Сколько строк поместится СПРАВА от кольца, не уменьшая шрифт.
+           Владелец просил шрифт крупнее, поэтому число строк подстраиваем
+           под высоту ячейки, а не наоборот (решение «автоматически»). */
+        float rowH = 23f * den;
+        /* Полоса списка начинается ПОД шестерёнкой (14 dp + зазор): считать
+           строки от самого верха нельзя — последняя лишняя строка вылезала
+           бы под значок настроек и обрывалась многоточием. */
+        float listTop = pad + 14f * den + 4f * den;
+        float listBottom = h - chrome - 4f * den;
+        int maxRows = (int) Math.floor((listBottom - listTop) / rowH);
+        if (maxRows < 1) maxRows = 1;
+        if (maxRows > 6) maxRows = 6;
+
+        java.util.ArrayList<String> slots = neonSlots(d, maxRows);
 
         java.util.ArrayList<String> ringed = new java.util.ArrayList<String>();
         for (String id : slots) if (isRinged(id)) ringed.add(id);
@@ -638,53 +674,91 @@ final class FitFlowWidgetPaint {
             - 2f * widths[ringsN - 1];
         neonCenter(c, cx + R / 2f, cy + R / 2f, hole, den);
 
-        /* Правая колонка. Кегль общий для всех строк и подобран по самой
-           длинной: разнобой размеров в списке выглядит неряшливо, а резать
-           подпись нельзя — без неё «1 600 / 2 200 ккал» читается хуже. */
-        float lx = cx + R + 10f * den;
-        float tx = lx + 15f * den;
+        /* Шестерёнка — правый верхний угол. Рисуем до списка, чтобы список
+           при нехватке ширины обрезался под неё, а не налез сверху. */
+        float gearS = 14f * den;
+        float gearCx = w - pad - gearS / 2f;
+        float gearCy = pad + gearS / 2f;
+        neonGear(c, gearCx, gearCy, gearS, den);
+
+        /* Правая колонка. 0.9.33: отодвинута от кольца (10 -> 16 dp) и
+           укрупнена (10 -> 11.5 dp) по просьбе владельца. Кегль общий для
+           всех строк и подобран по самой длинной: разнобой размеров в
+           списке выглядит неряшливо, а резать подпись нельзя — без неё
+           «1 600 / 2 200 ккал» читается хуже. */
+        float lx = cx + R + 16f * den;
+        float tx = lx + 17f * den;
         float room = w - tx - pad;
-        float rowH = 22f * den;
-        float size = 10f * den;
-        float minSize = Math.max(6f, 6.5f * den);
+        float size = 11.5f * den;
+        float minSize = Math.max(6f, 7f * den);
         while (size > minSize) {
             Paint probe = text(0xFFFFFFFF, size, font, Paint.Align.LEFT);
             boolean fits = true;
             for (String id : slots) {
-                if ("workout".equals(id)) continue;
                 if (probe.measureText(neonLabel(id) + ": " + neonValue(d, id)) > room) {
                     fits = false;
                     break;
                 }
             }
             if (fits) break;
-            size -= 1f;
+            size -= 0.5f;
         }
         Paint ink = text(0xFFFFFFFF, size, font, Paint.Align.LEFT);
         Paint.FontMetrics fm = ink.getFontMetrics();
-        float ly = cy + R / 2f - slots.size() * rowH / 2f + 2f * den;
+        Paint emo = text(0xFFFFFFFF, size * 1.05f, fontReg, Paint.Align.LEFT);
+        Paint.FontMetrics fme = emo.getFontMetrics();
+        /* По умолчанию список центрирован по кольцу, но когда строк много,
+           центрирование выносит их за карточку — поэтому зажимаем блок в
+           отведённую полосу. */
+        float block = slots.size() * rowH;
+        float ly = cy + R / 2f - block / 2f + 2f * den;
+        if (ly + block > listBottom) ly = listBottom - block;
+        if (ly < listTop) ly = listTop;
         for (String id : slots) {
-            int color = neonColor(id);
-            neonIcon(c, id, lx, ly + 1f * den, 11f * den, color);
+            float mid = ly + 6f * den;
+            c.drawText(neonEmoji(id), lx, mid - (fme.ascent + fme.descent) / 2f, emo);
+            /* Строка, попавшая под шестерёнку, обрывается раньше, чтобы
+               текст не лез под неё. */
+            float rowRoom = mid < gearCy + gearS ? room - (gearS + 6f * den) : room;
             String line = neonLabel(id) + ": " + neonValue(d, id);
-            ellipsizeDraw(c, line, tx, ly + 6f * den - (fm.ascent + fm.descent) / 2f,
-                ink, room);
+            ellipsizeDraw(c, line, tx, mid - (fm.ascent + fm.descent) / 2f, ink, rowRoom);
             ly += rowH;
         }
 
-        /* Кнопки. Рисуем ровно те же три, что и раньше: вода / еда /
-           витамины — их видимость и действия задаёт провайдер. */
+        /* Кнопки. 0.9.33 (пункт 6): набор следует составу виджета —
+           выключили показатель, пропала и его кнопка. Пустую полосу не
+           рисуем вовсе, оставшиеся кнопки делят ширину поровну. */
+        java.util.ArrayList<String> btns = new java.util.ArrayList<String>();
+        if (d.shows("water")) btns.add("water");
+        if (d.shows("food")) btns.add("food");
+        if (d.shows("courses")) btns.add("courses");
+        if (btns.isEmpty()) return;
+
         float bh = 26f * den;
         float by1 = h - 7f * den;
         float by0 = by1 - bh;
         float gap = 8f * den;
         float inner = w - 2f * pad;
-        float bw = (inner - gap * 2f) / 3f;
+        float bw = (inner - gap * (btns.size() - 1)) / btns.size();
         float bx = pad;
-        neonPill(c, new RectF(bx, by0, bx + bw, by1), CYAN, "+250 мл", 0, den);
-        bx += bw + gap;
-        neonPill(c, new RectF(bx, by0, bx + bw, by1), ORANGE, "Еда", 1, den);
-        bx += bw + gap;
-        neonPill(c, new RectF(bx, by0, bx + bw, by1), NEON_GREEN, "Витамины", 2, den);
+        for (String id : btns) {
+            RectF box = new RectF(bx, by0, bx + bw, by1);
+            if ("water".equals(id)) {
+                neonPill(c, box, CYAN, "🍶", "+250 мл", den);
+            } else if ("food".equals(id)) {
+                neonPill(c, box, ORANGE, "🍽️", "Еда", den);
+            } else {
+                /* Пункт 3: видно, отмечены ли витамины, не открывая приложение.
+                   Всё принято — зелёная галочка и «готово»; иначе счётчик
+                   «1/2». Так одна кнопка и действует, и отчитывается. */
+                boolean allDone = d.coursesDone > 0 && d.coursesDone >= d.coursesTotal;
+                String mark = allDone ? "✅" : "💊";
+                String lbl = d.coursesTotal > 0
+                    ? (allDone ? "готово" : d.coursesDone + "/" + d.coursesTotal)
+                    : "Витамины";
+                neonPill(c, box, allDone ? NEON_GREEN : 0xFF9AE6B4, mark, lbl, den);
+            }
+            bx += bw + gap;
+        }
     }
 }

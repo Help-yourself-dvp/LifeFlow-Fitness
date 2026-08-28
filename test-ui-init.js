@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.32', '0.9.32 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.32'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.32 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.33', '0.9.33 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.33'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.33 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4687,7 +4687,8 @@ for (const id of ids) {
      которой опасался владелец. */
   check(/NEON_RINGED = \{ "water", "food", "steps", "activity" \}/.test(paint)
     && /if \(isRinged\(id\)\) ringed\.add\(id\)/.test(neon)
-    && /isRinged\(id\) \|\| "workout"\.equals\(id\)/.test(neon),
+    && /isLineOnly\(FitFlowWidgetData d, String id\)/.test(paint)
+    && /"workout"\.equals\(id\)\) return true/.test(paint),
     '0.9.32 кольцо только у числовых показателей, тренировка — строкой');
 
   /* Состав и ПОРЯДОК берутся из выбора пользователя. HashSet порядок
@@ -4709,11 +4710,15 @@ for (const id of ids) {
   check(/\{ full, dowFull\[dw\] \}, \{ shortDate, dowShort\[dw\] \}, \{ shortDate, "" \}/.test(neon),
     '0.9.32 дата ужимается, а не обрезается многоточием');
 
-  /* Значки референса: капля, пламя, кроссовок; гантель у тренировки. */
-  check(/static void iconFlame/.test(paint) && /static void iconDumbbell/.test(paint)
-    && /static void iconBottle/.test(paint) && /static void iconCheck/.test(paint)
-    && /"food"\.equals\(id\)\) iconFlame/.test(neon),
-    '0.9.32 значки: пламя у питания, гантель у тренировки, значки на кнопках');
+  /* 0.9.33: значки — СИСТЕМНЫЕ эмодзи. Свои контуры в 11 dp владелец
+     забраковал: «не читаются». Возврат к рисованным иконкам должен ронять
+     этот тест, иначе регресс проедет незамеченным. */
+  check(/private static String neonEmoji\(String id\)/.test(paint)
+    && /"food"\.equals\(id\)\) return "🔥"/.test(paint)
+    && /"steps"\.equals\(id\)\) return "👟"/.test(paint)
+    && /drawText\(neonEmoji\(id\)/.test(neon)
+    && !/static void iconFlame/.test(paint),
+    '0.9.33 значки — системные эмодзи, а не рисованные контуры');
 
   /* Единый кегль строк, подобранный по самой длинной. */
   check(/while \(size > minSize\)/.test(neon) && /probe\.measureText/.test(neon),
@@ -4749,11 +4754,14 @@ for (const id of ids) {
      и вёрстку придётся проверять только сборкой APK. */
   const mirrorPairs = [
     [/w \* 0\.38f/, /width \* 0\.38/, 'радиус кольца'],
-    [/3\.5f \* den \+ drawn \* 9\.5f \* den/, /3\.5 \* den \+ i \* 9\.5 \* den/, 'шаг колец'],
+    [/3\.5f \* den \+ drawn \* 9\.5f \* den/, /3\.5 \* den \+ drawn \* 9\.5 \* den/, 'шаг колец'],
     [/\{ 7f \* den, 6f \* den, 5f \* den \}/, /\[7 \* den, 6 \* den, 5 \* den\]/, 'толщины колец'],
-    [/rowH = 22f \* den/, /row_h = 22 \* den/, 'шаг строк'],
+    [/rowH = 23f \* den/, /row_h = 23 \* den/, 'шаг строк'],
     [/bh = 26f \* den/, /bh = 26 \* den/, 'высота кнопки'],
-    [/by1 = h - 7f \* den/, /by1 = height - 7 \* den/, 'отступ кнопок снизу']
+    [/by1 = h - 7f \* den/, /by1 = height - 7 \* den/, 'отступ кнопок снизу'],
+    [/lx = cx \+ R \+ 16f \* den/, /lx = cx \+ R \+ 16 \* den/, 'отступ списка от кольца'],
+    [/listTop = pad \+ 14f \* den \+ 4f \* den/, /list_top = pad \+ 14 \* den \+ 4 \* den/, 'верх списка под шестерёнкой'],
+    [/gearS = 14f \* den/, /gear_s = 14 \* den/, 'размер шестерёнки']
   ];
   const drift = mirrorPairs
     .filter(([inJava, inPy]) => !(inJava.test(neon) && inPy.test(prev)))
@@ -4761,7 +4769,40 @@ for (const id of ids) {
   check(/ЗЕРКАЛО Java-кода/.test(prev) && drift.length === 0,
     `0.9.32 предпросмотр — зеркало drawNeon${drift.length ? ' — разошлось: ' + drift.join(', ') : ''}`);
 
-  if (!bad) console.log('  (0.9.32: «кольца» — стекло, дата в центре, настраиваемый состав)');
+  /* 0.9.33 пункт 5: колец максимум три, остальные выбранные показатели
+     идут строками, пока хватает высоты — шрифт при этом НЕ уменьшается. */
+  check(/rings >= 3\) continue/.test(paint)
+    && /neonSlots\(FitFlowWidgetData d, int maxRows\)/.test(paint)
+    && /maxRows = \(int\) Math\.floor\(\(listBottom - listTop\) \/ rowH\)/.test(neon),
+    '0.9.33 максимум 3 кольца, дальше — строки по высоте ячейки');
+
+  /* 0.9.33 пункт 6: набор кнопок следует составу виджета. Рисунок и
+     прозрачные ловушки обязаны совпадать, иначе нажатие уйдёт мимо. */
+  check(/if \(d\.shows\("food"\)\) btns\.add\("food"\)/.test(neon)
+    && /if \(btns\.isEmpty\(\)\) return/.test(neon)
+    && /showActionsFor\(RemoteViews views, FitFlowWidgetData d\)/.test(canvas)
+    && /d\.shows\("courses"\) \? View\.VISIBLE : View\.GONE/.test(canvas)
+    && /showActionsFor\(views, data\)/.test(neonProv),
+    '0.9.33 кнопки следуют составу: нет показателя — нет кнопки');
+
+  /* 0.9.33 пункт 3: отметка витаминов видна прямо на кнопке. */
+  check(/int coursesDone/.test(data) && /int coursesTotal/.test(data)
+    && /String coursesShort\(\)/.test(data)
+    && /allDone \? "✅" : "💊"/.test(neon)
+    && /d\.coursesDone \+ "\/" \+ d\.coursesTotal/.test(neon),
+    '0.9.33 на кнопке витаминов видно «1/2» или галочку');
+
+  /* 0.9.33 пункт 4: шестерёнка в правом верхнем углу ведёт в настройки.
+     Прозрачную «дыру» в стекле не прорезаем — под виджетом обои. */
+  check(/static void neonGear/.test(paint)
+    && /neonGear\(c, gearCx, gearCy, gearS, den\)/.test(neon)
+    && /widget_canvas_gear_btn/.test(yml)
+    && /R\.id\.widget_canvas_gear_btn/.test(canvas)
+    && /"widget_action", "widget_settings"/.test(canvas)
+    && !/PorterDuff\.Mode\.CLEAR/.test(paint),
+    '0.9.33 шестерёнка настроек в правом верхнем углу');
+
+  if (!bad) console.log('  (0.9.33: эмодзи-значки, авто-строки, кнопки по составу, шестерёнка)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

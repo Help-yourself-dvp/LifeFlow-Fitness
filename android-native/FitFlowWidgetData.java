@@ -26,6 +26,13 @@ class FitFlowWidgetData {
        app.js (widgetWorkoutLine) — натив не знает про шаблоны и план.
        Нужна «кольцам»: там это показатель-статус, без пары значение/цель. */
     String workoutLine = "";
+    /* 0.9.33: строки показателей без кольца — их считает app.js. */
+    String weightLine = "";
+    String dayPlanLine = "";
+    /* Сколько приёмов курса отмечено сегодня. Нужно кнопке витаминов:
+       владелец просил видеть отметку, не открывая приложение. */
+    int coursesDone;
+    int coursesTotal;
     final HashSet<String> items = new HashSet<String>();
     /* 0.9.32: тот же список, но С СОХРАНЕНИЕМ ПОРЯДКА пользователя.
        HashSet порядок теряет, а «кольцам» он нужен: первая выбранная
@@ -67,6 +74,10 @@ class FitFlowWidgetData {
 
         d.workoutLine = prefs.getString("workoutLine", "");
         if (d.workoutLine == null) d.workoutLine = "";
+        d.weightLine = prefs.getString("weightLine", "");
+        if (d.weightLine == null) d.weightLine = "";
+        d.dayPlanLine = prefs.getString("dayPlanLine", "");
+        if (d.dayPlanLine == null) d.dayPlanLine = "";
         d.moodLine = prefs.getString("moodLine", "");
         if (d.moodLine == null) d.moodLine = "";
         d.mood = parseMood(d.moodLine);
@@ -76,6 +87,19 @@ class FitFlowWidgetData {
             d.coursesLine = "";
         }
         if (d.coursesLine == null) d.coursesLine = "";
+        /* Счётчик приёмов берём из своей копии плана курса — она остаётся
+           верной и на следующий день, когда приложение ещё не открывали. */
+        try {
+            java.util.ArrayList<FitFlowCourses.Dose> doses =
+                FitFlowCourses.dosesForDate(context, today, false);
+            d.coursesTotal = doses.size();
+            int done = 0;
+            for (FitFlowCourses.Dose dose : doses) if (dose.done) done++;
+            d.coursesDone = done;
+        } catch (Exception e) {
+            d.coursesTotal = 0;
+            d.coursesDone = 0;
+        }
         return d;
     }
 
@@ -127,6 +151,13 @@ class FitFlowWidgetData {
         int colon = s.indexOf(':');
         if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1).trim();
         return s.length() == 0 ? "отдых" : s;
+    }
+
+    /* «1 из 2» / «принято» — короткий вид строки витаминов для «колец». */
+    String coursesShort() {
+        if (coursesTotal <= 0) return "нет на сегодня";
+        if (coursesDone >= coursesTotal) return "принято " + coursesDone + " из " + coursesTotal;
+        return coursesDone + " из " + coursesTotal;
     }
 
     String waterValue() { return water + "/" + waterGoal + " мл"; }

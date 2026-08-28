@@ -38,6 +38,12 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
     /* Какие overlay-кнопки видны у этого оформления. */
     abstract void configureButtons(RemoteViews views);
 
+    /* 0.9.33: у «колец» набор кнопок зависит от состава виджета, поэтому
+       им нужны данные. По умолчанию — прежнее поведение без данных. */
+    void configureButtons(RemoteViews views, FitFlowWidgetData data) {
+        configureButtons(views);
+    }
+
     /* Разметка оформления. По умолчанию — общая карточка с настоящими
        кнопками (её использует «капля»). «Кольца» переопределяют: там
        пилюли нарисованы в картинке, а кнопки поверх прозрачные. */
@@ -100,7 +106,7 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
             RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes());
             views.setImageViewBitmap(R.id.widget_canvas_image, bitmap);
             views.setContentDescription(R.id.widget_canvas_image, describe(data));
-            configureButtons(views);
+            configureButtons(views, data);
             attachActions(context, views);
             manager.updateAppWidget(id, views);
         } catch (Throwable t) {
@@ -138,6 +144,20 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
         views.setViewVisibility(R.id.widget_canvas_dose_btn, View.VISIBLE);
     }
 
+    /* 0.9.33 (пункт 6 владельца): кнопка живёт ровно тогда, когда её
+       показатель выбран. Выключили «Питание» — с графика пропала дуга,
+       и кнопка «Еда» пропадает вместе с ней. Порядок и признак видимости
+       обязаны совпадать с тем, что рисует FitFlowWidgetPaint.drawNeon(),
+       иначе прозрачная ловушка встанет мимо нарисованной пилюли. */
+    static void showActionsFor(RemoteViews views, FitFlowWidgetData d) {
+        views.setViewVisibility(R.id.widget_canvas_water_btn,
+            d.shows("water") ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_canvas_record_btn,
+            d.shows("food") ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.widget_canvas_dose_btn,
+            d.shows("courses") ? View.VISIBLE : View.GONE);
+    }
+
     private void attachActions(Context context, RemoteViews views) {
         int base = requestCodeBase();
 
@@ -162,5 +182,14 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
         doseBtn.setAction("com.fitflow.app.WIDGET_COURSE_DOSE");
         views.setOnClickPendingIntent(R.id.widget_canvas_dose_btn, PendingIntent.getBroadcast(
             context, base + 3, doseBtn, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+
+        /* 0.9.33 (пункт 4): шестерёнка ведёт сразу в диалог состава виджета.
+           Ловушки нет в разметке «капли» — setOnClickPendingIntent по
+           отсутствующему id молча игнорируется, поэтому проверка не нужна. */
+        Intent gear = new Intent(context, MainActivity.class);
+        gear.putExtra("widget_action", "widget_settings");
+        gear.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        views.setOnClickPendingIntent(R.id.widget_canvas_gear_btn, PendingIntent.getActivity(
+            context, base + 4, gear, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 }
