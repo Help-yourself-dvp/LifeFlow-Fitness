@@ -113,12 +113,20 @@ def shadowed_tile(im, box, radius, fill, shadow, den):
 
 
 def drop_path(w, h):
-    """Контур капли (зеркало dropPath в Java) как список точек."""
+    """Контур капли (зеркало dropPath в Java) как список точек.
+
+    Настоящая капля: ОСТРАЯ вершина сверху, круглое пузо снизу. Прошлый
+    контур начинался пологой дугой и читался как яйцо — владелец это и
+    заметил. Ключевое: у вершины касательные почти вертикальные, поэтому
+    первые управляющие точки прижаты к оси (0.5), а не разведены вбок.
+    """
     pts = []
-    segs = [((0.50, 0.04), (0.18, 0.14), (0.00, 0.42), (0.02, 0.66)),
-            ((0.02, 0.66), (0.02, 0.94), (0.26, 0.995), (0.50, 0.995)),
-            ((0.50, 0.995), (0.74, 0.995), (0.98, 0.94), (0.98, 0.66)),
-            ((0.98, 0.66), (1.00, 0.42), (0.82, 0.14), (0.50, 0.04))]
+    segs = [((0.50, 0.00), (0.545, 0.10), (0.72, 0.28), (0.86, 0.45)),
+            ((0.86, 0.45), (0.955, 0.565), (1.00, 0.70), (1.00, 0.775)),
+            ((1.00, 0.775), (1.00, 0.90), (0.885, 1.00), (0.50, 1.00)),
+            ((0.50, 1.00), (0.115, 1.00), (0.00, 0.90), (0.00, 0.775)),
+            ((0.00, 0.775), (0.00, 0.70), (0.045, 0.565), (0.14, 0.45)),
+            ((0.14, 0.45), (0.28, 0.28), (0.455, 0.10), (0.50, 0.00))]
     for p0, p1, p2, p3 in segs:
         for i in range(19):
             t = i / 18.0
@@ -150,7 +158,7 @@ def paint_drop(im, box, pct, den, th):
     ImageDraw.Draw(layer).polygon(drop_path(w, h), fill=th['drop_empty'])
 
     p = max(0.0, min(1.0, pct))
-    fy = h * (0.88 - 0.62 * p)
+    fy = h * (0.97 - 0.72 * p)
     amp = w * 0.075
     lift = h * 0.09
     water = Image.new('RGBA', (w, h), (0, 0, 0, 0))
@@ -247,24 +255,33 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         inner = left_w - 18 * den
         # Заголовок в ОДНУ строку («1 850 мл Вода» не помещается, а две
         # строки съедали половину блока и капля становилась крошечной).
-        f_big = fit_font(d, spaced(wv) + ' мл', inner, 15 * den, 9 * den)
+        f_big = fit_font(d, spaced(wv) + ' мл', inner, 13 * den, 8 * den)
         f_sub = font(int(8 * den))
+        f_name = font(int(max(6, 7.5 * den)))
         tx = big[0] + 9 * den
         ty = big[1] + 5 * den
         d.text((tx, ty), spaced(wv) + ' мл', font=f_big, fill=th['ink'])
-        hh = d.textbbox((0, 0), 'Ag', font=f_big)[3]
-        f_name = font(int(max(7, 8.5 * den)))
-        d.text((tx, ty + hh + 1 * den), 'Вода', font=f_name, fill=th['muted'])
-        head_bottom = ty + hh + d.textbbox((0, 0), 'Ag', font=f_name)[3] + 3 * den
+        hb = d.textbbox((0, 0), spaced(wv) + ' мл', font=f_big)
+        # «Вода» — на одной строке с числом (справа, по базовой линии), иначе
+        # вторая строка съедала высоту и капля выходила крошечной.
+        nb = d.textbbox((0, 0), 'Вода', font=f_name)
+        if hb[2] + 4 * den + nb[2] <= inner:
+            d.text((tx + hb[2] + 4 * den, ty + hb[3] - nb[3]), 'Вода',
+                   font=f_name, fill=th['muted'])
+            head_bottom = ty + hb[3] + 2 * den
+        else:
+            d.text((tx, ty + hb[3] + 1 * den), 'Вода', font=f_name,
+                   fill=th['muted'])
+            head_bottom = ty + hb[3] + nb[3] + 3 * den
 
         # Капля — в оставшемся месте под заголовком, по центру блока.
         sub = 'из %s мл' % spaced(wg)
         sb = d.textbbox((0, 0), sub, font=f_sub)
-        room_top = head_bottom + 2 * den
-        room_bottom = big[3] - sb[3] - 7 * den
+        room_top = head_bottom + 1 * den
+        room_bottom = big[3] - sb[3] - 5 * den
         dh = max(10 * den, room_bottom - room_top)
-        dw = min(dh * 0.86, left_w - 22 * den)
-        dh = dw / 0.86
+        dw = min(dh * 0.80, left_w - 10 * den)
+        dh = dw / 0.80
         dx = (big[0] + big[2]) / 2 - dw / 2
         dy = room_top + (room_bottom - room_top - dh) / 2
         paint_drop(im, (dx, dy, dx + dw, dy + dh), pct, den, th)
@@ -272,7 +289,7 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         f_pct = font(int(max(8, min(11 * den, dh * 0.22))), bold=True)
         pl = '%d%%' % round(pct * 100)
         pb = d.textbbox((0, 0), pl, font=f_pct)
-        d.text((dx + dw / 2 - pb[2] / 2, dy + dh * 0.52 - pb[3] / 2),
+        d.text((dx + dw / 2 - pb[2] / 2, dy + dh * 0.66 - pb[3] / 2),
                pl, font=f_pct, fill=(15, 60, 70))
         d.text(((big[0] + big[2]) / 2 - sb[2] / 2, big[3] - sb[3] - 4 * den),
                sub, font=f_sub, fill=th['muted'])
@@ -303,37 +320,43 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         r, c = divmod(i, cols)
         x0 = grid_x + c * (tw + gap)
         y0 = body_top + r * (tile_h + gap)
-        box = (x0, y0, x0 + tw, y0 + tile_h)
+        # Нечётный «хвост» растягиваем на обе колонки, иначе в углу зияет
+        # пустое место (замечание владельца по первой сборке).
+        wide = (i == len(shown) - 1 and c == 0)
+        x1 = grid_x + grid_w if wide else x0 + tw
+        box = (x0, y0, x1, y0 + tile_h)
         shadowed_tile(im, box, 11 * den, th['tile'], th['shadow'], den)
         colour = COLOR.get(slot, (100, 116, 139))
         px = x0 + 7 * den
-        inner = tw - 14 * den
+        inner = (x1 - x0) - 14 * den
 
-        ic = min(11 * den, tile_h * 0.26)
-        lab_y = y0 + 6 * den + ic / 2
-        draw_emoji(im, d, EMOJI.get(slot, '•'), px, lab_y, ic, colour)
-        f_lab = font(int(max(6, min(8.5 * den, tile_h * 0.19))))
+        # Содержимое распределяется по ВСЕЙ высоте плитки: шапка сверху,
+        # значение по центру остатка, «из N» прижато к низу. Раньше всё
+        # лепилось к верху и низ плитки оставался пустым (замечание владельца).
+        ic = min(12 * den, tile_h * 0.22)
+        lab_y = y0 + 7 * den + ic / 2
+        draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour)
+        f_lab = font(int(max(6, min(9 * den, tile_h * 0.17))))
         lab = LABEL.get(slot, slot)
         lb = d.textbbox((0, 0), lab, font=f_lab)
         d.text((px + ic + 4 * den, lab_y - lb[3] / 2), lab, font=f_lab,
                fill=th['muted'])
+        head_b = lab_y + ic / 2 + 2 * den
 
         val, unit = value_lines(slot, data)
-        # Значение и «из N» — РАЗНЫМИ строками: в плитке шириной ~60 dp
-        # одной строкой они не помещаются (та же грабля, что в бенто).
-        f_val = fit_font(d, val, inner, min(15 * den, tile_h * 0.34), 8 * den)
+        f_unit = font(int(max(6, min(8.5 * den, tile_h * 0.15))))
+        ub = d.textbbox((0, 0), unit, font=f_unit) if unit else (0, 0, 0, 0)
+        foot_h = (ub[3] + 5 * den) if unit else 0
+        # Значение занимает освободившуюся середину — плитка перестаёт
+        # выглядеть полупустой.
+        room = (y0 + tile_h - 6 * den - foot_h) - head_b
+        f_val = fit_font(d, val, inner, min(22 * den, room * 0.92), 9 * den)
         vb = d.textbbox((0, 0), val, font=f_val)
-        val_y = lab_y + ic / 2 + 3 * den
-        d.text((px, val_y), val, font=f_val, fill=th['ink'])
+        d.text((px, head_b + (room - vb[3]) / 2 - vb[1] / 2), val,
+               font=f_val, fill=th['ink'])
         if unit:
-            f_unit = font(int(max(6, min(8 * den, tile_h * 0.17))))
-            ub = d.textbbox((0, 0), unit, font=f_unit)
-            if ub[2] <= inner - vb[2] - 3 * den:
-                d.text((px + vb[2] + 3 * den, val_y + vb[3] - ub[3]),
-                       unit, font=f_unit, fill=th['muted'])
-            else:
-                d.text((px, val_y + vb[3] + 1 * den), unit, font=f_unit,
-                       fill=th['muted'])
+            d.text((px, y0 + tile_h - 6 * den - ub[3]), unit, font=f_unit,
+                   fill=th['muted'])
     return im
 
 

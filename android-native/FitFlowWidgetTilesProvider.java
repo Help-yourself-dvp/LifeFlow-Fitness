@@ -1,11 +1,7 @@
 package com.fitflow.app;
 
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.os.Handler;
-import android.os.Looper;
 import android.widget.RemoteViews;
 
 /* 0.9.35 — «плитки». Референс владельца: слева блок с каплей и кнопкой
@@ -15,18 +11,9 @@ import android.widget.RemoteViews;
    Светлый вариант основной (владелец: «ориентируемся под светлый»),
    тёмный — FitFlowWidgetTilesDarkProvider.
 
-   Анимация заполнения капли (просьба владельца, пробуем на этом виджете):
-   виджет на экране не умеет анимироваться сам — система разрешает только
-   перерисовку картинки целиком. Поэтому после нажатия «+250 мл» мы
-   быстро перерисовываем виджет несколько раз, доводя уровень от старого
-   к новому. Это НЕ бесплатно, поэтому анимация проигрывается только по
-   нажатию и строго ограничена по числу кадров. */
+   Плавное доливание воды живёт в общем FitFlowWidgetAnimator: оно
+   работает для всех оформлений сразу, а не только для этой капли. */
 public class FitFlowWidgetTilesProvider extends FitFlowWidgetCanvasProvider {
-
-    /* Кадров и шаг. 12 x 40 мс = ~0.5 c: достаточно, чтобы глаз увидел
-       «проползание», и мало, чтобы не грузить лаунчер. */
-    static final int ANIM_FRAMES = 12;
-    static final long ANIM_STEP_MS = 40L;
 
     @Override
     int requestCodeBase() { return 820; }
@@ -66,44 +53,4 @@ public class FitFlowWidgetTilesProvider extends FitFlowWidgetCanvasProvider {
         return FitFlowWidgetPaint.TILES_LIGHT;
     }
 
-    /* Проигрывает доливание капли от fromPct к текущему уровню.
-       Вызывается из FitFlowWidgetProvider после нажатия «+250 мл». */
-    static void animateWater(final Context context, final float fromPct) {
-        final Class<?>[] classes = {
-            FitFlowWidgetTilesProvider.class, FitFlowWidgetTilesDarkProvider.class
-        };
-        final AppWidgetManager manager = AppWidgetManager.getInstance(context);
-        final Handler handler = new Handler(Looper.getMainLooper());
-        for (final Class<?> cls : classes) {
-            final int[] ids;
-            final FitFlowWidgetCanvasProvider provider;
-            try {
-                ids = manager.getAppWidgetIds(new ComponentName(context, cls));
-                if (ids == null || ids.length == 0) continue;
-                provider = (FitFlowWidgetCanvasProvider) cls.newInstance();
-            } catch (Exception e) {
-                continue;
-            }
-            FitFlowWidgetData data = FitFlowWidgetData.load(context);
-            final float to = data.waterGoal > 0
-                ? Math.min(1f, data.water / (float) data.waterGoal) : 0f;
-            if (Math.abs(to - fromPct) < 0.005f) continue;
-            for (int i = 1; i <= ANIM_FRAMES; i++) {
-                final float t = i / (float) ANIM_FRAMES;
-                /* ease-out: быстро в начале, мягко в конце — так «доливание»
-                   выглядит естественнее равномерного. */
-                final float eased = 1f - (1f - t) * (1f - t);
-                final float value = fromPct + (to - fromPct) * eased;
-                final boolean last = i == ANIM_FRAMES;
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        for (int id : ids) {
-                            provider.render(context, manager, id, last ? -1f : value);
-                        }
-                    }
-                }, i * ANIM_STEP_MS);
-            }
-        }
-    }
 }

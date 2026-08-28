@@ -10,6 +10,10 @@ import java.util.HashSet;
    новым оформлениям они нужны, чтобы не рисовать выключенное
    (правило «никаких видимых заглушек»). */
 class FitFlowWidgetData {
+    /* Промежуточное значение воды на время анимации (-1 = выключено).
+       Ставится только из FitFlowWidgetAnimator, на главном потоке. */
+    static volatile int sWaterOverride = -1;
+
     int water;
     int waterGoal;
     int food;
@@ -50,6 +54,11 @@ class FitFlowWidgetData {
         boolean fresh = savedDate != null && savedDate.equals(today);
 
         d.water = fresh ? prefs.getInt("waterTotal", 0) : 0;
+        /* 0.9.35: во время анимации доливания подставляем промежуточное
+           значение воды. Так «проползание» получают ВСЕ виджеты сразу
+           (список, бенто, кольца, плитки) — рисовалки не трогаем, они
+           просто получают другое число. Вне анимации override = -1. */
+        if (sWaterOverride >= 0) d.water = sWaterOverride;
         d.waterGoal = Math.max(1, prefs.getInt("waterGoal", 2500));
         d.food = fresh ? prefs.getInt("foodTotal", 0) : 0;
         d.foodGoal = Math.max(1, prefs.getInt("foodGoal", 2000));

@@ -199,13 +199,21 @@ final class FitFlowWidgetPaint {
         c.drawRoundRect(box, r, r, stroke(border, 1.4f * den));
     }
 
+    /* Настоящая капля: ОСТРАЯ вершина сверху, круглое пузо снизу.
+       Прежний контур начинался пологой дугой и читался как яйцо —
+       владелец это заметил на первой сборке. Ключевое: у вершины
+       касательные почти вертикальные, поэтому первые управляющие точки
+       прижаты к оси (0.5), а не разведены вбок. Зеркало drop_path()
+       в tools/widget-tiles-preview.py. */
     static Path dropPath(float w, float h) {
         Path p = new Path();
-        p.moveTo(0.50f * w, 0.04f * h);
-        p.cubicTo(0.18f * w, 0.14f * h, 0.00f * w, 0.42f * h, 0.02f * w, 0.66f * h);
-        p.cubicTo(0.02f * w, 0.94f * h, 0.26f * w, 0.995f * h, 0.50f * w, 0.995f * h);
-        p.cubicTo(0.74f * w, 0.995f * h, 0.98f * w, 0.94f * h, 0.98f * w, 0.66f * h);
-        p.cubicTo(1.00f * w, 0.42f * h, 0.82f * w, 0.14f * h, 0.50f * w, 0.04f * h);
+        p.moveTo(0.50f * w, 0.00f * h);
+        p.cubicTo(0.545f * w, 0.10f * h, 0.72f * w, 0.28f * h, 0.86f * w, 0.45f * h);
+        p.cubicTo(0.955f * w, 0.565f * h, 1.00f * w, 0.70f * h, 1.00f * w, 0.775f * h);
+        p.cubicTo(1.00f * w, 0.90f * h, 0.885f * w, 1.00f * h, 0.50f * w, 1.00f * h);
+        p.cubicTo(0.115f * w, 1.00f * h, 0.00f * w, 0.90f * h, 0.00f * w, 0.775f * h);
+        p.cubicTo(0.00f * w, 0.70f * h, 0.045f * w, 0.565f * h, 0.14f * w, 0.45f * h);
+        p.cubicTo(0.28f * w, 0.28f * h, 0.455f * w, 0.10f * h, 0.50f * w, 0.00f * h);
         p.close();
         return p;
     }
@@ -241,7 +249,7 @@ final class FitFlowWidgetPaint {
         c.clipPath(drop);
         c.drawPath(drop, fill(0x1CFFFFFF));
         float p = Math.max(0f, Math.min(1f, pct));
-        float fy = h * (0.88f - 0.62f * p);
+        float fy = h * (0.97f - 0.72f * p);
         float amp = w * 0.075f;
         float lift = h * 0.09f;
         c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift), fill(WATER_DEEP));
@@ -1098,26 +1106,36 @@ final class FitFlowWidgetPaint {
             /* Заголовок в ОДНУ строку: «1 850 мл» + подпись «Вода» мелким.
                Двумя крупными строками капля становилась крошечной. */
             String head = spaced(d.water) + " мл";
-            Paint pBig = fitPaint(head, inner, 15f * den, 9f * den, th.ink, font);
+            Paint pBig = fitPaint(head, inner, 13f * den, 8f * den, th.ink, font);
             Paint.FontMetrics fmB = pBig.getFontMetrics();
             float tx = big.left + 9f * den;
             float ty = big.top + 5f * den - fmB.ascent;
             c.drawText(head, tx, ty, pBig);
-            Paint pName = text(th.muted, Math.max(7f, 8.5f * den), fontReg, Paint.Align.LEFT);
+            /* «Вода» — на ОДНОЙ строке с числом (справа, по базовой линии).
+               Отдельной строкой она съедала высоту и капля выходила
+               крошечной — это владелец и увидел на устройстве. */
+            Paint pName = text(th.muted, Math.max(6f, 7.5f * den), fontReg, Paint.Align.LEFT);
             Paint.FontMetrics fmN = pName.getFontMetrics();
-            float ny = ty + fmB.descent + 1f * den - fmN.ascent;
-            c.drawText("Вода", tx, ny, pName);
-            float headBottom = ny + fmN.descent + 3f * den;
+            float headW = pBig.measureText(head);
+            float headBottom;
+            if (headW + 4f * den + pName.measureText("Вода") <= inner) {
+                c.drawText("Вода", tx + headW + 4f * den, ty, pName);
+                headBottom = ty + fmB.descent + 2f * den;
+            } else {
+                float ny = ty + fmB.descent + 1f * den - fmN.ascent;
+                c.drawText("Вода", tx, ny, pName);
+                headBottom = ny + fmN.descent + 3f * den;
+            }
 
             Paint pSub = text(th.muted, 8f * den, fontReg, Paint.Align.CENTER);
             Paint.FontMetrics fmS = pSub.getFontMetrics();
             String sub = "из " + spaced(d.waterGoal) + " мл";
             float subH = fmS.descent - fmS.ascent;
-            float roomTop = headBottom + 2f * den;
-            float roomBottom = big.bottom - subH - 7f * den;
+            float roomTop = headBottom + 1f * den;
+            float roomBottom = big.bottom - subH - 5f * den;
             float dh = Math.max(10f * den, roomBottom - roomTop);
-            float dw = Math.min(dh * 0.86f, leftW - 22f * den);
-            dh = dw / 0.86f;
+            float dw = Math.min(dh * 0.80f, leftW - 10f * den);
+            dh = dw / 0.80f;
             float dx = big.centerX() - dw / 2f;
             float dy = roomTop + (roomBottom - roomTop - dh) / 2f;
             paintDropTiles(c, new RectF(dx, dy, dx + dw, dy + dh), pct, den, th);
@@ -1125,7 +1143,7 @@ final class FitFlowWidgetPaint {
             /* Процент ВНУТРИ капли: сбоку он отжимал её и мельчил. */
             Paint pPct = text(0xFF0F3C46,
                 Math.max(8f, Math.min(11f * den, dh * 0.22f)), font, Paint.Align.CENTER);
-            centered(c, Math.round(pct * 100) + "%", dx + dw / 2f, dy + dh * 0.52f, pPct);
+            centered(c, Math.round(pct * 100) + "%", dx + dw / 2f, dy + dh * 0.66f, pPct);
             c.drawText(sub, big.centerX(), big.bottom - 4f * den - fmS.descent, pSub);
 
             /* Кнопка «+250 мл» — ВНУТРИ виджета (на референсе была снаружи). */
@@ -1156,41 +1174,48 @@ final class FitFlowWidgetPaint {
             int cc = i % cols;
             float x0 = gridX + cc * (tw + gap);
             float y0 = bodyTop + r * (tileH + gap);
-            RectF box = new RectF(x0, y0, x0 + tw, y0 + tileH);
+            /* Нечётный «хвост» растягиваем на обе колонки, иначе в углу
+               зияет пустое место (замечание владельца по первой сборке). */
+            boolean wide = (i == shown - 1 && cc == 0);
+            float x1 = wide ? gridX + gridW : x0 + tw;
+            RectF box = new RectF(x0, y0, x1, y0 + tileH);
             tilesCard(c, box, 11f * den, th.tile, th.shadow, den);
 
             int colour = tilesColor(id);
             float px = x0 + 7f * den;
-            float inner = tw - 14f * den;
-            float ic = Math.min(11f * den, tileH * 0.26f);
-            float labY = y0 + 6f * den + ic / 2f;
+            float inner = (x1 - x0) - 14f * den;
+
+            /* Содержимое распределяется по ВСЕЙ высоте плитки: шапка сверху,
+               значение по центру остатка, «из N» прижато к низу. Раньше всё
+               лепилось к верху и низ плитки пустовал. */
+            float ic = Math.min(12f * den, tileH * 0.22f);
+            float labY = y0 + 7f * den + ic / 2f;
             Paint emo = text(colour, ic, fontReg, Paint.Align.LEFT);
             neonIcon(c, ctx, id, px, labY, ic, colour, emo);
 
             Paint pLab = text(th.muted,
-                Math.max(6f, Math.min(8.5f * den, tileH * 0.19f)), fontReg, Paint.Align.LEFT);
+                Math.max(6f, Math.min(9f * den, tileH * 0.17f)), fontReg, Paint.Align.LEFT);
             Paint.FontMetrics fmL = pLab.getFontMetrics();
             ellipsizeDraw(c, neonLabel(id), px + ic + 4f * den,
                 labY - (fmL.ascent + fmL.descent) / 2f, pLab, inner - ic - 4f * den);
+            float headB = labY + ic / 2f + 2f * den;
 
             String val = tilesValue(d, id);
             String unit = tilesUnit(d, id);
-            Paint pVal = fitPaint(val, inner, Math.min(15f * den, tileH * 0.34f),
-                8f * den, th.ink, font);
+            Paint pUnit = text(th.muted,
+                Math.max(6f, Math.min(8.5f * den, tileH * 0.15f)), fontReg, Paint.Align.LEFT);
+            Paint.FontMetrics fmU = pUnit.getFontMetrics();
+            float unitH = fmU.descent - fmU.ascent;
+            float footH = unit.length() > 0 ? unitH + 5f * den : 0f;
+
+            float room = (y0 + tileH - 6f * den - footH) - headB;
+            Paint pVal = fitPaint(val, inner, Math.min(22f * den, room * 0.92f),
+                9f * den, th.ink, font);
             Paint.FontMetrics fmV = pVal.getFontMetrics();
-            float valTop = labY + ic / 2f + 3f * den;
-            float valBase = valTop - fmV.ascent;
-            c.drawText(val, px, valBase, pVal);
+            float valH = fmV.descent - fmV.ascent;
+            c.drawText(val, px, headB + (room - valH) / 2f - fmV.ascent, pVal);
             if (unit.length() > 0) {
-                Paint pUnit = text(th.muted,
-                    Math.max(6f, Math.min(8f * den, tileH * 0.17f)), fontReg, Paint.Align.LEFT);
-                float vw = pVal.measureText(val);
-                if (pUnit.measureText(unit) <= inner - vw - 3f * den) {
-                    c.drawText(unit, px + vw + 3f * den, valBase, pUnit);
-                } else {
-                    Paint.FontMetrics fmU = pUnit.getFontMetrics();
-                    c.drawText(unit, px, valBase + fmV.descent - fmU.ascent + 1f * den, pUnit);
-                }
+                c.drawText(unit, px, y0 + tileH - 6f * den - fmU.descent, pUnit);
             }
         }
     }
@@ -1207,7 +1232,7 @@ final class FitFlowWidgetPaint {
         c.clipPath(drop);
         c.drawPath(drop, fill(th.dropEmpty));
         float p = Math.max(0f, Math.min(1f, pct));
-        float fy = h * (0.88f - 0.62f * p);
+        float fy = h * (0.97f - 0.72f * p);
         float amp = w * 0.075f;
         float lift = h * 0.09f;
         c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift), fill(WATER_DEEP));

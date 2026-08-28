@@ -4854,7 +4854,7 @@ for (const id of ids) {
      нет в списке виджетов), в info-xml (иначе лаунчер не покажет) и в
      CANVAS_PROVIDERS (иначе не обновится по кнопке воды и в полночь). */
   check(/FitFlowWidgetNeonLightProvider', 'fitflow_widget_neon_light_info'/.test(yml)
-    && /'fitflow_widget_neon_light_info', 'FitFlow · кольца \(светлый\)', 250, 150, 'fitflow_widget_neon'/.test(yml)
+    && /'fitflow_widget_neon_light_info', 'FitFlow · кольца \(светлый\)', 250, 150,\s*'fitflow_widget_neon'/.test(yml)
     && /FitFlowWidgetNeonLightProvider\.class/.test(canvas),
     '0.9.34 светлый виджет зарегистрирован в манифесте и обновляется');
 
@@ -4923,26 +4923,51 @@ for (const id of ids) {
     && /class FitFlowWidgetTilesDarkProvider extends FitFlowWidgetTilesProvider/.test(tilesDark)
     && /TILES_DARK/.test(tilesDark)
     && /R\.layout\.fitflow_widget_tiles/.test(tiles)
-    && /'fitflow_widget_tiles_info', 'FitFlow · плитки \(светлый\)', 250, 150, 'fitflow_widget_tiles'/.test(yml)
+    && /'fitflow_widget_tiles_info', 'FitFlow · плитки \(светлый\)', 250, 150,\s*'fitflow_widget_tiles'/.test(yml)
     && /FitFlowWidgetTilesProvider\.class/.test(canvas),
     '0.9.35 плитки: светлый и тёмный, общая отрисовка и разметка');
 
   /* Кнопка воды ВНУТРИ виджета (на референсе была снаружи), и ловушка
      занимает ту же долю ширины (42 %), что рисует drawTiles. */
-  check(yml.includes('android:layout_weight=\\"42\\"')
-    || yml.includes('android:layout_weight="42"')
+  check((yml.includes('android:layout_weight=\\"42\\"')
+      || yml.includes('android:layout_weight="42"'))
     && /leftW = hasWater \? \(w - 2f \* pad - gap\) \* 0\.42f/.test(paint)
     && /widget_canvas_water_btn/.test(yml.slice(yml.indexOf('fitflow_widget_tiles.xml'))),
     '0.9.35 кнопка воды внутри виджета, ловушка совпадает с рисунком');
 
   /* Анимация: только по нажатию, ограничена по кадрам. Постоянной
      анимации в виджетах быть не должно — она сажает батарею. */
-  check(/static void animateWater\(final Context context, final float fromPct\)/.test(tiles)
-    && /ANIM_FRAMES = 12/.test(tiles)
-    && /ANIM_STEP_MS = 40L/.test(tiles)
-    && /FitFlowWidgetTilesProvider\.animateWater\(context, beforePct\)/.test(wprov)
-    && /float beforePct/.test(wprov),
-    '0.9.35 анимация капли только по нажатию и с ограничением кадров');
+  /* 0.9.35: анимация переехала в общий FitFlowWidgetAnimator — «проползание»
+     получают ВСЕ виджеты (просьба владельца «давай попробуем для всех»).
+     Приём: подменяется само значение воды, рисовалки не трогаются. */
+  const anim935 = fs932.readFileSync('android-native/FitFlowWidgetAnimator.java', 'utf8');
+  const data935 = fs932.readFileSync('android-native/FitFlowWidgetData.java', 'utf8');
+  check(/static void animateWater\(final Context context, final int fromMl, final int toMl\)/
+      .test(anim935)
+    && /ANIM_FRAMES = 12/.test(anim935)
+    && /ANIM_STEP_MS = 40L/.test(anim935)
+    && /sWaterOverride = last \? -1 : value/.test(anim935)
+    && /if \(sWaterOverride >= 0\) d\.water = sWaterOverride/.test(data935)
+    && /FitFlowWidgetProvider\.updateAll/.test(anim935)
+    && /FitFlowWidgetBentoProvider\.updateAll/.test(anim935)
+    && /FitFlowWidgetCanvasProvider\.updateAllCanvas/.test(anim935)
+    && /FitFlowWidgetAnimator\.animateWater\(context, beforeTotal, waterTotal\)/.test(wprov)
+    /* постоянной анимации быть не должно: только из обработчика нажатия */
+    && !/onUpdate[\s\S]{0,400}animateWater/.test(wprov),
+    '0.9.35 анимация воды — общая для всех виджетов, только по нажатию');
+
+  /* 0.9.35: превью в системном списке. По одному названию не понять,
+     что внутри виджета (замечание владельца) — показываем картинку. */
+  check(fs932.existsSync('assets/widget-previews/fitflow_preview_tiles.png')
+    && fs932.existsSync('assets/widget-previews/fitflow_preview_tiles_dark.png')
+    && fs932.existsSync('assets/widget-previews/fitflow_preview_neon.png')
+    && fs932.existsSync('assets/widget-previews/fitflow_preview_neon_light.png')
+    && fs932.existsSync('tools/make-widget-previews.py')
+    && /android:previewImage="@drawable\/%s"/.test(yml)
+    && /cp assets\/widget-previews\/\*\.png android\/app\/src\/main\/res\/drawable-nodpi\//.test(yml)
+    && /'fitflow_widget_tiles', 'fitflow_preview_tiles'\)/.test(yml)
+    && /for info_name, label, min_w, min_h, layout_name, preview in canvas_infos:/.test(yml),
+    '0.9.35 предпросмотр виджета в системном списке');
 
   /* Зеркало плиток: числа макета в Java и в предпросмотре. */
   const tilesPairs = [
@@ -4952,7 +4977,13 @@ for (const id of ids) {
      /left_w = \(width - 2 \* pad - gap\) \* 0\.42 if has_water/, 'ширина блока капли'],
     [/btnH = 30f \* den/, /btn_h = 30 \* den/, 'высота кнопки'],
     [/minTile = 38f \* den/, /min_tile = 38 \* den/, 'минимальная плитка'],
-    [/dh \* 0\.86f/, /dh \* 0\.86/, 'пропорции капли']
+    [/dh \* 0\.80f/, /dh \* 0\.80/, 'пропорции капли'],
+    /* 0.9.35: острая вершина капли — контур обязан совпадать */
+    [/0\.545f \* w, 0\.10f \* h/, /\(0\.545, 0\.10\)/, 'контур капли: вершина'],
+    [/headB \+ \(room - valH\) \/ 2f/, /head_b \+ \(room - vb\[3\]\) \/ 2/,
+     'значение по центру плитки'],
+    [/boolean wide = \(i == shown - 1 && cc == 0\)/,
+     /wide = \(i == len\(shown\) - 1 and c == 0\)/, 'широкий хвост сетки']
   ];
   const tdrift = tilesPairs
     .filter(([j, py]) => !(j.test(paint) && py.test(tprev)))
