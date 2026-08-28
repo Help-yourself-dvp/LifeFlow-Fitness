@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.35', '0.9.35 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.35'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.35 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.36', '0.9.36 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.36'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.36 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4680,6 +4680,7 @@ for (const id of ids) {
   const canvas = fs932.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
   const prev = fs932.readFileSync('tools/widget-glass-preview.py', 'utf8');
   const appjs = fs932.readFileSync('app.js', 'utf8');
+  const prevT = fs932.readFileSync('tools/widget-tiles-preview.py', 'utf8');
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
 
@@ -4944,14 +4945,22 @@ for (const id of ids) {
   const data935 = fs932.readFileSync('android-native/FitFlowWidgetData.java', 'utf8');
   check(/static void animateWater\(final Context context, final int fromMl, final int toMl\)/
       .test(anim935)
-    && /ANIM_FRAMES = 12/.test(anim935)
-    && /ANIM_STEP_MS = 40L/.test(anim935)
+    /* 0.9.36: анимация идёт ПО ВРЕМЕНИ, а не по номеру кадра — иначе на
+       медленном устройстве кадры копятся и движение выглядит рывками. */
+    && /ANIM_DURATION_MS = \d+L/.test(anim935)
+    && /ANIM_MAX_FRAMES = \d+/.test(anim935)
+    && /SystemClock\.uptimeMillis\(\)/.test(anim935)
+    /* следующий кадр ставится в очередь только после отрисовки предыдущего */
+    && /if \(!last\) handler\.postDelayed\(frame\[0\], ANIM_MIN_STEP_MS\);/.test(anim935)
     && /sWaterOverride = last \? -1 : value/.test(anim935)
     && /if \(sWaterOverride >= 0\) d\.water = sWaterOverride/.test(data935)
     && /FitFlowWidgetProvider\.updateAll/.test(anim935)
     && /FitFlowWidgetBentoProvider\.updateAll/.test(anim935)
     && /FitFlowWidgetCanvasProvider\.updateAllCanvas/.test(anim935)
     && /FitFlowWidgetAnimator\.animateWater\(context, beforeTotal, waterTotal\)/.test(wprov)
+    /* 0.9.36: updateAll() перед анимацией запрещён — из-за него виджет
+       прыгал на конечное значение и лишь потом отматывался назад. */
+    && !/updateAll\(context\);\s*\n\s*\/\* Плавное доливание/.test(wprov)
     /* постоянной анимации быть не должно: только из обработчика нажатия */
     && !/onUpdate[\s\S]{0,400}animateWater/.test(wprov),
     '0.9.35 анимация воды — общая для всех виджетов, только по нажатию');
@@ -4968,6 +4977,50 @@ for (const id of ids) {
     && /'fitflow_widget_tiles', 'fitflow_preview_tiles'\)/.test(yml)
     && /for info_name, label, min_w, min_h, layout_name, preview in canvas_infos:/.test(yml),
     '0.9.35 предпросмотр виджета в системном списке');
+
+  /* 0.9.36: значки скачаны из Material Symbols (Apache 2.0) и лежат в
+     папке — раньше их рисовал только владелец вручную. */
+  const icoNames = ['water', 'food', 'steps', 'activity', 'sleep', 'weight',
+    'courses', 'workout', 'day-plan', 'day-mood', 'btn-water', 'btn-food',
+    'btn-courses', 'gear'];
+  check(icoNames.every(n => fs932.existsSync('assets/widget-icons/' + n + '.png'))
+    && fs932.existsSync('tools/fetch-widget-icons.py')
+    && fs932.existsSync('tools/svg-to-widget-icon.py')
+    && fs932.existsSync('THIRD_PARTY_LICENSES.md')
+    && /Apache/.test(fs932.readFileSync('THIRD_PARTY_LICENSES.md', 'utf8')),
+    '0.9.36 значки виджетов лежат в папке и лицензия задокументирована');
+
+  /* Шестерёнка настроек на «плитках» (просьба владельца). Маленькая и
+     приглушённая: своим цветом th.gear, не muted. */
+  check(/float gearS = 11f \* den;/.test(paint)
+    && /neonGear\(c, w - 11f \* den, 11f \* den, gearS, den, th\.gear\)/.test(paint)
+    && /int bg, tile, ink, muted, shadow, btn, btnInk, dropEmpty, gear;/.test(paint)
+    && /widget_canvas_gear_btn/.test(yml.slice(yml.indexOf('fitflow_widget_tiles.xml')))
+    && /draw_gear\(im, width - 11 \* den, 11 \* den, 11 \* den, th\['gear'\]\)/.test(prevT),
+    '0.9.36 шестерёнка настроек на плитках');
+
+  /* Подписи на кнопках — жирные (на «кольцах» плохо читались). Только
+     подписи кнопок: остальной текст остаётся обычным. */
+  check(/static Typeface fontBold/.test(paint)
+    && (paint.match(/Paint p = text\(color, 9\.5f \* den, fontBold, Paint\.Align\.LEFT\);/g) || []).length === 2
+    && /fitPaint\("\+250 мл", leftW - 12f \* den, 11f \* den, 7f \* den,\s*th\.btnInk, fontBold\)/.test(paint)
+    && /fontBold = Typeface\.create\(t, Typeface\.BOLD\)/.test(paint),
+    '0.9.36 подписи на кнопках жирные');
+
+  /* Свой шаблон капли: если файла нет — встроенный контур (откат). */
+  check(/static void ensureDropShape\(Context context\)/.test(paint)
+    && /public\/assets\/widget-icons\/drop-shape\.png/.test(paint)
+    && /PorterDuff\.Mode\.DST_IN/.test(paint)
+    && !/PorterDuff\.Mode\.CLEAR/.test(paint)
+    && paint.includes('sDropShape = null;')
+    && /if DROP_SHAPE\.exists\(\):/.test(prevT),
+    '0.9.36 свой шаблон капли как маска, с откатом на контур');
+
+  /* Превью бенто (владелец заметил, что у него одного его нет). */
+  check(fs932.existsSync('assets/widget-previews/fitflow_preview_bento.png')
+    && /'fitflow_widget_bento', 'fitflow_preview_bento'\)/.test(yml)
+    && /bento\.render\(/.test(fs932.readFileSync('tools/make-widget-previews.py', 'utf8')),
+    '0.9.36 у бенто тоже есть превью');
 
   /* Зеркало плиток: числа макета в Java и в предпросмотре. */
   const tilesPairs = [

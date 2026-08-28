@@ -353,12 +353,16 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
                 .putString("date", today)
                 .putLong("lastWaterAt", System.currentTimeMillis()) // 0.5.5
                 .apply();
-            updateAll(context);
-            /* Плавное доливание на ВСЕХ виджетах (0.9.35). Только по
-               нажатию: постоянной анимации нет — система перерисовывает
-               картинку целиком, это дорого. */
-            try { FitFlowWidgetAnimator.animateWater(context, beforeTotal, waterTotal); }
-            catch (Exception e) { }
+            /* 0.9.36: НЕ вызываем updateAll() перед анимацией. Иначе виджет
+               сначала прыгал на конечное значение, потом анимация отбрасывала
+               его назад к старому и доливала заново — владелец это и видел.
+               Первый кадр анимации сам покажет исходный уровень, а последний
+               нарисует реальные данные. */
+            try {
+                FitFlowWidgetAnimator.animateWater(context, beforeTotal, waterTotal);
+            } catch (Throwable e) {
+                updateAll(context);   // анимация не завелась — просто обновляем
+            }
             // Если на экране висит напоминание о воде — обновить его текст вживую
             try { WaterReminderReceiver.onWaterAdded(context); } catch (Exception e) { }
         }

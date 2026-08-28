@@ -108,6 +108,7 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
     void render(Context context, AppWidgetManager manager, int id, float pct) {
         try {
             FitFlowWidgetPaint.ensureFont(context);
+            FitFlowWidgetPaint.ensureDropShape(context);
             FitFlowWidgetData data = FitFlowWidgetData.load(context);
             float density = context.getResources().getDisplayMetrics().density;
             if (density <= 0) density = 2f;

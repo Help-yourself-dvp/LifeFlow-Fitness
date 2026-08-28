@@ -25,9 +25,16 @@ import android.os.Looper;
      на экране осталось бы «подвисшее» промежуточное значение. */
 class FitFlowWidgetAnimator {
 
-    /* 12 x 40 мс = ~0.5 c: глаз видит движение, лаунчер не захлёбывается. */
-    static final int ANIM_FRAMES = 12;
-    static final long ANIM_STEP_MS = 40L;
+    /* Длительность и минимальный шаг. Анимация идёт ПО ВРЕМЕНИ, а не по
+       номеру кадра: перерисовка виджета — дорогая операция (картинка
+       целиком + передача лаунчеру), и на слабом устройстве кадры не
+       успевают. При счёте по номеру кадра очередь копилась и движение
+       выглядело рывками — владелец это и увидел. Считая по часам, мы
+       просто пропускаем то, что не успели, и приходим в конец вовремя. */
+    static final long ANIM_DURATION_MS = 600L;
+    static final long ANIM_MIN_STEP_MS = 33L;
+    /* Страховка от бесконечного цикла, если устройство совсем тормозит. */
+    static final int ANIM_MAX_FRAMES = 40;
 
     /* Поколение анимации: если пользователь жмёт кнопку часто, кадры
        прошлого запуска не должны перебивать новый. */
@@ -37,22 +44,35 @@ class FitFlowWidgetAnimator {
         if (context == null || fromMl == toMl) return;
         final int generation = ++sGeneration;
         final Handler handler = new Handler(Looper.getMainLooper());
-        for (int i = 1; i <= ANIM_FRAMES; i++) {
-            final boolean last = i == ANIM_FRAMES;
-            final float t = i / (float) ANIM_FRAMES;
-            /* ease-out: быстро в начале, мягко в конце — «доливание»
-               выглядит естественнее равномерного движения. */
-            final float eased = 1f - (1f - t) * (1f - t);
-            final int value = Math.round(fromMl + (toMl - fromMl) * eased);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (generation != sGeneration) return;
-                    FitFlowWidgetData.sWaterOverride = last ? -1 : value;
-                    redrawAll(context);
-                }
-            }, i * ANIM_STEP_MS);
-        }
+        final long start = android.os.SystemClock.uptimeMillis();
+
+        /* Следующий кадр ставится в очередь ТОЛЬКО после того, как
+           предыдущий отрисован. Так очередь не копится, а анимация
+           автоматически подстраивается под скорость устройства. */
+        final Runnable[] frame = new Runnable[1];
+        final int[] count = new int[1];
+        frame[0] = new Runnable() {
+            @Override
+            public void run() {
+                if (generation != sGeneration) return;
+                long elapsed = android.os.SystemClock.uptimeMillis() - start;
+                float t = elapsed / (float) ANIM_DURATION_MS;
+                if (t > 1f) t = 1f;
+                boolean last = t >= 1f || ++count[0] >= ANIM_MAX_FRAMES;
+                /* ease-out: быстро в начале, мягко в конце — «доливание»
+                   выглядит естественнее равномерного движения. */
+                float eased = 1f - (1f - t) * (1f - t);
+                int value = Math.round(fromMl + (toMl - fromMl) * eased);
+                /* Последний кадр — по реальным данным (override сброшен),
+                   иначе на экране осталось бы промежуточное значение. */
+                FitFlowWidgetData.sWaterOverride = last ? -1 : value;
+                redrawAll(context);
+                if (!last) handler.postDelayed(frame[0], ANIM_MIN_STEP_MS);
+            }
+        };
+        /* Первый кадр — сразу: он показывает исходный уровень, с которого
+           начинается доливание. */
+        handler.post(frame[0]);
     }
 
     /* Перерисовка всех семейств. Каждое — в своём try: упавшее

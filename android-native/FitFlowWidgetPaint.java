@@ -7,6 +7,7 @@ import android.graphics.BlurMaskFilter;
 import android.graphics.ColorFilter;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
@@ -64,6 +65,10 @@ final class FitFlowWidgetPaint {
 
     static Typeface font = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     static Typeface fontReg = Typeface.create("sans-serif", Typeface.NORMAL);
+    /* 0.9.36: жирный — только для подписей на кнопках (просьба владельца:
+       на «кольцах» они плохо читались). Manrope в проекте одного веса,
+       поэтому жирность синтезирует система (Typeface.BOLD). */
+    static Typeface fontBold = Typeface.create("sans-serif-medium", Typeface.BOLD);
 
     /* 0.9.35: свои значки владельца. Кэш на процесс — виджет
        перерисовывается часто (кнопка воды, анимация), декодировать PNG
@@ -125,6 +130,27 @@ final class FitFlowWidgetPaint {
         c.drawBitmap(bmp, new Rect(0, 0, bmp.getWidth(), bmp.getHeight()), dst, p);
     }
 
+    /* Шаблон капли владельца (assets/widget-icons/drop-shape.png).
+       null = файла нет, рисуем встроенный контур. Грузится один раз. */
+    static volatile Bitmap sDropShape = null;
+    private static volatile boolean sDropShapeTried = false;
+
+    /* 0.9.36: своя форма капли из макета. Владелец кладёт PNG-силуэт
+       (белым по прозрачному) — заливка обрезается по его альфа-каналу. */
+    static void ensureDropShape(Context context) {
+        if (sDropShapeTried || context == null) return;
+        sDropShapeTried = true;
+        java.io.InputStream in = null;
+        try {
+            in = context.getAssets().open("public/assets/widget-icons/drop-shape.png");
+            sDropShape = BitmapFactory.decodeStream(in);
+        } catch (Exception e) {
+            sDropShape = null;   // нет файла — встроенный контур
+        } finally {
+            try { if (in != null) in.close(); } catch (Exception e) { }
+        }
+    }
+
     static void ensureFont(Context context) {
         if (context == null) return;
         try {
@@ -133,6 +159,7 @@ final class FitFlowWidgetPaint {
             if (t != null) {
                 font = t;
                 fontReg = t;
+                fontBold = Typeface.create(t, Typeface.BOLD);
             }
         } catch (Exception e) {
             // системный гротеск — капля и кольца всё равно читаются
@@ -727,7 +754,7 @@ final class FitFlowWidgetPaint {
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
-        Paint p = text(color, 9.5f * den, font, Paint.Align.LEFT);
+        Paint p = text(color, 9.5f * den, fontBold, Paint.Align.LEFT);
         Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
         /* Значок тот же, что у показателя в списке справа (пункт 1):
            вода — капля и там, и там. Ширину меряем одинаково для эмодзи
@@ -752,7 +779,7 @@ final class FitFlowWidgetPaint {
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
-        Paint p = text(color, 9.5f * den, font, Paint.Align.LEFT);
+        Paint p = text(color, 9.5f * den, fontBold, Paint.Align.LEFT);
         Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
         float s = 11f * den;
         float ew = (allDone || partial) ? s : pe.measureText(neonEmoji("courses"));
@@ -1006,23 +1033,26 @@ final class FitFlowWidgetPaint {
        настраивается тем же списком, что у «колец».
        ЗЕРКАЛО: tools/widget-tiles-preview.py — правки вносить в оба. */
     static final class TilesTheme {
-        final int bg, tile, ink, muted, shadow, btn, btnInk, dropEmpty;
+        final int bg, tile, ink, muted, shadow, btn, btnInk, dropEmpty, gear;
 
         TilesTheme(int bg, int tile, int ink, int muted, int shadow,
-                   int btn, int btnInk, int dropEmpty) {
+                   int btn, int btnInk, int dropEmpty, int gear) {
             this.bg = bg; this.tile = tile; this.ink = ink; this.muted = muted;
             this.shadow = shadow; this.btn = btn; this.btnInk = btnInk;
             this.dropEmpty = dropEmpty;
+            /* 0.9.36: цвет шестерёнки — отдельно от muted: она служебная и
+               должна быть ЕЩЁ тише подписей (правило владельца из 0.9.30). */
+            this.gear = gear;
         }
     }
 
     static final TilesTheme TILES_LIGHT = new TilesTheme(
         0xFFEEF2F6, 0xFFFFFFFF, 0xFF111827, 0xFF6B7280, 0x4694A3B8,
-        0xFFD1FAE5, 0xFF065F46, 0xFFE2E8F0);
+        0xFFD1FAE5, 0xFF065F46, 0xFFE2E8F0, 0x8C9AA6B4);
 
     static final TilesTheme TILES_DARK = new TilesTheme(
         0xF0111827, 0xFF1F2937, 0xFFF3F4F6, 0xFF9CA3AF, 0x5A000000,
-        0xFF064E3B, 0xFFA7F3D0, 0xFF374151);
+        0xFF064E3B, 0xFFA7F3D0, 0xFF374151, 0x8C7C8796);
 
     private static final String[] TILES_PAIRED = { "water", "food", "steps", "activity" };
 
@@ -1151,7 +1181,7 @@ final class FitFlowWidgetPaint {
             tilesCard(c, new RectF(big.left, by0, big.right, by0 + btnH),
                 btnH / 2f, th.btn, th.shadow, den);
             Paint pBtn = fitPaint("+250 мл", leftW - 12f * den, 11f * den, 7f * den,
-                th.btnInk, font);
+                th.btnInk, fontBold);
             pBtn.setTextAlign(Paint.Align.CENTER);
             centered(c, "+250 мл", big.centerX(), by0 + btnH / 2f, pBtn);
         }
@@ -1196,8 +1226,12 @@ final class FitFlowWidgetPaint {
             Paint pLab = text(th.muted,
                 Math.max(6f, Math.min(9f * den, tileH * 0.17f)), fontReg, Paint.Align.LEFT);
             Paint.FontMetrics fmL = pLab.getFontMetrics();
+            /* 0.9.36: под шестерёнкой (правый верхний угол) подпись короче,
+               иначе она заезжает под неё. */
+            float labRoom = inner - ic - 4f * den;
+            if (r == 0 && (cc == cols - 1 || wide)) labRoom -= 11f * den;
             ellipsizeDraw(c, neonLabel(id), px + ic + 4f * den,
-                labY - (fmL.ascent + fmL.descent) / 2f, pLab, inner - ic - 4f * den);
+                labY - (fmL.ascent + fmL.descent) / 2f, pLab, labRoom);
             float headB = labY + ic / 2f + 2f * den;
 
             String val = tilesValue(d, id);
@@ -1218,6 +1252,13 @@ final class FitFlowWidgetPaint {
                 c.drawText(unit, px, y0 + tileH - 6f * den - fmU.descent, pUnit);
             }
         }
+
+        /* Шестерёнка настроек (просьба владельца, 0.9.36). Правый верхний
+           угол, маленькая и приглушённая — служебная кнопка не должна
+           спорить с показателями. Рисуем ПОСЛЕДНЕЙ, поверх плиток.
+           Нажатие ловит прозрачная Button 26dp из разметки. */
+        float gearS = 11f * den;
+        neonGear(c, w - 11f * den, 11f * den, gearS, den, th.gear);
     }
 
     /* Капля с уровнем воды для «плиток»: пустая часть — цветом темы. */
@@ -1228,15 +1269,45 @@ final class FitFlowWidgetPaint {
         if (w < 8 || h < 8) return;
         int sc = c.save();
         c.translate(box.left, box.top);
+        /* 0.9.36: если владелец положил свой шаблон капли
+           (assets/widget-icons/drop-shape.png — белый силуэт на прозрачном),
+           заливаем ЕГО форму: маской служит альфа-канал картинки. Так
+           «правильная» капля из макета используется как есть, а не
+           повторяется кодом. Файла нет — рисуем встроенный контур. */
+        Bitmap shape = sDropShape != null ? sDropShape : null;
         Path drop = dropPath(w, h);
-        c.clipPath(drop);
-        c.drawPath(drop, fill(th.dropEmpty));
+        if (shape == null) {
+            c.clipPath(drop);
+            c.drawPath(drop, fill(th.dropEmpty));
+        }
         float p = Math.max(0f, Math.min(1f, pct));
         float fy = h * (0.97f - 0.72f * p);
         float amp = w * 0.075f;
         float lift = h * 0.09f;
-        c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift), fill(WATER_DEEP));
+        if (shape == null) {
+            c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift),
+                fill(WATER_DEEP));
+            c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), fill(WATER_TOP));
+            c.restoreToCount(sc);
+            return;
+        }
+        /* Рисуем воду в отдельный слой и обрезаем её альфой шаблона.
+           PorterDuff.DST_IN оставляет только то, что попало в силуэт;
+           CLEAR внутри виджета применять нельзя — будет дыра до обоев. */
+        int layer = c.saveLayer(0, 0, w, h, null);
+        Rect src = new Rect(0, 0, shape.getWidth(), shape.getHeight());
+        RectF dst = new RectF(0, 0, w, h);
+        Paint tintEmpty = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        tintEmpty.setColorFilter(new PorterDuffColorFilter(th.dropEmpty,
+            PorterDuff.Mode.SRC_IN));
+        c.drawBitmap(shape, src, dst, tintEmpty);
+        c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift),
+            fill(WATER_DEEP));
         c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), fill(WATER_TOP));
+        Paint keep = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        keep.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
+        c.drawBitmap(shape, src, dst, keep);
+        c.restoreToCount(layer);
         c.restoreToCount(sc);
     }
 

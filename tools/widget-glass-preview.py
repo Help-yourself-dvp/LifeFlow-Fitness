@@ -106,6 +106,23 @@ def draw_emoji(im, d, ch, x, mid_y, size, slot=None, colour=None):
     Если в этой машине шрифта эмодзи нет, подставляем старые векторные
     контуры — иначе предпросмотр выглядит рядом пустых квадратов.
     """
+    # 0.9.36: сначала НАСТОЯЩИЙ png из assets/widget-icons — тот же файл,
+    # что возьмёт виджет на устройстве (приоритет PNG → вектор → эмодзи).
+    if slot:
+        base = Path(__file__).resolve().parent.parent / 'assets' / 'widget-icons'
+        png, col = base / (slot + '.png'), base / (slot + '-color.png')
+        src = col if col.exists() else (png if png.exists() else None)
+        if src is not None:
+            g = Image.open(src).convert('RGBA')
+            k = size / max(g.width, g.height)
+            g = g.resize((max(1, int(g.width * k)), max(1, int(g.height * k))),
+                         Image.Resampling.LANCZOS)
+            if src is png:
+                tint = Image.new('RGBA', g.size, tuple(colour or (230, 236, 245)) + (255,))
+                tint.putalpha(g.split()[3])
+                g = tint
+            im.alpha_composite(g, (int(x), int(mid_y - g.height / 2)))
+            return
     f = emoji_font(size)
     if f is None:
         fn = FALLBACK_ICON.get(slot)
@@ -406,7 +423,8 @@ def pill_button(im, box, colour, label, den, btn_slot=None, state=None):
                          width=max(1, int(1.5 * den)))
     im.alpha_composite(layer)
 
-    f = font(int(9 * den), bold=False)
+    # 0.9.36: подпись кнопки — ЖИРНАЯ (владелец: плохо читалась)
+    f = font(int(9 * den), bold=True)
     s = int(11 * den)
     tw = d.textbbox((0, 0), label, font=f)[2]
     total = s + int(5 * den) + tw

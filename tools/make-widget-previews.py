@@ -53,9 +53,18 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     glass = load('glass', 'widget-glass-preview.py')
     tiles = load('tiles', 'widget-tiles-preview.py')
+    bento = load('bento', 'widget-bento-preview.py')
     today = ('28.08.2026', 'пятница')
 
+    # Бенто рисуется по картинке-подложке с фиксированными пропорциями,
+    # поэтому размер задаём шириной и не растягиваем (0.9.36).
+    bento_im = bento.render(['steps', 'water', 'food'],
+                            {'steps': (6430, 10000), 'water': (1500, 2300),
+                             'food': (1250, 2200), 'activity': (18, 21)},
+                            width=W)
+
     shots = [
+        ('fitflow_preview_bento', bento_im),
         ('fitflow_preview_neon',
          glass.render(SLOTS, DATA, today, width=W, height=H, theme='dark')),
         ('fitflow_preview_neon_light',

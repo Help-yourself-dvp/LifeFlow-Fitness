@@ -37,6 +37,7 @@ TILES_THEMES = {
         'btn': (209, 250, 229, 255),     # зеленоватая кнопка
         'btn_ink': (6, 95, 70),
         'drop_empty': (226, 232, 240, 255),
+        'gear': (154, 166, 180, 140),
         'sheet': (203, 213, 225, 255),
         'title': '#33415A',
     },
@@ -49,6 +50,7 @@ TILES_THEMES = {
         'btn': (6, 78, 59, 255),
         'btn_ink': (167, 243, 208),
         'drop_empty': (55, 65, 81, 255),
+        'gear': (124, 135, 150, 140),
         'sheet': (15, 18, 26, 255),
         'title': '#C7CEDA',
     },
@@ -146,16 +148,29 @@ def wave_y(x, w, fy, amp, phase, lift):
     return fy - lift * (1 - t) - amp * (base * 0.50 + wobble)
 
 
+DROP_SHAPE = Path(__file__).resolve().parent.parent / 'assets' / 'widget-icons' / 'drop-shape.png'
+
+
 def paint_drop(im, box, pct, den, th):
-    """Капля с уровнем воды. pct = 0..1 — доля заполнения."""
+    """Капля с уровнем воды. pct = 0..1 — доля заполнения.
+
+    0.9.36: если владелец положил свой шаблон капли (drop-shape.png),
+    маской служит его альфа-канал — зеркало ensureDropShape() в Java.
+    """
     x0, y0, x1, y1 = box
     w, h = int(x1 - x0), int(y1 - y0)
     if w < 8 or h < 8:
         return
     layer = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-    mask = Image.new('L', (w, h), 0)
-    ImageDraw.Draw(mask).polygon(drop_path(w, h), fill=255)
-    ImageDraw.Draw(layer).polygon(drop_path(w, h), fill=th['drop_empty'])
+    if DROP_SHAPE.exists():
+        mask = Image.open(DROP_SHAPE).convert('RGBA').resize(
+            (w, h), Image.Resampling.LANCZOS).split()[3]
+    else:
+        mask = Image.new('L', (w, h), 0)
+        ImageDraw.Draw(mask).polygon(drop_path(w, h), fill=255)
+    empty = Image.new('RGBA', (w, h), th['drop_empty'])
+    empty.putalpha(mask)
+    layer.alpha_composite(empty)
 
     p = max(0.0, min(1.0, pct))
     fy = h * (0.97 - 0.72 * p)
@@ -171,7 +186,32 @@ def paint_drop(im, box, pct, den, th):
     im.alpha_composite(layer, (int(x0), int(y0)))
 
 
-def draw_emoji(im, d, ch, x, mid_y, size, colour):
+ICON_DIR = Path(__file__).resolve().parent.parent / 'assets' / 'widget-icons'
+
+
+def draw_emoji(im, d, ch, x, mid_y, size, colour, slot=None):
+    """Значок показателя.
+
+    0.9.36: сначала пробуем НАСТОЯЩИЙ png из assets/widget-icons — тот же,
+    что возьмёт виджет на устройстве. Так предпросмотр показывает реальный
+    вид, а не заглушку. Значок перекрашивается в цвет показателя, как это
+    делает натив.
+    """
+    if slot:
+        png = ICON_DIR / (slot + '.png')
+        col = ICON_DIR / (slot + '-color.png')
+        src = col if col.exists() else (png if png.exists() else None)
+        if src is not None:
+            g = Image.open(src).convert('RGBA')
+            k = size / max(g.width, g.height)
+            g = g.resize((max(1, int(g.width * k)), max(1, int(g.height * k))),
+                         Image.Resampling.LANCZOS)
+            if src is png:
+                tint = Image.new('RGBA', g.size, colour + (255,))
+                tint.putalpha(g.split()[3])
+                g = tint
+            im.alpha_composite(g, (int(x), int(mid_y - g.height / 2)))
+            return
     """Значок. В песочнице нет шрифта эмодзи — рисуем метку-заглушку."""
     for path in ('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',):
         if Path(path).exists():
@@ -193,6 +233,33 @@ def draw_emoji(im, d, ch, x, mid_y, size, colour):
     d.ellipse((x, mid_y - r, x + size, mid_y + r), fill=colour + (60,))
     d.ellipse((x + size * 0.28, mid_y - size * 0.22,
                x + size * 0.72, mid_y + size * 0.22), fill=colour)
+
+
+def fit_label(d, text, f, room):
+    """Обрезает подпись многоточием, если не влезает."""
+    if room <= 0 or d.textbbox((0, 0), text, font=f)[2] <= room:
+        return text
+    while text and d.textbbox((0, 0), text + '…', font=f)[2] > room:
+        text = text[:-1]
+    return (text + '…') if text else ''
+
+
+def draw_gear(im, cx, cy, s, colour):
+    """Шестерёнка настроек (зеркало neonGear): зубчатый круг + отверстие."""
+    layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    g = ImageDraw.Draw(layer)
+    r = s / 2.0
+    for i in range(8):
+        a = math.pi * i / 4.0
+        g.ellipse((cx + math.cos(a) * r * 0.82 - r * 0.30,
+                   cy + math.sin(a) * r * 0.82 - r * 0.30,
+                   cx + math.cos(a) * r * 0.82 + r * 0.30,
+                   cy + math.sin(a) * r * 0.82 + r * 0.30), fill=colour)
+    g.ellipse((cx - r * 0.72, cy - r * 0.72, cx + r * 0.72, cy + r * 0.72),
+              fill=colour)
+    g.ellipse((cx - r * 0.30, cy - r * 0.30, cx + r * 0.30, cy + r * 0.30),
+              fill=(0, 0, 0, 0))
+    im.alpha_composite(layer)
 
 
 def value_lines(slot, data):
@@ -335,9 +402,14 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         # лепилось к верху и низ плитки оставался пустым (замечание владельца).
         ic = min(12 * den, tile_h * 0.22)
         lab_y = y0 + 7 * den + ic / 2
-        draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour)
+        draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour, slot)
         f_lab = font(int(max(6, min(9 * den, tile_h * 0.17))))
         lab = LABEL.get(slot, slot)
+        # под шестерёнкой подпись короче, иначе заезжает под неё
+        lab_room = inner - ic - 4 * den
+        if r == 0 and (c == cols - 1 or wide):
+            lab_room -= 11 * den
+        lab = fit_label(d, lab, f_lab, lab_room)
         lb = d.textbbox((0, 0), lab, font=f_lab)
         d.text((px + ic + 4 * den, lab_y - lb[3] / 2), lab, font=f_lab,
                fill=th['muted'])
@@ -357,6 +429,8 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         if unit:
             d.text((px, y0 + tile_h - 6 * den - ub[3]), unit, font=f_unit,
                    fill=th['muted'])
+    # Шестерёнка настроек — поверх всего, правый верхний угол (0.9.36).
+    draw_gear(im, width - 11 * den, 11 * den, 11 * den, th['gear'])
     return im
 
 
