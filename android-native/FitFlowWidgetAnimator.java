@@ -31,8 +31,8 @@ class FitFlowWidgetAnimator {
        успевают. При счёте по номеру кадра очередь копилась и движение
        выглядело рывками — владелец это и увидел. Считая по часам, мы
        просто пропускаем то, что не успели, и приходим в конец вовремя. */
-    static final long ANIM_DURATION_MS = 600L;
-    static final long ANIM_MIN_STEP_MS = 33L;
+    static final long ANIM_DURATION_MS = 900L;
+    static final long ANIM_MIN_STEP_MS = 16L;
     /* Страховка от бесконечного цикла, если устройство совсем тормозит. */
     static final int ANIM_MAX_FRAMES = 40;
 
@@ -43,6 +43,7 @@ class FitFlowWidgetAnimator {
     static void animateWater(final Context context, final int fromMl, final int toMl) {
         if (context == null || fromMl == toMl) return;
         final int generation = ++sGeneration;
+        detectFamilies(context);
         final Handler handler = new Handler(Looper.getMainLooper());
         final long start = android.os.SystemClock.uptimeMillis();
 
@@ -76,10 +77,47 @@ class FitFlowWidgetAnimator {
     }
 
     /* Перерисовка всех семейств. Каждое — в своём try: упавшее
-       оформление не должно срывать анимацию остальным. */
+       оформление не должно срывать анимацию остальным.
+
+       0.9.37: во время анимации перерисовываем ТОЛЬКО те семейства, что
+       реально стоят на экране. Раньше каждый кадр дёргал все три, включая
+       отсутствующие: лишние обходы провайдеров на кадр — это и есть те
+       рывки, которые владелец видел на устройстве. */
     private static void redrawAll(Context context) {
-        try { FitFlowWidgetProvider.updateAll(context); } catch (Throwable t) { }
-        try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable t) { }
-        try { FitFlowWidgetCanvasProvider.updateAllCanvas(context); } catch (Throwable t) { }
+        if (sHasList) {
+            try { FitFlowWidgetProvider.updateAll(context); } catch (Throwable t) { }
+        }
+        if (sHasBento) {
+            try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable t) { }
+        }
+        if (sHasCanvas) {
+            try { FitFlowWidgetCanvasProvider.updateAllCanvas(context); } catch (Throwable t) { }
+        }
+    }
+
+    /* Что стоит на экране — считаем ОДИН раз перед анимацией, а не на
+       каждом кадре: getAppWidgetIds ходит в системную службу. */
+    private static volatile boolean sHasList, sHasBento, sHasCanvas;
+
+    private static void detectFamilies(Context context) {
+        android.appwidget.AppWidgetManager m =
+            android.appwidget.AppWidgetManager.getInstance(context);
+        sHasList = present(m, context, FitFlowWidgetProvider.class);
+        sHasBento = present(m, context, FitFlowWidgetBentoProvider.class);
+        sHasCanvas = false;
+        for (Class<?> cls : FitFlowWidgetCanvasProvider.CANVAS_PROVIDERS) {
+            if (present(m, context, cls)) { sHasCanvas = true; break; }
+        }
+    }
+
+    private static boolean present(android.appwidget.AppWidgetManager m,
+                                   Context context, Class<?> cls) {
+        try {
+            int[] ids = m.getAppWidgetIds(
+                new android.content.ComponentName(context, cls));
+            return ids != null && ids.length > 0;
+        } catch (Throwable t) {
+            return true;   // не смогли выяснить — лучше нарисовать лишнее
+        }
     }
 }

@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.36';
+const FITFLOW_VERSION = '0.9.37';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -13887,6 +13887,38 @@ if (typeof window !== 'undefined') {
      фальшивый modelPath вида 'local://имя', которого на самом деле не
      существует (принцип «нет кнопок-призраков»). Реальный выбор файла теперь
      идёт через плагин FitFlowLocalAI → selectLocalModelFile() → importModel. */
+  /* Куда ведёт показатель виджета. Карточки Главной прокручиваются,
+     остальные — открывают свой экран. Список сверяется тестом с
+     WIDGET_ITEMS, чтобы новый показатель не остался без адреса. */
+  const WIDGET_TARGETS = {
+    water: { card: 'water-card' },
+    food: { card: 'food-card' },
+    steps: { card: 'steps-card' },
+    weight: { card: 'weight-card' },
+    'day-plan': { card: 'day-plan-card' },
+    'day-mood': { card: 'day-mood-card' },
+    activity: { card: 'steps-card' },      // активность живёт в карточке шагов
+    workout: { view: 'training' },
+    courses: { view: 'settings-courses' },
+    sleep: { view: 'settings-notifications', card: 'sleep-checkin-row' }
+  };
+
+  function openWidgetTarget(id) {
+    const target = WIDGET_TARGETS[id];
+    if (!target) { switchView('home'); return; }
+    switchView(target.view || 'home');
+    if (!target.card) return;
+    /* Прокрутка — после перерисовки экрана: у скрытых карточек координаты
+       нулевые, и scrollIntoView попадёт в никуда (грабля 0.8.1). */
+    setTimeout(() => {
+      const el = document.getElementById(target.card);
+      if (!el || el.hidden) return;
+      try { syncQuickNavTop(); } catch (e) { }
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try { setTimeout(updateHomeQuickNavActive, 700); } catch (e) { }
+    }, 180);
+  }
+
   let lastWidgetAction = '';
   let lastWidgetActionTime = 0;
   window.onWidgetAction = function (action) {
@@ -13911,6 +13943,12 @@ if (typeof window !== 'undefined') {
     } else if (action === 'smart_entry') {
       openSmartEntry();
       toast('📝 Быстрый ввод открыт с виджета');
+    } else if (action && String(action).startsWith('open_')) {
+      /* 0.9.37: тап по показателю на виджете «плитки» открывает ИМЕННО его
+         раздел (просьба владельца). Для того, что живёт карточкой на
+         Главной, — переходим на Главную и прокручиваем к карточке; для
+         остального открываем свой экран. */
+      openWidgetTarget(String(action).slice(5));
     } else if (action === 'widget_settings') {
       /* 0.9.30: шестерёнка в углу бенто-виджета. Ведём сразу в диалог
          состава виджета, а не «в настройки вообще»: смысл кнопки —

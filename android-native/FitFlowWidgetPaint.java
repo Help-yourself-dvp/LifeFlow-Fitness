@@ -137,6 +137,17 @@ final class FitFlowWidgetPaint {
 
     /* 0.9.36: своя форма капли из макета. Владелец кладёт PNG-силуэт
        (белым по прозрачному) — заливка обрезается по его альфа-каналу. */
+    /* Соотношение ширина/высота капли: у шаблона своё, у встроенного
+       контура — 0.80. */
+    static float dropAspect() {
+        Bitmap s = sDropShape;
+        if (s != null && s.getHeight() > 0) {
+            float ar = s.getWidth() / (float) s.getHeight();
+            if (ar > 0.3f && ar < 2.5f) return ar;
+        }
+        return 0.80f;
+    }
+
     static void ensureDropShape(Context context) {
         if (sDropShapeTried || context == null) return;
         sDropShapeTried = true;
@@ -206,6 +217,11 @@ final class FitFlowWidgetPaint {
         p.setTextSize(size);
         p.setTypeface(face);
         p.setTextAlign(align);
+        /* 0.9.37: Manrope в проекте ОДНОГО веса. Typeface.create(font, BOLD)
+           на таком шрифте не даёт ничего — начертания просто нет, и подписи
+           кнопок остались обычными (владелец не увидел разницы в 0.9.36).
+           Настоящее утолщение включается только флагом на Paint. */
+        if (face == fontBold) p.setFakeBoldText(true);
         return p;
     }
 
@@ -560,6 +576,20 @@ final class FitFlowWidgetPaint {
         if ("steps".equals(id)) return th.steps;
         if ("activity".equals(id)) return th.activity;
         return 0xFF94A3B8;
+    }
+
+    /* 0.9.37: в узкой плитке «Тренировка» и «Самочувствие» не помещались и
+       обрезались многоточием. Короткий синоним лучше огрызка слова. */
+    private static String tilesLabel(String id, Paint p, float room) {
+        String full = neonLabel(id);
+        if (p.measureText(full) <= room) return full;
+        if ("workout".equals(id)) return "Спорт";
+        if ("day-mood".equals(id)) return "Настрой";
+        if ("activity".equals(id)) return "Актив.";
+        if ("day-plan".equals(id)) return "План";
+        if ("food".equals(id)) return "Еда";
+        if ("courses".equals(id)) return "Курсы";
+        return full;
     }
 
     private static String neonLabel(String id) {
@@ -1164,8 +1194,12 @@ final class FitFlowWidgetPaint {
             float roomTop = headBottom + 1f * den;
             float roomBottom = big.bottom - subH - 5f * den;
             float dh = Math.max(10f * den, roomBottom - roomTop);
-            float dw = Math.min(dh * 0.80f, leftW - 10f * den);
-            dh = dw / 0.80f;
+            /* 0.9.37: пропорции берём У ШАБЛОНА, если он положен, иначе
+               у встроенного контура (0.80). Иначе своя капля растянулась
+               бы под чужое соотношение сторон. */
+            float dropAR = dropAspect();
+            float dw = Math.min(dh * dropAR, leftW - 10f * den);
+            dh = dw / dropAR;
             float dx = big.centerX() - dw / 2f;
             float dy = roomTop + (roomBottom - roomTop - dh) / 2f;
             paintDropTiles(c, new RectF(dx, dy, dx + dw, dy + dh), pct, den, th);
@@ -1218,19 +1252,34 @@ final class FitFlowWidgetPaint {
             /* Содержимое распределяется по ВСЕЙ высоте плитки: шапка сверху,
                значение по центру остатка, «из N» прижато к низу. Раньше всё
                лепилось к верху и низ плитки пустовал. */
-            float ic = Math.min(12f * den, tileH * 0.22f);
+            /* 0.9.37 (правки владельца по устройству): значок и подпись
+               крупнее — как в бенто, — а значение НЕ гигантское, но жирное.
+               Читаемость даёт контраст начертания, а не одна лишь величина. */
+            float ic = Math.min(13f * den, tileH * 0.26f);
             float labY = y0 + 7f * den + ic / 2f;
             Paint emo = text(colour, ic, fontReg, Paint.Align.LEFT);
             neonIcon(c, ctx, id, px, labY, ic, colour, emo);
 
             Paint pLab = text(th.muted,
-                Math.max(6f, Math.min(9f * den, tileH * 0.17f)), fontReg, Paint.Align.LEFT);
-            Paint.FontMetrics fmL = pLab.getFontMetrics();
+                Math.max(7f, Math.min(10.5f * den, tileH * 0.21f)), fontReg, Paint.Align.LEFT);
+            Paint.FontMetrics fmL;
             /* 0.9.36: под шестерёнкой (правый верхний угол) подпись короче,
                иначе она заезжает под неё. */
             float labRoom = inner - ic - 4f * den;
-            if (r == 0 && (cc == cols - 1 || wide)) labRoom -= 11f * den;
-            ellipsizeDraw(c, neonLabel(id), px + ic + 4f * den,
+            /* Шестерёнка заходит на плитку примерно на 3.5 dp (центр в
+               11 dp от края, радиус 5.5) — резервируем ровно столько.
+               Раньше стояло 11 dp и подписи резались зря. */
+            if (r == 0 && (cc == cols - 1 || wide)) labRoom -= 4f * den;
+            String labTxt = tilesLabel(id, pLab, labRoom);
+            /* Если даже короткий синоним не влез — сначала уменьшаем кегль
+               (до разумного предела) и лишь потом режем многоточием:
+               «Витамин…» читается хуже, чем то же слово мельче. */
+            while (pLab.measureText(labTxt) > labRoom
+                   && pLab.getTextSize() > 7f * den) {
+                pLab.setTextSize(pLab.getTextSize() - 0.5f * den);
+            }
+            fmL = pLab.getFontMetrics();
+            ellipsizeDraw(c, labTxt, px + ic + 4f * den,
                 labY - (fmL.ascent + fmL.descent) / 2f, pLab, labRoom);
             float headB = labY + ic / 2f + 2f * den;
 
@@ -1243,8 +1292,8 @@ final class FitFlowWidgetPaint {
             float footH = unit.length() > 0 ? unitH + 5f * den : 0f;
 
             float room = (y0 + tileH - 6f * den - footH) - headB;
-            Paint pVal = fitPaint(val, inner, Math.min(22f * den, room * 0.92f),
-                9f * den, th.ink, font);
+            Paint pVal = fitPaint(val, inner, Math.min(17f * den, room * 0.78f),
+                9f * den, th.ink, fontBold);
             Paint.FontMetrics fmV = pVal.getFontMetrics();
             float valH = fmV.descent - fmV.ascent;
             c.drawText(val, px, headB + (room - valH) / 2f - fmV.ascent, pVal);
@@ -1323,7 +1372,7 @@ final class FitFlowWidgetPaint {
     }
 
     /* Состав плиток: что выбрано в приложении, в порядке пользователя. */
-    private static java.util.ArrayList<String> tilesSlots(FitFlowWidgetData d) {
+    static java.util.ArrayList<String> tilesSlots(FitFlowWidgetData d) {
         java.util.ArrayList<String> out = new java.util.ArrayList<String>();
         for (String id : d.order()) {
             if (out.contains(id)) continue;

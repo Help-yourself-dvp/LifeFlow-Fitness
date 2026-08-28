@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.36', '0.9.36 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.36'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.36 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.37', '0.9.37 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.37'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.37 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4868,17 +4868,21 @@ for (const id of ids) {
   /* У каждого canvas-провайдера свой диапазон requestCode: PendingIntent'ы
      различаются по нему, и при совпадении кнопки одного виджета начали бы
      дёргать действия другого. Занято base+1..base+4, поэтому шаг >= 5. */
-  const bases = ['FitFlowWidgetDropProvider', 'FitFlowWidgetNeonProvider',
-    'FitFlowWidgetNeonLightProvider']
-    .map((f) => {
-      const src = fs932.readFileSync(`android-native/${f}.java`, 'utf8');
-      const m = src.match(/int requestCodeBase\(\) \{ return (\d+); \}/);
-      return m ? Number(m[1]) : NaN;
-    });
-  const usedSlots = 5;
+  /* 0.9.37: у «плиток» появились слоты показателей (base+10..base+14),
+     поэтому диапазон вырос до 15, а список провайдеров берём с диска —
+     забыть дописать сюда новый было слишком легко. */
+  const provFiles = fs932.readdirSync('android-native')
+    .filter((f) => /^FitFlowWidget.*Provider\.java$/.test(f));
+  const bases = provFiles.map((f) => {
+    const src = fs932.readFileSync(`android-native/${f}`, 'utf8');
+    const m = src.match(/int requestCodeBase\(\) \{ return (\d+); \}/);
+    return m ? Number(m[1]) : null;
+  }).filter((b) => b !== null);
+  const usedSlots = 15;
   const collide = bases.some((b, i) => bases.some((o, j) =>
-    i !== j && Math.abs(b - o) < usedSlots)) || bases.some((b) => !Number.isFinite(b));
-  check(!collide, '0.9.34 requestCode виджетов не пересекаются');
+    i !== j && Math.abs(b - o) < usedSlots));
+  check(!collide && bases.length >= 5,
+    '0.9.34 requestCode виджетов не пересекаются');
 
   /* ===== 0.9.35: плитки, сон, свои значки, названия виджетов ===== */
   const tiles = fs932.readFileSync('android-native/FitFlowWidgetTilesProvider.java', 'utf8');
@@ -5022,6 +5026,72 @@ for (const id of ids) {
     && /bento\.render\(/.test(fs932.readFileSync('tools/make-widget-previews.py', 'utf8')),
     '0.9.36 у бенто тоже есть превью');
 
+  /* 0.9.37: жирный на одновесном Manrope делает ТОЛЬКО setFakeBoldText.
+     Через Typeface.create(font, BOLD) утолщения не происходит — владелец
+     не увидел разницы в 0.9.36. */
+  check(/if \(face == fontBold\) p\.setFakeBoldText\(true\);/.test(paint),
+    '0.9.37 жирный включается флагом на Paint, а не Typeface');
+
+  /* Тап по показателю ведёт в его раздел (и скроллит к карточке). */
+  check(/const WIDGET_TARGETS = \{/.test(appjs)
+    && /function openWidgetTarget\(id\)/.test(appjs)
+    && /startsWith\('open_'\)/.test(appjs)
+    && /workout: \{ view: 'training' \}/.test(appjs)
+    && /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/
+        .test(appjs.slice(appjs.indexOf('function openWidgetTarget')))
+    /* каждый показатель виджета обязан иметь адрес */
+    && (() => {
+      const block = appjs.slice(appjs.indexOf('const WIDGET_TARGETS'),
+        appjs.indexOf('function openWidgetTarget'));
+      const items = appjs.slice(appjs.indexOf('const WIDGET_ITEMS'),
+        appjs.indexOf('const WIDGET_SIZES'));
+      const ids = [...items.matchAll(/id: '([a-z-]+)'/g)].map(m => m[1]);
+      return ids.length >= 9 && ids.every(id => block.includes(id + ':')
+        || block.includes("'" + id + "':"));
+    })(),
+    '0.9.37 тап по показателю открывает его раздел');
+
+  /* Ловушки слотов: доли совпадают с рисунком, порядок — с tilesSlots,
+     у каждого слота свой requestCode, иначе все плитки поведут в одно
+     место (PendingIntent различаются только по нему). */
+  const tilesXmlStart = yml.indexOf("(layout / 'fitflow_widget_tiles.xml')");
+  const tilesXml = yml.slice(tilesXmlStart,
+    yml.indexOf("encoding='utf-8')", tilesXmlStart));
+  check(/widget_tiles_slot_water/.test(tilesXml)
+    && [1, 2, 3, 4].every((i) => tilesXml.includes('widget_tiles_slot_' + i))
+    && /widget_tiles_slot_water[\s\S]{0,220}android:layout_weight=\\?"42\\?"/.test(tilesXml)
+    /* слоты объявлены ДО кнопки воды и шестерёнки: в FrameLayout нажатие
+       ловит объявленный позже */
+    && tilesXml.indexOf('widget_tiles_slot_water') < tilesXml.indexOf('widget_canvas_water_btn')
+    && tilesXml.indexOf('widget_tiles_slot_4') < tilesXml.indexOf('widget_canvas_gear_btn')
+    && /requestCodeBase\(\) \+ 10 \+ index/.test(tiles)
+    && /void configureSlotActions\(Context context, RemoteViews views,/.test(canvas)
+    && /configureSlotActions\(context, views, data\);/.test(canvas)
+    && /static java\.util\.ArrayList<String> tilesSlots/.test(paint),
+    '0.9.37 ловушки плиток: сетка, порядок и свои requestCode');
+
+  /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
+     перерисовываются только те семейства, что стоят на экране. */
+  check(/private static final Bitmap\[\] sAnimBuffers = new Bitmap\[2\];/.test(canvas)
+    && /sAnimBufferIdx \^= 1;/.test(canvas)
+    && /ANIM_DURATION_MS = 900L/.test(anim935)
+    && /if \(sHasList\)/.test(anim935)
+    && /if \(sHasBento\)/.test(anim935)
+    && /if \(sHasCanvas\)/.test(anim935)
+    && /detectFamilies\(context\);/.test(anim935),
+    '0.9.37 анимация: два буфера и только присутствующие виджеты');
+
+  /* Длинные подписи: короткий синоним вместо огрызка «Трениров…». */
+  check(/private static String tilesLabel\(String id, Paint p, float room\)/.test(paint)
+    && /"workout"\.equals\(id\)\) return "Спорт"/.test(paint)
+    && /"food"\.equals\(id\)\) return "Еда"/.test(paint)
+    && /'workout': 'Спорт'/.test(prevT)
+    /* значок и подпись крупнее, значение — меньше и жирное */
+    && /float ic = Math\.min\(13f \* den, tileH \* 0\.26f\);/.test(paint)
+    && /Math\.min\(17f \* den, room \* 0\.78f\),\s*9f \* den, th\.ink, fontBold\)/.test(paint)
+    && /if \(r == 0 && \(cc == cols - 1 \|\| wide\)\) labRoom -= 4f \* den;/.test(paint),
+    '0.9.37 подписи плиток: синонимы, значок крупнее, значение жирное');
+
   /* Зеркало плиток: числа макета в Java и в предпросмотре. */
   const tilesPairs = [
     [/pad = 8f \* den/, /pad = 8 \* den/, 'поле'],
@@ -5030,7 +5100,10 @@ for (const id of ids) {
      /left_w = \(width - 2 \* pad - gap\) \* 0\.42 if has_water/, 'ширина блока капли'],
     [/btnH = 30f \* den/, /btn_h = 30 \* den/, 'высота кнопки'],
     [/minTile = 38f \* den/, /min_tile = 38 \* den/, 'минимальная плитка'],
-    [/dh \* 0\.80f/, /dh \* 0\.80/, 'пропорции капли'],
+    /* 0.9.37: пропорции берутся у шаблона владельца, константа 0.80 —
+       только запасной вариант для встроенного контура. */
+    [/dh \* dropAR/, /dh \* drop_ar/, 'пропорции капли'],
+    [/return 0\.80f;/, /return 0\.80/, 'запасные пропорции капли'],
     /* 0.9.35: острая вершина капли — контур обязан совпадать */
     [/0\.545f \* w, 0\.10f \* h/, /\(0\.545, 0\.10\)/, 'контур капли: вершина'],
     [/headB \+ \(room - valH\) \/ 2f/, /head_b \+ \(room - vb\[3\]\) \/ 2/,

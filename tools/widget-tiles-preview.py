@@ -151,6 +151,17 @@ def wave_y(x, w, fy, amp, phase, lift):
 DROP_SHAPE = Path(__file__).resolve().parent.parent / 'assets' / 'widget-icons' / 'drop-shape.png'
 
 
+def drop_aspect():
+    """Ширина/высота капли: у шаблона своя, у встроенного контура 0.80."""
+    if DROP_SHAPE.exists():
+        im = Image.open(DROP_SHAPE)
+        if im.height:
+            ar = im.width / float(im.height)
+            if 0.3 < ar < 2.5:
+                return ar
+    return 0.80
+
+
 def paint_drop(im, box, pct, den, th):
     """Капля с уровнем воды. pct = 0..1 — доля заполнения.
 
@@ -233,6 +244,16 @@ def draw_emoji(im, d, ch, x, mid_y, size, colour, slot=None):
     d.ellipse((x, mid_y - r, x + size, mid_y + r), fill=colour + (60,))
     d.ellipse((x + size * 0.28, mid_y - size * 0.22,
                x + size * 0.72, mid_y + size * 0.22), fill=colour)
+
+
+def tiles_label(d, slot, full, f, room):
+    """Короткий синоним, если полная подпись не влезает (зеркало tilesLabel)."""
+    if d.textbbox((0, 0), full, font=f)[2] <= room:
+        return full
+    short = {'workout': 'Спорт', 'day-mood': 'Настрой',
+             'activity': 'Актив.', 'day-plan': 'План',
+             'food': 'Еда', 'courses': 'Курсы'}.get(slot)
+    return short or full
 
 
 def fit_label(d, text, f, room):
@@ -347,8 +368,10 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         room_top = head_bottom + 1 * den
         room_bottom = big[3] - sb[3] - 5 * den
         dh = max(10 * den, room_bottom - room_top)
-        dw = min(dh * 0.80, left_w - 10 * den)
-        dh = dw / 0.80
+        # пропорции берём у шаблона, если он положен (зеркало dropAspect)
+        drop_ar = drop_aspect()
+        dw = min(dh * drop_ar, left_w - 10 * den)
+        dh = dw / drop_ar
         dx = (big[0] + big[2]) / 2 - dw / 2
         dy = room_top + (room_bottom - room_top - dh) / 2
         paint_drop(im, (dx, dy, dx + dw, dy + dh), pct, den, th)
@@ -400,15 +423,22 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         # Содержимое распределяется по ВСЕЙ высоте плитки: шапка сверху,
         # значение по центру остатка, «из N» прижато к низу. Раньше всё
         # лепилось к верху и низ плитки оставался пустым (замечание владельца).
-        ic = min(12 * den, tile_h * 0.22)
+        ic = min(13 * den, tile_h * 0.26)
         lab_y = y0 + 7 * den + ic / 2
         draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour, slot)
-        f_lab = font(int(max(6, min(9 * den, tile_h * 0.17))))
+        f_lab = font(int(max(7, min(10.5 * den, tile_h * 0.21))))
         lab = LABEL.get(slot, slot)
         # под шестерёнкой подпись короче, иначе заезжает под неё
         lab_room = inner - ic - 4 * den
         if r == 0 and (c == cols - 1 or wide):
-            lab_room -= 11 * den
+            lab_room -= 4 * den
+        lab = tiles_label(d, slot, lab, f_lab, lab_room)
+        # не влезло даже сокращение — уменьшаем кегль, потом уже многоточие
+        lab_size = int(max(7, min(10.5 * den, tile_h * 0.21)))
+        while (d.textbbox((0, 0), lab, font=f_lab)[2] > lab_room
+               and lab_size > int(7 * den)):
+            lab_size -= 1
+            f_lab = font(lab_size)
         lab = fit_label(d, lab, f_lab, lab_room)
         lb = d.textbbox((0, 0), lab, font=f_lab)
         d.text((px + ic + 4 * den, lab_y - lb[3] / 2), lab, font=f_lab,
@@ -422,7 +452,7 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         # Значение занимает освободившуюся середину — плитка перестаёт
         # выглядеть полупустой.
         room = (y0 + tile_h - 6 * den - foot_h) - head_b
-        f_val = fit_font(d, val, inner, min(22 * den, room * 0.92), 9 * den)
+        f_val = fit_font(d, val, inner, min(17 * den, room * 0.78), 9 * den, bold=True)
         vb = d.textbbox((0, 0), val, font=f_val)
         d.text((px, head_b + (room - vb[3]) / 2 - vb[1] / 2), val,
                font=f_val, fill=th['ink'])

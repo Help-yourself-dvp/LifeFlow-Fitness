@@ -33,6 +33,10 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
 
     abstract int requestCodeBase();
 
+    /* Хук: назначить действия «плиткам» показателей. По умолчанию ничего. */
+    void configureSlotActions(Context context, RemoteViews views,
+                              FitFlowWidgetData data) { }
+
     abstract void drawWidget(Canvas canvas, int width, int height, float density, FitFlowWidgetData data);
 
     /* 0.9.35: расширенная версия — нужна «плиткам» (контекст для своих
@@ -58,6 +62,14 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
     int layoutRes() {
         return R.layout.fitflow_widget_p5;
     }
+
+    /* Буферы кадров анимации: живут между кадрами, чтобы не выделять
+       память заново. Их ДВА и они чередуются: картинку, только что
+       отданную лаунчеру, трогать нельзя — он может ещё читать её, и
+       правка «на лету» дала бы разрывы. Пока рисуем в один, второй
+       догорает на экране. Сбрасываются сами при смене размера. */
+    private static final Bitmap[] sAnimBuffers = new Bitmap[2];
+    private static int sAnimBufferIdx;
 
     static final Class<?>[] CANVAS_PROVIDERS = {
         FitFlowWidgetDropProvider.class,
@@ -122,7 +134,25 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
             int width = clampPx(Math.round(maxWidthDp * density));
             int height = clampPx(Math.round(maxHeightDp * density));
 
-            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            /* 0.9.37: во время анимации (pct >= 0) переиспользуем один
+               буфер вместо выделения нового на каждый кадр. Аллокация
+               картинки 4x2 — это мегабайты и работа сборщика мусора
+               12+ раз подряд; именно она делала доливание рывками.
+               Вне анимации поведение прежнее: свежий bitmap. */
+            Bitmap bitmap = null;
+            if (pct >= 0f) {
+                sAnimBufferIdx ^= 1;
+                Bitmap reuse = sAnimBuffers[sAnimBufferIdx];
+                if (reuse != null && !reuse.isRecycled()
+                        && reuse.getWidth() == width && reuse.getHeight() == height) {
+                    reuse.eraseColor(0);
+                    bitmap = reuse;
+                }
+            }
+            if (bitmap == null) {
+                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                if (pct >= 0f) sAnimBuffers[sAnimBufferIdx] = bitmap;
+            }
             Canvas canvas = new Canvas(bitmap);
             drawWidget(context, canvas, width, height, density, data, pct);
 
@@ -131,6 +161,10 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
             views.setContentDescription(R.id.widget_canvas_image, describe(data));
             configureButtons(views, data);
             attachActions(context, views);
+            /* 0.9.37: у «плиток» тап по показателю ведёт в его раздел.
+               Базовая реализация пустая — остальным оформлениям это не
+               нужно, и лишних PendingIntent они не создают. */
+            configureSlotActions(context, views, data);
             manager.updateAppWidget(id, views);
         } catch (Throwable t) {
             // Нехватка памяти под bitmap: оставляем предыдущую картинку.
