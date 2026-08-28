@@ -23,13 +23,23 @@
 
 Сетка (эталон для android-res/layout/fitflow_widget_bento.xml):
 
-    холст            1200 x 675
-    поле p           36
-    промежуток g     30
-    плита слева      x 36..574   (538)   y 36..639 (603)
+    холст            1200 x 540      (0.9.30: было 675 — виджет стал 4x2)
+    поле по бокам    36
+    поле сверху/снизу 14             (0.9.30: было 36)
+    промежуток по X  30
+    промежуток по Y  20              (0.9.30: было 30)
+    плита слева      x 36..574   (538)   y 14..526 (512)
     колонка справа   x 604..1164 (560)
-    плита воды       y 36..322   (286)
-    плита питания    y 353..639  (286)
+    верхняя плита    y 14..260   (246)
+    нижняя плита     y 280..526  (246)
+
+0.9.30 — почему поля и промежутки уменьшены. Виджет переведён с 4x3
+на 4x2 (просьба владельца: «компактнее»). Высота ячейки упала со 180
+до ~150 dp, а шрифты владелец просил не трогать. Единственный запас,
+который можно отдать содержимому, — воздух: внешнее поле 36→14 px
+и промежуток между плитами 30→20 px по вертикали. Плюс кнопки уехали
+в правый верхний угол плит, и полоса прогресса больше не делит место
+с круглой кнопкой. Арифметика бюджета — в design/WIDGET-HOWTO.md § 10.
 
 Файлы на выходе:
 
@@ -39,6 +49,7 @@
     design/widget_bento_ic_plate.png   неоновая тарелка (слот «Питание»)
     design/widget_bento_ic_clock.png   неоновые часы   (слот «Активность»)
     design/widget_bento_ic_pencil.png  карандаш для кнопки быстрого ввода
+    design/widget_bento_ic_gear.png    шестерёнка (настройки виджета)
 """
 from pathlib import Path
 
@@ -51,16 +62,19 @@ OUT_DROP = Path('design/widget_bento_ic_drop.png')
 OUT_PLATE = Path('design/widget_bento_ic_plate.png')
 OUT_CLOCK = Path('design/widget_bento_ic_clock.png')
 OUT_PENCIL = Path('design/widget_bento_ic_pencil.png')
+OUT_GEAR = Path('design/widget_bento_ic_gear.png')
 
 # Сетка подложки. Те же числа стоят в weightSum разметки overlay —
 # менять их можно только парой, иначе плиты и содержимое разъедутся.
-W, H = 1200, 675
-PAD = 36
-GAP = 30
+W, H = 1200, 540
+PAD = 36                                      # поле слева и справа
+PAD_V = 14                                    # поле сверху и снизу
+GAP = 30                                      # промежуток между колонками
+GAP_V = 20                                    # промежуток между плитами справа
 LEFT_W = 538
 RIGHT_W = W - 2 * PAD - GAP - LEFT_W          # 560
-CARD_H = H - 2 * PAD                          # 542
-SMALL_H = (CARD_H - GAP) // 2                 # 256
+CARD_H = H - 2 * PAD_V                        # 512
+SMALL_H = (CARD_H - GAP_V) // 2               # 246
 
 # Палитра снята с арта 0.9.26 (оболочка (17,20,25), плита (21,22,27)).
 # Контраст там почти нулевой, плиты читались только за счёт мягкой тени,
@@ -230,19 +244,52 @@ def draw_pencil(draw, width, color):
     draw.line((168, 88, 196, 116), fill=color, width=width)
 
 
+def draw_gear(draw, width, color):
+    """Шестерёнка для угла крупной плиты — вход в настройки виджета.
+
+    Рисуется заливкой и приглушённым серым: это служебная кнопка, она
+    не должна спорить с показателями. Зубцы — восемь трапеций по кругу,
+    внутри сквозное отверстие (его вырезает вызывающий код).
+    """
+    import math
+
+    cx = cy = 128
+    r_out, r_in = 104, 74
+    for i in range(8):
+        a = math.radians(i * 45)
+        pts = []
+        for da, r in ((-13, r_in), (-9, r_out), (9, r_out), (13, r_in)):
+            ang = a + math.radians(da)
+            pts.append((cx + math.cos(ang) * r, cy + math.sin(ang) * r))
+        draw.polygon(pts, fill=color)
+    draw.ellipse((cx - r_in, cy - r_in, cx + r_in, cy + r_in), fill=color)
+
+
+def build_gear(color=(150, 160, 176, 255)):
+    """Шестерёнка целиком: тело минус отверстие в середине."""
+    im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+    draw_gear(ImageDraw.Draw(im), 0, color)
+    hole = Image.new('L', (256, 256), 255)
+    ImageDraw.Draw(hole).ellipse((128 - 34, 128 - 34, 128 + 34, 128 + 34), fill=0)
+    im.putalpha(Image.composite(im.getchannel('A'), Image.new('L', (256, 256), 0), hole))
+    return im.crop(im.getbbox())
+
+
 def build_background():
     """Оболочка и три плиты в точной сетке — без единого показателя."""
     im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
 
-    shell_radius = int(min(W, H) * 0.105)
+    # Радиус оболочки считаем от ШИРИНЫ: на вытянутом холсте 1200x540
+    # прежняя привязка к min(W, H) давала почти полукруглые торцы.
+    shell_radius = int(W * 0.047)
     d.rounded_rectangle((0, 0, W - 1, H - 1), radius=shell_radius, fill=SHELL)
 
     card_radius = 30
     plates = [
-        (PAD, PAD, PAD + LEFT_W, PAD + CARD_H),
-        (PAD + LEFT_W + GAP, PAD, W - PAD, PAD + SMALL_H),
-        (PAD + LEFT_W + GAP, PAD + SMALL_H + GAP, W - PAD, PAD + CARD_H),
+        (PAD, PAD_V, PAD + LEFT_W, PAD_V + CARD_H),
+        (PAD + LEFT_W + GAP, PAD_V, W - PAD, PAD_V + SMALL_H),
+        (PAD + LEFT_W + GAP, PAD_V + SMALL_H + GAP_V, W - PAD, PAD_V + CARD_H),
     ]
     for x0, y0, x1, y1 in plates:
         d.rounded_rectangle((x0, y0, x1 - 1, y1 - 1), radius=card_radius,
@@ -254,7 +301,7 @@ def build_background():
     # Внешний контур режем маской по уже уменьшенной картинке: иначе после
     # LANCZOS по краю остаётся светлый ободок (полевой дефект 0.9.26).
     mask = Image.new('L', im.size, 0)
-    radius = max(36, int(min(im.size) * 0.105))
+    radius = max(24, int(im.size[0] * 0.047))
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, im.size[0] - 1, im.size[1] - 1),
                                            radius=radius, fill=255)
     im.putalpha(mask)
@@ -288,6 +335,10 @@ def main():
     pencil = pencil.crop(pencil.getbbox())
     pencil.save(OUT_PENCIL, format='PNG')
     print('wrote', OUT_PENCIL, pencil.size)
+
+    gear = build_gear()
+    gear.save(OUT_GEAR, format='PNG')
+    print('wrote', OUT_GEAR, gear.size)
 
 
 if __name__ == '__main__':

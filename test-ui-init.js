@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.29', '0.9.29 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.29'/.test(app923), '0.9.29 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.29 \(build 0\)/.test(html923), '0.9.29 #about-version');
+  check(ver923 === '0.9.30', '0.9.30 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.30'/.test(app923), '0.9.30 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.30 \(build 0\)/.test(html923), '0.9.30 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4597,16 +4597,54 @@ for (const id of ids) {
     && /ADD_WATER_250/.test(bento),
     '0.9.28 карандаш открывает быстрый ввод, вода уходит броадкастом');
 
-  /* Шкала прижата распоркой к низу плиты и не срезается. */
-  check(/android:layout_weight="1"\s+android:minHeight="4dp"/.test(lay.replace(/\n\s+/g, ' ')),
-    '0.9.28 шкала прижата к низу — пилюля не обрезается');
+  /* 0.9.30: шкала лежит отдельным слоем, прижатым к низу плиты
+     (layout_gravity="bottom"), а не последней строкой текстовой колонки.
+     Так её высоту не съедает текст, если лаунчер выдаст плиту ниже
+     расчётной, и нижнее закругление пилюли не срезается. Растягивается
+     вместо неё строка цели — у неё weight=1. */
+  const flat930 = lay.replace(/\n\s+/g, ' ');
+  check(/android:layout_height="10dp" android:layout_gravity="bottom"/.test(flat930)
+    && (flat930.match(/android:layout_height="10dp" android:layout_gravity="bottom"/g) || []).length === 2
+    && (flat930.match(/widget_bento_[bc]_goal" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/g) || []).length === 2,
+    '0.9.30 шкала — отдельный нижний слой во всю ширину плиты');
 
-  /* Высота ячейки поднята: на 150 dp две строки и шкала не помещались. */
-  check(/'FitFlow · бенто', 250, 180/.test(yml)
-    && /targetCellHeight=\\?"3\\?"/.test(yml),
-    '0.9.28 бенто занимает 4x3 — контенту хватает высоты');
+  /* Пункт 1 владельца: кнопки уехали в правый верхний угол и уменьшены.
+     Именно это, а не сжатие шрифтов, вернуло виджету размер 4x2. */
+  check((flat930.match(/android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="top\|end"/g) || []).length === 4
+    && !/android:layout_gravity="end\|center_vertical"/.test(flat930),
+    '0.9.30 круглые кнопки 38dp в правом верхнем углу, не по центру плиты');
 
-  check(/widget_bento_ic_pencil/.test(yml) && /widget_bento_shoe/.test(yml),
+  /* Пункт 2: кнопка питания того же размера, что кнопка воды, и глуше. */
+  const btnW930 = fs928.readFileSync('android-res/drawable/fitflow_bento_btn.xml', 'utf8');
+  const btnF930 = fs928.readFileSync('android-res/drawable/fitflow_bento_btn_food.xml', 'utf8');
+  check(/38dp/.test(btnW930) && /38dp/.test(btnF930)
+    && /#D9714A/.test(btnF930) && !/#FF8A5C/.test(btnF930),
+    '0.9.30 кнопка питания равна кнопке воды и приглушена по цвету');
+
+  /* Пункт 3: шестерёнка ведёт в диалог состава виджета, а не «в приложение». */
+  const app930 = fs928.readFileSync('app.js', 'utf8');
+  check(/widget_bento_gear/.test(lay)
+    && /widget_action", "widget_settings"/.test(bento)
+    && /action === 'widget_settings'/.test(app930)
+    && /openWidgetLayoutDialog\(\)/.test(app930.slice(app930.indexOf("action === 'widget_settings'"))),
+    '0.9.30 шестерёнка открывает настройки состава виджета');
+
+  /* Шрифты владелец просил не трогать — размеры те же, что в 0.9.29. */
+  check((lay.match(/android:textSize="12sp"/g) || []).length === 3
+    && (lay.match(/android:textSize="20sp"/g) || []).length === 1
+    && (lay.match(/android:textSize="17sp"/g) || []).length === 2
+    && (lay.match(/android:textSize="11sp"/g) || []).length === 3,
+    '0.9.30 размеры шрифтов не изменились при переходе на 4x2');
+
+  /* 0.9.30: бенто вернулся на 4x2. Это стало возможно не сжатием шрифтов
+     (владелец запретил), а тем, что круглая кнопка ушла из центра плиты
+     в её правый верхний угол и освободила высоту под полосу. */
+  check(/'FitFlow · бенто', 250, 150/.test(yml)
+    && /targetCellHeight=\\?"2\\?"/.test(yml),
+    '0.9.30 бенто занимает 4x2 — компактная раскладка');
+
+  check(/widget_bento_ic_pencil/.test(yml) && /widget_bento_shoe/.test(yml)
+    && /widget_bento_ic_gear/.test(yml),
     '0.9.28 зеркало кладёт иконки слотов в drawable');
 
   check(!/остаток/.test(bento) && /Питание = съедено/.test(bento)

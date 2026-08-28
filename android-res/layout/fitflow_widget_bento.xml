@@ -1,27 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 0.9.28: подложка PNG (только оболочка и плиты) + полный overlay.
+<!-- 0.9.30: бенто 4x2 (компактная раскладка).
 
-     Сетка ОБЯЗАНА совпадать с tools/prepare-bento-bg.py:
-       поле 36/1200 = 3 %, промежуток 30/1200 = 2.5 %,
-       левая плита 538/1200, правая колонка 560/1200,
-       в правой колонке две плиты по (542-30)/2.
-     Поэтому здесь всё на layout_weight, а не в фиксированных dp:
-     подложка тянется fitXY, и только проценты дают совпадение
-     содержимого с плитами на любом размере ячейки.
+     Подложка PNG несёт ТОЛЬКО оболочку и три плиты, всё содержимое
+     рисует overlay. Сетка ОБЯЗАНА совпадать с tools/prepare-bento-bg.py:
+       холст 1200x540, поле по бокам 36, поле сверху/снизу 14,
+       промежуток колонок 30, промежуток плит по вертикали 20,
+       левая плита 538, правая колонка 560.
+     Отсюда веса: по вертикали 26/948/26, по горизонтали
+     30/448/25/467/30, в правой колонке 480/40/480.
+     Всё на layout_weight, а не в фиксированных dp: подложка тянется
+     fitXY, и только проценты дают совпадение содержимого с плитами
+     на любом размере ячейки.
 
-     Слоты обезличены (A — крупный с кольцом, B и C — со шкалой):
-     какой показатель в каком слоте, решает FitFlowWidgetBentoProvider
-     по выбору пользователя. Подписей в картинке больше нет.
+     Что изменилось против 0.9.29 (замечания владельца по скрину):
 
-     ВНИМАНИЕ (0.9.29, полевой отказ «Не удалось добавить виджет»):
-     здесь можно использовать ТОЛЬКО вьюхи из белого списка RemoteViews —
-     FrameLayout, LinearLayout, RelativeLayout, GridLayout, TextView,
-     ImageView, ImageButton, Button, ProgressBar, Chronometer, AnalogClock,
-     ViewFlipper, ListView, GridView, StackView, AdapterViewFlipper,
-     ViewStub. Обычный <View> в этот список НЕ входит: лаунчер не может
-     раздуть разметку и виджет не добавляется на экран вообще (чёрный
-     прямоугольник с ошибкой). Поэтому все распорки — пустые FrameLayout.
-     Сторож — тест «0.9.29 ... белого списка RemoteViews».
+     1. Круглые кнопки уехали в правый верхний угол плит и уменьшены
+        46 -> 38 dp. Раньше кнопка стояла по центру плиты и делила
+        высоту с текстом: под текстом оставалась пустота, а полоса
+        прогресса жалась к самому низу. Теперь кнопка никому не мешает,
+        а полоса лежит во всю ширину плиты.
+     2. Кнопка питания стала того же размера, что и кнопка воды (38 dp
+        обе, раньше разницы не было, но карандаш зрительно раздувал
+        круг), и её цвет приглушён: #FF8A5C -> #E0794F.
+     3. В углу крупной плиты — шестерёнка: открывает настройки состава
+        виджета в приложении.
+
+     Шрифты и их расположение владелец просил не трогать — размеры
+     подписей, значений и целей те же, что в 0.9.29. Высота отыграна
+     только на воздухе: поля подложки, положение кнопок, кольцо 104 ->
+     80 dp.
+
+     ВНИМАНИЕ: здесь можно использовать ТОЛЬКО вьюхи из белого списка
+     RemoteViews — FrameLayout, LinearLayout, RelativeLayout, GridLayout,
+     TextView, ImageView, ImageButton, Button, ProgressBar, Chronometer,
+     AnalogClock, ViewFlipper, ListView, GridView, StackView,
+     AdapterViewFlipper, ViewStub. Обычный <View> в этот список НЕ входит:
+     лаунчер не может раздуть разметку и виджет не добавляется на экран
+     вообще (чёрный прямоугольник с ошибкой, 0.9.29). Поэтому все
+     распорки — пустые FrameLayout. Сторож — тест
+     «0.9.29 ... белого списка RemoteViews».
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_bento_root"
@@ -37,7 +54,6 @@
         android:src="@drawable/widget_bento_bg"
         android:contentDescription="@null" />
 
-    <!-- Внешнее поле 3 % — ровно PAD подложки. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -47,12 +63,12 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="59" />
+            android:layout_weight="26" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="882"
+            android:layout_weight="948"
             android:orientation="horizontal"
             android:weightSum="1000">
 
@@ -74,7 +90,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="top|start"
                     android:layout_marginStart="14dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="8dp"
                     android:text=""
                     android:textColor="#98A0AE"
                     android:textSize="12sp"
@@ -84,17 +100,41 @@
                     android:maxLines="1"
                     android:ellipsize="end" />
 
+                <!-- 0.9.30 (пункт 3 владельца): шестерёнка в правом верхнем
+                     углу крупной плиты — короткий путь «сменить показатели
+                     виджета». Серая и мелкая намеренно: служебная кнопка не
+                     должна спорить с показателями. Область нажатия шире самой
+                     картинки за счёт padding — 18 dp иконки в 30 dp кнопке. -->
+                <ImageView
+                    android:id="@+id/widget_bento_gear"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginEnd="2dp"
+                    android:padding="5dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/widget_bento_ic_gear"
+                    android:alpha="0.55"
+                    android:contentDescription="@null" />
+
                 <!-- Кольцо и иконка — в одном центрированном контейнере,
                      поэтому иконка всегда ровно в середине кольца.
                      В 0.9.27 кольцо рисовал overlay, а кроссовок лежал
                      в картинке: центры не совпадали ни на одном размере,
-                     мысок наступал на дугу (полевой дефект). -->
+                     мысок наступал на дугу (полевой дефект).
+                     0.9.30: 104 -> 72 dp, потому что плита стала ниже.
+                     Размер выбран не на глаз: на ячейке 150 dp крупной
+                     плите достаётся 142.2 dp, снизу 46 dp занимает пара
+                     «значение + цель», сверху 22 dp — подпись. Кольцо 72
+                     со сдвигом 26 ложится в 22.1..94.1 и не задевает ни
+                     подпись, ни цифры. -->
                 <FrameLayout
                     android:id="@+id/widget_bento_a_ringbox"
-                    android:layout_width="104dp"
-                    android:layout_height="104dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     android:layout_gravity="center"
-                    android:layout_marginBottom="20dp">
+                    android:layout_marginBottom="26dp">
 
                     <!-- Кольца по одному на показатель — причина та же, что у шкал. -->
                     <ProgressBar
@@ -145,11 +185,10 @@
                         android:visibility="gone"
                         android:progressDrawable="@drawable/fitflow_bento_ring" />
 
-
                     <ImageView
                         android:id="@+id/widget_bento_a_icon"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
                         android:layout_gravity="center"
                         android:scaleType="fitCenter"
                         android:src="@drawable/widget_bento_shoe"
@@ -162,7 +201,7 @@
                     android:layout_gravity="bottom|center_horizontal"
                     android:gravity="center_horizontal"
                     android:orientation="vertical"
-                    android:paddingBottom="10dp">
+                    android:paddingBottom="8dp">
 
                     <!-- Значение и цель — ДВЕ строки. Тот же приём во всех
                          трёх плитах (просьба владельца о едином подходе).
@@ -186,6 +225,7 @@
                         android:id="@+id/widget_bento_a_goal"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
                         android:text=""
                         android:textColor="#98A0AE"
                         android:textSize="11sp"
@@ -213,19 +253,24 @@
                     android:id="@+id/widget_bento_b_card"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_weight="472">
+                    android:layout_weight="480">
 
-                    <!-- Текст и шкала. Кнопка лежит поверх справа, поэтому
-                         тексту отдан правый отступ 60dp — иначе длинное
-                         число заезжало бы под круг. -->
+                    <!-- Текстовая колонка. paddingEnd 46dp — коридор под
+                         круглую кнопку в верхнем углу; paddingBottom 17dp —
+                         место под полосу, которая лежит отдельным слоем
+                         во всю ширину плиты.
+                         Цель растянута (weight=1, height=0dp) нарочно: если
+                         лаунчер выдаст плиту ниже расчётной, лишнее съест
+                         именно она, а полоса прогресса сохранит свои 10 dp
+                         и не окажется срезанной — полевой дефект 0.9.27. -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:paddingStart="14dp"
-                        android:paddingEnd="56dp"
-                        android:paddingTop="7dp"
-                        android:paddingBottom="8dp">
+                        android:paddingEnd="46dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="16dp">
 
                         <TextView
                             android:id="@+id/widget_bento_b_label"
@@ -257,7 +302,8 @@
                         <TextView
                             android:id="@+id/widget_bento_b_goal"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
                             android:text=""
                             android:textColor="#98A0AE"
                             android:textSize="11sp"
@@ -266,82 +312,73 @@
                             android:includeFontPadding="false"
                             android:maxLines="1"
                             android:ellipsize="end" />
-
-                        <!-- Распорка (пустой FrameLayout, а не <View> — см.
-                             шапку файла) забирает остаток высоты, поэтому
-                             шкала всегда прижата к низу и НИКОГДА не срезается.
-                             В 0.9.27 шкала была последней в стопке с
-                             фиксированными отступами: на невысокой ячейке
-                             колонка не помещалась, и у пилюли обрезало
-                             нижнее закругление (полевой дефект). -->
-                        <FrameLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="0dp"
-                            android:layout_weight="1"
-                            android:minHeight="4dp" />
-
-                        <!-- Четыре шкалы одна поверх другой, по одной на показатель.
-                             RemoteViews на minSdk 26 не умеет менять progressDrawable
-                             у ProgressBar, а цвет обязан следовать показателю —
-                             поэтому провайдер показывает нужную и прячет остальные. -->
-                        <FrameLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="10dp">
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_b_bar_water"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_water" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_b_bar_food"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_food" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_b_bar_activity"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_activity" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_b_bar_steps"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_steps" />
-
-                        </FrameLayout>
                     </LinearLayout>
+
+                    <!-- Четыре шкалы одна поверх другой, по одной на показатель.
+                         RemoteViews на minSdk 26 не умеет менять progressDrawable
+                         у ProgressBar, а цвет обязан следовать показателю —
+                         поэтому провайдер показывает нужную и прячет остальные. -->
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:layout_gravity="bottom"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="14dp"
+                        android:layout_marginBottom="5dp">
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_b_bar_water"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_water" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_b_bar_food"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_food" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_b_bar_activity"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_activity" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_b_bar_steps"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_steps" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/widget_bento_b_btn"
-                        android:layout_width="46dp"
-                        android:layout_height="46dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:layout_marginEnd="12dp"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
                         android:background="@drawable/fitflow_bento_btn"
                         android:gravity="center"
                         android:text=""
                         android:textColor="#082028"
-                        android:textSize="10sp"
+                        android:textSize="9sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif"
                         android:includeFontPadding="false"
@@ -351,12 +388,13 @@
 
                     <ImageView
                         android:id="@+id/widget_bento_b_btn_icon"
-                        android:layout_width="46dp"
-                        android:layout_height="46dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:layout_marginEnd="12dp"
-                        android:background="@drawable/fitflow_bento_btn"
-                        android:padding="13dp"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/fitflow_bento_btn_food"
+                        android:padding="11dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/widget_bento_ic_pencil"
                         android:visibility="gone"
@@ -366,23 +404,23 @@
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_weight="56" />
+                    android:layout_weight="40" />
 
                 <!-- ===== Слот C ===== -->
                 <FrameLayout
                     android:id="@+id/widget_bento_c_card"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_weight="472">
+                    android:layout_weight="480">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:paddingStart="14dp"
-                        android:paddingEnd="56dp"
-                        android:paddingTop="7dp"
-                        android:paddingBottom="8dp">
+                        android:paddingEnd="46dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="16dp">
 
                         <TextView
                             android:id="@+id/widget_bento_c_label"
@@ -414,7 +452,8 @@
                         <TextView
                             android:id="@+id/widget_bento_c_goal"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
                             android:text=""
                             android:textColor="#98A0AE"
                             android:textSize="11sp"
@@ -423,75 +462,69 @@
                             android:includeFontPadding="false"
                             android:maxLines="1"
                             android:ellipsize="end" />
-
-                        <FrameLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="0dp"
-                            android:layout_weight="1"
-                            android:minHeight="4dp" />
-
-                        <!-- Четыре шкалы одна поверх другой, по одной на показатель.
-                             RemoteViews на minSdk 26 не умеет менять progressDrawable
-                             у ProgressBar, а цвет обязан следовать показателю —
-                             поэтому провайдер показывает нужную и прячет остальные. -->
-                        <FrameLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="10dp">
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_c_bar_water"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_water" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_c_bar_food"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_food" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_c_bar_activity"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_activity" />
-
-                            <ProgressBar
-                                android:id="@+id/widget_bento_c_bar_steps"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:max="100"
-                                android:progress="0"
-                                android:visibility="gone"
-                                android:progressDrawable="@drawable/fitflow_bento_bar_steps" />
-
-                        </FrameLayout>
                     </LinearLayout>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:layout_gravity="bottom"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="14dp"
+                        android:layout_marginBottom="5dp">
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_c_bar_water"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_water" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_c_bar_food"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_food" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_c_bar_activity"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_activity" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_c_bar_steps"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_steps" />
+                    </FrameLayout>
 
                     <TextView
                         android:id="@+id/widget_bento_c_btn"
-                        android:layout_width="46dp"
-                        android:layout_height="46dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:layout_marginEnd="12dp"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
                         android:background="@drawable/fitflow_bento_btn"
                         android:gravity="center"
                         android:text=""
                         android:textColor="#082028"
-                        android:textSize="10sp"
+                        android:textSize="9sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif"
                         android:includeFontPadding="false"
@@ -501,12 +534,13 @@
 
                     <ImageView
                         android:id="@+id/widget_bento_c_btn_icon"
-                        android:layout_width="46dp"
-                        android:layout_height="46dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:layout_marginEnd="12dp"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
                         android:background="@drawable/fitflow_bento_btn_food"
-                        android:padding="13dp"
+                        android:padding="11dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/widget_bento_ic_pencil"
                         android:visibility="gone"
@@ -523,6 +557,6 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="59" />
+            android:layout_weight="26" />
     </LinearLayout>
 </FrameLayout>

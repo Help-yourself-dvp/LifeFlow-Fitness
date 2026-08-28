@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.29';
+const FITFLOW_VERSION = '0.9.30';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -13891,6 +13891,14 @@ if (typeof window !== 'undefined') {
     } else if (action === 'smart_entry') {
       openSmartEntry();
       toast('📝 Быстрый ввод открыт с виджета');
+    } else if (action === 'widget_settings') {
+      /* 0.9.30: шестерёнка в углу бенто-виджета. Ведём сразу в диалог
+         состава виджета, а не «в настройки вообще»: смысл кнопки —
+         поменять показатели в два тапа с рабочего стола. Сначала нужный
+         подраздел настроек, потом диалог поверх него, чтобы «Готово»
+         возвращало на осмысленный экран, а не на пустую Главную. */
+      switchView('settings-general');
+      setTimeout(() => { try { openWidgetLayoutDialog(); } catch (e) { } }, 160);
     }
   };
 

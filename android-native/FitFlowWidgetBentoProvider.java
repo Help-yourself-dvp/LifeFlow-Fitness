@@ -28,6 +28,19 @@ import java.util.ArrayList;
       smart_entry), тот же экран, что кнопка «📝 Записать»
       классического виджета.
 
+   0.9.30 — компактная раскладка 4x2 по замечаниям владельца.
+
+   4. Круглые кнопки уменьшены (46 -> 38 dp) и переехали в правый
+      верхний угол плиты. Раньше кнопка стояла по центру и делила
+      высоту с текстом — под текстом зияла пустота, а полоса прогресса
+      жалась к нижней кромке. Теперь полоса лежит во всю ширину плиты,
+      и виджету хватает двух рядов ячеек вместо трёх.
+   5. Кнопка питания приглушена по цвету (#FF8A5C -> #D9714A): на
+      тёмном экране она выжигала правый край.
+   6. Шестерёнка в углу крупной плиты открывает настройки состава
+      виджета — переключить «Питание» на «Активность» стало можно
+      прямо с рабочего стола, в два тапа.
+
    Питание = съедено / цель, не remaining. */
 public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
@@ -198,6 +211,17 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
                     .append(unitOf(slot)).append('.');
             }
             views.setContentDescription(R.id.widget_bento_root, talk.toString());
+
+            /* 0.9.30 (пункт 3 владельца): шестерёнка ведёт в настройки состава
+               виджета. Отдельным действием, а не «просто открыть приложение»:
+               смысл кнопки — попасть сразу в нужный диалог. Обработчик —
+               window.onWidgetAction('widget_settings') в app.js. */
+            Intent gear = new Intent(context, MainActivity.class);
+            gear.putExtra("widget_action", "widget_settings");
+            gear.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            views.setContentDescription(R.id.widget_bento_gear, "Настроить показатели виджета");
+            views.setOnClickPendingIntent(R.id.widget_bento_gear, PendingIntent.getActivity(
+                context, REQ + 3, gear, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
             Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
             if (launch == null) launch = new Intent(context, MainActivity.class);

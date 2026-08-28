@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""0.9.28: предпросмотр бенто — как его соберёт Android из подложки и overlay.
+"""0.9.30: предпросмотр бенто (раскладка 4x2) — как его соберёт Android из подложки и overlay.
 
 Скрипт НЕ участвует в сборке APK. Он существует ровно затем, чтобы
 проверять вёрстку в песочнице, где нет Android SDK: повторяет ту же
@@ -28,6 +28,7 @@ ICONS = {
     'activity': 'design/widget_bento_ic_clock.png',
 }
 PENCIL = 'design/widget_bento_ic_pencil.png'
+GEAR = 'design/widget_bento_ic_gear.png'
 
 COLORS = {
     'water': '#00D2B4',
@@ -43,14 +44,15 @@ WHITE = '#FFFFFF'
 MUTED = '#98A0AE'
 
 # Веса из разметки (см. weightSum в fitflow_widget_bento.xml).
-PAD_V = 59 / 1000.0
-ROW = 882 / 1000.0
+# 0.9.30: раскладка 4x2 — вертикальные поля и промежуток ужаты.
+PAD_V = 26 / 1000.0
+ROW = 948 / 1000.0
 PAD_H = 30 / 1000.0
 LEFT = 448 / 1000.0
 MID = 25 / 1000.0
 RIGHT = 467 / 1000.0
-SMALL = 472 / 1000.0
-GAP_V = 56 / 1000.0
+SMALL = 480 / 1000.0
+GAP_V = 40 / 1000.0
 
 
 def font(size, bold=False):
@@ -152,16 +154,17 @@ def circle_button(im, cx, cy, r, colour, text=None, icon=None):
 
 
 def small_slot(im, box, slot, data, dp):
-    """Плита B/C: подпись, значение, цель, шкала внизу, кнопка справа."""
+    """Плита B/C: подпись, значение, цель, шкала во всю ширину,
+    круглая кнопка в правом верхнем углу (0.9.30)."""
     d = ImageDraw.Draw(im)
     x0, y0, x1, y1 = box
     value, goal = data[slot]
     colour = COLORS[slot]
 
     has_btn = slot in ('water', 'food')
-    pad_end = int(56 * dp) if has_btn else int(14 * dp)
+    pad_end = int(46 * dp) if has_btn else int(14 * dp)
     tx = x0 + int(14 * dp)
-    ty = y0 + int(7 * dp)
+    ty = y0 + int(4 * dp)
 
     f_label = font(int(12 * dp))
     f_value = font(int(17 * dp), bold=True)
@@ -175,19 +178,21 @@ def small_slot(im, box, slot, data, dp):
     d.text((tx, ty), ellipsize(d, 'из ' + spaced(goal) + UNIT[slot], f_goal,
                                x1 - pad_end - tx), font=f_goal, fill=MUTED)
 
+    # Шкала — отдельным слоем, во всю ширину плиты: кнопка ей больше
+    # не мешает, потому что уехала наверх.
     bar_h = int(10 * dp)
-    bar_bottom = y1 - int(8 * dp)
-    pill(im, (tx, bar_bottom - bar_h, x1 - pad_end, bar_bottom),
+    bar_bottom = y1 - int(5 * dp)
+    pill(im, (tx, bar_bottom - bar_h, x1 - int(14 * dp), bar_bottom),
          colour, pct(value, goal))
 
     if has_btn:
-        r = int(23 * dp)
-        cx = x1 - int(12 * dp) - r
-        cy = (y0 + y1) // 2
+        r = int(19 * dp)
+        cx = x1 - int(8 * dp) - r
+        cy = y0 + int(6 * dp) + r
         if slot == 'water':
-            circle_button(im, cx, cy, r, '#00D2B4', text='+250\nмл')
+            circle_button(im, cx, cy, r, '#00B79E', text='+250\nмл')
         else:
-            circle_button(im, cx, cy, r, '#FF8A5C', icon=PENCIL)
+            circle_button(im, cx, cy, r, '#D9714A', icon=PENCIL)
 
 
 def render(slots, data, width=960):
@@ -195,7 +200,7 @@ def render(slots, data, width=960):
     k = width / bg.width
     im = bg.resize((width, int(bg.height * k)), Image.Resampling.LANCZOS)
     W, H = im.size
-    dp = W / 320.0  # ячейка 4x3 ≈ 320 dp по ширине
+    dp = W / 320.0  # ячейка 4x2 ≈ 320 dp по ширине
 
     top = H * PAD_V
     row_h = H * ROW
@@ -219,11 +224,18 @@ def render(slots, data, width=960):
     d.text((a_box[0] + int(14 * dp), a_box[1] + int(10 * dp)),
            LABEL[a], font=f_label, fill=MUTED)
 
-    ring_r = int(52 * dp)
+    # 0.9.30: шестерёнка в правом верхнем углу — вход в настройки состава.
+    gear = Image.open(GEAR).convert('RGBA')
+    gs = int(16 * dp)
+    gear = gear.resize((gs, gs), Image.Resampling.LANCZOS)
+    gear.putalpha(gear.getchannel('A').point(lambda v: int(v * 0.55)))
+    im.alpha_composite(gear, (a_box[2] - int(8 * dp) - gs, a_box[1] + int(8 * dp)))
+
+    ring_r = int(36 * dp)
     cx = (a_box[0] + a_box[2]) // 2
-    cy = (a_box[1] + a_box[3]) // 2 - int(20 * dp)
-    ring(im, cx, cy, ring_r, int(7 * dp), COLORS[a], pct(value, goal))
-    paste_icon(im, ICONS[a], (cx - 1, cy - 1, cx + 1, cy + 1), int(56 * dp))
+    cy = (a_box[1] + a_box[3]) // 2 - int(26 * dp)
+    ring(im, cx, cy, ring_r, int(6 * dp), COLORS[a], pct(value, goal))
+    paste_icon(im, ICONS[a], (cx - 1, cy - 1, cx + 1, cy + 1), int(40 * dp))
 
     # Значение и цель — две строки, как в малых плитах.
     f_value = font(int(20 * dp), bold=True)
@@ -233,9 +245,9 @@ def render(slots, data, width=960):
     bb = d.textbbox((0, 0), txt, font=f_value)
     gb = d.textbbox((0, 0), g, font=f_goal)
     cxm = (a_box[0] + a_box[2]) // 2
-    by = a_box[3] - int(10 * dp) - bb[3] - gb[3]
+    by = a_box[3] - int(8 * dp) - bb[3] - gb[3] - int(2 * dp)
     d.text((cxm - bb[2] // 2, by), txt, font=f_value, fill=WHITE)
-    d.text((cxm - gb[2] // 2, by + bb[3]), g, font=f_goal, fill=MUTED)
+    d.text((cxm - gb[2] // 2, by + bb[3] + int(2 * dp)), g, font=f_goal, fill=MUTED)
 
     for slot, box in ((slots[1] if len(slots) > 1 else None, b_box),
                       (slots[2] if len(slots) > 2 else None, c_box)):
