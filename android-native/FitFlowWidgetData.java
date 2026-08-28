@@ -29,6 +29,8 @@ class FitFlowWidgetData {
     /* 0.9.33: строки показателей без кольца — их считает app.js. */
     String weightLine = "";
     String dayPlanLine = "";
+    /* 0.9.35: сон — только общее время, цели у показателя нет. */
+    String sleepLine = "";
     /* Сколько приёмов курса отмечено сегодня. Нужно кнопке витаминов:
        владелец просил видеть отметку, не открывая приложение. */
     int coursesDone;
@@ -78,6 +80,8 @@ class FitFlowWidgetData {
         if (d.weightLine == null) d.weightLine = "";
         d.dayPlanLine = prefs.getString("dayPlanLine", "");
         if (d.dayPlanLine == null) d.dayPlanLine = "";
+        d.sleepLine = prefs.getString("sleepLine", "");
+        if (d.sleepLine == null) d.sleepLine = "";
         d.moodLine = prefs.getString("moodLine", "");
         if (d.moodLine == null) d.moodLine = "";
         d.mood = parseMood(d.moodLine);

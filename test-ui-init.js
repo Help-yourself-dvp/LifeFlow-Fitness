@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.34', '0.9.34 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.34'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.34 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.35', '0.9.35 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.35'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.35 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4448,11 +4448,13 @@ for (const id of ids) {
     && fs924.existsSync('android-native/FitFlowWidgetPaint.java'),
     '0.9.24 исходники капли / бенто / колец на месте');
 
+  /* 0.9.35: имя FitFlowWidgetTilesProvider занято НОВЫМ виджетом «плитки»
+     (макет владельца со скриншота) — оно больше не в чёрном списке.
+     Отличить старый от нового можно по drawTiles: у старого его не было. */
   check(!fs924.existsSync('android-native/FitFlowWidgetRingProvider.java')
     && !fs924.existsSync('android-native/FitFlowWidgetDialProvider.java')
-    && !fs924.existsSync('android-native/FitFlowWidgetTilesProvider.java')
     && !fs924.existsSync('android-native/FitFlowWidgetRingsProvider.java'),
-    '0.9.24 старые Ring / Rings / Dial / Tiles убраны');
+    '0.9.24 старые Ring / Rings / Dial убраны');
 
   check(/void drawDrop\(/.test(paint924) && /void drawBento\(/.test(paint924)
     && /void drawNeon\(/.test(paint924) && /Path dropPath\(/.test(paint924)
@@ -4677,6 +4679,7 @@ for (const id of ids) {
   const neonProv = fs932.readFileSync('android-native/FitFlowWidgetNeonProvider.java', 'utf8');
   const canvas = fs932.readFileSync('android-native/FitFlowWidgetCanvasProvider.java', 'utf8');
   const prev = fs932.readFileSync('tools/widget-glass-preview.py', 'utf8');
+  const appjs = fs932.readFileSync('app.js', 'utf8');
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
 
@@ -4876,7 +4879,88 @@ for (const id of ids) {
     i !== j && Math.abs(b - o) < usedSlots)) || bases.some((b) => !Number.isFinite(b));
   check(!collide, '0.9.34 requestCode виджетов не пересекаются');
 
-  if (!bad) console.log('  (0.9.34: единые значки, весы вектором, кнопка витаминов, светлая тема)');
+  /* ===== 0.9.35: плитки, сон, свои значки, названия виджетов ===== */
+  const tiles = fs932.readFileSync('android-native/FitFlowWidgetTilesProvider.java', 'utf8');
+  const tilesDark = fs932.readFileSync('android-native/FitFlowWidgetTilesDarkProvider.java', 'utf8');
+  const tprev = fs932.readFileSync('tools/widget-tiles-preview.py', 'utf8');
+  const wprov = fs932.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
+
+  /* Имя виджета в системном списке берётся с РЕСИВЕРА (android:label).
+     Без него лаунчер подставляет имя приложения и все виджеты выглядят
+     одинаково — на это владелец пожаловался в 0.9.34. */
+  check(yml.includes('android:label="FitFlow · список"')
+    && yml.includes('android:label="{label}"')
+    && yml.includes("'FitFlow · кольца (светлый)')")
+    && yml.includes("'FitFlow · плитки (светлый)')"),
+    '0.9.35 у каждого виджета своё имя в системном списке');
+
+  /* Сон: только общее время (цель пользователь не задаёт), путь
+     app.js -> prefs -> FitFlowWidgetData -> строка на виджете. */
+  check(/function widgetSleepLine\(\)/.test(appjs)
+    && /sleepLine: widgetSleepLine\(\)/.test(appjs)
+    && /id: 'sleep', label: 'Сон'/.test(appjs)
+    && !/из 8 ч|sleepGoal/.test(appjs.slice(appjs.indexOf('function widgetSleepLine'),
+        appjs.indexOf('function widgetSleepLine') + 700))
+    && /putString\("sleepLine"/.test(fs932.readFileSync('android-native/MainActivity.java', 'utf8'))
+    && /String sleepLine/.test(data)
+    && /"sleep"\.equals\(id\)\) return tail\(d\.sleepLine\)/.test(paint),
+    '0.9.35 сон: только общее время, сквозной путь до виджета');
+
+  /* Свои PNG-значки владельца: приоритет над эмодзи, кэш, суффикс -color
+     запрещает перекраску. Нет файла — молча падаем в эмодзи. */
+  check(/static Bitmap iconAsset\(Context context, String id\)/.test(paint)
+    && /getAssets\(\)\.open\("public\/assets\/widget-icons\/" \+ name\)/.test(paint)
+    && /iconIsColor/.test(paint)
+    && /ICON_CACHE/.test(paint)
+    && /mkdir -p www\/assets\/widget-icons/.test(yml)
+    && fs932.existsSync('assets/widget-icons/README.md'),
+    '0.9.35 свои PNG-значки: приоритет над эмодзи, папка и сборка');
+
+  /* Плитки: светлый основной + тёмный, общая отрисовка и разметка. */
+  check(/static void drawTiles\(Context ctx, Canvas c/.test(paint)
+    && /TILES_LIGHT = new TilesTheme/.test(paint)
+    && /TILES_DARK = new TilesTheme/.test(paint)
+    && /class FitFlowWidgetTilesDarkProvider extends FitFlowWidgetTilesProvider/.test(tilesDark)
+    && /TILES_DARK/.test(tilesDark)
+    && /R\.layout\.fitflow_widget_tiles/.test(tiles)
+    && /'fitflow_widget_tiles_info', 'FitFlow · плитки \(светлый\)', 250, 150, 'fitflow_widget_tiles'/.test(yml)
+    && /FitFlowWidgetTilesProvider\.class/.test(canvas),
+    '0.9.35 плитки: светлый и тёмный, общая отрисовка и разметка');
+
+  /* Кнопка воды ВНУТРИ виджета (на референсе была снаружи), и ловушка
+     занимает ту же долю ширины (42 %), что рисует drawTiles. */
+  check(yml.includes('android:layout_weight=\\"42\\"')
+    || yml.includes('android:layout_weight="42"')
+    && /leftW = hasWater \? \(w - 2f \* pad - gap\) \* 0\.42f/.test(paint)
+    && /widget_canvas_water_btn/.test(yml.slice(yml.indexOf('fitflow_widget_tiles.xml'))),
+    '0.9.35 кнопка воды внутри виджета, ловушка совпадает с рисунком');
+
+  /* Анимация: только по нажатию, ограничена по кадрам. Постоянной
+     анимации в виджетах быть не должно — она сажает батарею. */
+  check(/static void animateWater\(final Context context, final float fromPct\)/.test(tiles)
+    && /ANIM_FRAMES = 12/.test(tiles)
+    && /ANIM_STEP_MS = 40L/.test(tiles)
+    && /FitFlowWidgetTilesProvider\.animateWater\(context, beforePct\)/.test(wprov)
+    && /float beforePct/.test(wprov),
+    '0.9.35 анимация капли только по нажатию и с ограничением кадров');
+
+  /* Зеркало плиток: числа макета в Java и в предпросмотре. */
+  const tilesPairs = [
+    [/pad = 8f \* den/, /pad = 8 \* den/, 'поле'],
+    [/gap = 7f \* den/, /gap = 7 \* den/, 'зазор'],
+    [/leftW = hasWater \? \(w - 2f \* pad - gap\) \* 0\.42f/,
+     /left_w = \(width - 2 \* pad - gap\) \* 0\.42 if has_water/, 'ширина блока капли'],
+    [/btnH = 30f \* den/, /btn_h = 30 \* den/, 'высота кнопки'],
+    [/minTile = 38f \* den/, /min_tile = 38 \* den/, 'минимальная плитка'],
+    [/dh \* 0\.86f/, /dh \* 0\.86/, 'пропорции капли']
+  ];
+  const tdrift = tilesPairs
+    .filter(([j, py]) => !(j.test(paint) && py.test(tprev)))
+    .map(([, , what]) => what);
+  check(/ЗЕРКАЛО Java-кода/.test(tprev) && tdrift.length === 0,
+    `0.9.35 предпросмотр плиток — зеркало drawTiles${tdrift.length ? ' — разошлось: ' + tdrift.join(', ') : ''}`);
+
+  if (!bad) console.log('  (0.9.35: плитки, сон, свои значки, имена виджетов, анимация)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

@@ -1,7 +1,13 @@
 package com.fitflow.app;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.BlurMaskFilter;
+import android.graphics.ColorFilter;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -59,7 +65,65 @@ final class FitFlowWidgetPaint {
     static Typeface font = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     static Typeface fontReg = Typeface.create("sans-serif", Typeface.NORMAL);
 
+    /* 0.9.35: свои значки владельца. Кэш на процесс — виджет
+       перерисовывается часто (кнопка воды, анимация), декодировать PNG
+       каждый раз нельзя. Значение null означает «файла нет, не искать
+       больше»: отрицательный результат тоже кэшируем. */
+    private static final java.util.HashMap<String, Bitmap> ICON_CACHE =
+        new java.util.HashMap<String, Bitmap>();
+
     private FitFlowWidgetPaint() { }
+
+    /* Значок из assets: public/assets/widget-icons/<id>.png.
+       Суффикс -color = «не перекрашивать» (готовый цветной значок). */
+    static Bitmap iconAsset(Context context, String id) {
+        if (context == null || id == null) return null;
+        synchronized (ICON_CACHE) {
+            if (ICON_CACHE.containsKey(id)) return ICON_CACHE.get(id);
+        }
+        Bitmap bmp = null;
+        String[] names = { id + "-color.png", id + ".png" };
+        for (String name : names) {
+            java.io.InputStream in = null;
+            try {
+                in = context.getAssets().open("public/assets/widget-icons/" + name);
+                bmp = BitmapFactory.decodeStream(in);
+                if (bmp != null) break;
+            } catch (Exception e) {
+                // файла нет — это нормальный случай, идём к эмодзи
+            } finally {
+                try { if (in != null) in.close(); } catch (Exception e) { }
+            }
+        }
+        synchronized (ICON_CACHE) {
+            ICON_CACHE.put(id, bmp);
+        }
+        return bmp;
+    }
+
+    /* Готовые цветные значки не перекрашиваем — владелец нарисовал их
+       такими намеренно. Остальные красим в цвет показателя. */
+    static boolean iconIsColor(Context context, String id) {
+        if (context == null || id == null) return false;
+        try {
+            java.io.InputStream in = context.getAssets()
+                .open("public/assets/widget-icons/" + id + "-color.png");
+            in.close();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    static void drawIconBitmap(Canvas c, Bitmap bmp, float x, float midY,
+                               float size, int color, boolean tint) {
+        if (bmp == null) return;
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setFilterBitmap(true);
+        if (tint) p.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
+        RectF dst = new RectF(x, midY - size / 2f, x + size, midY + size / 2f);
+        c.drawBitmap(bmp, new Rect(0, 0, bmp.getWidth(), bmp.getHeight()), dst, p);
+    }
 
     static void ensureFont(Context context) {
         if (context == null) return;
@@ -471,6 +535,7 @@ final class FitFlowWidgetPaint {
         if ("workout".equals(id)) return "Тренировка";
         if ("courses".equals(id)) return "Витамины";
         if ("weight".equals(id)) return "Вес";
+        if ("sleep".equals(id)) return "Сон";
         if ("day-mood".equals(id)) return "Самочувствие";
         if ("day-plan".equals(id)) return "План дня";
         return id;
@@ -492,6 +557,7 @@ final class FitFlowWidgetPaint {
         if ("steps".equals(id)) return "👟";
         if ("activity".equals(id)) return "🏃";
         if ("workout".equals(id)) return "🗓️";
+        if ("sleep".equals(id)) return "🌙";
         if ("courses".equals(id)) return "💊";
         if ("day-mood".equals(id)) return "🌗";
         if ("day-plan".equals(id)) return "📋";
@@ -553,6 +619,18 @@ final class FitFlowWidgetPaint {
        нужен ОДИН значок на показатель, поэтому обе стороны зовут её. */
     static void neonIcon(Canvas c, String id, float x, float midY, float size,
                          int color, Paint emojiPaint) {
+        neonIcon(c, null, id, x, midY, size, color, emojiPaint);
+    }
+
+    /* 0.9.35: приоритет — PNG владельца, затем вектор (весы), затем эмодзи.
+       Так значки можно заменять по одному, не трогая код. */
+    static void neonIcon(Canvas c, Context ctx, String id, float x, float midY,
+                         float size, int color, Paint emojiPaint) {
+        Bitmap own = iconAsset(ctx, id);
+        if (own != null) {
+            drawIconBitmap(c, own, x, midY, size, color, !iconIsColor(ctx, id));
+            return;
+        }
         if (isVectorIcon(id)) {
             iconScale(c, x, midY, size, color);
             return;
@@ -575,6 +653,7 @@ final class FitFlowWidgetPaint {
         if ("steps".equals(id)) return spaced(d.steps) + " / " + spaced(d.stepsGoal);
         if ("activity".equals(id)) return spaced(d.activity) + " / " + spaced(d.activityGoal) + " мин";
         if ("workout".equals(id)) return d.workoutShort();
+        if ("sleep".equals(id)) return tail(d.sleepLine);
         if ("courses".equals(id)) return d.coursesShort();
         if ("weight".equals(id)) return tail(d.weightLine);
         if ("day-mood".equals(id)) return d.moodLineShort();
@@ -596,6 +675,8 @@ final class FitFlowWidgetPaint {
     private static boolean isLineOnly(FitFlowWidgetData d, String id) {
         if ("workout".equals(id)) return true;
         if ("courses".equals(id)) return true;
+        /* Сон — строка: цели сна пользователь не задаёт, кольцо рисовать не из чего. */
+        if ("sleep".equals(id)) return d.sleepLine != null && d.sleepLine.length() > 0;
         if ("weight".equals(id)) return d.weightLine != null && d.weightLine.length() > 0;
         if ("day-mood".equals(id)) return d.moodLine != null && d.moodLine.length() > 0;
         if ("day-plan".equals(id)) return d.dayPlanLine != null && d.dayPlanLine.length() > 0;
@@ -909,5 +990,254 @@ final class FitFlowWidgetPaint {
             }
             bx += bw + gap;
         }
+    }
+
+    /* ================= 0.9.35: виджет «плитки» =================
+       Референс владельца: слева большой блок с каплей и кнопкой воды
+       ВНУТРИ виджета, справа сетка плиток 2 x N без графиков. Состав
+       настраивается тем же списком, что у «колец».
+       ЗЕРКАЛО: tools/widget-tiles-preview.py — правки вносить в оба. */
+    static final class TilesTheme {
+        final int bg, tile, ink, muted, shadow, btn, btnInk, dropEmpty;
+
+        TilesTheme(int bg, int tile, int ink, int muted, int shadow,
+                   int btn, int btnInk, int dropEmpty) {
+            this.bg = bg; this.tile = tile; this.ink = ink; this.muted = muted;
+            this.shadow = shadow; this.btn = btn; this.btnInk = btnInk;
+            this.dropEmpty = dropEmpty;
+        }
+    }
+
+    static final TilesTheme TILES_LIGHT = new TilesTheme(
+        0xFFEEF2F6, 0xFFFFFFFF, 0xFF111827, 0xFF6B7280, 0x4694A3B8,
+        0xFFD1FAE5, 0xFF065F46, 0xFFE2E8F0);
+
+    static final TilesTheme TILES_DARK = new TilesTheme(
+        0xF0111827, 0xFF1F2937, 0xFFF3F4F6, 0xFF9CA3AF, 0x5A000000,
+        0xFF064E3B, 0xFFA7F3D0, 0xFF374151);
+
+    private static final String[] TILES_PAIRED = { "water", "food", "steps", "activity" };
+
+    private static boolean tilesPaired(String id) {
+        for (String s : TILES_PAIRED) if (s.equals(id)) return true;
+        return false;
+    }
+
+    /* Плитка с мягкой тенью снизу — «выпуклость» с референса. */
+    private static void tilesCard(Canvas c, RectF box, float rad, int fill,
+                                  int shadow, float den) {
+        RectF sh = new RectF(box.left, box.top + 2f * den,
+            box.right, box.bottom + 3f * den);
+        Paint sp = fill(shadow);
+        sp.setMaskFilter(new BlurMaskFilter(Math.max(1.5f, 3f * den),
+            BlurMaskFilter.Blur.NORMAL));
+        c.drawRoundRect(sh, rad, rad, sp);
+        c.drawRoundRect(box, rad, rad, fill(fill));
+    }
+
+    /* Крупное значение и подпись «из N» для плитки. */
+    private static String tilesValue(FitFlowWidgetData d, String id) {
+        if ("water".equals(id)) return spaced(d.water);
+        if ("food".equals(id)) return spaced(d.food);
+        if ("steps".equals(id)) return spaced(d.steps);
+        if ("activity".equals(id)) return spaced(d.activity);
+        if ("sleep".equals(id)) return tail(d.sleepLine);
+        if ("weight".equals(id)) return tail(d.weightLine);
+        if ("courses".equals(id)) return d.coursesShort();
+        if ("workout".equals(id)) return d.workoutShort();
+        if ("day-mood".equals(id)) return d.moodLineShort();
+        if ("day-plan".equals(id)) return tail(d.dayPlanLine);
+        return "";
+    }
+
+    private static String tilesUnit(FitFlowWidgetData d, String id) {
+        if ("water".equals(id)) return "из " + spaced(d.waterGoal) + " мл";
+        if ("food".equals(id)) return "из " + spaced(d.foodGoal) + " ккал";
+        if ("steps".equals(id)) return "из " + spaced(d.stepsGoal);
+        if ("activity".equals(id)) return "из " + spaced(d.activityGoal) + " мин";
+        return "";
+    }
+
+    /* Наибольший кегль, при котором строка влезает в ширину. */
+    private static Paint fitPaint(String s, float maxW, float start, float floor,
+                                  int color, Typeface tf) {
+        float size = start;
+        while (size > floor) {
+            Paint p = text(color, size, tf, Paint.Align.LEFT);
+            if (p.measureText(s) <= maxW) return p;
+            size -= 1f;
+        }
+        return text(color, floor, tf, Paint.Align.LEFT);
+    }
+
+    static void drawTiles(Context ctx, Canvas c, int w, int h, float den,
+                          FitFlowWidgetData d, TilesTheme th, float waterPct) {
+        c.drawRoundRect(new RectF(0, 0, w, h), 18f * den, 18f * den, fill(th.bg));
+
+        float pad = 8f * den;
+        float gap = 7f * den;
+        float rad = 14f * den;
+
+        java.util.ArrayList<String> slots = tilesSlots(d);
+        boolean hasWater = slots.contains("water");
+        float btnH = 30f * den;
+        float bodyTop = pad;
+        float bodyBottom = h - pad;
+        float leftW = hasWater ? (w - 2f * pad - gap) * 0.42f : 0f;
+        float gridX = pad + (hasWater ? leftW + gap : 0f);
+
+        if (hasWater) {
+            RectF big = new RectF(pad, bodyTop, pad + leftW, bodyBottom - btnH - gap);
+            tilesCard(c, big, rad, th.tile, th.shadow, den);
+            float pct = waterPct >= 0 ? waterPct
+                : (d.waterGoal > 0 ? d.water / (float) d.waterGoal : 0f);
+            if (pct < 0) pct = 0;
+            if (pct > 1) pct = 1;
+
+            float inner = leftW - 18f * den;
+            /* Заголовок в ОДНУ строку: «1 850 мл» + подпись «Вода» мелким.
+               Двумя крупными строками капля становилась крошечной. */
+            String head = spaced(d.water) + " мл";
+            Paint pBig = fitPaint(head, inner, 15f * den, 9f * den, th.ink, font);
+            Paint.FontMetrics fmB = pBig.getFontMetrics();
+            float tx = big.left + 9f * den;
+            float ty = big.top + 5f * den - fmB.ascent;
+            c.drawText(head, tx, ty, pBig);
+            Paint pName = text(th.muted, Math.max(7f, 8.5f * den), fontReg, Paint.Align.LEFT);
+            Paint.FontMetrics fmN = pName.getFontMetrics();
+            float ny = ty + fmB.descent + 1f * den - fmN.ascent;
+            c.drawText("Вода", tx, ny, pName);
+            float headBottom = ny + fmN.descent + 3f * den;
+
+            Paint pSub = text(th.muted, 8f * den, fontReg, Paint.Align.CENTER);
+            Paint.FontMetrics fmS = pSub.getFontMetrics();
+            String sub = "из " + spaced(d.waterGoal) + " мл";
+            float subH = fmS.descent - fmS.ascent;
+            float roomTop = headBottom + 2f * den;
+            float roomBottom = big.bottom - subH - 7f * den;
+            float dh = Math.max(10f * den, roomBottom - roomTop);
+            float dw = Math.min(dh * 0.86f, leftW - 22f * den);
+            dh = dw / 0.86f;
+            float dx = big.centerX() - dw / 2f;
+            float dy = roomTop + (roomBottom - roomTop - dh) / 2f;
+            paintDropTiles(c, new RectF(dx, dy, dx + dw, dy + dh), pct, den, th);
+
+            /* Процент ВНУТРИ капли: сбоку он отжимал её и мельчил. */
+            Paint pPct = text(0xFF0F3C46,
+                Math.max(8f, Math.min(11f * den, dh * 0.22f)), font, Paint.Align.CENTER);
+            centered(c, Math.round(pct * 100) + "%", dx + dw / 2f, dy + dh * 0.52f, pPct);
+            c.drawText(sub, big.centerX(), big.bottom - 4f * den - fmS.descent, pSub);
+
+            /* Кнопка «+250 мл» — ВНУТРИ виджета (на референсе была снаружи). */
+            float by0 = bodyBottom - btnH;
+            tilesCard(c, new RectF(big.left, by0, big.right, by0 + btnH),
+                btnH / 2f, th.btn, th.shadow, den);
+            Paint pBtn = fitPaint("+250 мл", leftW - 12f * den, 11f * den, 7f * den,
+                th.btnInk, font);
+            pBtn.setTextAlign(Paint.Align.CENTER);
+            centered(c, "+250 мл", big.centerX(), by0 + btnH / 2f, pBtn);
+        }
+
+        java.util.ArrayList<String> rest = new java.util.ArrayList<String>();
+        for (String id : slots) if (!"water".equals(id)) rest.add(id);
+        float gridW = w - pad - gridX;
+        int cols = 2;
+        float tw = (gridW - gap * (cols - 1)) / cols;
+        float gridH = bodyBottom - bodyTop;
+        float minTile = 38f * den;
+        int rows = Math.max(1, Math.min(4, (int) ((gridH + gap) / (minTile + gap))));
+        rows = Math.max(1, Math.min(rows, (rest.size() + cols - 1) / cols));
+        float tileH = (gridH - gap * (rows - 1)) / rows;
+        int shown = Math.min(rest.size(), rows * cols);
+
+        for (int i = 0; i < shown; i++) {
+            String id = rest.get(i);
+            int r = i / cols;
+            int cc = i % cols;
+            float x0 = gridX + cc * (tw + gap);
+            float y0 = bodyTop + r * (tileH + gap);
+            RectF box = new RectF(x0, y0, x0 + tw, y0 + tileH);
+            tilesCard(c, box, 11f * den, th.tile, th.shadow, den);
+
+            int colour = tilesColor(id);
+            float px = x0 + 7f * den;
+            float inner = tw - 14f * den;
+            float ic = Math.min(11f * den, tileH * 0.26f);
+            float labY = y0 + 6f * den + ic / 2f;
+            Paint emo = text(colour, ic, fontReg, Paint.Align.LEFT);
+            neonIcon(c, ctx, id, px, labY, ic, colour, emo);
+
+            Paint pLab = text(th.muted,
+                Math.max(6f, Math.min(8.5f * den, tileH * 0.19f)), fontReg, Paint.Align.LEFT);
+            Paint.FontMetrics fmL = pLab.getFontMetrics();
+            ellipsizeDraw(c, neonLabel(id), px + ic + 4f * den,
+                labY - (fmL.ascent + fmL.descent) / 2f, pLab, inner - ic - 4f * den);
+
+            String val = tilesValue(d, id);
+            String unit = tilesUnit(d, id);
+            Paint pVal = fitPaint(val, inner, Math.min(15f * den, tileH * 0.34f),
+                8f * den, th.ink, font);
+            Paint.FontMetrics fmV = pVal.getFontMetrics();
+            float valTop = labY + ic / 2f + 3f * den;
+            float valBase = valTop - fmV.ascent;
+            c.drawText(val, px, valBase, pVal);
+            if (unit.length() > 0) {
+                Paint pUnit = text(th.muted,
+                    Math.max(6f, Math.min(8f * den, tileH * 0.17f)), fontReg, Paint.Align.LEFT);
+                float vw = pVal.measureText(val);
+                if (pUnit.measureText(unit) <= inner - vw - 3f * den) {
+                    c.drawText(unit, px + vw + 3f * den, valBase, pUnit);
+                } else {
+                    Paint.FontMetrics fmU = pUnit.getFontMetrics();
+                    c.drawText(unit, px, valBase + fmV.descent - fmU.ascent + 1f * den, pUnit);
+                }
+            }
+        }
+    }
+
+    /* Капля с уровнем воды для «плиток»: пустая часть — цветом темы. */
+    private static void paintDropTiles(Canvas c, RectF box, float pct, float den,
+                                       TilesTheme th) {
+        float w = box.width();
+        float h = box.height();
+        if (w < 8 || h < 8) return;
+        int sc = c.save();
+        c.translate(box.left, box.top);
+        Path drop = dropPath(w, h);
+        c.clipPath(drop);
+        c.drawPath(drop, fill(th.dropEmpty));
+        float p = Math.max(0f, Math.min(1f, pct));
+        float fy = h * (0.88f - 0.62f * p);
+        float amp = w * 0.075f;
+        float lift = h * 0.09f;
+        c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift), fill(WATER_DEEP));
+        c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), fill(WATER_TOP));
+        c.restoreToCount(sc);
+    }
+
+    private static int tilesColor(String id) {
+        if ("water".equals(id)) return 0xFF14B8A6;
+        if ("food".equals(id)) return 0xFFF97316;
+        if ("steps".equals(id)) return 0xFF8B5CF6;
+        if ("activity".equals(id)) return 0xFF10B981;
+        if ("sleep".equals(id)) return 0xFF818CF8;
+        if ("courses".equals(id)) return 0xFF10B981;
+        if ("day-mood".equals(id)) return 0xFFF59E0B;
+        return 0xFF64748B;
+    }
+
+    /* Состав плиток: что выбрано в приложении, в порядке пользователя. */
+    private static java.util.ArrayList<String> tilesSlots(FitFlowWidgetData d) {
+        java.util.ArrayList<String> out = new java.util.ArrayList<String>();
+        for (String id : d.order()) {
+            if (out.contains(id)) continue;
+            if (tilesPaired(id) || isLineOnly(d, id)) out.add(id);
+        }
+        if (out.isEmpty()) {
+            out.add("water");
+            out.add("steps");
+            out.add("food");
+        }
+        return out;
     }
 }

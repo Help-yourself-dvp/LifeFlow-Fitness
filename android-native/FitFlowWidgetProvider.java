@@ -342,7 +342,13 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
             String savedDate = prefs.getString("date", "");
             String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
             boolean fresh = savedDate != null && savedDate.equals(today);
-            int waterTotal = (fresh ? prefs.getInt("waterTotal", 0) : 0) + 250;
+            /* 0.9.35: уровень ДО долива — с него «плитки» начнут анимацию
+               доливания капли. Считаем до записи новых значений. */
+            int beforeTotal = fresh ? prefs.getInt("waterTotal", 0) : 0;
+            int goalForAnim = prefs.getInt("waterGoal", 0);
+            float beforePct = goalForAnim > 0
+                ? Math.min(1f, beforeTotal / (float) goalForAnim) : 0f;
+            int waterTotal = beforeTotal + 250;
             int pendingAdd = (fresh ? prefs.getInt("pendingWaterAdd", 0) : 0) + 250;
             prefs.edit()
                 .putInt("waterTotal", waterTotal)
@@ -351,6 +357,10 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
                 .putLong("lastWaterAt", System.currentTimeMillis()) // 0.5.5
                 .apply();
             updateAll(context);
+            /* Плавное доливание капли на «плитках» (просьба владельца).
+               Только по нажатию: постоянной анимации в виджетах нет —
+               система перерисовывает картинку целиком, это дорого. */
+            try { FitFlowWidgetTilesProvider.animateWater(context, beforePct); } catch (Exception e) { }
             // Если на экране висит напоминание о воде — обновить его текст вживую
             try { WaterReminderReceiver.onWaterAdded(context); } catch (Exception e) { }
         }

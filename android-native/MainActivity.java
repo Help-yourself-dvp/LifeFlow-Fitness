@@ -939,6 +939,8 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                             .putString("dayPlanLine", data.optString("dayPlanLine", ""))
                             .putString("moodLine", data.optString("moodLine", ""))
                             .putString("workoutLine", data.optString("workoutLine", ""))
+                            // 0.9.35: сон — готовая строка из app.js (общее время за сегодня)
+                            .putString("sleepLine", data.optString("sleepLine", ""))
                             .putString("activityLine", data.optString("activityLine", ""))
                             // 0.5.5/0.5.6: момент последней записи воды — ресивер сам
                             // пропускает ближайшее напоминание (настройки «пауза» больше нет)

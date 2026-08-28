@@ -61,6 +61,11 @@ jobs:
           cp style.css www/
           cp app.js www/
           mkdir -p www/assets/fonts && cp assets/fonts/*.ttf www/assets/fonts/ 2>/dev/null || true
+          # 0.9.35: свои значки виджетов (владелец рисует их сам). Попадают
+          # в APK как обычные ассеты; натив читает их из
+          # public/assets/widget-icons/<id>.png, а если файла нет — рисует
+          # эмодзи. Поэтому значки можно добавлять по одному.
+          mkdir -p www/assets/widget-icons && cp assets/widget-icons/*.png www/assets/widget-icons/ 2>/dev/null || true
           cp food-db.js www/ 2>/dev/null || true
           cp manifest.json www/ 2>/dev/null || true
           cp icon.png www/ 2>/dev/null || true
@@ -239,8 +244,13 @@ jobs:
               tag = f'    <uses-permission android:name="{p}" />\n'
               if p not in t:
                   t = t.replace('</manifest>', tag + '</manifest>')
+          # 0.9.35: имя виджета в системном списке берётся с РЕСИВЕРА
+          # (android:label), а не из appwidget-provider xml. Без него лаунчер
+          # подставляет имя приложения, и все виджеты выглядят одинаково —
+          # «FitFlow, 4x2». Владелец споткнулся об это при выборе виджета.
           receiver = (
-              '        <receiver android:name=".FitFlowWidgetProvider" android:exported="false">\n'
+              '        <receiver android:name=".FitFlowWidgetProvider"'
+              ' android:exported="false" android:label="FitFlow · список">\n'
               '            <intent-filter>\n'
               '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
               '            </intent-filter>\n'
@@ -251,18 +261,26 @@ jobs:
               t = t.replace('</application>', receiver + '    </application>')
           # 0.9.24 (пункт 5 владельца): классический виджет остаётся, рядом —
           # капля / бенто / три кольца. Ring / Rings / Dial / Tiles убраны.
+          # 0.9.35: третий элемент — подпись в системном списке виджетов.
           canvas_widgets = [
-              ('FitFlowWidgetDropProvider', 'fitflow_widget_drop_info'),
-              ('FitFlowWidgetBentoProvider', 'fitflow_widget_bento_info'),
-              ('FitFlowWidgetNeonProvider', 'fitflow_widget_neon_info'),
+              ('FitFlowWidgetDropProvider', 'fitflow_widget_drop_info', 'FitFlow · капля'),
+              ('FitFlowWidgetBentoProvider', 'fitflow_widget_bento_info', 'FitFlow · бенто'),
+              ('FitFlowWidgetNeonProvider', 'fitflow_widget_neon_info', 'FitFlow · кольца'),
               # 0.9.34: те же кольца в светлой палитре — для светлых обоев.
-              ('FitFlowWidgetNeonLightProvider', 'fitflow_widget_neon_light_info'),
+              ('FitFlowWidgetNeonLightProvider', 'fitflow_widget_neon_light_info',
+               'FitFlow · кольца (светлый)'),
+              # 0.9.35: плитки — светлый основной и тёмный дополнительный.
+              ('FitFlowWidgetTilesProvider', 'fitflow_widget_tiles_info',
+               'FitFlow · плитки (светлый)'),
+              ('FitFlowWidgetTilesDarkProvider', 'fitflow_widget_tiles_dark_info',
+               'FitFlow · плитки (тёмный)'),
           ]
-          for cls, info in canvas_widgets:
+          for cls, info, label in canvas_widgets:
               if cls in t:
                   continue
               block = (
-                  f'        <receiver android:name=".{cls}" android:exported="false">\n'
+                  f'        <receiver android:name=".{cls}"'
+                  f' android:exported="false" android:label="{label}">\n'
                   '            <intent-filter>\n'
                   '                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />\n'
                   '            </intent-filter>\n'
@@ -618,6 +636,36 @@ jobs:
               '    </LinearLayout>\n'
               '</FrameLayout>\n', encoding='utf-8')
 
+          # 0.9.35: разметка «плиток». Кнопка «+250 мл» рисуется Canvas ВНУТРИ
+          # виджета (референс владельца), поверх неё — прозрачная ловушка.
+          # Её положение обязано совпадать с drawTiles(): блок слева шириной
+          # 42 % от рабочей ширины, высота кнопки 30dp, поля 8dp.
+          # Ловушка шестерёнки — в правом верхнем углу, как у «колец».
+          (layout / 'fitflow_widget_tiles.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    android:id="@+id/widget_canvas_root" android:layout_width="match_parent"\n'
+              '    android:layout_height="match_parent" android:background="@android:color/transparent">\n'
+              '    <ImageView android:id="@+id/widget_canvas_image" android:layout_width="match_parent"\n'
+              '        android:layout_height="match_parent" android:scaleType="fitXY"\n'
+              '        android:contentDescription="Показатели дня FitFlow" />\n'
+              '    <Button android:id="@+id/widget_canvas_gear_btn" android:layout_width="26dp"\n'
+              '        android:layout_height="26dp" android:layout_gravity="top|end"\n'
+              '        android:layout_marginTop="2dp" android:layout_marginEnd="2dp" android:text=""\n'
+              '        android:background="@android:color/transparent"\n'
+              '        android:contentDescription="Настроить показатели виджета" />\n'
+              '    <LinearLayout android:layout_width="match_parent" android:layout_height="30dp"\n'
+              '        android:layout_gravity="bottom" android:orientation="horizontal"\n'
+              '        android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingBottom="8dp">\n'
+              '        <Button android:id="@+id/widget_canvas_water_btn" android:layout_width="0dp"\n'
+              '            android:layout_height="match_parent" android:layout_weight="42" android:text=""\n'
+              '            android:background="@android:color/transparent"\n'
+              '            android:contentDescription="Добавить 250 миллилитров воды" />\n'
+              '        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent"\n'
+              '            android:layout_weight="58" />\n'
+              '    </LinearLayout>\n'
+              '</FrameLayout>\n', encoding='utf-8')
+
           # 0.9.26: разметка бенто — android-res/layout/fitflow_widget_bento.xml
           # (копируется выше). Фон — design/widget_bento_bg.png → drawable/widget_bento_bg.png.
           # Старые shape-карточки 0.9.25 больше не генерируем: тени и неон на подложке.
@@ -652,6 +700,9 @@ jobs:
               # 0.9.34: светлый вариант делит разметку с тёмным — отличается
               # только палитрой в FitFlowWidgetPaint (NEON_LIGHT).
               ('fitflow_widget_neon_light_info', 'FitFlow · кольца (светлый)', 250, 150, 'fitflow_widget_neon'),
+              # 0.9.35: плитки — светлый основной, тёмный дополнительный.
+              ('fitflow_widget_tiles_info', 'FitFlow · плитки (светлый)', 250, 150, 'fitflow_widget_tiles'),
+              ('fitflow_widget_tiles_dark_info', 'FitFlow · плитки (тёмный)', 250, 150, 'fitflow_widget_tiles'),
           ]
           for info_name, label, min_w, min_h, layout_name in canvas_infos:
               # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.

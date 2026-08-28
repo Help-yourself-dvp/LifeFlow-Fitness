@@ -35,6 +35,14 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
 
     abstract void drawWidget(Canvas canvas, int width, int height, float density, FitFlowWidgetData data);
 
+    /* 0.9.35: расширенная версия — нужна «плиткам» (контекст для своих
+       PNG-значков и доля заполнения для анимации капли). По умолчанию
+       делегирует в старую, чтобы остальные виджеты не трогать. */
+    void drawWidget(Context context, Canvas canvas, int width, int height,
+                    float density, FitFlowWidgetData data, float pct) {
+        drawWidget(canvas, width, height, density, data);
+    }
+
     /* Какие overlay-кнопки видны у этого оформления. */
     abstract void configureButtons(RemoteViews views);
 
@@ -56,7 +64,10 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
         FitFlowWidgetNeonProvider.class,
         /* 0.9.34: светлый вариант «колец» — отдельный провайдер, иначе он
            не обновится по кнопке воды и в полночь. */
-        FitFlowWidgetNeonLightProvider.class
+        FitFlowWidgetNeonLightProvider.class,
+        /* 0.9.35: плитки — светлый основной и тёмный дополнительный. */
+        FitFlowWidgetTilesProvider.class,
+        FitFlowWidgetTilesDarkProvider.class
     };
 
     static void updateAllCanvas(Context context) {
@@ -86,7 +97,15 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
         render(context, manager, id);
     }
 
+    /* 0.9.35: доля заполнения для анимации. -1 = «рисуй по реальным
+       данным». Переопределяет только «плитки». */
+    float animPct() { return -1f; }
+
     void render(Context context, AppWidgetManager manager, int id) {
+        render(context, manager, id, -1f);
+    }
+
+    void render(Context context, AppWidgetManager manager, int id, float pct) {
         try {
             FitFlowWidgetPaint.ensureFont(context);
             FitFlowWidgetData data = FitFlowWidgetData.load(context);
@@ -104,7 +123,7 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
 
             Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
-            drawWidget(canvas, width, height, density, data);
+            drawWidget(context, canvas, width, height, density, data, pct);
 
             RemoteViews views = new RemoteViews(context.getPackageName(), layoutRes());
             views.setImageViewBitmap(R.id.widget_canvas_image, bitmap);

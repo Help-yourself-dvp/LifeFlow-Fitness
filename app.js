@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.34';
+const FITFLOW_VERSION = '0.9.35';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3117,6 +3117,10 @@ const WIDGET_ITEMS = [
   { id: 'steps', label: 'Шаги', icon: '👟', units: 1 },
   { id: 'activity', label: 'Активность', icon: '🏃', units: 1 },
   { id: 'weight', label: 'Вес', icon: '⚖️', units: 1 },
+  /* 0.9.35 (просьба владельца): сон на виджете. Показываем ТОЛЬКО общее
+     время за сегодня — цель сна пользователь отдельно не задаёт, поэтому
+     «из 8 ч» было бы выдумкой. Источник — чек-ин сна или Health Connect. */
+  { id: 'sleep', label: 'Сон', icon: '🌙', units: 1 },
   { id: 'day-plan', label: 'План дня', icon: '📋', units: 1 },
   { id: 'day-mood', label: 'Самочувствие', icon: '🌗', units: 1 },
   { id: 'workout', label: 'Календарь тренировок', icon: '🗓️', units: 1 },
@@ -5656,6 +5660,21 @@ function widgetWorkoutLine() {
   return 'Тренировка: отдых';
 }
 
+/* Сон за сегодня: сначала history (туда пишет и Health Connect), затем
+   старый log. Формат короткий — «Сон: 7 ч 40 мин». */
+function widgetSleepLine() {
+  const today = todayKey();
+  const sc = state.sleepCheckin || {};
+  const entry = (sc.history ? sc.history[today] : null)
+    || (Array.isArray(sc.log) ? sc.log.find((e) => e && e.date === today) : null);
+  const minutes = entry ? (Number(entry.durationMinutes) || Number(entry.durationMin) || 0) : 0;
+  if (!minutes) return 'Сон: нет данных';
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `Сон: ${rest} мин`;
+  return rest ? `Сон: ${hours} ч ${rest} мин` : `Сон: ${hours} ч`;
+}
+
 function widgetActivityLine(activityMinutes) {
   const minutes = Number(activityMinutes) || 0;
   if (minutes <= 0) return 'Активность: 0 мин';
@@ -5701,6 +5720,7 @@ function updateNativeWidget() {
       dayPlanLine: widgetDayPlanLine(),
       moodLine: widgetMoodLine(),
       workoutLine: widgetWorkoutLine(),
+      sleepLine: widgetSleepLine(),
       activityLine: widgetActivityLine(activityMinutes)
     }));
   } catch (e) {
