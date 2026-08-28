@@ -546,6 +546,7 @@ jobs:
               '    <stroke android:width="1.5dp" android:color="#34D399"/>\n'
               '</shape>\n', encoding='utf-8')
           # 0.9.24: полупрозрачная карточка на весь виджет, кнопки overlay снизу.
+          # Эта разметка — для «капли»: у неё кнопки настоящие, с фоном и текстом.
           (layout / 'fitflow_widget_p5.xml').write_text(
               '<?xml version="1.0" encoding="utf-8"?>\n'
               '<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
@@ -569,6 +570,37 @@ jobs:
               '            android:layout_weight="1" android:layout_marginStart="4dp" android:text="Витамины" android:textSize="11sp"\n'
               '            android:textColor="#34D399" android:background="@drawable/fitflow_widget_btn_p5_dose"\n'
               '            android:fontFamily="sans-serif-medium" android:contentDescription="Отметить витамины" />\n'
+              '    </LinearLayout>\n'
+              '</FrameLayout>\n', encoding='utf-8')
+
+          # 0.9.32: отдельная разметка «колец» — кнопки ПРОЗРАЧНЫЕ, только ловят
+          # нажатие. Сами пилюли (заливка, кромка, значок, текст) рисует Canvas
+          # в FitFlowWidgetPaint.neonPill(), иначе поверх нарисованной пилюли
+          # легла бы вторая, системная. У «капли» разметка своя (выше) и кнопки
+          # там настоящие — эти два оформления больше не делят один layout.
+          # Отступы обязаны совпадать с neonPill(): кнопка 26dp, снизу 7dp,
+          # по бокам 10dp, между кнопками 8dp.
+          (layout / 'fitflow_widget_neon.xml').write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
+              '    android:id="@+id/widget_canvas_root" android:layout_width="match_parent"\n'
+              '    android:layout_height="match_parent" android:background="@android:color/transparent">\n'
+              '    <ImageView android:id="@+id/widget_canvas_image" android:layout_width="match_parent"\n'
+              '        android:layout_height="match_parent" android:scaleType="fitXY"\n'
+              '        android:contentDescription="Показатели дня FitFlow" />\n'
+              '    <LinearLayout android:id="@+id/widget_p5_buttons" android:layout_width="match_parent"\n'
+              '        android:layout_height="wrap_content" android:layout_gravity="bottom"\n'
+              '        android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="10dp"\n'
+              '        android:paddingBottom="7dp">\n'
+              '        <Button android:id="@+id/widget_canvas_water_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
+              '            android:layout_weight="1" android:layout_marginEnd="8dp" android:text=""\n'
+              '            android:background="@android:color/transparent" android:contentDescription="Добавить 250 миллилитров воды" />\n'
+              '        <Button android:id="@+id/widget_canvas_record_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
+              '            android:layout_weight="1" android:layout_marginEnd="8dp" android:text=""\n'
+              '            android:background="@android:color/transparent" android:contentDescription="Записать приём пищи" />\n'
+              '        <Button android:id="@+id/widget_canvas_dose_btn" android:layout_width="0dp" android:layout_height="26dp"\n'
+              '            android:layout_weight="1" android:text=""\n'
+              '            android:background="@android:color/transparent" android:contentDescription="Отметить витамины" />\n'
               '    </LinearLayout>\n'
               '</FrameLayout>\n', encoding='utf-8')
 
@@ -602,7 +634,7 @@ jobs:
               # подложки сжаты (36->14 по вертикали). Бюджет сошёлся без
               # уменьшения шрифтов — расчёт в design/WIDGET-HOWTO.md § 4.
               ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento'),
-              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_p5'),
+              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'),
           ]
           for info_name, label, min_w, min_h, layout_name in canvas_infos:
               # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.
