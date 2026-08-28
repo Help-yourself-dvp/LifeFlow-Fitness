@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.33', '0.9.33 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.33'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.33 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.34', '0.9.34 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.34'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.34 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4714,11 +4714,28 @@ for (const id of ids) {
      забраковал: «не читаются». Возврат к рисованным иконкам должен ронять
      этот тест, иначе регресс проедет незамеченным. */
   check(/private static String neonEmoji\(String id\)/.test(paint)
-    && /"food"\.equals\(id\)\) return "🔥"/.test(paint)
     && /"steps"\.equals\(id\)\) return "👟"/.test(paint)
-    && /drawText\(neonEmoji\(id\)/.test(neon)
+    && /neonIcon\(c, id, lx, mid/.test(neon)
     && !/static void iconFlame/.test(paint),
-    '0.9.33 значки — системные эмодзи, а не рисованные контуры');
+    '0.9.34 значки — системные эмодзи, а не рисованные контуры');
+
+  /* 0.9.34 (пункт 1): значок показателя ОДИН и тот же в списке справа и на
+     кнопке внизу. Кнопки зовут ту же neonIcon() по id показателя, а не свой
+     набор картинок — разъедутся, если кто-то снова захардкодит эмодзи. */
+  check(/void neonIcon\(Canvas c, String id/.test(paint)
+    && /neonPill\(Canvas c, RectF box, int color, String slotId/.test(paint)
+    && /neonIcon\(c, slotId, ix, box\.centerY\(\)/.test(paint)
+    && /"food"\.equals\(id\)\) return "🍽️"/.test(paint)
+    && !/neonPill\(c, box, CYAN, "🍶"/.test(neon),
+    '0.9.34 значок на кнопке тот же, что у показателя в списке');
+
+  /* 0.9.34 (пункт 3): ⚖️ — «весы правосудия», владелец забраковал.
+     Вес рисуется вектором напольных весов, как на карточке в приложении. */
+  check(/static void iconScale/.test(paint)
+    && /isVectorIcon\(String id\)/.test(paint)
+    && /"weight"\.equals\(id\)/.test(paint.slice(paint.indexOf('isVectorIcon')))
+    && !/return "⚖️"/.test(paint),
+    '0.9.34 вес — напольные весы, а не ⚖️');
 
   /* Единый кегль строк, подобранный по самой длинной. */
   check(/while \(size > minSize\)/.test(neon) && /probe\.measureText/.test(neon),
@@ -4761,10 +4778,19 @@ for (const id of ids) {
     [/by1 = h - 7f \* den/, /by1 = height - 7 \* den/, 'отступ кнопок снизу'],
     [/lx = cx \+ R \+ 16f \* den/, /lx = cx \+ R \+ 16 \* den/, 'отступ списка от кольца'],
     [/listTop = pad \+ 14f \* den \+ 4f \* den/, /list_top = pad \+ 14 \* den \+ 4 \* den/, 'верх списка под шестерёнкой'],
-    [/gearS = 14f \* den/, /gear_s = 14 \* den/, 'размер шестерёнки']
+    [/gearS = 14f \* den/, /gear_s = 14 \* den/, 'размер шестерёнки'],
+    /* 0.9.34: палитра светлой темы тоже зеркалится — иначе предпросмотр
+       покажет один цвет, а телефон другой. */
+    [/0xFF16202E/, /'ink': \(22, 32, 46\)/, 'светлая: цвет текста', 'paint'],
+    [/0xF0FFFFFF/, /'tint': \(255, 255, 255, 240\)/, 'светлая: заливка стекла', 'paint'],
+    [/0xFF0E9BB5/, /'water': \(14, 155, 181\)/, 'светлая: цвет воды', 'paint'],
+    [/DOSE_AMBER = 0xFFF5B301/, /DOSE_AMBER = \(245, 179, 1\)/, 'жёлтый «принято частично»', 'paint']
   ];
+  /* Четвёртый элемент пары — где искать Java-сторону: 'paint' = весь файл
+     (константы палитры объявлены выше drawNeon), иначе срез drawNeon. */
   const drift = mirrorPairs
-    .filter(([inJava, inPy]) => !(inJava.test(neon) && inPy.test(prev)))
+    .filter(([inJava, inPy, , src]) => !(inJava.test(src === 'paint' ? paint : neon)
+      && inPy.test(prev)))
     .map(([, , what]) => what);
   check(/ЗЕРКАЛО Java-кода/.test(prev) && drift.length === 0,
     `0.9.32 предпросмотр — зеркало drawNeon${drift.length ? ' — разошлось: ' + drift.join(', ') : ''}`);
@@ -4786,23 +4812,71 @@ for (const id of ids) {
     '0.9.33 кнопки следуют составу: нет показателя — нет кнопки');
 
   /* 0.9.33 пункт 3: отметка витаминов видна прямо на кнопке. */
+  /* 0.9.34 (пункт 2): подпись кнопки ВСЕГДА «Витамины» — по слову «готово»
+     было не понять, о чём кнопка. Состояние показывает кружок с галочкой:
+     залитый зелёный = всё принято, контурный жёлтый = принята часть. */
   check(/int coursesDone/.test(data) && /int coursesTotal/.test(data)
-    && /String coursesShort\(\)/.test(data)
-    && /allDone \? "✅" : "💊"/.test(neon)
-    && /d\.coursesDone \+ "\/" \+ d\.coursesTotal/.test(neon),
-    '0.9.33 на кнопке витаминов видно «1/2» или галочку');
+    && /static void iconCheckCircle/.test(paint)
+    && /neonPillCourses\(c, box, tone, "Витамины", den, th,/.test(neon)
+    && /boolean partial = d\.coursesDone > 0 && !allDone/.test(neon)
+    && /DOSE_AMBER/.test(paint)
+    && !/allDone \? "готово"/.test(neon),
+    '0.9.34 кнопка «Витамины»: зелёный кружок — всё, жёлтый — часть');
 
   /* 0.9.33 пункт 4: шестерёнка в правом верхнем углу ведёт в настройки.
      Прозрачную «дыру» в стекле не прорезаем — под виджетом обои. */
   check(/static void neonGear/.test(paint)
-    && /neonGear\(c, gearCx, gearCy, gearS, den\)/.test(neon)
+    && /neonGear\(c, gearCx, gearCy, gearS, den, th\.gear\)/.test(neon)
     && /widget_canvas_gear_btn/.test(yml)
     && /R\.id\.widget_canvas_gear_btn/.test(canvas)
     && /"widget_action", "widget_settings"/.test(canvas)
     && !/PorterDuff\.Mode\.CLEAR/.test(paint),
-    '0.9.33 шестерёнка настроек в правом верхнем углу');
+    '0.9.34 шестерёнка настроек в правом верхнем углу');
 
-  if (!bad) console.log('  (0.9.33: эмодзи-значки, авто-строки, кнопки по составу, шестерёнка)');
+  /* 0.9.34 (пункт 4): светлый вариант «колец» для светлых обоев.
+     Это НЕ копия drawNeon(): геометрия общая, различается только палитра
+     NeonTheme. Если кто-то заведёт второй drawNeon с дублем компоновки —
+     правки начнут расходиться, поэтому проверяем делегирование. */
+  const light = fs932.readFileSync('android-native/FitFlowWidgetNeonLightProvider.java', 'utf8');
+  check(/final class NeonTheme/.test(paint)
+    && /NEON_LIGHT = new NeonTheme/.test(paint)
+    && /static void drawNeonLight\(Canvas c, int w, int h, float den, FitFlowWidgetData d\) \{\s*drawNeon\(c, w, h, den, d, NEON_LIGHT\);/.test(paint)
+    && /drawNeon\(c, w, h, den, d, NEON_DARK\)/.test(paint)
+    && /FitFlowWidgetPaint\.drawNeonLight/.test(light)
+    && /int requestCodeBase\(\) \{ return 760; \}/.test(light)
+    && /R\.layout\.fitflow_widget_neon;/.test(light),
+    '0.9.34 светлые «кольца» — та же геометрия, другая палитра');
+
+  /* Светлый провайдер обязан быть зарегистрирован: в манифесте (иначе его
+     нет в списке виджетов), в info-xml (иначе лаунчер не покажет) и в
+     CANVAS_PROVIDERS (иначе не обновится по кнопке воды и в полночь). */
+  check(/FitFlowWidgetNeonLightProvider', 'fitflow_widget_neon_light_info'/.test(yml)
+    && /'fitflow_widget_neon_light_info', 'FitFlow · кольца \(светлый\)', 250, 150, 'fitflow_widget_neon'/.test(yml)
+    && /FitFlowWidgetNeonLightProvider\.class/.test(canvas),
+    '0.9.34 светлый виджет зарегистрирован в манифесте и обновляется');
+
+  /* На белом фоне размытое свечение выглядит грязным пятном, поэтому в
+     светлой теме оно выключено флагом glow. */
+  check(/for \(int i = 0; th\.glow && i < 3; i\+\+\)/.test(paint)
+    && /if \(!th\.glow\) return;/.test(paint),
+    '0.9.34 в светлой теме неоновое свечение выключено');
+
+  /* У каждого canvas-провайдера свой диапазон requestCode: PendingIntent'ы
+     различаются по нему, и при совпадении кнопки одного виджета начали бы
+     дёргать действия другого. Занято base+1..base+4, поэтому шаг >= 5. */
+  const bases = ['FitFlowWidgetDropProvider', 'FitFlowWidgetNeonProvider',
+    'FitFlowWidgetNeonLightProvider']
+    .map((f) => {
+      const src = fs932.readFileSync(`android-native/${f}.java`, 'utf8');
+      const m = src.match(/int requestCodeBase\(\) \{ return (\d+); \}/);
+      return m ? Number(m[1]) : NaN;
+    });
+  const usedSlots = 5;
+  const collide = bases.some((b, i) => bases.some((o, j) =>
+    i !== j && Math.abs(b - o) < usedSlots)) || bases.some((b) => !Number.isFinite(b));
+  check(!collide, '0.9.34 requestCode виджетов не пересекаются');
+
+  if (!bad) console.log('  (0.9.34: единые значки, весы вектором, кнопка витаминов, светлая тема)');
 })();
 
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);

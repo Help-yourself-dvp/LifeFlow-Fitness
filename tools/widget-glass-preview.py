@@ -42,6 +42,27 @@ DOW_INDEX = 4  # пятница — только для предпросмотр
 RINGED = ('water', 'food', 'steps', 'activity')
 # Запасные контуры только для этого предпросмотра — в APK их нет.
 FALLBACK_ICON = {}
+DOSE_AMBER = (245, 179, 1)
+
+# 0.9.34: две темы. Геометрия общая, различаются только цвета и свечение —
+# зеркало NeonTheme из FitFlowWidgetPaint.java.
+THEMES = {
+    'dark': {
+        'tint': (14, 20, 34, 205), 'border': (255, 255, 255, 36),
+        'ink': (255, 255, 255), 'muted': (168, 184, 204),
+        'gear': (150, 160, 176), 'track': 42, 'glow': True,
+        'water': CYAN, 'food': ORANGE, 'steps': PURPLE, 'activity': GREEN,
+        'sheet': (18, 22, 30, 255), 'title': '#C7CEDA',
+    },
+    'light': {
+        'tint': (255, 255, 255, 240), 'border': (255, 255, 255, 51),
+        'ink': (22, 32, 46), 'muted': (91, 102, 118),
+        'gear': (110, 120, 132), 'track': 51, 'glow': False,
+        'water': (14, 155, 181), 'food': (224, 106, 18),
+        'steps': (124, 58, 237), 'activity': (14, 159, 110),
+        'sheet': (226, 232, 240, 255), 'title': '#33415A',
+    },
+}
 
 LABEL = {'water': 'Вода', 'food': 'Питание', 'steps': 'Шаги',
          'activity': 'Активность', 'workout': 'Тренировка',
@@ -131,14 +152,19 @@ def ellipsize(d, text, f, max_w):
     return (cut + '…') if cut else ''
 
 
-def glass(im, den):
+def theme_color(th, slot):
+    return th.get(slot, (148, 163, 184))
+
+
+def glass(im, den, th=None):
     """Стеклянная карточка: тёмный tint, верхний блик, тонкая кромка."""
     w, h = im.size
     r = int(20 * den)
     card = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(card)
     box = (int(1.5 * den), int(1.5 * den), w - int(1.5 * den), h - int(1.5 * den))
-    d.rounded_rectangle(box, radius=r, fill=(14, 20, 34, 205))
+    th = th or THEMES['dark']
+    d.rounded_rectangle(box, radius=r, fill=th['tint'])
     # Верхний блик — вертикальный градиент от белого 22 % к нулю.
     sheen = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     sd = ImageDraw.Draw(sheen)
@@ -149,20 +175,21 @@ def glass(im, den):
     mask = Image.new('L', (w, h), 0)
     ImageDraw.Draw(mask).rounded_rectangle(box, radius=r, fill=255)
     card.alpha_composite(Image.composite(sheen, Image.new('RGBA', (w, h), (0, 0, 0, 0)), mask))
-    d.rounded_rectangle(box, radius=r, outline=(255, 255, 255, 46), width=max(1, int(1.4 * den)))
+    d.rounded_rectangle(box, radius=r, outline=th['border'], width=max(1, int(1.4 * den)))
     im.alpha_composite(card)
 
 
-def neon_ring(im, box, percent, colour, width, den):
+def neon_ring(im, box, percent, colour, width, den, th=None):
     """Кольцо со свечением: дорожка, три размытых слоя, яркий сердечник."""
+    th = th or THEMES['dark']
     sweep = max(0.0, min(1.0, percent)) * 360.0
     layer = Image.new('RGBA', im.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    d.arc(box, 0, 360, fill=colour + (42,), width=int(width))
+    d.arc(box, 0, 360, fill=colour + (th['track'],), width=int(width))
     im.alpha_composite(layer)
     if sweep <= 0.5:
         return
-    for i in range(3):
+    for i in range(3 if th['glow'] else 0):
         extra = width * (2.1 - i * 0.7)
         gl = Image.new('RGBA', im.size, (0, 0, 0, 0))
         gd = ImageDraw.Draw(gl)
@@ -173,8 +200,11 @@ def neon_ring(im, box, percent, colour, width, den):
     core = Image.new('RGBA', im.size, (0, 0, 0, 0))
     cd = ImageDraw.Draw(core)
     cd.arc(box, -90, -90 + sweep, fill=colour + (255,), width=int(width))
-    hi = tuple(min(255, ch + 40) for ch in colour)
-    cd.arc(box, -90, -90 + sweep, fill=hi + (255,), width=max(2, int(width / 3)))
+    # Светлая жила читается как неон только на тёмном фоне; на светлой теме
+    # она бледнит дугу, поэтому её там нет (зеркало !th.glow в Java).
+    if th['glow']:
+        hi = tuple(min(255, ch + 40) for ch in colour)
+        cd.arc(box, -90, -90 + sweep, fill=hi + (255,), width=max(2, int(width / 3)))
     im.alpha_composite(core)
 
 
@@ -262,12 +292,77 @@ EMOJI = {'water': '💧', 'food': '🔥', 'steps': '👟', 'activity': '🏃',
 RINGED = ('water', 'food', 'steps', 'activity')
 # Запасные контуры только для этого предпросмотра — в APK их нет.
 FALLBACK_ICON = {}
+DOSE_AMBER = (245, 179, 1)
+
+# 0.9.34: две темы. Геометрия общая, различаются только цвета и свечение —
+# зеркало NeonTheme из FitFlowWidgetPaint.java.
+THEMES = {
+    'dark': {
+        'tint': (14, 20, 34, 205), 'border': (255, 255, 255, 36),
+        'ink': (255, 255, 255), 'muted': (168, 184, 204),
+        'gear': (150, 160, 176), 'track': 42, 'glow': True,
+        'water': CYAN, 'food': ORANGE, 'steps': PURPLE, 'activity': GREEN,
+        'sheet': (18, 22, 30, 255), 'title': '#C7CEDA',
+    },
+    'light': {
+        'tint': (255, 255, 255, 240), 'border': (255, 255, 255, 51),
+        'ink': (22, 32, 46), 'muted': (91, 102, 118),
+        'gear': (110, 120, 132), 'track': 51, 'glow': False,
+        'water': (14, 155, 181), 'food': (224, 106, 18),
+        'steps': (124, 58, 237), 'activity': (14, 159, 110),
+        'sheet': (226, 232, 240, 255), 'title': '#33415A',
+    },
+}
 
 
-def draw_gear(d, cx, cy, s, den):
+def icon_scale(d, x, mid_y, s, colour):
+    """Напольные весы — порт WEIGHT_SCALE_SVG_SM из app.js (viewBox 24).
+    Эмодзи ⚖️ владелец забраковал: это «весы правосудия», не про вес тела."""
+    k = s / 24.0
+    y = mid_y - s / 2.0
+    sw = max(1, int(round(2 * k)))
+    d.rounded_rectangle((x + 3 * k, y + 4 * k, x + 21 * k, y + 20 * k),
+                        radius=3.5 * k, outline=colour, width=sw)
+    d.rounded_rectangle((x + 8.5 * k, y + 7.3 * k, x + 15.5 * k, y + 11.1 * k),
+                        radius=1.2 * k, fill=colour)
+    # Стрелка-дуга: ДВА кубических сегмента, ровно как в SVG приложения
+    # (c.7-2 2.2-3 4.5-3  s3.8 1 4.5 3) и как в Java iconScale().
+    segs = (((7.5, 16.6), (8.2, 14.6), (9.7, 13.6), (12.0, 13.6)),
+            ((12.0, 13.6), (14.3, 13.6), (15.8, 14.6), (16.5, 16.6)))
+    pts = []
+    for p0, p1, p2, p3 in segs:
+        for i in range(13):
+            tt = i / 12.0
+            u = 1 - tt
+            px = (u ** 3 * p0[0] + 3 * u * u * tt * p1[0]
+                  + 3 * u * tt * tt * p2[0] + tt ** 3 * p3[0])
+            py = (u ** 3 * p0[1] + 3 * u * u * tt * p1[1]
+                  + 3 * u * tt * tt * p2[1] + tt ** 3 * p3[1])
+            pts.append((x + px * k, y + py * k))
+    d.line(pts, fill=colour, width=max(1, int(round(1.8 * k))), joint='curve')
+
+
+def icon_check_circle(d, x, mid_y, s, colour, filled):
+    """Кружок с галочкой: залитый зелёный — курс закрыт, контурный жёлтый —
+    принята только часть приёмов (пункт 2 владельца)."""
+    r = s / 2.0
+    cx = x + r
+    if filled:
+        d.ellipse((cx - r, mid_y - r, cx + r, mid_y + r), fill=colour)
+        tick = (11, 18, 32)
+    else:
+        w = max(1, int(round(s * 0.13)))
+        rr = r - max(0.8, s * 0.07)
+        d.ellipse((cx - rr, mid_y - rr, cx + rr, mid_y + rr), outline=colour, width=w)
+        tick = colour
+    d.line([(cx - r * 0.42, mid_y + r * 0.02), (cx - r * 0.10, mid_y + r * 0.34),
+            (cx + r * 0.46, mid_y - r * 0.34)],
+           fill=tick, width=max(1, int(round(s * 0.15))), joint='curve')
+
+
+def draw_gear(d, cx, cy, s, den, colour=(150, 160, 176)):
     """Шестерёнка настроек. Середину не вырезаем прозрачностью: под виджетом
     обои пользователя, дыра в стекле выглядела бы браком. Обод — обводкой."""
-    colour = (150, 160, 176)
     r_out, r_in = s * 0.50, s * 0.30
     for i in range(8):
         a = math.radians(i * 45)
@@ -289,7 +384,17 @@ FALLBACK_ICON.update({
 })
 
 
-def pill_button(im, box, colour, emoji, label, den, btn_slot=None):
+def draw_slot_icon(im, d, slot, x, mid_y, size, colour):
+    """ОДИН значок на показатель — и в списке справа, и на кнопке внизу
+    (пункт 1 владельца). Вес рисуется вектором, остальные — эмодзи."""
+    if slot == 'weight':
+        icon_scale(d, x, mid_y, size, colour)
+        return
+    draw_emoji(im, d, EMOJI.get(slot, '•'), x, mid_y, size,
+               slot=slot, colour=colour)
+
+
+def pill_button(im, box, colour, label, den, btn_slot=None, state=None):
     """Кнопка-пилюля: полупрозрачная заливка, цветная кромка, значок + текст."""
     d = ImageDraw.Draw(im)
     x0, y0, x1, y1 = box
@@ -306,10 +411,13 @@ def pill_button(im, box, colour, emoji, label, den, btn_slot=None):
     tw = d.textbbox((0, 0), label, font=f)[2]
     total = s + int(5 * den) + tw
     ix = (x0 + x1) / 2 - total / 2
-    draw_emoji(im, d, emoji, ix, (y0 + y1) / 2, s,
-               slot=btn_slot, colour=colour)
-    th = d.textbbox((0, 0), label, font=f)[3]
-    d.text((ix + s + int(5 * den), (y0 + y1) / 2 - th / 2), label, font=f, fill=colour)
+    mid = (y0 + y1) / 2
+    if state in ('all', 'part'):
+        icon_check_circle(d, ix, mid, s, colour, state == 'all')
+    else:
+        draw_slot_icon(im, d, btn_slot, ix, mid, s, colour)
+    th_ = d.textbbox((0, 0), label, font=f)[3]
+    d.text((ix + s + int(5 * den), mid - th_ / 2), label, font=f, fill=colour)
 
 
 def slot_line(slot, data):
@@ -321,7 +429,7 @@ def slot_line(slot, data):
     return '%s: %s' % (LABEL[slot], v)
 
 
-def render(slots, data, today, width=760, height=428):
+def render(slots, data, today, width=760, height=428, theme='dark'):
     """slots — список показателей в порядке пользователя (как widgetItems).
 
     ЗЕРКАЛО FitFlowWidgetPaint.drawNeon(). Все числа обязаны совпадать —
@@ -329,7 +437,8 @@ def render(slots, data, today, width=760, height=428):
     """
     im = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     den = width / 250.0            # ячейка ~250 dp по ширине
-    glass(im, den)
+    th = THEMES[theme]
+    glass(im, den, th)
     d = ImageDraw.Draw(im)
 
     pad = 10 * den
@@ -364,7 +473,8 @@ def render(slots, data, today, width=760, height=428):
         box = (cx + inset, cy + inset, cx + R - inset, cy + R - inset)
         if box[2] - box[0] < 16 * den:
             break
-        neon_ring(im, box, pct(*data[slot]) / 100.0, COLOR[slot], widths[drawn], den)
+        neon_ring(im, box, pct(*data[slot]) / 100.0, theme_color(th, slot),
+                  widths[drawn], den, th)
         drawn += 1
 
     # ---- центр кольца: дата и день недели ----
@@ -397,15 +507,15 @@ def render(slots, data, today, width=760, height=428):
             bb2 = d.textbbox((0, 0), dow, font=f_dow)
             gap = 2 * den
             top = ccy - (bb[3] + gap + bb2[3]) / 2
-            d.text((ccx - bb[2] / 2, top), dt, font=f_date, fill=WHITE)
-            d.text((ccx - bb2[2] / 2, top + bb[3] + gap), dow, font=f_dow, fill=MUTED)
+            d.text((ccx - bb[2] / 2, top), dt, font=f_date, fill=th['ink'])
+            d.text((ccx - bb2[2] / 2, top + bb[3] + gap), dow, font=f_dow, fill=th['muted'])
         else:
-            d.text((ccx - bb[2] / 2, ccy - bb[3] / 2), dt, font=f_date, fill=WHITE)
+            d.text((ccx - bb[2] / 2, ccy - bb[3] / 2), dt, font=f_date, fill=th['ink'])
 
     # ---- шестерёнка в правом верхнем углу (пункт 4) ----
     gear_s = 14 * den
     gear_cy = pad + gear_s / 2
-    draw_gear(d, width - pad - gear_s / 2, gear_cy, gear_s, den)
+    draw_gear(d, width - pad - gear_s / 2, gear_cy, gear_s, den, th['gear'])
 
     # ---- правая колонка: значок, подпись, значения ----
     # 0.9.33: отодвинута от кольца (10 -> 16 dp) и укрупнена (10 -> 11.5 dp).
@@ -431,28 +541,29 @@ def render(slots, data, today, width=760, height=428):
     ly = max(list_top, min(ly, list_bottom - block))
     for slot in shown:
         mid = ly + 6 * den
-        draw_emoji(im, d, EMOJI.get(slot, '•'), lx, mid, size,
-                   slot=slot, colour=COLOR.get(slot, (230, 236, 245)))
+        draw_slot_icon(im, d, slot, lx, mid, size, theme_color(th, slot))
         # Строка под шестерёнкой обрывается раньше, чтобы не лезть под неё.
         row_room = room - (gear_s + 6 * den) if mid < gear_cy + gear_s else room
         txt = ellipsize(d, slot_line(slot, data), f_row, row_room)
-        th = d.textbbox((0, 0), txt, font=f_row)[3]
-        d.text((tx, mid - th / 2), txt, font=f_row, fill=WHITE)
+        t_h = d.textbbox((0, 0), txt, font=f_row)[3]
+        d.text((tx, mid - t_h / 2), txt, font=f_row, fill=th['ink'])
         ly += row_h
 
     # ---- кнопки: набор следует составу виджета (пункт 6) ----
     btns = []
     if 'water' in slots:
-        btns.append((CYAN, '🍶', '+250 мл', 'btn-water'))
+        btns.append((theme_color(th, 'water'), '+250 мл', 'water', None))
     if 'food' in slots:
-        btns.append((ORANGE, '🍽️', 'Еда', 'btn-food'))
+        btns.append((theme_color(th, 'food'), 'Еда', 'food', None))
     if 'courses' in slots:
+        # Подпись всегда «Витамины» (пункт 2): по слову «готово» было не
+        # понять, о чём кнопка. Состояние показывает кружок с галочкой.
         done, total = data.get('courses_done', (0, 0))
         all_done = done > 0 and done >= total
-        btns.append(((52, 211, 153) if all_done else (154, 230, 180),
-                     '✅' if all_done else '💊',
-                     'готово' if all_done else ('%d/%d' % (done, total) if total else 'Витамины'),
-                     'btn-dose'))
+        part = done > 0 and not all_done
+        tone = GREEN if all_done else (DOSE_AMBER if part else th['muted'])
+        btns.append((tone, 'Витамины', 'courses',
+                     'all' if all_done else ('part' if part else None)))
     if not btns:
         return im
     bh = 26 * den
@@ -462,9 +573,9 @@ def render(slots, data, today, width=760, height=428):
     inner = width - 2 * pad
     bw = (inner - gap * (len(btns) - 1)) / len(btns)
     bx = pad
-    for colour, emoji, label, bslot in btns:
-        pill_button(im, (bx, by0, bx + bw, by1), colour, emoji, label, den,
-                    btn_slot=bslot)
+    for colour, label, bslot, state in btns:
+        pill_button(im, (bx, by0, bx + bw, by1), colour, label, den,
+                    btn_slot=bslot, state=state)
         bx += bw + gap
     return im
 
@@ -481,30 +592,40 @@ def main():
         'courses_done': (1, 2),
     }
     today = ('28.08.2026', 'пятница')
-    variants = [
-        ('как на референсе: вода · питание · шаги', ['water', 'food', 'steps']),
-        ('высокая ячейка 4x3: строк влезает больше, шрифт тот же',
-         ['water', 'food', 'steps', 'activity', 'workout', 'weight']),
-        ('без питания: пропала и дуга, и кнопка «Еда»',
-         ['water', 'steps', 'courses']),
+    full = ['water', 'food', 'steps', 'activity', 'weight', 'courses']
+    rows = [
+        ('тёмная тема · вода · питание · витамины (принято 1 из 2)',
+         ['water', 'food', 'courses'], 428, 'dark',
+         {**data, 'courses_done': (1, 2)}),
+        ('тёмная · курс за день закрыт: зелёный кружок',
+         ['water', 'food', 'courses'], 428, 'dark',
+         {**data, 'courses_done': (2, 2)}),
+        ('тёмная · высокая ячейка 4x3: весы вектором, значки как на кнопках',
+         full, 620, 'dark', data),
+        ('СВЕТЛАЯ тема для светлых обоев · тот же макет',
+         ['water', 'food', 'courses'], 428, 'light',
+         {**data, 'courses_done': (1, 2)}),
+        ('светлая · высокая ячейка 4x3',
+         full, 620, 'light', data),
     ]
-    # У высокого варианта ячейка выше — на ней видно, что число строк
-    # подбирается автоматически, а кегль остаётся прежним.
-    shots = []
-    for i, (title, s) in enumerate(variants):
-        shots.append((title, render(s, data, today,
-                                    height=620 if i == 1 else 428)))
+    shots = [(title, render(slots, dt, today, height=h, theme=theme), theme)
+             for title, slots, h, theme, dt in rows]
 
     pad = 28
     f = font(20, bold=True)
-    w = max(s.width for _, s in shots) + pad * 2
+    w = max(s.width for _, s, _ in shots) + pad * 2
     line = f.getbbox('Ag')[3] + 12
-    h = sum(s.height + line + pad for _, s in shots) + pad
+    h = sum(s.height + line + pad for _, s, _ in shots) + pad
     sheet = Image.new('RGBA', (w, h), (18, 22, 30, 255))
     d = ImageDraw.Draw(sheet)
     y = pad
-    for title, shot in shots:
-        d.text((pad, y), title, font=f, fill='#C7CEDA')
+    for title, shot, theme in shots:
+        # Под светлые карточки кладём светлую подложку: на чёрном листе
+        # молочное стекло не проверить — оно будет казаться контрастнее.
+        if theme == 'light':
+            d.rectangle((0, y - 8, w, y + line + shot.height + 10),
+                        fill=THEMES['light']['sheet'])
+        d.text((pad, y), title, font=f, fill=THEMES[theme]['title'])
         y += line
         sheet.alpha_composite(shot, (pad, y))
         y += shot.height + pad

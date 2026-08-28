@@ -25,6 +25,36 @@ final class FitFlowWidgetPaint {
     static final int TEAL_PILL = 0xFF5ED6C4;
     static final int WATER_DEEP = 0xB0249894;
     static final int WATER_TOP = 0xA876E4D6;
+    /* Жёлтый «принято частично» на кнопке витаминов (0.9.34). */
+    static final int DOSE_AMBER = 0xFFF5B301;
+
+    /* 0.9.34 (пункт 4 владельца): второе оформление «колец» — для светлых
+       обоев. Отличаются только цвета и сила свечения, вся геометрия общая,
+       поэтому вместо копии drawNeon() заведена тема. Неон на белом фоне
+       выглядит грязно, поэтому в светлой теме размытые слои выключены
+       (glow=false), а цвета дуг взяты темнее — иначе бледнят. */
+    static final class NeonTheme {
+        final int tint, border, ink, muted, gear, ringTrack;
+        final boolean glow;
+        final int water, food, steps, activity;
+
+        NeonTheme(int tint, int border, int ink, int muted, int gear, int ringTrack,
+                  boolean glow, int water, int food, int steps, int activity) {
+            this.tint = tint; this.border = border; this.ink = ink;
+            this.muted = muted; this.gear = gear; this.ringTrack = ringTrack;
+            this.glow = glow; this.water = water; this.food = food;
+            this.steps = steps; this.activity = activity;
+        }
+    }
+
+    static final NeonTheme NEON_DARK = new NeonTheme(
+        0x800A1020, 0x24FFFFFF, 0xFFFFFFFF, 0xA8A8B8CC, 0x8C96A0B0, 0x2A000000,
+        true, CYAN, ORANGE, PURPLE, NEON_GREEN);
+
+    /* Светлая: молочное стекло, тёмный текст, насыщенные дуги без свечения. */
+    static final NeonTheme NEON_LIGHT = new NeonTheme(
+        0xF0FFFFFF, 0x33FFFFFF, 0xFF16202E, 0xFF5B6676, 0x8C6E7884, 0x33000000,
+        false, 0xFF0E9BB5, 0xFFE06A12, 0xFF7C3AED, 0xFF0E9F6E);
 
     static Typeface font = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     static Typeface fontReg = Typeface.create("sans-serif", Typeface.NORMAL);
@@ -173,12 +203,17 @@ final class FitFlowWidgetPaint {
     }
 
     static void neonRing(Canvas c, RectF box, float pct, int color, float width) {
+        neonRing(c, box, pct, color, width, NEON_DARK);
+    }
+
+    static void neonRing(Canvas c, RectF box, float pct, int color, float width,
+                         NeonTheme th) {
         float sweep = Math.max(0f, Math.min(1f, pct)) * 360f;
-        Paint track = stroke((color & 0x00FFFFFF) | 0x2A000000, width);
+        Paint track = stroke((color & 0x00FFFFFF) | th.ringTrack, width);
         track.setStrokeCap(Paint.Cap.ROUND);
         c.drawArc(box, 0, 360, false, track);
         if (sweep <= 0.5f) return;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; th.glow && i < 3; i++) {
             float extra = width * (2.1f - i * 0.7f);
             Paint glow = stroke((color & 0x00FFFFFF) | (0x28000000 + i * 0x22000000), width + extra);
             glow.setMaskFilter(new BlurMaskFilter(width * (1.6f - i * 0.4f), BlurMaskFilter.Blur.NORMAL));
@@ -187,6 +222,9 @@ final class FitFlowWidgetPaint {
         Paint core = stroke(color, width);
         core.setStrokeCap(sweep >= 359 ? Paint.Cap.BUTT : Paint.Cap.ROUND);
         c.drawArc(box, -90, sweep, false, core);
+        /* Светлая жила по центру штриха — на тёмной теме читается как неон.
+           На светлой она бы высветляла дугу до бледной, поэтому пропускаем. */
+        if (!th.glow) return;
         int hi = 0xFF000000
             | Math.min(255, ((color >> 16) & 0xFF) + 40) << 16
             | Math.min(255, ((color >> 8) & 0xFF) + 40) << 8
@@ -414,10 +452,14 @@ final class FitFlowWidgetPaint {
     }
 
     private static int neonColor(String id) {
-        if ("water".equals(id)) return CYAN;
-        if ("food".equals(id)) return ORANGE;
-        if ("steps".equals(id)) return PURPLE;
-        if ("activity".equals(id)) return NEON_GREEN;
+        return neonColor(id, NEON_DARK);
+    }
+
+    private static int neonColor(String id, NeonTheme th) {
+        if ("water".equals(id)) return th.water;
+        if ("food".equals(id)) return th.food;
+        if ("steps".equals(id)) return th.steps;
+        if ("activity".equals(id)) return th.activity;
         return 0xFF94A3B8;
     }
 
@@ -441,16 +483,82 @@ final class FitFlowWidgetPaint {
        Рисуются обычным drawText: шрифт эмодзи в системе уже есть,
        никаких PNG в проект класть не нужно. */
     private static String neonEmoji(String id) {
+        /* Набор ОДИН и тот же для списка справа и для кнопок внизу
+           (0.9.34, пункт 1 владельца: «вода — капля и там, и там»).
+           Значения совпадают с WIDGET_ITEMS в app.js, чтобы виджет и
+           диалог настройки показывали одно и то же. */
         if ("water".equals(id)) return "💧";
-        if ("food".equals(id)) return "🔥";
+        if ("food".equals(id)) return "🍽️";
         if ("steps".equals(id)) return "👟";
         if ("activity".equals(id)) return "🏃";
-        if ("workout".equals(id)) return "🏋️";
+        if ("workout".equals(id)) return "🗓️";
         if ("courses".equals(id)) return "💊";
-        if ("weight".equals(id)) return "⚖️";
         if ("day-mood".equals(id)) return "🌗";
         if ("day-plan".equals(id)) return "📋";
-        return "•";
+        return "•";        // weight рисуется вектором, см. isVectorIcon
+    }
+
+    /* Вес — единственный показатель с рисованным значком: эмодзи ⚖️ это
+       «весы правосудия», владелец справедливо забраковал (в приложении по
+       той же причине с 0.4.14 стоит SVG напольных весов). Здесь его порт. */
+    private static boolean isVectorIcon(String id) {
+        return "weight".equals(id);
+    }
+
+    /* Напольные весы: корпус, табло, стрелка-дуга. Порт WEIGHT_SCALE_SVG_SM
+       из app.js (viewBox 24) — значок в виджете и на карточке «Вес» один. */
+    static void iconScale(Canvas c, float x, float midY, float s, int color) {
+        float k = s / 24f;
+        float y = midY - s / 2f;
+        float sw = Math.max(1.2f, 2f * k);
+        RectF body = new RectF(x + 3f * k, y + 4f * k, x + 21f * k, y + 20f * k);
+        c.drawRoundRect(body, 3.5f * k, 3.5f * k, stroke(color, sw));
+        RectF screen = new RectF(x + 8.5f * k, y + 7.3f * k, x + 15.5f * k, y + 11.1f * k);
+        c.drawRoundRect(screen, 1.2f * k, 1.2f * k, fill(color));
+        Path dial = new Path();
+        dial.moveTo(x + 7.5f * k, y + 16.6f * k);
+        dial.cubicTo(x + 8.2f * k, y + 14.6f * k, x + 9.7f * k, y + 13.6f * k,
+            x + 12f * k, y + 13.6f * k);
+        dial.cubicTo(x + 14.3f * k, y + 13.6f * k, x + 15.8f * k, y + 14.6f * k,
+            x + 16.5f * k, y + 16.6f * k);
+        Paint dp = stroke(color, Math.max(1.1f, 1.8f * k));
+        dp.setStrokeCap(Paint.Cap.ROUND);
+        c.drawPath(dial, dp);
+    }
+
+    /* Кружок с галочкой для кнопки витаминов (пункт 2 владельца).
+       Зелёный — курс за день закрыт, жёлтый — принята только часть.
+       Круг, а не квадрат: так значок вписывается в скругления пилюли. */
+    static void iconCheckCircle(Canvas c, float x, float midY, float s, int color,
+                                boolean filled) {
+        float r = s / 2f;
+        float ccx = x + r;
+        if (filled) {
+            c.drawCircle(ccx, midY, r, fill(color));
+        } else {
+            c.drawCircle(ccx, midY, r - Math.max(0.8f, s * 0.07f),
+                stroke(color, Math.max(1.2f, s * 0.13f)));
+        }
+        Paint tick = stroke(filled ? 0xFF0B1220 : color, Math.max(1.3f, s * 0.15f));
+        tick.setStrokeCap(Paint.Cap.ROUND);
+        tick.setStrokeJoin(Paint.Join.ROUND);
+        Path p = new Path();
+        p.moveTo(ccx - r * 0.42f, midY + r * 0.02f);
+        p.lineTo(ccx - r * 0.10f, midY + r * 0.34f);
+        p.lineTo(ccx + r * 0.46f, midY - r * 0.34f);
+        c.drawPath(p, tick);
+    }
+
+    /* Единая точка отрисовки значка: эмодзи или вектор. Списку и кнопкам
+       нужен ОДИН значок на показатель, поэтому обе стороны зовут её. */
+    static void neonIcon(Canvas c, String id, float x, float midY, float size,
+                         int color, Paint emojiPaint) {
+        if (isVectorIcon(id)) {
+            iconScale(c, x, midY, size, color);
+            return;
+        }
+        Paint.FontMetrics fm = emojiPaint.getFontMetrics();
+        c.drawText(neonEmoji(id), x, midY - (fm.ascent + fm.descent) / 2f, emojiPaint);
     }
 
     private static int neonPct(FitFlowWidgetData d, String id) {
@@ -524,20 +632,49 @@ final class FitFlowWidgetPaint {
     /* Кнопка-пилюля: полупрозрачная заливка, цветная кромка, эмодзи + текст.
        Рисуется в картинке, а нажатие ловит прозрачная Button поверх неё
        (RemoteViews не умеет рисовать такие кнопки сам). */
-    private static void neonPill(Canvas c, RectF box, int color, String emoji,
+    private static void neonPill(Canvas c, RectF box, int color, String slotId,
                                  String label, float den) {
         float r = box.height() / 2f;
         c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
         c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
             Math.max(1f, 1.5f * den)));
         Paint p = text(color, 9.5f * den, font, Paint.Align.LEFT);
-        Paint pe = text(0xFFFFFFFF, 11f * den, fontReg, Paint.Align.LEFT);
-        float ew = pe.measureText(emoji);
+        Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
+        /* Значок тот же, что у показателя в списке справа (пункт 1):
+           вода — капля и там, и там. Ширину меряем одинаково для эмодзи
+           и для вектора, иначе содержимое перестанет быть по центру. */
+        float ew = isVectorIcon(slotId) ? 11f * den : pe.measureText(neonEmoji(slotId));
         float tw = p.measureText(label);
         float total = ew + 4f * den + tw;
         float ix = box.centerX() - total / 2f;
-        Paint.FontMetrics fme = pe.getFontMetrics();
-        c.drawText(emoji, ix, box.centerY() - (fme.ascent + fme.descent) / 2f, pe);
+        neonIcon(c, slotId, ix, box.centerY(), 11f * den, color, pe);
+        Paint.FontMetrics fm = p.getFontMetrics();
+        c.drawText(label, ix + ew + 4f * den,
+            box.centerY() - (fm.ascent + fm.descent) / 2f, p);
+    }
+
+    /* Кнопка витаминов. Подпись постоянная, состояние — кружком с галочкой:
+       залитый зелёный = всё принято, контурный жёлтый = часть, серая
+       таблетка = сегодня ещё ничего не отмечено. */
+    private static void neonPillCourses(Canvas c, RectF box, int color, String label,
+                                        float den, NeonTheme th,
+                                        boolean allDone, boolean partial) {
+        float r = box.height() / 2f;
+        c.drawRoundRect(box, r, r, fill((color & 0x00FFFFFF) | 0x1C000000));
+        c.drawRoundRect(box, r, r, stroke((color & 0x00FFFFFF) | 0xBE000000,
+            Math.max(1f, 1.5f * den)));
+        Paint p = text(color, 9.5f * den, font, Paint.Align.LEFT);
+        Paint pe = text(color, 11f * den, fontReg, Paint.Align.LEFT);
+        float s = 11f * den;
+        float ew = (allDone || partial) ? s : pe.measureText(neonEmoji("courses"));
+        float tw = p.measureText(label);
+        float total = ew + 4f * den + tw;
+        float ix = box.centerX() - total / 2f;
+        if (allDone || partial) {
+            iconCheckCircle(c, ix, box.centerY(), s, color, allDone);
+        } else {
+            neonIcon(c, "courses", ix, box.centerY(), s, color, pe);
+        }
         Paint.FontMetrics fm = p.getFontMetrics();
         c.drawText(label, ix + ew + 4f * den,
             box.centerY() - (fm.ascent + fm.descent) / 2f, p);
@@ -547,11 +684,14 @@ final class FitFlowWidgetPaint {
        Серая и полупрозрачная: служебная кнопка не должна спорить с
        показателями. Нажатие ловит прозрачная Button из разметки. */
     static void neonGear(Canvas c, float cx, float cy, float s, float den) {
+        neonGear(c, cx, cy, s, den, 0x8C96A0B0);
+    }
+
+    static void neonGear(Canvas c, float cx, float cy, float s, float den, int color) {
         /* Зубцы по кругу плюс кольцо-обод. Середину НЕ вырезаем прозрачностью:
            под виджетом обои пользователя, и PorterDuff.CLEAR пробил бы в
            стеклянной карточке настоящую дыру. Поэтому обод рисуется
            обводкой — просвет получается сам собой. */
-        int color = 0x8C96A0B0;
         float rOut = s * 0.50f;
         float rIn = s * 0.30f;
         Paint p = fill(color);
@@ -576,7 +716,8 @@ final class FitFlowWidgetPaint {
        и он менялся бы при каждой смене состава виджета. Дата честнее.
        Подбираем самый полный вариант, который влезает в просвет:
        «28.08.2026 / пятница» -> «28.08 / пт» -> «28.08». */
-    private static void neonCenter(Canvas c, float ccx, float ccy, float hole, float den) {
+    private static void neonCenter(Canvas c, float ccx, float ccy, float hole, float den,
+                                   NeonTheme th) {
         java.util.Calendar cal = java.util.Calendar.getInstance();
         String full = new java.text.SimpleDateFormat("dd.MM.yyyy", new java.util.Locale("ru"))
             .format(cal.getTime());
@@ -595,8 +736,8 @@ final class FitFlowWidgetPaint {
         float floor = Math.max(7f, 6.5f * den);
         for (String[] v : variants) {
             for (float size = hole * 0.34f; size >= floor; size -= 1f) {
-                Paint pd = text(0xFFFFFFFF, size, font, Paint.Align.CENTER);
-                Paint pw = text(0xA8A8B8CC, Math.max(7f, size * 0.74f), fontReg,
+                Paint pd = text(th.ink, size, font, Paint.Align.CENTER);
+                Paint pw = text(th.muted, Math.max(7f, size * 0.74f), fontReg,
                     Paint.Align.CENTER);
                 if (pd.measureText(v[0]) > avail) continue;
                 if (v[1].length() > 0 && pw.measureText(v[1]) > avail) continue;
@@ -632,7 +773,17 @@ final class FitFlowWidgetPaint {
        «Тренировка», «Витамины» и прочие приходят строкой-статусом —
        поэтому пустых дуг здесь быть не может. */
     static void drawNeon(Canvas c, int w, int h, float den, FitFlowWidgetData d) {
-        glass(c, w, h, den, 0x800A1020, 0x24FFFFFF);
+        drawNeon(c, w, h, den, d, NEON_DARK);
+    }
+
+    /* 0.9.34: светлый вариант — та же геометрия, другая палитра. */
+    static void drawNeonLight(Canvas c, int w, int h, float den, FitFlowWidgetData d) {
+        drawNeon(c, w, h, den, d, NEON_LIGHT);
+    }
+
+    static void drawNeon(Canvas c, int w, int h, float den, FitFlowWidgetData d,
+                         NeonTheme th) {
+        glass(c, w, h, den, th.tint, th.border);
         float pad = 10f * den;
         float chrome = 34f * den;
 
@@ -665,21 +816,21 @@ final class FitFlowWidgetPaint {
             float inset = 3.5f * den + drawn * 9.5f * den;
             RectF box = new RectF(cx + inset, cy + inset, cx + R - inset, cy + R - inset);
             if (box.width() < 16f * den) break;
-            neonRing(c, box, neonPct(d, id) / 100f, neonColor(id), widths[drawn]);
+            neonRing(c, box, neonPct(d, id) / 100f, neonColor(id, th), widths[drawn], th);
             drawn++;
         }
 
         int ringsN = Math.max(1, drawn);
         float hole = R - 2f * (3.5f * den + (ringsN - 1) * 9.5f * den)
             - 2f * widths[ringsN - 1];
-        neonCenter(c, cx + R / 2f, cy + R / 2f, hole, den);
+        neonCenter(c, cx + R / 2f, cy + R / 2f, hole, den, th);
 
         /* Шестерёнка — правый верхний угол. Рисуем до списка, чтобы список
            при нехватке ширины обрезался под неё, а не налез сверху. */
         float gearS = 14f * den;
         float gearCx = w - pad - gearS / 2f;
         float gearCy = pad + gearS / 2f;
-        neonGear(c, gearCx, gearCy, gearS, den);
+        neonGear(c, gearCx, gearCy, gearS, den, th.gear);
 
         /* Правая колонка. 0.9.33: отодвинута от кольца (10 -> 16 dp) и
            укрупнена (10 -> 11.5 dp) по просьбе владельца. Кегль общий для
@@ -703,10 +854,9 @@ final class FitFlowWidgetPaint {
             if (fits) break;
             size -= 0.5f;
         }
-        Paint ink = text(0xFFFFFFFF, size, font, Paint.Align.LEFT);
+        Paint ink = text(th.ink, size, font, Paint.Align.LEFT);
         Paint.FontMetrics fm = ink.getFontMetrics();
-        Paint emo = text(0xFFFFFFFF, size * 1.05f, fontReg, Paint.Align.LEFT);
-        Paint.FontMetrics fme = emo.getFontMetrics();
+        Paint emo = text(th.ink, size * 1.05f, fontReg, Paint.Align.LEFT);
         /* По умолчанию список центрирован по кольцу, но когда строк много,
            центрирование выносит их за карточку — поэтому зажимаем блок в
            отведённую полосу. */
@@ -716,7 +866,7 @@ final class FitFlowWidgetPaint {
         if (ly < listTop) ly = listTop;
         for (String id : slots) {
             float mid = ly + 6f * den;
-            c.drawText(neonEmoji(id), lx, mid - (fme.ascent + fme.descent) / 2f, emo);
+            neonIcon(c, id, lx, mid, size * 1.05f, neonColor(id, th), emo);
             /* Строка, попавшая под шестерёнку, обрывается раньше, чтобы
                текст не лез под неё. */
             float rowRoom = mid < gearCy + gearS ? room - (gearS + 6f * den) : room;
@@ -743,20 +893,19 @@ final class FitFlowWidgetPaint {
         float bx = pad;
         for (String id : btns) {
             RectF box = new RectF(bx, by0, bx + bw, by1);
-            if ("water".equals(id)) {
-                neonPill(c, box, CYAN, "🍶", "+250 мл", den);
-            } else if ("food".equals(id)) {
-                neonPill(c, box, ORANGE, "🍽️", "Еда", den);
-            } else {
-                /* Пункт 3: видно, отмечены ли витамины, не открывая приложение.
-                   Всё принято — зелёная галочка и «готово»; иначе счётчик
-                   «1/2». Так одна кнопка и действует, и отчитывается. */
+            if ("courses".equals(id)) {
+                /* 0.9.34 (пункт 2 владельца): подпись всегда «Витамины» —
+                   иначе по слову «готово» не понять, о чём кнопка. Состояние
+                   показывает кружок с галочкой: зелёный залитый — курс за
+                   день закрыт, жёлтый контурный — принята лишь часть. */
                 boolean allDone = d.coursesDone > 0 && d.coursesDone >= d.coursesTotal;
-                String mark = allDone ? "✅" : "💊";
-                String lbl = d.coursesTotal > 0
-                    ? (allDone ? "готово" : d.coursesDone + "/" + d.coursesTotal)
-                    : "Витамины";
-                neonPill(c, box, allDone ? NEON_GREEN : 0xFF9AE6B4, mark, lbl, den);
+                boolean partial = d.coursesDone > 0 && !allDone;
+                int tone = allDone ? NEON_GREEN : (partial ? DOSE_AMBER : th.muted);
+                neonPillCourses(c, box, tone, "Витамины", den, th,
+                    allDone, partial);
+            } else {
+                int tone = "water".equals(id) ? th.water : th.food;
+                neonPill(c, box, tone, id, "water".equals(id) ? "+250 мл" : "Еда", den);
             }
             bx += bw + gap;
         }

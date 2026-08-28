@@ -53,7 +53,10 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
 
     static final Class<?>[] CANVAS_PROVIDERS = {
         FitFlowWidgetDropProvider.class,
-        FitFlowWidgetNeonProvider.class
+        FitFlowWidgetNeonProvider.class,
+        /* 0.9.34: светлый вариант «колец» — отдельный провайдер, иначе он
+           не обновится по кнопке воды и в полночь. */
+        FitFlowWidgetNeonLightProvider.class
     };
 
     static void updateAllCanvas(Context context) {
