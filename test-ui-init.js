@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.38', '0.9.38 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.38'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.38 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.39', '0.9.39 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.39'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.39 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4673,6 +4673,7 @@ for (const id of ids) {
    ============================================================ */
 (function test0932GlassRings() {
   const fs932 = require('fs');
+  const cp932 = require('child_process');
   const yml = fs932.readFileSync('tools/github-workflows/build.yml', 'utf8');
   const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf8');
   const data = fs932.readFileSync('android-native/FitFlowWidgetData.java', 'utf8');
@@ -5094,6 +5095,34 @@ for (const id of ids) {
     && fs932.existsSync('tools/compare-icon-packs.py')
     && fs932.existsSync('design/icon-packs-compare.png'),
     '0.9.38 шаблон капли с прозрачностью и лист сравнения значков');
+
+  /* 0.9.39: сборка падала на javac — параметр catch перекрывал локальную
+     переменную. Ошибку видно только в Actions, поэтому держим свою
+     проверку и требуем, чтобы она была чистой. */
+  check((() => {
+    const r = cp932.spawnSync('python3', ['tools/check-java-scopes.py'],
+      { encoding: 'utf-8' });
+    return r.status === 0;
+  })(), '0.9.39 java: параметр catch не перекрывает локальную переменную');
+
+  /* 0.9.39: набор Phosphor — ТОЛЬКО у плиток (владелец выбрал его по листу
+     сравнения). Значки лежат с префиксом tiles-, натив ищет сначала их,
+     потом общий файл; «кольца» и бенто остаются как приняты. */
+  check((() => {
+    const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf-8');
+    const prev = fs932.readFileSync('tools/widget-tiles-preview.py', 'utf-8');
+    const icons = fs932.readdirSync('assets/widget-icons');
+    const tiles = icons.filter(n => n.startsWith('tiles-') && n.endsWith('.png'));
+    /* весы-балансир ⚖️ отвергнуты дважды: у Phosphor других нет,
+       поэтому вес обязан откатываться на общий значок */
+    const noScales = !icons.includes('tiles-weight.png');
+    return tiles.length >= 8 && noScales
+      && paint.includes('static final String TILES_ICONS = "tiles";')
+      && paint.includes('neonIcon(c, ctx, id, px, labY, ic, colour, emo, TILES_ICONS);')
+      && (paint.match(/family \+ "-" \+ id \+ "\.png"/g) || []).length >= 1
+      && prev.includes("TILES_ICONS = 'tiles'")
+      && prev.includes("family + '-' + slot + '.png'");
+  })(), '0.9.39 Phosphor только у плиток, вес не балансир');
 
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */

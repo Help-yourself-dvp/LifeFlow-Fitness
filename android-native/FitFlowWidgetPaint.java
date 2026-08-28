@@ -82,12 +82,25 @@ final class FitFlowWidgetPaint {
     /* Значок из assets: public/assets/widget-icons/<id>.png.
        Суффикс -color = «не перекрашивать» (готовый цветной значок). */
     static Bitmap iconAsset(Context context, String id) {
+        return iconAsset(context, id, null);
+    }
+
+    /* 0.9.39: `family` — набор значков конкретного оформления. Плитки
+       просят «tiles», и тогда сначала ищется tiles-<id>.png, а общий
+       <id>.png остаётся запасным. Так набор меняется у одного виджета,
+       не задевая уже принятые владельцем «кольца» и бенто. */
+    static Bitmap iconAsset(Context context, String id, String family) {
         if (context == null || id == null) return null;
+        String key = family == null ? id : family + "-" + id;
         synchronized (ICON_CACHE) {
-            if (ICON_CACHE.containsKey(id)) return ICON_CACHE.get(id);
+            if (ICON_CACHE.containsKey(key)) return ICON_CACHE.get(key);
         }
         Bitmap bmp = null;
-        String[] names = { id + "-color.png", id + ".png" };
+        String[] names = family == null
+            ? new String[] { id + "-color.png", id + ".png" }
+            : new String[] { family + "-" + id + "-color.png",
+                             family + "-" + id + ".png",
+                             id + "-color.png", id + ".png" };
         for (String name : names) {
             java.io.InputStream in = null;
             try {
@@ -101,7 +114,7 @@ final class FitFlowWidgetPaint {
             }
         }
         synchronized (ICON_CACHE) {
-            ICON_CACHE.put(id, bmp);
+            ICON_CACHE.put(key, bmp);
         }
         return bmp;
     }
@@ -109,15 +122,25 @@ final class FitFlowWidgetPaint {
     /* Готовые цветные значки не перекрашиваем — владелец нарисовал их
        такими намеренно. Остальные красим в цвет показателя. */
     static boolean iconIsColor(Context context, String id) {
+        return iconIsColor(context, id, null);
+    }
+
+    static boolean iconIsColor(Context context, String id, String family) {
         if (context == null || id == null) return false;
-        try {
-            java.io.InputStream in = context.getAssets()
-                .open("public/assets/widget-icons/" + id + "-color.png");
-            in.close();
-            return true;
-        } catch (Exception e) {
-            return false;
+        String[] names = family == null
+            ? new String[] { id + "-color.png" }
+            : new String[] { family + "-" + id + "-color.png", id + "-color.png" };
+        for (String name : names) {
+            try {
+                java.io.InputStream in = context.getAssets()
+                    .open("public/assets/widget-icons/" + name);
+                in.close();
+                return true;
+            } catch (Exception e) {
+                /* следующий вариант имени */
+            }
         }
+        return false;
     }
 
     static void drawIconBitmap(Canvas c, Bitmap bmp, float x, float midY,
@@ -703,9 +726,15 @@ final class FitFlowWidgetPaint {
        Так значки можно заменять по одному, не трогая код. */
     static void neonIcon(Canvas c, Context ctx, String id, float x, float midY,
                          float size, int color, Paint emojiPaint) {
-        Bitmap own = iconAsset(ctx, id);
+        neonIcon(c, ctx, id, x, midY, size, color, emojiPaint, null);
+    }
+
+    static void neonIcon(Canvas c, Context ctx, String id, float x, float midY,
+                         float size, int color, Paint emojiPaint, String family) {
+        Bitmap own = iconAsset(ctx, id, family);
         if (own != null) {
-            drawIconBitmap(c, own, x, midY, size, color, !iconIsColor(ctx, id));
+            drawIconBitmap(c, own, x, midY, size, color,
+                !iconIsColor(ctx, id, family));
             return;
         }
         if (isVectorIcon(id)) {
@@ -1273,7 +1302,9 @@ final class FitFlowWidgetPaint {
             float ic = Math.min(13f * den, tileH * 0.26f);
             float labY = y0 + 7f * den + ic / 2f;
             Paint emo = text(colour, ic, fontReg, Paint.Align.LEFT);
-            neonIcon(c, ctx, id, px, labY, ic, colour, emo);
+            /* Плитки просят набор Phosphor (tiles-<id>.png). Нет файла —
+               берётся общий значок, дальше вектор, дальше эмодзи. */
+            neonIcon(c, ctx, id, px, labY, ic, colour, emo, TILES_ICONS);
 
             Paint pLab = text(th.muted,
                 Math.max(7f, Math.min(10.5f * den, tileH * 0.21f)), fontReg, Paint.Align.LEFT);
@@ -1374,6 +1405,9 @@ final class FitFlowWidgetPaint {
         c.restoreToCount(layer);
         c.restoreToCount(sc);
     }
+
+    /* Набор значков плиток: Phosphor, выбран владельцем в 0.9.39. */
+    static final String TILES_ICONS = "tiles";
 
     private static int tilesColor(String id) {
         if ("water".equals(id)) return 0xFF14B8A6;

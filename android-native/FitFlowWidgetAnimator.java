@@ -69,8 +69,13 @@ class FitFlowWidgetAnimator {
                 FitFlowWidgetData.sWaterOverride = last ? -1 : value;
                 redrawAll(context);
                 if (last && sHasBento) {
-                    /* Бенто пропустил анимацию — показываем ему итог. */
-                    try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable t) { }
+                    /* Бенто пропустил анимацию — показываем ему итог.
+                       Имя ошибки НЕ «t»: в этом методе t — доля времени
+                       анимации, и параметр catch её перекроет (javac:
+                       "variable t is already defined"). Сборка 0.9.38
+                       упала именно здесь. */
+                    try { FitFlowWidgetBentoProvider.updateAll(context); }
+                    catch (Throwable err) { }
                 }
                 if (!last) handler.postDelayed(frame[0], ANIM_MIN_STEP_MS);
             }

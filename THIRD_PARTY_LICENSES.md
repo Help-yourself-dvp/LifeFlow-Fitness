@@ -15,13 +15,17 @@
 
 Собственные значки владельца лежат в `assets/widget-icons/`.
 
-Если вы добавили туда значки из открытого набора — впишите его сюда:
+Используемые наборы (отмечено = значки этого набора есть в поставке):
 
-- [ ] **Material Symbols** (Google) — Apache License 2.0.
+- [x] **Material Symbols** (Google) — Apache License 2.0.
       https://github.com/google/material-design-icons
+      Файлы `assets/widget-icons/<id>.png` — общий набор: список, бенто,
+      «кольца», а также вес на плитках.
+- [x] **Phosphor Icons** — MIT. https://github.com/phosphor-icons/core
+      Файлы `assets/widget-icons/tiles-<id>.png` — только виджет «плитки»
+      (выбран владельцем в 0.9.39, стиль fill).
 - [ ] **Lucide** — ISC (часть значков унаследована от Feather, MIT).
       https://lucide.dev/license
-- [ ] **Phosphor Icons** — MIT. https://github.com/phosphor-icons/core
 
 Все перечисленные лицензии разрешают коммерческое использование и
 публикацию в магазинах приложений без указания авторства в интерфейсе.

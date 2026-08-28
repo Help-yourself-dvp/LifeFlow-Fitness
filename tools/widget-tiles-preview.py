@@ -200,7 +200,11 @@ def paint_drop(im, box, pct, den, th):
 ICON_DIR = Path(__file__).resolve().parent.parent / 'assets' / 'widget-icons'
 
 
-def draw_emoji(im, d, ch, x, mid_y, size, colour, slot=None):
+# Набор значков плиток — зеркало FitFlowWidgetPaint.TILES_ICONS (Phosphor).
+TILES_ICONS = 'tiles'
+
+
+def draw_emoji(im, d, ch, x, mid_y, size, colour, slot=None, family=None):
     """Значок показателя.
 
     0.9.36: сначала пробуем НАСТОЯЩИЙ png из assets/widget-icons — тот же,
@@ -209,15 +213,26 @@ def draw_emoji(im, d, ch, x, mid_y, size, colour, slot=None):
     делает натив.
     """
     if slot:
-        png = ICON_DIR / (slot + '.png')
-        col = ICON_DIR / (slot + '-color.png')
-        src = col if col.exists() else (png if png.exists() else None)
+        # 0.9.39: тот же порядок поиска, что в нативе — сначала набор
+        # оформления (tiles-<id>), потом общий значок.
+        names = []
+        if family:
+            names += [family + '-' + slot + '-color.png',
+                      family + '-' + slot + '.png']
+        names += [slot + '-color.png', slot + '.png']
+        src = None
+        for name in names:
+            cand = ICON_DIR / name
+            if cand.exists():
+                src = cand
+                break
         if src is not None:
+            is_color = src.name.endswith('-color.png')
             g = Image.open(src).convert('RGBA')
             k = size / max(g.width, g.height)
             g = g.resize((max(1, int(g.width * k)), max(1, int(g.height * k))),
                          Image.Resampling.LANCZOS)
-            if src is png:
+            if not is_color:
                 tint = Image.new('RGBA', g.size, colour + (255,))
                 tint.putalpha(g.split()[3])
                 g = tint
@@ -425,7 +440,8 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         # лепилось к верху и низ плитки оставался пустым (замечание владельца).
         ic = min(13 * den, tile_h * 0.26)
         lab_y = y0 + 7 * den + ic / 2
-        draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour, slot)
+        draw_emoji(im, d, EMOJI.get(slot, '\u2022'), px, lab_y, ic, colour,
+                   slot, TILES_ICONS)
         f_lab = font(int(max(7, min(10.5 * den, tile_h * 0.21))))
         lab = LABEL.get(slot, slot)
         # под шестерёнкой подпись короче, иначе заезжает под неё
