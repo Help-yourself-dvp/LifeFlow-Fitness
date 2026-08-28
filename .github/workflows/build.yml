@@ -704,7 +704,8 @@ jobs:
               # полоса прогресса лежит отдельным слоем во всю ширину, а поля
               # подложки сжаты (36->14 по вертикали). Бюджет сошёлся без
               # уменьшения шрифтов — расчёт в design/WIDGET-HOWTO.md § 4.
-              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento', None),
+              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150,
+               'fitflow_widget_bento', 'fitflow_preview_bento'),
               ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_neon',
                'fitflow_preview_neon'),
               # 0.9.34: светлый вариант делит разметку с тёмным — отличается
