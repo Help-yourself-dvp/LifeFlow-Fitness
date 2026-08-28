@@ -195,6 +195,14 @@ jobs:
             fi
           done
           copied=0
+          # 0.9.35: картинки предпросмотра для системного списка виджетов.
+          # Без них лаунчер показывает одинаковую иконку приложения и по
+          # названию не понять, что внутри (замечание владельца).
+          # Генератор — tools/make-widget-previews.py, рисует из тех же
+          # зеркал, что и сами виджеты. nodpi: масштабировать не нужно.
+          mkdir -p android/app/src/main/res/drawable-nodpi
+          cp assets/widget-previews/*.png android/app/src/main/res/drawable-nodpi/ 2>/dev/null || true
+
           for f in android-native/*.java android-native/*.kt; do
             [ -e "$f" ] || continue
             cp "$f" "$DEST/$(basename "$f")"
@@ -687,7 +695,8 @@ jobs:
           # из них ставит на экран. Размеры по умолчанию разные: кольцу с
           # строками нужна ширина, плиткам — квадрат.
           canvas_infos = [
-              ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140, 'fitflow_widget_p5'),
+              # 0.9.35: 6-й элемент — картинка предпросмотра (None = нет).
+              ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140, 'fitflow_widget_p5', None),
               # 0.9.30: бенто вернулся на 4x2 (150 dp) — владелец просил
               # компактнее. В 0.9.28 на 150 dp не хватало высоты, потому что
               # круглая кнопка стояла по центру плиты и делила её с текстом.
@@ -695,16 +704,20 @@ jobs:
               # полоса прогресса лежит отдельным слоем во всю ширину, а поля
               # подложки сжаты (36->14 по вертикали). Бюджет сошёлся без
               # уменьшения шрифтов — расчёт в design/WIDGET-HOWTO.md § 4.
-              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento'),
-              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'),
+              ('fitflow_widget_bento_info', 'FitFlow · бенто', 250, 150, 'fitflow_widget_bento', None),
+              ('fitflow_widget_neon_info', 'FitFlow · кольца', 250, 150, 'fitflow_widget_neon',
+               'fitflow_preview_neon'),
               # 0.9.34: светлый вариант делит разметку с тёмным — отличается
               # только палитрой в FitFlowWidgetPaint (NEON_LIGHT).
-              ('fitflow_widget_neon_light_info', 'FitFlow · кольца (светлый)', 250, 150, 'fitflow_widget_neon'),
+              ('fitflow_widget_neon_light_info', 'FitFlow · кольца (светлый)', 250, 150,
+               'fitflow_widget_neon', 'fitflow_preview_neon_light'),
               # 0.9.35: плитки — светлый основной, тёмный дополнительный.
-              ('fitflow_widget_tiles_info', 'FitFlow · плитки (светлый)', 250, 150, 'fitflow_widget_tiles'),
-              ('fitflow_widget_tiles_dark_info', 'FitFlow · плитки (тёмный)', 250, 150, 'fitflow_widget_tiles'),
+              ('fitflow_widget_tiles_info', 'FitFlow · плитки (светлый)', 250, 150,
+               'fitflow_widget_tiles', 'fitflow_preview_tiles'),
+              ('fitflow_widget_tiles_dark_info', 'FitFlow · плитки (тёмный)', 250, 150,
+               'fitflow_widget_tiles', 'fitflow_preview_tiles_dark'),
           ]
-          for info_name, label, min_w, min_h, layout_name in canvas_infos:
+          for info_name, label, min_w, min_h, layout_name, preview in canvas_infos:
               # 0.9.26: бенто не растягиваем — оверлей привязан к пропорциям подложки.
               resize = 'none' if info_name == 'fitflow_widget_bento_info' else 'horizontal|vertical'
               extra = (
@@ -721,6 +734,8 @@ jobs:
                   '    android:initialLayout="@layout/%s"\n' % layout_name +
                   '    android:resizeMode="%s"\n' % resize +
                   '    android:label="%s"\n' % label +
+                  ('    android:previewImage="@drawable/%s"\n' % preview
+                   if preview else '') +
                   '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
 
           adaptive = (
