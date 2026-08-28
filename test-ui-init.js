@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.28', '0.9.28 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.28'/.test(app923), '0.9.28 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.28 \(build 0\)/.test(html923), '0.9.28 #about-version');
+  check(ver923 === '0.9.29', '0.9.29 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.29'/.test(app923), '0.9.29 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.29 \(build 0\)/.test(html923), '0.9.29 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4495,6 +4495,43 @@ for (const id of ids) {
   const prov = fs928.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf8');
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  /* 0.9.29 (полевой отказ «Не удалось добавить виджет»): в RemoteViews
+     разрешён СТРОГО ограниченный набор вьюх. Любая другая — включая
+     обычный <View>, который так и просится в распорки, — валит инфляцию
+     у лаунчера целиком, и виджет вообще не добавляется на экран.
+     Проверяем все разметки виджетов разом: и файлы android-res/layout,
+     и те, что генерирует CI-шаблон. */
+  (function () {
+    const ALLOWED = new Set(['FrameLayout', 'LinearLayout', 'RelativeLayout', 'GridLayout',
+      'AnalogClock', 'Button', 'Chronometer', 'ImageButton', 'ImageView', 'ProgressBar',
+      'TextView', 'ViewFlipper', 'ListView', 'GridView', 'StackView',
+      'AdapterViewFlipper', 'ViewStub']);
+    const badTags = new Set();
+    const scan = (raw) => {
+      // Комментарии вырезаем: в них мы сами пишем «обычный <View> нельзя»,
+      // и без этого сторож ловил бы собственное предупреждение.
+      const xml = raw.replace(/<!--[\s\S]*?-->/g, '');
+      const re = /<([A-Za-z][A-Za-z0-9_.]*)[\s>/]/g;
+      let mm;
+      while ((mm = re.exec(xml)) !== null) {
+        const tag = mm[1];
+        if (tag === 'xml' || tag.indexOf('.') !== -1) continue;
+        if (!ALLOWED.has(tag)) badTags.add(tag);
+      }
+    };
+    const dir = 'android-res/layout';
+    fs928.readdirSync(dir).forEach((f) => {
+      if (f.endsWith('.xml')) scan(fs928.readFileSync(`${dir}/${f}`, 'utf8'));
+    });
+    // Разметки, которые пишет сам workflow (классический виджет и p5).
+    const genRe = /\(layout \/ '[^']+\.xml'\)\.write_text\(([\s\S]*?)encoding='utf-8'\)/g;
+    let g;
+    while ((g = genRe.exec(yml)) !== null) scan(g[1]);
+    check(badTags.size === 0,
+      `0.9.29 в разметках виджетов только вьюхи из белого списка RemoteViews${
+        badTags.size ? ' — запрещены: ' + [...badTags].join(', ') : ''}`);
+  })();
 
   check(fs928.existsSync('design/widget_bento_bg_round.png')
     && fs928.existsSync('design/widget_bento_shoe.png')

@@ -150,10 +150,44 @@ icons»), PNG из `design/` — поимённо. **Забыли добавит
 | анимация | нет | статика; ripple по нажатию системный |
 | произвольный шрифт | нет доступа к `assets` из RemoteViews | системные `sans-serif` семейства |
 
-Разрешённый набор вьюх: `FrameLayout`, `LinearLayout`, `RelativeLayout`,
-`TextView`, `ImageView`, `ProgressBar`, `Button`, `Chronometer`,
-`AnalogClock`, `ListView`/`GridView` (через `RemoteViewsService`).
-Любая другая вьюха или кастомный класс — мгновенный крах виджета.
+### Белый список вьюх — самая дорогая ошибка
+
+Разрешены **только**: `FrameLayout`, `LinearLayout`, `RelativeLayout`,
+`GridLayout`, `TextView`, `ImageView`, `ImageButton`, `Button`,
+`ProgressBar`, `Chronometer`, `AnalogClock`, `ViewFlipper`, `ViewStub`,
+`ListView` / `GridView` / `StackView` / `AdapterViewFlipper`
+(последние — через `RemoteViewsService`).
+
+**Обычный `<View>` в этот список НЕ входит.** И `<Space>` тоже.
+
+Это ловушка, потому что `<View>` — первое, что приходит в голову для
+распорки, и в обычной вёрстке он абсолютно нормален. Здесь же лаунчер не
+может раздуть разметку, и виджет **не добавляется на экран вообще**:
+пользователь видит чёрный прямоугольник и «Не удалось добавить виджет».
+
+Ошибка «немая» с точки зрения разработки: проект собирается, APK ставится,
+остальные виджеты работают, `aapt` не ругается — падает только инфляция у
+лаунчера в рантайме. Поймали этим полем в 0.9.28 (восемь `<View>`-распорок).
+
+**Вместо `<View>` — пустой `FrameLayout`:** ведёт себя точно так же
+(прямоугольник с `layout_weight`), но разрешён.
+
+```xml
+<!-- НЕЛЬЗЯ: виджет не добавится -->
+<View android:layout_width="match_parent" android:layout_height="0dp"
+      android:layout_weight="1" />
+
+<!-- МОЖНО -->
+<FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
+             android:layout_weight="1" />
+```
+
+Кастомные классы, `merge`, `include`, `androidx.*` вьюхи, `app:`-атрибуты
+и `android:onClick` — тоже нельзя. Клики только через
+`setOnClickPendingIntent`.
+
+Сторож — тест «0.9.29 … белого списка RemoteViews» в `test-ui-init.js`:
+он сканирует и `android-res/layout/`, и разметки, которые генерирует CI.
 
 ---
 
@@ -245,11 +279,13 @@ requestCode** на каждую кнопку — иначе интенты пе�
    `python3 -c "import xml.dom.minidom as m; m.parse('android-res/layout/…')"`
 2. **Все `R.id` из провайдера объявлены в разметке** — сверить регулярками
    (несуществующий id ловится только при сборке).
-3. **Предпросмотр** `python3 tools/widget-bento-preview.py` — повторяет
+3. **Ни одной вьюхи вне белого списка** (§ 5) — иначе виджет не добавится
+   на экран, а узнаете вы об этом только с телефона.
+4. **Предпросмотр** `python3 tools/widget-bento-preview.py` — повторяет
    ту же сетку весов и рисует результат. Предпросмотр обязан **обрезать
    текст многоточием** так же, как Android, иначе он врёт в нашу пользу.
-4. **Тесты** `node test-ui-init.js` — сторожат инварианты (см. § 11).
-5. Арифметика бюджета высоты из § 4 — руками, до вёрстки.
+5. **Тесты** `node test-ui-init.js` — сторожат инварианты (см. § 11).
+6. Арифметика бюджета высоты из § 4 — руками, до вёрстки.
 
 ---
 

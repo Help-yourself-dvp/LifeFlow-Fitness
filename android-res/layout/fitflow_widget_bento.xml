@@ -12,6 +12,16 @@
      Слоты обезличены (A — крупный с кольцом, B и C — со шкалой):
      какой показатель в каком слоте, решает FitFlowWidgetBentoProvider
      по выбору пользователя. Подписей в картинке больше нет.
+
+     ВНИМАНИЕ (0.9.29, полевой отказ «Не удалось добавить виджет»):
+     здесь можно использовать ТОЛЬКО вьюхи из белого списка RemoteViews —
+     FrameLayout, LinearLayout, RelativeLayout, GridLayout, TextView,
+     ImageView, ImageButton, Button, ProgressBar, Chronometer, AnalogClock,
+     ViewFlipper, ListView, GridView, StackView, AdapterViewFlipper,
+     ViewStub. Обычный <View> в этот список НЕ входит: лаунчер не может
+     раздуть разметку и виджет не добавляется на экран вообще (чёрный
+     прямоугольник с ошибкой). Поэтому все распорки — пустые FrameLayout.
+     Сторож — тест «0.9.29 ... белого списка RemoteViews».
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_bento_root"
@@ -34,7 +44,7 @@
         android:orientation="vertical"
         android:weightSum="1000">
 
-        <View
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="59" />
@@ -46,7 +56,7 @@
             android:orientation="horizontal"
             android:weightSum="1000">
 
-            <View
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="30" />
@@ -186,7 +196,7 @@
                 </LinearLayout>
             </FrameLayout>
 
-            <View
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="25" />
@@ -257,13 +267,14 @@
                             android:maxLines="1"
                             android:ellipsize="end" />
 
-                        <!-- Распорка забирает остаток высоты, поэтому шкала
-                             всегда прижата к низу и НИКОГДА не срезается.
+                        <!-- Распорка (пустой FrameLayout, а не <View> — см.
+                             шапку файла) забирает остаток высоты, поэтому
+                             шкала всегда прижата к низу и НИКОГДА не срезается.
                              В 0.9.27 шкала была последней в стопке с
                              фиксированными отступами: на невысокой ячейке
                              колонка не помещалась, и у пилюли обрезало
                              нижнее закругление (полевой дефект). -->
-                        <View
+                        <FrameLayout
                             android:layout_width="match_parent"
                             android:layout_height="0dp"
                             android:layout_weight="1"
@@ -352,7 +363,7 @@
                         android:contentDescription="@null" />
                 </FrameLayout>
 
-                <View
+                <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
                     android:layout_weight="56" />
@@ -413,7 +424,7 @@
                             android:maxLines="1"
                             android:ellipsize="end" />
 
-                        <View
+                        <FrameLayout
                             android:layout_width="match_parent"
                             android:layout_height="0dp"
                             android:layout_weight="1"
@@ -503,13 +514,13 @@
                 </FrameLayout>
             </LinearLayout>
 
-            <View
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="30" />
         </LinearLayout>
 
-        <View
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="59" />
