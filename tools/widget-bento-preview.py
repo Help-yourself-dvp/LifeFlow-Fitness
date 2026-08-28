@@ -231,9 +231,9 @@ def render(slots, data, width=960):
     gear.putalpha(gear.getchannel('A').point(lambda v: int(v * 0.55)))
     im.alpha_composite(gear, (a_box[2] - int(8 * dp) - gs, a_box[1] + int(8 * dp)))
 
-    ring_r = int(36 * dp)
+    ring_r = int(35 * dp)
     cx = (a_box[0] + a_box[2]) // 2
-    cy = (a_box[1] + a_box[3]) // 2 - int(26 * dp)
+    cy = (a_box[1] + a_box[3]) // 2 - int(12 * dp)
     ring(im, cx, cy, ring_r, int(6 * dp), COLORS[a], pct(value, goal))
     paste_icon(im, ICONS[a], (cx - 1, cy - 1, cx + 1, cy + 1), int(40 * dp))
 

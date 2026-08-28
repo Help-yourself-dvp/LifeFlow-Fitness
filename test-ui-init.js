@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.30', '0.9.30 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.30'/.test(app923), '0.9.30 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.30 \(build 0\)/.test(html923), '0.9.30 #about-version');
+  check(ver923 === '0.9.31', '0.9.31 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.31'/.test(app923), '0.9.31 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.31 \(build 0\)/.test(html923), '0.9.31 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4628,6 +4628,14 @@ for (const id of ids) {
     && /action === 'widget_settings'/.test(app930)
     && /openWidgetLayoutDialog\(\)/.test(app930.slice(app930.indexOf("action === 'widget_settings'"))),
     '0.9.30 шестерёнка открывает настройки состава виджета');
+
+  /* 0.9.31: кольцо ровно между подписью и числом. Грабля: при
+     layout_gravity="center" marginBottom сдвигает вьюху вверх на ВСЮ
+     свою величину, а не на половину — с 26 dp кольцо уезжало под самую
+     подпись. Правильное значение считается от свободного поля плиты
+     (см. комментарий в разметке), для 4x2 это 12 dp при кольце 70 dp. */
+  check(/android:layout_width="70dp" android:layout_height="70dp" android:layout_gravity="center" android:layout_marginBottom="12dp"/.test(flat930),
+    '0.9.31 кольцо по центру между подписью и числом');
 
   /* Шрифты владелец просил не трогать — размеры те же, что в 0.9.29. */
   check((lay.match(/android:textSize="12sp"/g) || []).length === 3
