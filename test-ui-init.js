@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.42', '0.9.42 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.42'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.42 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.43', '0.9.43 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.43'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.43 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -5338,6 +5338,57 @@ for (const id of ids) {
       && /\.card-header \{[^}]*min-width: 0;/.test(css)
       && /\.card-header > \* \{\s*min-width: 0;\s*\}/.test(css);
   })(), '0.9.42 вёрстка: флекс-шапки не выходят за экран ни в одной теме');
+
+  /* 0.9.43: кнопка «Анализировать выбранный период» уезжала за правый
+     край в теме «Спорт». В 0.9.42 я починил заголовок — а виновата была
+     кнопка: flex запрещал сжиматься, height фиксировал одну строку, а
+     тема пишет капслоком с разрядкой (+~25% ширины). */
+  check((() => {
+    const r = cp932.spawnSync('python3', ['tools/check-button-overflow.py'],
+      { encoding: 'utf-8' });
+    const css = fs932.readFileSync('style.css', 'utf-8');
+    const btn = css.slice(css.indexOf('.ai-stats-card #ai-stats-run-btn'));
+    return r.status === 0
+      && /flex: 1 1 auto;/.test(btn.slice(0, 900))
+      && /white-space: normal;/.test(btn.slice(0, 900))
+      /* высота больше не фиксирована: только min-height */
+      && !/\n  height: 38px;/.test(btn.slice(0, 900))
+      /* общая страховка для всех кнопок */
+      && /\.btn \{\s*max-width: 100%;\s*overflow-wrap: anywhere;\s*\}/.test(css);
+  })(), '0.9.43 кнопки: длинные подписи не выходят за экран в теме «Спорт»');
+
+  /* 0.9.43 (O3/O4 из OPEN-ISSUES): версия разъезжалась по документам —
+     README отстал на 9 версий, PROJECT на 4, package.json на 16.
+     Источник правды один: version.txt. Дальше расхождение не копится. */
+  check((() => {
+    const v = fs932.readFileSync('version.txt', 'utf-8').trim();
+    const rd = fs932.readFileSync('README.md', 'utf-8');
+    const pr = fs932.readFileSync('PROJECT.md', 'utf-8');
+    const pk = JSON.parse(fs932.readFileSync('package.json', 'utf-8'));
+    const rm = fs932.readFileSync('ROADMAP.md', 'utf-8');
+    return rd.includes('Актуальная версия: **' + v + '**')
+      && pr.includes('Текущая версия: **' + v + '**')
+      && pk.version === v
+      && rm.includes('(версия ' + v + ')');
+  })(), '0.9.43 версия синхронна в README/PROJECT/package.json/ROADMAP');
+
+  /* 0.9.43: сбой сохранения больше не молчит. Для трекера это худший
+     отказ — человек отмечает воду и еду, всё выглядит записанным, а
+     после перезапуска записей нет (console.warn на телефоне не виден). */
+  check((() => {
+    const a = fs932.readFileSync('app.js', 'utf-8');
+    return /function isQuotaError\(err\)/.test(a)
+      && /QuotaExceededError/.test(a)
+      /* предупреждаем один раз за сеанс, но считаем все сбои */
+      && /saveFailureNotified = true;/.test(a)
+      && /saveFailureCount \+= 1;/.test(a)
+      /* успешная запись разрешает предупредить снова */
+      && /saveFailureNotified = false;/.test(a)
+      /* и в диагностике хранилища видно, что записи срывались */
+      && /Неудачных сохранений за сеанс/.test(a)
+      /* toast обёрнут: он зовётся и до готовности интерфейса */
+      && /toast\(quota[\s\S]{0,400}catch \(err\)/.test(a);
+  })(), '0.9.43 сохранение: переполнение хранилища видно пользователю');
 
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */

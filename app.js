@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.42';
+const FITFLOW_VERSION = '0.9.43';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5326,6 +5326,15 @@ function renderStorageEngineStatus() {
   } else {
     statusEl.textContent = '💾 Хранилище: localStorage (Dual-Write резерв)';
   }
+  /* 0.9.43: если записи срывались, honest-строка об этом — прямо здесь.
+     Уведомление человек мог закрыть или пропустить, а тут видно всегда. */
+  if (saveFailureCount > 0) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'margin-top:6px;color:var(--md-sys-color-error,#b3261e);font-size:.78rem';
+    warn.textContent = '⚠ Неудачных сохранений за сеанс: ' + saveFailureCount
+      + '. Сделайте экспорт данных и освободите место.';
+    statusEl.appendChild(warn);
+  }
 }
 
 async function initSqliteStorage() {
@@ -5379,14 +5388,53 @@ async function initSqliteStorage() {
   }
 }
 
+/* 0.9.43: сбой сохранения больше не проходит молча.
+
+   Раньше исключение уходило в console.warn — на телефоне его никто не
+   видит. Для трекера это худший из возможных отказов: человек отмечает
+   воду и еду, всё выглядит записанным, а после перезапуска записи нет.
+   Чаще всего это переполнение хранилища (QuotaExceededError), реже —
+   запрет записи в приватном режиме.
+
+   Предупреждаем ОДИН раз за сеанс, чтобы не мозолить глаза на каждом
+   глотке воды, и отдельно ведём счётчик — он виден в диагностике. */
+let saveFailureNotified = false;
+let saveFailureCount = 0;
+
+function isQuotaError(err) {
+  if (!err) return false;
+  const name = String(err.name || '');
+  const msg = String(err.message || err);
+  return name === 'QuotaExceededError'
+    || name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    || err.code === 22
+    || /quota|exceeded|переполн/i.test(msg);
+}
+
 function saveState() {
   try {
     recordDailySummary(todayKey());
     localStorage.setItem(profileStateKey(), JSON.stringify(state));
     updateNativeWidget();
     scheduleSqliteSync();
+    /* Успешная запись сбрасывает «уже предупредили»: если место
+       освободилось, о следующем сбое человек снова узнает. */
+    saveFailureNotified = false;
   } catch (e) {
+    saveFailureCount += 1;
     console.warn('Не удалось сохранить данные:', e);
+    if (!saveFailureNotified) {
+      saveFailureNotified = true;
+      const quota = isQuotaError(e);
+      try {
+        toast(quota
+          ? 'Хранилище переполнено — запись не сохранена. Настройки → Данные: сделайте экспорт и очистите старые записи.'
+          : 'Не удалось сохранить запись. Проверьте свободное место на телефоне.', 6000);
+      } catch (err) {
+        /* toast зовётся и до готовности интерфейса (миграции при старте) —
+           тогда единственное, что мы можем, это не упасть. */
+      }
+    }
   }
 }
 

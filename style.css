@@ -942,6 +942,14 @@ html[data-theme="dark"] .icon-sun { display: none; }
   transform: scale(0.95);
 }
 
+/* 0.9.43: ни одна кнопка не должна быть шире своего контейнера.
+   Общая страховка на случай длинной подписи, крупного системного
+   шрифта или темы с разрядкой букв («Спорт» пишет капслоком). */
+.btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .btn-primary {
   color: var(--md-sys-color-on-primary);
   background: var(--md-sys-color-primary);
@@ -2431,12 +2439,25 @@ html[data-theme="dark"] .segmented button.active {
 .ai-stats-card .segmented { flex: 1 1 100%; }
 .ai-stats-card .segmented button { padding: 8px 10px; font-size: 0.74rem; }
 .ai-stats-card #ai-stats-run-btn {
-  flex: 0 0 auto;
+  /* 0.9.43 (владелец, скриншот темы «Спорт»): кнопка уезжала за правый
+     край. В 0.9.42 я починил заголовок — он и правда переносится, — но
+     виновата была КНОПКА, и по трём причинам сразу:
+       1) flex: 0 0 auto запрещал ей сжиматься;
+       2) height: 38px фиксировал одну строку, так что перенос текста её
+          бы всё равно разорвал;
+       3) тема «Спорт» пишет подписи капслоком и добавляет разрядку —
+          «АНАЛИЗИРОВАТЬ ВЫБРАННЫЙ ПЕРИОД» шире того же текста строчными
+          примерно на четверть.
+     На остальных темах строка чуть короче ширины экрана — поэтому баг и
+     выглядел «только спортивным».
+     Разрешаем сжиматься и переносить, высоту делаем минимальной. */
+  flex: 1 1 auto;
+  max-width: 100%;
   min-height: 38px;
-  height: 38px;
-  padding: 0 16px;
+  padding: 9px 16px;
   border-radius: 19px;
   font-size: 0.82rem;
+  white-space: normal;
 }
 
 .stats-section {
