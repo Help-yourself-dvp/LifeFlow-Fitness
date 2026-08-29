@@ -92,6 +92,15 @@ PAIRED = ('water', 'food', 'steps', 'activity')
 
 
 def font(size, bold=False):
+    """0.9.42: берём ТЕ ЖЕ файлы, что грузит виджет на устройстве
+    (assets/fonts/manrope-{regular,bold}.ttf), а не системный DejaVu.
+    Иначе предпросмотр врёт о начертании: именно на DejaVu разница
+    обычного и жирного выглядела иначе, чем на Manrope, и подпорка
+    «сделать всё жирным» казалась уместной."""
+    own = (Path(__file__).resolve().parent.parent / 'assets' / 'fonts'
+           / ('manrope-bold.ttf' if bold else 'manrope-regular.ttf'))
+    if own.exists():
+        return ImageFont.truetype(str(own), size)
     name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
     for base in ('/usr/share/fonts/truetype/dejavu/', '/usr/share/fonts/truetype/'):
         p = Path(base) / name
@@ -481,7 +490,8 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         # Значение занимает освободившуюся середину — плитка перестаёт
         # выглядеть полупустой.
         room = (y0 + tile_h - 6 * den - foot_h) - head_b
-        f_val = fit_font(d, val, inner, min(17 * den, room * 0.78), 9 * den, bold=True)
+        # 0.9.42: значения плиток — обычным начертанием (просьба владельца).
+        f_val = fit_font(d, val, inner, min(17 * den, room * 0.78), 9 * den, bold=False)
         vb = d.textbbox((0, 0), val, font=f_val)
         d.text((px, head_b + (room - vb[3]) / 2 - vb[1] / 2), val,
                font=f_val, fill=th['ink'])

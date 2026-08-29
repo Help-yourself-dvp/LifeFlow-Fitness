@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.41', '0.9.41 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.41'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.41 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.42', '0.9.42 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.42'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.42 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4659,9 +4659,12 @@ for (const id of ids) {
     && (lay.match(/android:textSize="14sp"/g) || []).length === 2
     && (lay.match(/android:textSize="10sp"/g) || []).length === 4
     /* широкий режим слота c восстанавливает исходные кегли */
-    && /setTextViewTextSize\(R\.id\.widget_bento_c_value, sp, split \? 14f : 17f\)/.test(bento)
     && /setTextViewTextSize\(R\.id\.widget_bento_c_label, sp, split \? 11f : 12f\)/.test(bento)
-    && /setTextViewTextSize\(R\.id\.widget_bento_c_goal, sp, split \? 10f : 11f\)/.test(bento),
+    && /setTextViewTextSize\(R\.id\.widget_bento_c_goal, sp, split \? 10f : 11f\)/.test(bento)
+    /* 0.9.42: кегль ЗНАЧЕНИЯ больше не фиксирован — подбирается под
+       строку (fitSp), иначе «принято 2 из 2» не влезало. Стартовые
+       значения прежние: 17 sp в широкой плите, 14 sp в половинке. */
+    && /fitSp\(valueTextOf\(d, c, split\), roomDp, split \? 14f : 17f\)/.test(bento),
     '0.9.30 размеры шрифтов не изменились при переходе на 4x2');
 
   /* 0.9.30: бенто вернулся на 4x2. Это стало возможно не сжатием шрифтов
@@ -5282,6 +5285,60 @@ for (const id of ids) {
       && /LABEL_NARROW/.test(prev) && /def line_narrow/.test(prev);
   })(), '0.9.41 бенто: нижний ряд делится на две плиты');
 
+  /* 0.9.42: кайма по низу и бокам капли. Причина была НЕ в шаблоне
+     (его почистили в 0.9.41), а в отрисовке: слой saveLayer с дробными
+     координатами округляется наружу, волна воды идёт до краёв и попадает
+     в лишнюю полоску, которую DST_IN не гасит. */
+  check((() => {
+    const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf-8');
+    return /int layer = c\.saveLayer\(-1f, -1f, w \+ 1f, h \+ 1f, null\);/.test(paint)
+      && /c\.clipRect\(0f, 0f, w, h\);/.test(paint)
+      /* и сама капля ставится по целым пикселям */
+      && /float dx = Math\.round\(big\.centerX\(\) - dw \/ 2f\);/.test(paint)
+      && /dw = Math\.round\(dw\);/.test(paint);
+  })(), '0.9.42 капля: слой с запасом и обрезкой, целые координаты');
+
+  /* 0.9.42: значения плиток — обычным начертанием (жирный владелец не
+     заказывал; на светлой теме он «неприятен глазу»). Жирными остаются
+     процент в капле и подпись кнопки. */
+  check((() => {
+    const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf-8');
+    const prev = fs932.readFileSync('tools/widget-tiles-preview.py', 'utf-8');
+    return /Paint pVal = fitPaint\(val, inner, Math\.min\(17f \* den, room \* 0\.78f\),\s*9f \* den, th\.ink, font\);/.test(paint)
+      && /bold=False\)/.test(prev)
+      /* процент и кнопка остаются жирными */
+      && /Paint pPct = textBold\(th\.dropPct/.test(paint)
+      && /th\.btnInk, fontBold\)/.test(paint)
+      /* предпросмотр берёт ТЕ ЖЕ шрифты, что виджет, иначе врёт */
+      && /manrope-bold\.ttf' if bold else 'manrope-regular\.ttf'/.test(prev);
+  })(), '0.9.42 плитки: значения обычным начертанием');
+
+  /* 0.9.42: «Витамины — принято 2 из 2» не влезало в половинку бенто. */
+  check((() => {
+    const b = fs932.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf-8');
+    const prev = fs932.readFileSync('tools/widget-bento-preview.py', 'utf-8');
+    return /if \(s\.startsWith\("принято "\)\)/.test(b)
+      /* галочки ✓ в Manrope нет — ширина непредсказуема */
+      && /if \(s\.endsWith\(" ✓"\)\)/.test(b)
+      /* кегль подбирается под строку, а не задан числом */
+      && /private static float fitSp\(String text, float roomDp, float startSp\)/.test(b)
+      && /fitSp\(valueTextOf\(d, c, split\), roomDp, split \? 14f : 17f\)/.test(b)
+      && /fitSp\(valueTextOf\(d, dSlot, true\), roomDp, 14f\)/.test(b)
+      && /line_narrow/.test(prev);
+  })(), '0.9.42 бенто: «принято» и длинные значения влезают в половинку');
+
+  /* 0.9.42: блок «Анализ периода» вылезал за экран в теме «Спорт».
+     Причина общая — min-width:auto у флекс-детей, поэтому и проверка
+     общая: ни один флекс с текстом не должен остаться без защиты. */
+  check((() => {
+    const r = cp932.spawnSync('python3', ['tools/check-flex-overflow.py'],
+      { encoding: 'utf-8' });
+    const css = fs932.readFileSync('style.css', 'utf-8');
+    return r.status === 0
+      && /\.card-header \{[^}]*min-width: 0;/.test(css)
+      && /\.card-header > \* \{\s*min-width: 0;\s*\}/.test(css);
+  })(), '0.9.42 вёрстка: флекс-шапки не выходят за экран ни в одной теме');
+
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */
   check(/private static final Bitmap\[\] sAnimBuffers = new Bitmap\[2\];/.test(canvas)
@@ -5297,11 +5354,13 @@ for (const id of ids) {
     && /"workout"\.equals\(id\)\) return "Спорт"/.test(paint)
     && /"food"\.equals\(id\)\) return "Еда"/.test(paint)
     && /'workout': 'Спорт'/.test(prevT)
-    /* значок и подпись крупнее, значение — меньше и жирное */
+    /* значок и подпись крупнее; значение НЕ жирное — 0.9.42 вернула
+       обычное начертание (жирный был подпоркой под сверхтонкий
+       вариативный шрифт, см. 0.9.41, и владельцу не нравился) */
     && /float ic = Math\.min\(13f \* den, tileH \* 0\.26f\);/.test(paint)
-    && /Math\.min\(17f \* den, room \* 0\.78f\),\s*9f \* den, th\.ink, fontBold\)/.test(paint)
+    && /Math\.min\(17f \* den, room \* 0\.78f\),\s*9f \* den, th\.ink, font\)/.test(paint)
     && /if \(r == 0 && \(cc == cols - 1 \|\| wide\)\) labRoom -= 4f \* den;/.test(paint),
-    '0.9.37 подписи плиток: синонимы, значок крупнее, значение жирное');
+    '0.9.37 подписи плиток: синонимы, значок крупнее');
 
   /* Зеркало плиток: числа макета в Java и в предпросмотре. */
   const tilesPairs = [

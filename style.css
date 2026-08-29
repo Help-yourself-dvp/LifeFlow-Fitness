@@ -417,6 +417,80 @@ html[data-theme="dark"] .icon-sun { display: none; }
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
+  /* 0.9.42 (полевой баг владельца: в теме «Спорт» блок «Анализ периода ·
+     Помощник FitFlow» вылезал за правый край).
+
+     Причина НЕ в самой теме, а здесь. По умолчанию флекс-ребёнок имеет
+     min-width:auto и не может стать уже своего содержимого: длинный
+     заголовок в одну строку распирал шапку, и карточка уезжала за экран.
+     Тема «Спорт» лишь проявила дефект — она добавляет заголовкам
+     letter-spacing и просит сжатый шрифт, которого на Android нет,
+     поэтому подставляется обычный и строка выходит ещё длиннее.
+
+     min-width:0 разрешает колонке сжиматься, перенос по словам
+     довершает дело. Правило общее — чинит все карточки и все темы
+     разом, а не один экран. */
+  min-width: 0;
+}
+
+.card-header > * {
+  min-width: 0;
+}
+
+.card-header h2,
+.card-header .card-subtitle {
+  overflow-wrap: anywhere;
+}
+
+/* 0.9.42: та же защита для остальных флекс-строк с текстом. Проверка
+   tools/check-flex-overflow.py находит их статически — браузера в
+   песочнице нет, а на устройстве такой дефект виден только когда
+   совпадут длинная строка, узкий экран и тема с разрядкой букв.
+   Список получен проверкой, а не наугад. */
+.ai-center-head,
+.app-dialog-actions,
+.motivation-theme-row,
+.profile-basics-row,
+.profile-settings-context,
+.reminder-time-row,
+.setup-step,
+.sleep-targets-row,
+.sleep-time-row,
+.stats-bars,
+.stats-section-head,
+.settings-label-row,
+.privacy-note,
+.food-list,
+.topbar,
+.about-links,
+.settings-row,
+.food-form {
+  min-width: 0;
+}
+
+.ai-center-head > *,
+.motivation-theme-row > *,
+.profile-basics-row > *,
+.profile-settings-context > *,
+.reminder-time-row > *,
+.setup-step > *,
+.sleep-targets-row > *,
+.sleep-time-row > *,
+.stats-section-head > *,
+.settings-label-row > *,
+.privacy-note > *,
+.topbar > *,
+.about-links > * {
+  min-width: 0;
+}
+
+/* Длинные слова и составные заголовки переносим, а не выталкиваем. */
+.ai-center-head h2,
+.stats-section-head h3,
+.settings-label-row .settings-label,
+.profile-settings-context strong,
+.profile-settings-context small {
+  overflow-wrap: anywhere;
 }
 
 .card-icon {

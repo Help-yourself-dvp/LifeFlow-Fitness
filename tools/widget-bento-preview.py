@@ -191,6 +191,21 @@ def line_narrow(value):
         s = s[:-4]
     if s.endswith(' кг'):
         s = s[:-3]
+    # 0.9.42: «принято 2 из 2 ✓» → «2 из 2 ✓» (слово избыточно — плита
+    # уже подписана «Витамины»), хвост «· след. 12:00» отбрасываем.
+    if s.startswith('принято '):
+        s = s[8:]
+    mid = s.find(' · ')
+    if mid > 0:
+        s = s[:mid]
+    if s.startswith('нет на'):
+        return 'нет'
+    if s.startswith('курс не'):
+        return 'нет курса'
+    # Галочки ✓ в Manrope нет (подставляется системным шрифтом,
+    # ширина непредсказуема), а в узкой плите она избыточна.
+    if s.endswith(' ✓'):
+        s = s[:-2].strip()
     return s
 
 
@@ -223,8 +238,16 @@ def small_slot(im, box, slot, data, dp, narrow=False):
     ty = y0 + int(4 * dp)
 
     f_label = font(int((11 if narrow else 12) * dp))
-    f_value = font(int((14 if narrow else 17) * dp), bold=True)
     f_goal = font(int((10 if narrow else 11) * dp))
+    # 0.9.42: кегль значения подбирается под ширину плиты — зеркало fitSp().
+    room = (x1 - pad_end) - (x0 + int((10 if narrow else 14) * dp))
+    shown_probe = data[slot] if is_line(slot) else spaced(value)
+    if narrow and is_line(slot):
+        shown_probe = line_narrow(shown_probe)
+    vs = (14 if narrow else 17) * dp
+    while vs > 9 * dp and len(shown_probe) * vs * 0.55 > room:
+        vs -= 0.5 * dp
+    f_value = font(int(vs), bold=True)
 
     lab = LABEL_NARROW.get(slot, LABEL[slot]) if narrow else LABEL[slot]
     d.text((tx, ty), lab, font=f_label, fill=MUTED)
@@ -349,7 +372,7 @@ def main():
     data['day-plan'] = '2 из 3'
     data['day-mood'] = '4/5'
     data['workout'] = 'отдых'
-    data['courses'] = '1 из 2'
+    data['courses'] = 'принято 2 из 2 ✓'
     variants = [
         ('по умолчанию: шаги · вода · калории', ['steps', 'water', 'food']),
         ('питание заменено активностью', ['steps', 'water', 'activity']),
@@ -361,6 +384,8 @@ def main():
          ['steps', 'water', 'food', 'sleep']),
         ('0.9.41: деление с длинными значениями',
          ['water', 'steps', 'sleep', 'weight']),
+        ('0.9.42: витамины в половинке — «принято» больше не режется',
+         ['steps', 'water', 'courses', 'day-mood']),
     ]
     shots = [(title, render(slots, data)) for title, slots in variants]
 

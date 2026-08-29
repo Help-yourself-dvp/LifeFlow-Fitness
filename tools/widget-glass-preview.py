@@ -74,6 +74,15 @@ COLOR = {'water': CYAN, 'food': ORANGE, 'steps': PURPLE,
 
 
 def font(size, bold=False):
+    """0.9.42: берём ТЕ ЖЕ файлы, что грузит виджет на устройстве
+    (assets/fonts/manrope-{regular,bold}.ttf), а не системный DejaVu.
+    Иначе предпросмотр врёт о начертании: именно на DejaVu разница
+    обычного и жирного выглядела иначе, чем на Manrope, и подпорка
+    «сделать всё жирным» казалась уместной."""
+    own = (Path(__file__).resolve().parent.parent / 'assets' / 'fonts'
+           / ('manrope-bold.ttf' if bold else 'manrope-regular.ttf'))
+    if own.exists():
+        return ImageFont.truetype(str(own), size)
     name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
     for base in ('/usr/share/fonts/truetype/dejavu/', '/usr/share/fonts/truetype/'):
         p = Path(base) / name

@@ -69,6 +69,30 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
        пятому месту взяться неоткуда. */
     private static final int MAX_SLOTS = 4;
 
+    /* Текст, который реально попадёт в плиту, — для подбора кегля. */
+    private static String valueTextOf(FitFlowWidgetData d, String id, boolean narrow) {
+        if (id == null) return "";
+        if (isLine(id)) {
+            String v = lineTail(lineOf(d, id));
+            return narrow ? lineNarrow(v) : v;
+        }
+        return FitFlowWidgetPaint.spaced(valueOf(d, id));
+    }
+
+    /* Подбор кегля под ширину плиты. Ширину символа считаем грубо
+       (0.55 от кегля — усреднённо для цифр и кириллицы Manrope): точную
+       дал бы Paint.measureText, но провайдер работает с RemoteViews и
+       доступа к реальному TextView не имеет. Оценка сознательно
+       консервативная — лучше на полшага мельче, чем многоточие. */
+    private static float fitSp(String text, float roomDp, float startSp) {
+        if (text == null || text.length() == 0 || roomDp <= 0) return startSp;
+        float size = startSp;
+        while (size > 9f && text.length() * size * 0.55f > roomDp) {
+            size -= 0.5f;
+        }
+        return size;
+    }
+
     private static boolean isLine(String id) {
         for (String s : SUPPORTED_LINES) if (s.equals(id)) return true;
         return false;
@@ -191,6 +215,29 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         }
         if (s.endsWith(" кг")) {
             s = s.substring(0, s.length() - 3);   // «78,4 кг» → «78,4»
+        }
+        /* 0.9.42 (полевая жалоба владельца: в половинке не помещается
+           «принято 2 из 2»). Слово избыточно — плита уже подписана
+           «Витамины», а галочка показывает, что курс закрыт.
+           «принято 2 из 2 ✓» → «2 из 2 ✓». */
+        if (s.startsWith("принято ")) {
+            s = s.substring(8);
+        }
+        /* Хвост «· след. 12:00» в половинку не влезает никогда: время
+           приёма — подробность, ради которой не стоит терять счёт. */
+        int mid = s.indexOf(" · ");
+        if (mid > 0) {
+            s = s.substring(0, mid);
+        }
+        /* «нет на сегодня» / «курс не заведён» — только суть. */
+        if (s.startsWith("нет на")) return "нет";
+        if (s.startsWith("курс не")) return "нет курса";
+        /* Галочки ✓ в Manrope НЕТ: система подставляет её из другого
+           шрифта, ширина непредсказуема и подбор кегля промахивается.
+           В узкой плите она к тому же избыточна — «2 из 2» и так значит
+           «всё принято». Убираем вместе с висящим пробелом. */
+        if (s.endsWith(" ✓")) {
+            s = s.substring(0, s.length() - 2).trim();
         }
         return s;
     }
@@ -351,9 +398,27 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
                «7 ч 40 мин» не помещается в половину ширины.
                COMPLEX_UNIT_SP, чтобы уважать системный масштаб шрифта. */
             int sp = android.util.TypedValue.COMPLEX_UNIT_SP;
-            views.setTextViewTextSize(R.id.widget_bento_c_value, sp, split ? 14f : 17f);
             views.setTextViewTextSize(R.id.widget_bento_c_label, sp, split ? 11f : 12f);
             views.setTextViewTextSize(R.id.widget_bento_c_goal, sp, split ? 10f : 11f);
+
+            /* 0.9.42 (полевая жалоба: «Витамины — принято» не влезает).
+               Сокращений мало: длина значения зависит от данных, и любой
+               фиксированный кегль рано или поздно упрётся. Поэтому кегль
+               ПОДБИРАЕТСЯ под конкретную строку — как fitPaint у плиток.
+               Ширину плиты знаем из макета: правая колонка 467/1000 ширины
+               виджета, половинка — с вычетом промежутка и отступов. */
+            int cellDp = manager.getAppWidgetOptions(id)
+                .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 320);
+            if (cellDp <= 0) cellDp = 320;
+            float colDp = cellDp * 0.467f;
+            float roomDp = split ? (colDp - colDp * 36f / 2036f) / 2f - 20f
+                                 : colDp - 14f - 46f;
+            views.setTextViewTextSize(R.id.widget_bento_c_value, sp,
+                fitSp(valueTextOf(d, c, split), roomDp, split ? 14f : 17f));
+            if (dSlot != null) {
+                views.setTextViewTextSize(R.id.widget_bento_d_value, sp,
+                    fitSp(valueTextOf(d, dSlot, true), roomDp, 14f));
+            }
 
             StringBuilder talk = new StringBuilder("FitFlow.");
             for (String slot : slots) {

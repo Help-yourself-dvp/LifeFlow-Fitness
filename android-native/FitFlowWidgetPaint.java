@@ -1282,8 +1282,14 @@ final class FitFlowWidgetPaint {
             float dropAR = dropAspect();
             float dw = Math.min(dh * dropAR, leftW - 10f * den);
             dh = dw / dropAR;
-            float dx = big.centerX() - dw / 2f;
-            float dy = roomTop + (roomBottom - roomTop - dh) / 2f;
+            /* 0.9.42: позицию и размер капли округляем до ЦЕЛЫХ пикселей.
+               При дробных координатах слой saveLayer округляется наружу и
+               край картинки-маски не совпадает с сеткой пикселей — отсюда
+               полупрозрачная кайма по низу и бокам. */
+            float dx = Math.round(big.centerX() - dw / 2f);
+            float dy = Math.round(roomTop + (roomBottom - roomTop - dh) / 2f);
+            dw = Math.round(dw);
+            dh = Math.round(dh);
             paintDropTiles(c, new RectF(dx, dy, dx + dw, dy + dh), pct, den, th);
 
             /* Процент ВНУТРИ капли: сбоку он отжимал её и мельчил.
@@ -1389,8 +1395,17 @@ final class FitFlowWidgetPaint {
             float footH = unit.length() > 0 ? unitH + 5f * den : 0f;
 
             float room = (y0 + tileH - 6f * den - footH) - headB;
+            /* 0.9.42 (владелец: «жирный в плитках не заказывал, на светлой
+               теме это неприятно глазу»). Значения возвращаются к обычному
+               начертанию. Жирность тут была костылём 0.9.37 — тогда весь
+               текст рисовался сверхтонким ExtraLight (вариативный шрифт,
+               см. 0.9.41), и без неё цифры выглядели блёклыми. После
+               перехода на запечённый вес 500 подпорка не нужна: обычный
+               текст и так плотный.
+               Жирным на плитках остаются только процент в капле и подпись
+               кнопки — там это владелец подтвердил. */
             Paint pVal = fitPaint(val, inner, Math.min(17f * den, room * 0.78f),
-                9f * den, th.ink, fontBold);
+                9f * den, th.ink, font);
             Paint.FontMetrics fmV = pVal.getFontMetrics();
             float valH = fmV.descent - fmV.ascent;
             c.drawText(val, px, headB + (room - valH) / 2f - fmV.ascent, pVal);
@@ -1439,8 +1454,29 @@ final class FitFlowWidgetPaint {
         }
         /* Рисуем воду в отдельный слой и обрезаем её альфой шаблона.
            PorterDuff.DST_IN оставляет только то, что попало в силуэт;
-           CLEAR внутри виджета применять нельзя — будет дыра до обоев. */
-        int layer = c.saveLayer(0, 0, w, h, null);
+           CLEAR внутри виджета применять нельзя — будет дыра до обоев.
+
+           0.9.42 (полевая жалоба владельца: тонкая кайма по низу и бокам
+           капли, которая пережила чистку самого шаблона в 0.9.41).
+           Причина оказалась НЕ в файле, а здесь. Слой создаётся по
+           дробным координатам (капля центрируется, translate почти всегда
+           дробный), и Android округляет границы слоя НАРУЖУ — слой на
+           пиксель больше картинки. Волна воды рисуется полигоном до самых
+           краёв (w, h), попадает в эту лишнюю полоску, а DST_IN гасит
+           только там, где лежит bitmap: за его правым и нижним краем
+           множителя нет, и вода остаётся. Сверху каймы не было потому,
+           что вода туда не доходит, — ровно то, что видно на скриншоте.
+
+           Лечим двумя мерами сразу:
+           1) слой заводим с запасом в 1 px по всем сторонам, чтобы его
+              округление не срезало сглаженный край силуэта;
+           2) сама волна рисуется в границах капли, а не до краёв слоя. */
+        int layer = c.saveLayer(-1f, -1f, w + 1f, h + 1f, null);
+        /* Страховка от округления слоя наружу: всё, что рисуется внутри,
+           жёстко ограничено прямоугольником самой капли. Без неё волна
+           (её полигон идёт до w и h) выходила за край картинки-маски, и
+           DST_IN эту полоску не гасил. */
+        c.clipRect(0f, 0f, w, h);
         Rect src = new Rect(0, 0, shape.getWidth(), shape.getHeight());
         RectF dst = new RectF(0, 0, w, h);
         Paint tintEmpty = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -1450,6 +1486,9 @@ final class FitFlowWidgetPaint {
         c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift),
             fill(WATER_DEEP));
         c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), fill(WATER_TOP));
+        /* DST_IN гасит всё, что вне силуэта. Картинку кладём в тот же
+           прямоугольник, что и заливку, — и НЕ шире слоя, иначе за её
+           краем снова останется непогашенная полоса. */
         Paint keep = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         keep.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
         c.drawBitmap(shape, src, dst, keep);
