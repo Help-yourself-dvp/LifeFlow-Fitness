@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.40', '0.9.40 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.40'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.40 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.41', '0.9.41 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.41'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.41 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4564,10 +4564,13 @@ for (const id of ids) {
   /* Разнобой 0.9.27 («Шаги» обычным, «Вода»/«Калории» жирным) был из-за
      того, что часть подписей жила в картинке. Теперь всё в разметке:
      одно семейство, а bold — только у значений и надписи на кнопке. */
+  /* 0.9.41: чисел стало больше — нижний ряд делится на две плиты, и
+     появился четвёртый набор «подпись / значение / цель». Пропорция
+     прежняя: у каждой плиты ровно одно жирное значение. */
   check(!/sans-serif-medium/.test(lay)
-    && (lay.match(/android:textStyle="normal"/g) || []).length === 6
-    && (lay.match(/android:textStyle="bold"/g) || []).length === 5
-    && (lay.match(/android:fontFamily="sans-serif"/g) || []).length === 11,
+    && (lay.match(/android:textStyle="normal"/g) || []).length === 8
+    && (lay.match(/android:textStyle="bold"/g) || []).length === 7
+    && (lay.match(/android:fontFamily="sans-serif"/g) || []).length === 15,
     '0.9.28 один шрифт на все подписи, bold только у значений и кнопки');
 
   /* «0 из ххх» одинаково во всех трёх плитах — две строки. */
@@ -4605,14 +4608,18 @@ for (const id of ids) {
      расчётной, и нижнее закругление пилюли не срезается. Растягивается
      вместо неё строка цели — у неё weight=1. */
   const flat930 = lay.replace(/\n\s+/g, ' ');
+  /* 0.9.41: плит с полосой стало три (b, c, d) — нижний ряд делится. */
   check(/android:layout_height="10dp" android:layout_gravity="bottom"/.test(flat930)
-    && (flat930.match(/android:layout_height="10dp" android:layout_gravity="bottom"/g) || []).length === 2
-    && (flat930.match(/widget_bento_[bc]_goal" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/g) || []).length === 2,
+    && (flat930.match(/android:layout_height="10dp" android:layout_gravity="bottom"/g) || []).length === 3
+    && (flat930.match(/widget_bento_[bcd]_goal" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/g) || []).length === 3,
     '0.9.30 шкала — отдельный нижний слой во всю ширину плиты');
 
   /* Пункт 1 владельца: кнопки уехали в правый верхний угол и уменьшены.
      Именно это, а не сжатие шрифтов, вернуло виджету размер 4x2. */
-  check((flat930.match(/android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="top\|end"/g) || []).length === 4
+  /* 0.9.41: шесть — по паре (текстовая + значковая) на плиты b, c, d.
+     В половинках провайдер их не показывает (allowBtn), но в разметке
+     они есть: слот c бывает и широким. */
+  check((flat930.match(/android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="top\|end"/g) || []).length === 6
     && !/android:layout_gravity="end\|center_vertical"/.test(flat930),
     '0.9.30 круглые кнопки 38dp в правом верхнем углу, не по центру плиты');
 
@@ -4640,10 +4647,21 @@ for (const id of ids) {
     '0.9.31 кольцо по центру между подписью и числом');
 
   /* Шрифты владелец просил не трогать — размеры те же, что в 0.9.29. */
-  check((lay.match(/android:textSize="12sp"/g) || []).length === 3
+  /* 0.9.41: у ПОЛОВИНОК нижнего ряда кегль меньше (14/11/10 вместо
+     17/12/11) — иначе «7 ч 40» и «из 2 500» не влезают в половину
+     ширины. Это НЕ нарушает запрет владельца уменьшать шрифты бенто:
+     широкие плиты сохранили прежние размеры, у слота c провайдер
+     возвращает 17/12/11, когда плита занимает всю строку. */
+  check((lay.match(/android:textSize="12sp"/g) || []).length === 2
     && (lay.match(/android:textSize="20sp"/g) || []).length === 1
-    && (lay.match(/android:textSize="17sp"/g) || []).length === 2
-    && (lay.match(/android:textSize="11sp"/g) || []).length === 3,
+    && (lay.match(/android:textSize="17sp"/g) || []).length === 1
+    && (lay.match(/android:textSize="11sp"/g) || []).length === 2
+    && (lay.match(/android:textSize="14sp"/g) || []).length === 2
+    && (lay.match(/android:textSize="10sp"/g) || []).length === 4
+    /* широкий режим слота c восстанавливает исходные кегли */
+    && /setTextViewTextSize\(R\.id\.widget_bento_c_value, sp, split \? 14f : 17f\)/.test(bento)
+    && /setTextViewTextSize\(R\.id\.widget_bento_c_label, sp, split \? 11f : 12f\)/.test(bento)
+    && /setTextViewTextSize\(R\.id\.widget_bento_c_goal, sp, split \? 10f : 11f\)/.test(bento),
     '0.9.30 размеры шрифтов не изменились при переходе на 4x2');
 
   /* 0.9.30: бенто вернулся на 4x2. Это стало возможно не сжатием шрифтов
@@ -5028,7 +5046,10 @@ for (const id of ids) {
     && (paint.match(/Paint p = textBold\(color, 9\.5f \* den, Paint\.Align\.LEFT\);/g) || []).length === 2
     && /boolean bold = \(tf == fontBold\);/.test(paint)
     && /fitPaint\("\+250 мл", leftW - 12f \* den, 11f \* den, 7f \* den,\s*th\.btnInk, fontBold\)/.test(paint)
-    && /fontBold = Typeface\.create\(t, Typeface\.BOLD\)/.test(paint),
+    /* 0.9.41: fontBold — ЗАПЕЧЁННЫЙ файл, а не Typeface.create(BOLD)
+       поверх вариативного ExtraLight (см. сторож 0.9.41 ниже). Синтетика
+       осталась только запасным путём, когда файла в сборке нет. */
+    && /fontBold = bold != null \? bold : Typeface\.create\(reg, Typeface\.BOLD\);/.test(paint),
     '0.9.36 подписи на кнопках жирные');
 
   /* Свой шаблон капли: если файла нет — встроенный контур (откат). */
@@ -5162,8 +5183,11 @@ for (const id of ids) {
          мимо сторожа (поймано мутацией при разработке 0.9.40). */
       && (b.match(/if \(isLine\(slot\)\) \{/g) || []).length === 2
       && /if \(isLine\(a\)\) \{/.test(b)
-      /* значение маленькой плиты — именно текст показателя */
-      && /setTextViewText\(valueId, lineTail\(lineOf\(d, slot\)\)\)/.test(b)
+      /* значение маленькой плиты — именно текст показателя.
+         0.9.41: в половинке он ещё и сокращается (lineNarrow), поэтому
+         текст берётся в переменную. */
+      && /String v = lineTail\(lineOf\(d, slot\)\);/.test(b)
+      && /setTextViewText\(valueId, narrow \? lineNarrow\(v\) : v\);/.test(b)
       && /setTextViewText\(R\.id\.widget_bento_a_value, lineTail\(lineOf\(d, a\)\)\)/.test(b)
       /* и озвучка читает строку целиком, а не «X из Y» */
       && /talk\.append\(' '\)\.append\(lineOf\(d, slot\)\)/.test(b)
@@ -5174,6 +5198,89 @@ for (const id of ids) {
       && /if \(lineOf\(d, id\)\.length\(\) == 0\) continue;/.test(b)
       && /if \("sleep"\.equals\(id\)\) return "Сон";/.test(b);
   })(), '0.9.40 бенто: строковые показатели вместо пустого блока');
+
+  /* 0.9.41: жирный шрифт наконец настоящий. Корень трёх неудачных попыток —
+     manrope.ttf ВАРИАТИВНЫЙ (ось 200…800, по умолчанию 200/ExtraLight):
+     Android грузит экземпляр по умолчанию и ось двигать не умеет, поэтому
+     весь текст был сверхтонким. Держим два запечённых начертания. */
+  check((() => {
+    const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf-8');
+    const okFiles = fs932.existsSync('assets/fonts/manrope-regular.ttf')
+      && fs932.existsSync('assets/fonts/manrope-bold.ttf')
+      && fs932.existsSync('tools/make-widget-fonts.py');
+    if (!okFiles) return false;
+    /* статические: без таблицы fvar и с разным usWeightClass */
+    const head = (f) => fs932.readFileSync(f);
+    const hasFvar = (buf) => buf.includes(Buffer.from('fvar'));
+    const reg = head('assets/fonts/manrope-regular.ttf');
+    const bold = head('assets/fonts/manrope-bold.ttf');
+    return !hasFvar(reg) && !hasFvar(bold)
+      && reg.length > 20000 && bold.length > 20000
+      && /loadFont\(context, "manrope-bold\.ttf"\)/.test(paint)
+      && /loadFont\(context, "manrope-regular\.ttf"\)/.test(paint)
+      /* откат на вариативный, если запечённых нет */
+      && /if \(reg == null\) reg = loadFont\(context, "manrope\.ttf"\);/.test(paint);
+  })(), '0.9.41 жирный шрифт — отдельный файл, а не синтетика');
+
+  /* 0.9.41: процент в капле читается на обеих темах и на любом уровне
+     воды — надпись пересекает границу заливки, поэтому рисуется
+     обводкой + заливкой, а не одним сплошным цветом. */
+  check((() => {
+    const paint = fs932.readFileSync('android-native/FitFlowWidgetPaint.java', 'utf-8');
+    const prev = fs932.readFileSync('tools/widget-tiles-preview.py', 'utf-8');
+    return /final int dropPct, dropPctHalo;/.test(paint)
+      && /Paint pHalo = textBold\(th\.dropPctHalo, pctSize, Paint\.Align\.CENTER\);/.test(paint)
+      && /pHalo\.setStyle\(Paint\.Style\.STROKE\);/.test(paint)
+      && /Paint pPct = textBold\(th\.dropPct, pctSize, Paint\.Align\.CENTER\);/.test(paint)
+      /* сплошной цвет 0xFF0F3C46 из 0.9.37 больше не используется */
+      && !/text\(0xFF0F3C46/.test(paint)
+      && /'drop_pct_halo'/.test(prev)
+      && /stroke_width=/.test(prev);
+  })(), '0.9.41 процент в капле: обводка, читается на любом уровне');
+
+  /* 0.9.41: шаблон капли не касается кромок файла — иначе при растяжении
+     крайние пиксели тянутся и по низу и бокам остаётся тонкая кайма
+     (полевая жалоба владельца). */
+  check((() => {
+    const { execFileSync } = require('child_process');
+    const out = execFileSync('python3', ['-c', [
+      'from PIL import Image',
+      'im = Image.open("assets/widget-icons/drop-shape.png")',
+      'a = im.split()[3]',
+      'w, h = im.size',
+      'edges = [max(a.crop((0,0,w,1)).getdata()), max(a.crop((0,h-1,w,h)).getdata()),',
+      '         max(a.crop((0,0,1,h)).getdata()), max(a.crop((w-1,0,w,h)).getdata())]',
+      'print(max(edges))'
+    ].join('\n')], { encoding: 'utf-8' });
+    return Number(out.trim()) === 0;
+  })(), '0.9.41 капля: прозрачные поля, нет каймы по краю');
+
+  /* 0.9.41: нижний ряд бенто делится на две половинки. */
+  check((() => {
+    const b = fs932.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf-8');
+    const lay = fs932.readFileSync('android-res/layout/fitflow_widget_bento.xml', 'utf-8');
+    const prep = fs932.readFileSync('tools/prepare-bento-bg.py', 'utf-8');
+    const prev = fs932.readFileSync('tools/widget-bento-preview.py', 'utf-8');
+    const ids = (lay.match(/android:id="@\+id\/(\w+)"/g) || []).map(s => s.slice(15, -1));
+    const dup = ids.filter((v, i) => ids.indexOf(v) !== i);
+    return /MAX_SLOTS = 4/.test(b)
+      && /BARS_D/.test(b)
+      && /String dSlot = slots\.get\(3\)/.test(b.replace(/slots\.size\(\) > 3 \? /, ''))
+      && /widget_bento_d_card/.test(lay)
+      && /widget_bento_split_gap/.test(lay)
+      && dup.length === 0
+      /* фон нижних плит — drawable: подложка-картинка одна на все составы */
+      && fs932.existsSync('android-res/drawable/fitflow_bento_card.xml')
+      /* фон нужен ОБЕИМ половинкам: c и d. Одной проверки мало —
+         правка любой из двух проходила мимо (поймано мутацией). */
+      && (lay.match(/@drawable\/fitflow_bento_card/g) || []).length === 2
+      && !/PAD_V \+ SMALL_H \+ GAP_V, W - PAD/.test(prep)
+      /* в половинке кнопки нет: круг 38dp не оставил бы места значению */
+      && /boolean textBtn = allowBtn && "water"\.equals\(slot\);/.test(b)
+      /* и подписи/единицы сокращаются, чтобы всё влезало без многоточия */
+      && /labelNarrow/.test(b) && /goalNarrow/.test(b) && /lineNarrow/.test(b)
+      && /LABEL_NARROW/.test(prev) && /def line_narrow/.test(prev);
+  })(), '0.9.41 бенто: нижний ряд делится на две плиты');
 
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */

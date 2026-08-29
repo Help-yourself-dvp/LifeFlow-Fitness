@@ -64,6 +64,11 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         "sleep", "weight", "day-plan", "day-mood", "workout", "courses"
     };
 
+    /* 0.9.41: нижний ряд делится надвое, поэтому показателей помещается
+       четыре, а не три. Больше не берём: половинка уже широкой плиты, и
+       пятому месту взяться неоткуда. */
+    private static final int MAX_SLOTS = 4;
+
     private static boolean isLine(String id) {
         for (String s : SUPPORTED_LINES) if (s.equals(id)) return true;
         return false;
@@ -104,6 +109,11 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         R.id.widget_bento_c_bar_water, R.id.widget_bento_c_bar_food,
         R.id.widget_bento_c_bar_activity, R.id.widget_bento_c_bar_steps
     };
+    /* 0.9.41: вторая половинка нижнего ряда. */
+    private static final int[] BARS_D = {
+        R.id.widget_bento_d_bar_water, R.id.widget_bento_d_bar_food,
+        R.id.widget_bento_d_bar_activity, R.id.widget_bento_d_bar_steps
+    };
 
     static void updateAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
@@ -138,7 +148,7 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
            с кольцом должна достаться тому, у кого есть цель. Порядок между
            самими строками — пользовательский. */
         for (String id : d.order()) {
-            if (out.size() >= 3) break;
+            if (out.size() >= MAX_SLOTS) break;
             if (!isLine(id) || out.contains(id)) continue;
             if (lineOf(d, id).length() == 0) continue;  // нет данных — не занимаем плиту
             out.add(id);
@@ -149,6 +159,40 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
             out.add("food");
         }
         return out;
+    }
+
+    /* 0.9.41: в половинке нижнего ряда под текст остаётся ~53 dp (при
+       ячейке 4x2). Длинные подписи и единицы туда не помещаются, а
+       владелец требовал, чтобы информация влезала ПОЛНОСТЬЮ, а не
+       обрезалась многоточием. Поэтому для узкой плиты — короткие
+       варианты. Мельчить шрифт вместо этого нельзя: владелец запретил
+       уменьшать шрифты бенто. */
+    private static String labelNarrow(String id) {
+        if ("day-mood".equals(id)) return "Настрой";
+        if ("activity".equals(id)) return "Актив.";
+        if ("day-plan".equals(id)) return "План";
+        if ("workout".equals(id)) return "Спорт";
+        if ("food".equals(id)) return "Ккал";
+        return labelOf(id);
+    }
+
+    /* Единицы в узкой плите не пишем: «из 2 500» вместо «из 2 500 ккал».
+       Показатель уже назван в подписи, единица — избыточна. */
+    private static String goalNarrow(FitFlowWidgetData d, String id) {
+        return "из " + FitFlowWidgetPaint.spaced(goalOf(d, id));
+    }
+
+    /* Строковое значение в узкой плите: «7 ч 40 мин» → «7 ч 40».
+       Отрезаем только заведомо избыточный хвост единиц. */
+    private static String lineNarrow(String value) {
+        String s = value == null ? "" : value.trim();
+        if (s.endsWith(" мин") && s.contains(" ч ")) {
+            s = s.substring(0, s.length() - 4);   // «7 ч 40 мин» → «7 ч 40»
+        }
+        if (s.endsWith(" кг")) {
+            s = s.substring(0, s.length() - 3);   // «78,4 кг» → «78,4»
+        }
+        return s;
     }
 
     private static String labelOf(String id) {
@@ -263,13 +307,53 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
                 R.id.widget_bento_b_card, R.id.widget_bento_b_label,
                 R.id.widget_bento_b_value, R.id.widget_bento_b_goal,
                 BARS_B, R.id.widget_bento_b_btn,
-                R.id.widget_bento_b_btn_icon, d, REQ + 1);
+                R.id.widget_bento_b_btn_icon, d, REQ + 1, true);
+
+            /* 0.9.41 (просьба владельца): нижний ряд — одна широкая плита
+               или две половинки. Когда показателей ровно три, D скрыт и C
+               занимает всю строку; при четырёх обе половинки заняты.
+               Кнопку в половинке не показываем: 38 dp круг съедает
+               половину её ширины, и значение перестаёт помещаться —
+               владелец требовал, чтобы информация влезала полностью. */
+            String dSlot = slots.size() > 3 ? slots.get(3) : null;
+            boolean split = dSlot != null;
+
+            /* Отступы плиты C зависят от режима. В одиночном она широкая и
+               может показать кнопку — под неё нужен коридор 46 dp справа;
+               в парном кнопки нет, и текст занимает всю половинку.
+               setViewPadding принимает ПИКСЕЛИ, поэтому переводим из dp. */
+            float dens = context.getResources().getDisplayMetrics().density;
+            int padStart = Math.round((split ? 10f : 14f) * dens);
+            int padEnd = Math.round((split ? 10f : 46f) * dens);
+            int padTop = Math.round(4f * dens);
+            int padBottom = Math.round(16f * dens);
+            views.setViewPadding(R.id.widget_bento_c_text,
+                padStart, padTop, padEnd, padBottom);
 
             renderSmallSlot(context, views, c,
                 R.id.widget_bento_c_card, R.id.widget_bento_c_label,
                 R.id.widget_bento_c_value, R.id.widget_bento_c_goal,
                 BARS_C, R.id.widget_bento_c_btn,
-                R.id.widget_bento_c_btn_icon, d, REQ + 2);
+                R.id.widget_bento_c_btn_icon, d, REQ + 2, !split);
+
+            renderSmallSlot(context, views, dSlot,
+                R.id.widget_bento_d_card, R.id.widget_bento_d_label,
+                R.id.widget_bento_d_value, R.id.widget_bento_d_goal,
+                BARS_D, R.id.widget_bento_d_btn,
+                R.id.widget_bento_d_btn_icon, d, REQ + 4, false);
+
+            /* Промежуток между половинками нужен только когда их две. */
+            views.setViewVisibility(R.id.widget_bento_split_gap,
+                split ? android.view.View.VISIBLE : android.view.View.GONE);
+
+            /* Кегль плиты C: в одиночном режиме тот же, что был до
+               деления (17/12/11 sp), в парном — уменьшенный, иначе
+               «7 ч 40 мин» не помещается в половину ширины.
+               COMPLEX_UNIT_SP, чтобы уважать системный масштаб шрифта. */
+            int sp = android.util.TypedValue.COMPLEX_UNIT_SP;
+            views.setTextViewTextSize(R.id.widget_bento_c_value, sp, split ? 14f : 17f);
+            views.setTextViewTextSize(R.id.widget_bento_c_label, sp, split ? 11f : 12f);
+            views.setTextViewTextSize(R.id.widget_bento_c_goal, sp, split ? 10f : 11f);
 
             StringBuilder talk = new StringBuilder("FitFlow.");
             for (String slot : slots) {
@@ -312,28 +396,31 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
     private void renderSmallSlot(Context context, RemoteViews views, String slot,
                                  int cardId, int labelId, int valueId, int goalId,
                                  int[] barIds, int btnId, int btnIconId,
-                                 FitFlowWidgetData d, int req) {
+                                 FitFlowWidgetData d, int req, boolean allowBtn) {
         if (slot == null) {
             views.setViewVisibility(cardId, android.view.View.GONE);
             return;
         }
         views.setViewVisibility(cardId, android.view.View.VISIBLE);
-        views.setTextViewText(labelId, labelOf(slot));
+        /* narrow = плита-половинка: allowBtn выключён именно у них. */
+        boolean narrow = !allowBtn;
+        views.setTextViewText(labelId, narrow ? labelNarrow(slot) : labelOf(slot));
         if (isLine(slot)) {
             /* 0.9.40: строковый показатель — значение текстом, строка цели
                пустая, шкала спрятана (pick = -1 гасит все слои). */
-            views.setTextViewText(valueId, lineTail(lineOf(d, slot)));
+            String v = lineTail(lineOf(d, slot));
+            views.setTextViewText(valueId, narrow ? lineNarrow(v) : v);
             views.setTextViewText(goalId, "");
             showBar(views, barIds, -1, 0);
         } else {
             views.setTextViewText(valueId, FitFlowWidgetPaint.spaced(valueOf(d, slot)));
-            views.setTextViewText(goalId,
-                "из " + FitFlowWidgetPaint.spaced(goalOf(d, slot)) + unitOf(slot));
+            views.setTextViewText(goalId, narrow ? goalNarrow(d, slot)
+                : "из " + FitFlowWidgetPaint.spaced(goalOf(d, slot)) + unitOf(slot));
             showBar(views, barIds, indexOf(slot), pctOf(d, slot));
         }
 
-        boolean textBtn = "water".equals(slot);
-        boolean iconBtn = "food".equals(slot);
+        boolean textBtn = allowBtn && "water".equals(slot);
+        boolean iconBtn = allowBtn && "food".equals(slot);
         views.setViewVisibility(btnId, textBtn ? android.view.View.VISIBLE : android.view.View.GONE);
         views.setViewVisibility(btnIconId, iconBtn ? android.view.View.VISIBLE : android.view.View.GONE);
 

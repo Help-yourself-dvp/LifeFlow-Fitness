@@ -75,6 +75,10 @@ LEFT_W = 538
 RIGHT_W = W - 2 * PAD - GAP - LEFT_W          # 560
 CARD_H = H - 2 * PAD_V                        # 512
 SMALL_H = (CARD_H - GAP_V) // 2               # 246
+# 0.9.41: деление нижней правой плиты пополам. GAP_H — промежуток между
+# половинками; те же числа стоят в weightSum разметки overlay.
+GAP_H = 20
+HALF_W = (RIGHT_W - GAP_H) // 2               # 270
 
 # Палитра снята с арта 0.9.26 (оболочка (17,20,25), плита (21,22,27)).
 # Контраст там почти нулевой, плиты читались только за счёт мягкой тени,
@@ -286,10 +290,16 @@ def build_background():
     d.rounded_rectangle((0, 0, W - 1, H - 1), radius=shell_radius, fill=SHELL)
 
     card_radius = 30
+    # 0.9.41 (просьба владельца «нижний правый блок делить на два»).
+    # Нижнего ряда здесь БОЛЬШЕ НЕТ: он стал переменным — одна широкая
+    # плита или две половинки, — а подложка одна на все составы.
+    # Поэтому его плиты рисует сама разметка через drawable
+    # fitflow_bento_card (тот же цвет и радиус, пересчитанные в dp).
+    # Класть в картинку оба варианта нельзя: незанятый проступал бы
+    # пустым прямоугольником.
     plates = [
         (PAD, PAD_V, PAD + LEFT_W, PAD_V + CARD_H),
         (PAD + LEFT_W + GAP, PAD_V, W - PAD, PAD_V + SMALL_H),
-        (PAD + LEFT_W + GAP, PAD_V + SMALL_H + GAP_V, W - PAD, PAD_V + CARD_H),
     ]
     for x0, y0, x1, y1 in plates:
         d.rounded_rectangle((x0, y0, x1 - 1, y1 - 1), radius=card_radius,

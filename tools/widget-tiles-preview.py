@@ -38,6 +38,11 @@ TILES_THEMES = {
         'btn_ink': (6, 95, 70),
         'drop_empty': (226, 232, 240, 255),
         'gear': (154, 166, 180, 140),
+        # 0.9.41: процент внутри капли — тёмный с белой обводкой. Надпись
+        # пересекает границу воды, сплошной цвет читается только на одном
+        # из двух фонов. Зеркало TilesTheme.dropPct / dropPctHalo.
+        'drop_pct': (11, 58, 68),
+        'drop_pct_halo': (255, 255, 255, 242),
         'sheet': (203, 213, 225, 255),
         'title': '#33415A',
     },
@@ -49,8 +54,12 @@ TILES_THEMES = {
         'shadow': (0, 0, 0, 90),
         'btn': (6, 78, 59, 255),
         'btn_ink': (167, 243, 208),
-        'drop_empty': (55, 65, 81, 255),
+        # 0.9.41: светлее прежнего (55,65,81) — капля обязана отличаться
+        # и от плитки, и от воды, иначе на тёмной теме это просто пятно.
+        'drop_empty': (74, 86, 102, 255),
         'gear': (124, 135, 150, 140),
+        'drop_pct': (8, 49, 58),
+        'drop_pct_halo': (255, 255, 255, 242),
         'sheet': (15, 18, 26, 255),
         'title': '#C7CEDA',
     },
@@ -391,11 +400,15 @@ def render(slots, data, width=760, height=428, theme='light', water_pct=None):
         dy = room_top + (room_bottom - room_top - dh) / 2
         paint_drop(im, (dx, dy, dx + dw, dy + dh), pct, den, th)
         # Процент — ВНУТРИ капли: сбоку он отжимал её и мельчил.
-        f_pct = font(int(max(8, min(11 * den, dh * 0.22))), bold=True)
+        # 0.9.41: два прохода — обводка, затем заливка (зеркало Java).
+        f_pct = font(int(max(9, min(12 * den, dh * 0.24))), bold=True)
         pl = '%d%%' % round(pct * 100)
         pb = d.textbbox((0, 0), pl, font=f_pct)
-        d.text((dx + dw / 2 - pb[2] / 2, dy + dh * 0.66 - pb[3] / 2),
-               pl, font=f_pct, fill=(15, 60, 70))
+        px = dx + dw / 2 - pb[2] / 2
+        py = dy + dh * 0.66 - pb[3] / 2
+        d.text((px, py), pl, font=f_pct, fill=th['drop_pct_halo'],
+               stroke_width=max(2, int(2.6 * den)), stroke_fill=th['drop_pct_halo'])
+        d.text((px, py), pl, font=f_pct, fill=th['drop_pct'])
         d.text(((big[0] + big[2]) / 2 - sb[2] / 2, big[3] - sb[3] - 4 * den),
                sub, font=f_sub, fill=th['muted'])
 

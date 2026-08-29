@@ -77,6 +77,8 @@ MID = 25 / 1000.0
 RIGHT = 467 / 1000.0
 SMALL = 480 / 1000.0
 GAP_V = 40 / 1000.0
+# 0.9.41: промежуток между половинками нижнего ряда (weight 36 из 2036).
+SPLIT_GAP = 36 / 2036.0
 
 
 def font(size, bold=False):
@@ -177,7 +179,34 @@ def circle_button(im, cx, cy, r, colour, text=None, icon=None):
         im.alpha_composite(ic, (cx - ic.width // 2, cy - ic.height // 2))
 
 
-def small_slot(im, box, slot, data, dp):
+# 0.9.41: короткие подписи для половинок — зеркало labelNarrow() в Java.
+LABEL_NARROW = {'day-mood': 'Настрой', 'activity': 'Актив.', 'day-plan': 'План',
+                'workout': 'Спорт', 'food': 'Ккал'}
+
+
+def line_narrow(value):
+    """«7 ч 40 мин» → «7 ч 40» — зеркало lineNarrow() в Java."""
+    s = (value or '').strip()
+    if s.endswith(' мин') and ' ч ' in s:
+        s = s[:-4]
+    if s.endswith(' кг'):
+        s = s[:-3]
+    return s
+
+
+def card(im, box, dp):
+    """Фон плиты нижнего ряда — зеркало drawable/fitflow_bento_card.xml.
+
+    0.9.41: раньше все плиты были впечатаны в подложку, но нижний ряд стал
+    переменным (одна широкая или две половинки), поэтому его фон рисует
+    разметка. Цвета те же, что у плит подложки.
+    """
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle(box, radius=int(8 * dp),
+                        fill=(27, 30, 36, 255), outline=(38, 42, 50, 255), width=1)
+
+
+def small_slot(im, box, slot, data, dp, narrow=False):
     """Плита B/C: подпись, значение, цель, шкала во всю ширину,
     круглая кнопка в правом верхнем углу (0.9.30)."""
     d = ImageDraw.Draw(im)
@@ -186,23 +215,29 @@ def small_slot(im, box, slot, data, dp):
     value, goal = (0, 1) if line else data[slot]
     colour = COLORS[slot]
 
-    has_btn = slot in ('water', 'food')
-    pad_end = int(46 * dp) if has_btn else int(14 * dp)
-    tx = x0 + int(14 * dp)
+    # 0.9.41: в половинке кнопки нет — круг 38 dp съел бы половину
+    # ширины и значение перестало бы помещаться.
+    has_btn = (not narrow) and slot in ('water', 'food')
+    pad_end = int(46 * dp) if has_btn else int((10 if narrow else 14) * dp)
+    tx = x0 + int((10 if narrow else 14) * dp)
     ty = y0 + int(4 * dp)
 
-    f_label = font(int(12 * dp))
-    f_value = font(int(17 * dp), bold=True)
-    f_goal = font(int(11 * dp))
+    f_label = font(int((11 if narrow else 12) * dp))
+    f_value = font(int((14 if narrow else 17) * dp), bold=True)
+    f_goal = font(int((10 if narrow else 11) * dp))
 
-    d.text((tx, ty), LABEL[slot], font=f_label, fill=MUTED)
+    lab = LABEL_NARROW.get(slot, LABEL[slot]) if narrow else LABEL[slot]
+    d.text((tx, ty), lab, font=f_label, fill=MUTED)
     ty += f_label.getbbox('Ag')[3] + int(1 * dp)
     shown = data[slot] if line else spaced(value)
+    if narrow and line:
+        shown = line_narrow(shown)
     d.text((tx, ty), ellipsize(d, shown, f_value, x1 - pad_end - tx),
            font=f_value, fill=WHITE)
     if not line:
         ty += f_value.getbbox('0')[3]
-        d.text((tx, ty), ellipsize(d, 'из ' + spaced(goal) + UNIT[slot], f_goal,
+        goal_txt = ('из ' + spaced(goal)) if narrow else ('из ' + spaced(goal) + UNIT[slot])
+        d.text((tx, ty), ellipsize(d, goal_txt, f_goal,
                                    x1 - pad_end - tx), font=f_goal, fill=MUTED)
 
     # Шкала — отдельным слоем, во всю ширину плиты: кнопка ей больше
@@ -211,8 +246,8 @@ def small_slot(im, box, slot, data, dp):
     if not line:
         bar_h = int(10 * dp)
         bar_bottom = y1 - int(5 * dp)
-        pill(im, (tx, bar_bottom - bar_h, x1 - int(14 * dp), bar_bottom),
-             colour, pct(value, goal))
+        pill(im, (tx, bar_bottom - bar_h, x1 - int((10 if narrow else 14) * dp),
+                  bar_bottom), colour, pct(value, goal))
 
     if has_btn:
         r = int(19 * dp)
@@ -280,10 +315,23 @@ def render(slots, data, width=960):
     d.text((cxm - bb[2] // 2, by), txt, font=f_value, fill=WHITE)
     d.text((cxm - gb[2] // 2, by + bb[3] + int(2 * dp)), g, font=f_goal, fill=MUTED)
 
-    for slot, box in ((slots[1] if len(slots) > 1 else None, b_box),
-                      (slots[2] if len(slots) > 2 else None, c_box)):
-        if slot:
-            small_slot(im, box, slot, data, dp)
+    if slots[1] if len(slots) > 1 else None:
+        small_slot(im, b_box, slots[1], data, dp)
+
+    # 0.9.41: нижний ряд — широкая плита или две половинки.
+    c_slot = slots[2] if len(slots) > 2 else None
+    d_slot = slots[3] if len(slots) > 3 else None
+    if d_slot:
+        gap = right_w * SPLIT_GAP
+        half = (right_w - gap) / 2
+        c_half = (c_box[0], c_box[1], int(c_box[0] + half), c_box[3])
+        d_half = (int(c_box[0] + half + gap), c_box[1], c_box[2], c_box[3])
+        for box, slot in ((c_half, c_slot), (d_half, d_slot)):
+            card(im, box, dp)
+            small_slot(im, box, slot, data, dp, narrow=True)
+    elif c_slot:
+        card(im, c_box, dp)
+        small_slot(im, c_box, c_slot, data, dp)
 
     return im
 
@@ -309,6 +357,10 @@ def main():
         ('0.9.40: выбран сон — плита со строкой, а не пустой блок',
          ['steps', 'water', 'sleep']),
         ('0.9.40: только строковые показатели', ['sleep', 'weight', 'day-plan']),
+        ('0.9.41: нижний блок разделён — четыре показателя',
+         ['steps', 'water', 'food', 'sleep']),
+        ('0.9.41: деление с длинными значениями',
+         ['water', 'steps', 'sleep', 'weight']),
     ]
     shots = [(title, render(slots, data)) for title, slots in variants]
 

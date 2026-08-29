@@ -65,9 +65,14 @@ final class FitFlowWidgetPaint {
 
     static Typeface font = Typeface.create("sans-serif-medium", Typeface.NORMAL);
     static Typeface fontReg = Typeface.create("sans-serif", Typeface.NORMAL);
-    /* 0.9.36: жирный — только для подписей на кнопках (просьба владельца:
-       на «кольцах» они плохо читались). Manrope в проекте одного веса,
-       поэтому жирность синтезирует система (Typeface.BOLD). */
+    /* 0.9.41: жирный — ОТДЕЛЬНЫЙ файл шрифта, а не синтетика.
+       Причина трёх неудачных попыток (0.9.36…0.9.39): manrope.ttf —
+       вариативный, ось веса 200…800, а начертание по умолчанию 200
+       (ExtraLight). Android грузит через createFromAsset именно его и ось
+       двигать не умеет, поэтому весь текст виджетов был сверхтонким, а
+       «жирный» поверх ExtraLight почти не отличался. Теперь берём заранее
+       запечённые статические начертания (tools/make-widget-fonts.py):
+       500 для обычного и 800 для жирного. */
     static Typeface fontBold = Typeface.create("sans-serif-medium", Typeface.BOLD);
 
     /* 0.9.35: свои значки владельца. Кэш на процесс — виджет
@@ -187,16 +192,25 @@ final class FitFlowWidgetPaint {
 
     static void ensureFont(Context context) {
         if (context == null) return;
+        /* Два независимых файла. Если запечённых нет (старая сборка) —
+           откатываемся на вариативный manrope.ttf, а жирный синтезируем:
+           виджет должен рисоваться при любом наборе ассетов. */
+        Typeface reg = loadFont(context, "manrope-regular.ttf");
+        Typeface bold = loadFont(context, "manrope-bold.ttf");
+        if (reg == null) reg = loadFont(context, "manrope.ttf");
+        if (reg != null) {
+            font = reg;
+            fontReg = reg;
+            fontBold = bold != null ? bold : Typeface.create(reg, Typeface.BOLD);
+        }
+    }
+
+    private static Typeface loadFont(Context context, String name) {
         try {
-            Typeface t = Typeface.createFromAsset(context.getAssets(),
-                "public/assets/fonts/manrope.ttf");
-            if (t != null) {
-                font = t;
-                fontReg = t;
-                fontBold = Typeface.create(t, Typeface.BOLD);
-            }
+            return Typeface.createFromAsset(context.getAssets(),
+                "public/assets/fonts/" + name);
         } catch (Exception e) {
-            // системный гротеск — капля и кольца всё равно читаются
+            return null;
         }
     }
 
@@ -256,6 +270,11 @@ final class FitFlowWidgetPaint {
        жирность обязана быть, зовём этот метод. */
     static Paint textBold(int color, float size, Paint.Align align) {
         Paint p = text(color, size, fontBold, align);
+        /* 0.9.41: fakeBold оставлен СТРАХОВКОЙ. Если запечённого
+           manrope-bold.ttf в сборке нет, fontBold окажется синтетикой
+           поверх обычного веса, и без этой строки жирность пропадёт
+           совсем. С настоящим жирным файлом строка лишь чуть добавляет
+           плотности и вреда не делает. */
         p.setFakeBoldText(true);
         return p;
     }
@@ -1105,9 +1124,17 @@ final class FitFlowWidgetPaint {
        ЗЕРКАЛО: tools/widget-tiles-preview.py — правки вносить в оба. */
     static final class TilesTheme {
         final int bg, tile, ink, muted, shadow, btn, btnInk, dropEmpty, gear;
+        /* 0.9.41: цвет процента внутри капли и его обводки. Своими полями,
+           а не через ink: надпись лежит СРАЗУ НА ДВУХ фонах — пустой части
+           капли и залитой воде, — и ни один сплошной цвет не читается на
+           обоих. Обводка контрастом решает это независимо от уровня. */
+        final int dropPct, dropPctHalo;
 
         TilesTheme(int bg, int tile, int ink, int muted, int shadow,
-                   int btn, int btnInk, int dropEmpty, int gear) {
+                   int btn, int btnInk, int dropEmpty, int gear,
+                   int dropPct, int dropPctHalo) {
+            this.dropPct = dropPct;
+            this.dropPctHalo = dropPctHalo;
             this.bg = bg; this.tile = tile; this.ink = ink; this.muted = muted;
             this.shadow = shadow; this.btn = btn; this.btnInk = btnInk;
             this.dropEmpty = dropEmpty;
@@ -1119,11 +1146,22 @@ final class FitFlowWidgetPaint {
 
     static final TilesTheme TILES_LIGHT = new TilesTheme(
         0xFFEEF2F6, 0xFFFFFFFF, 0xFF111827, 0xFF6B7280, 0x4694A3B8,
-        0xFFD1FAE5, 0xFF065F46, 0xFFE2E8F0, 0x8C9AA6B4);
+        0xFFD1FAE5, 0xFF065F46, 0xFFE2E8F0, 0x8C9AA6B4,
+        /* тёмная надпись + белая обводка: читается и на светлой пустой
+           части капли, и на бирюзовой воде */
+        0xFF0B3A44, 0xF2FFFFFF);
 
+    /* 0.9.41: пустая часть капли в тёмной теме заметно светлее прежней
+       (0xFF374151). Она обязана отличаться и от фона плитки, и от воды,
+       иначе на тёмной теме капля читалась как пятно, а процент внутри
+       пропадал совсем (жалоба владельца). */
     static final TilesTheme TILES_DARK = new TilesTheme(
         0xF0111827, 0xFF1F2937, 0xFFF3F4F6, 0xFF9CA3AF, 0x5A000000,
-        0xFF064E3B, 0xFFA7F3D0, 0xFF374151, 0x8C7C8796);
+        0xFF064E3B, 0xFFA7F3D0, 0xFF4A5666, 0x8C7C8796,
+        /* тот же приём, что и в светлой: белая обводка вокруг тёмной
+           надписи. Белый текст здесь не годится — ниже уровня воды он
+           лёг бы на светлую бирюзу. */
+        0xFF08313A, 0xF2FFFFFF);
 
     private static final String[] TILES_PAIRED = { "water", "food", "steps", "activity" };
 
@@ -1248,10 +1286,23 @@ final class FitFlowWidgetPaint {
             float dy = roomTop + (roomBottom - roomTop - dh) / 2f;
             paintDropTiles(c, new RectF(dx, dy, dx + dw, dy + dh), pct, den, th);
 
-            /* Процент ВНУТРИ капли: сбоку он отжимал её и мельчил. */
-            Paint pPct = text(0xFF0F3C46,
-                Math.max(8f, Math.min(11f * den, dh * 0.22f)), font, Paint.Align.CENTER);
-            centered(c, Math.round(pct * 100) + "%", dx + dw / 2f, dy + dh * 0.66f, pPct);
+            /* Процент ВНУТРИ капли: сбоку он отжимал её и мельчил.
+               0.9.41: рисуем в два прохода — сперва обводка, потом заливка.
+               Надпись пересекает границу воды, и сплошной цвет обязательно
+               сливается либо с пустой частью, либо с залитой. Обводка даёт
+               контраст при любом уровне и в обеих темах. Жирным — в мелком
+               размере тонкие штрихи съедаются обводкой. */
+            String pctText = Math.round(pct * 100) + "%";
+            float pctSize = Math.max(9f, Math.min(12f * den, dh * 0.24f));
+            float pctX = dx + dw / 2f;
+            float pctY = dy + dh * 0.66f;
+            Paint pHalo = textBold(th.dropPctHalo, pctSize, Paint.Align.CENTER);
+            pHalo.setStyle(Paint.Style.STROKE);
+            pHalo.setStrokeWidth(Math.max(2f, 2.6f * den));
+            pHalo.setStrokeJoin(Paint.Join.ROUND);
+            centered(c, pctText, pctX, pctY, pHalo);
+            Paint pPct = textBold(th.dropPct, pctSize, Paint.Align.CENTER);
+            centered(c, pctText, pctX, pctY, pPct);
             c.drawText(sub, big.centerX(), big.bottom - 4f * den - fmS.descent, pSub);
 
             /* Кнопка «+250 мл» — ВНУТРИ виджета (на референсе была снаружи). */

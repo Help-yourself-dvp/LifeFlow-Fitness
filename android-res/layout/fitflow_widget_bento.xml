@@ -416,19 +416,35 @@
                     android:layout_height="0dp"
                     android:layout_weight="40" />
 
-                <!-- ===== Слот C ===== -->
-                <FrameLayout
-                    android:id="@+id/widget_bento_c_card"
+                <!-- ===== Нижний ряд: одна широкая плита или две
+                     половинки (0.9.41, просьба владельца). Обе плиты
+                     живут всегда; когда показатель один, провайдер
+                     прячет D, и C занимает всю строку — веса при этом
+                     менять не нужно, GONE исключает вьюху из раздачи.
+                     Фон плит — drawable, а не картинка-подложка: она
+                     одна на все составы и не знает, сколько тут плит. -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_weight="480">
+                    android:layout_weight="480"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false">
+
+                <!-- ===== Слот c ===== -->
+                <FrameLayout
+                    android:id="@+id/widget_bento_c_card"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1000"
+                    android:background="@drawable/fitflow_bento_card">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
+                        android:id="@+id/widget_bento_c_text"
                         android:orientation="vertical"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="46dp"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
                         android:paddingTop="4dp"
                         android:paddingBottom="16dp">
 
@@ -438,7 +454,7 @@
                             android:layout_height="wrap_content"
                             android:text=""
                             android:textColor="#98A0AE"
-                            android:textSize="12sp"
+                            android:textSize="10sp"
                             android:textStyle="normal"
                             android:fontFamily="sans-serif"
                             android:includeFontPadding="false"
@@ -452,7 +468,7 @@
                             android:layout_marginTop="1dp"
                             android:text="0"
                             android:textColor="#FFFFFF"
-                            android:textSize="17sp"
+                            android:textSize="14sp"
                             android:textStyle="bold"
                             android:fontFamily="sans-serif"
                             android:includeFontPadding="false"
@@ -466,7 +482,7 @@
                             android:layout_weight="1"
                             android:text=""
                             android:textColor="#98A0AE"
-                            android:textSize="11sp"
+                            android:textSize="10sp"
                             android:textStyle="normal"
                             android:fontFamily="sans-serif"
                             android:includeFontPadding="false"
@@ -478,8 +494,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="10dp"
                         android:layout_gravity="bottom"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="14dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="10dp"
                         android:layout_marginBottom="5dp">
 
                         <ProgressBar
@@ -556,6 +572,156 @@
                         android:visibility="gone"
                         android:contentDescription="@null" />
                 </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/widget_bento_split_gap"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="36" />
+
+                <!-- ===== Слот d ===== -->
+                <FrameLayout
+                    android:id="@+id/widget_bento_d_card"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1000"
+                    android:background="@drawable/fitflow_bento_card">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:id="@+id/widget_bento_d_text"
+                        android:orientation="vertical"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="16dp">
+
+                        <TextView
+                            android:id="@+id/widget_bento_d_label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="#98A0AE"
+                            android:textSize="10sp"
+                            android:textStyle="normal"
+                            android:fontFamily="sans-serif"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <TextView
+                            android:id="@+id/widget_bento_d_value"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:text="0"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <TextView
+                            android:id="@+id/widget_bento_d_goal"
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:text=""
+                            android:textColor="#98A0AE"
+                            android:textSize="10sp"
+                            android:textStyle="normal"
+                            android:fontFamily="sans-serif"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+                    </LinearLayout>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:layout_gravity="bottom"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="10dp"
+                        android:layout_marginBottom="5dp">
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_d_bar_water"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_water" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_d_bar_food"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_food" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_d_bar_activity"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_activity" />
+
+                        <ProgressBar
+                            android:id="@+id/widget_bento_d_bar_steps"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:max="100"
+                            android:progress="0"
+                            android:visibility="gone"
+                            android:progressDrawable="@drawable/fitflow_bento_bar_steps" />
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/widget_bento_d_btn"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/fitflow_bento_btn"
+                        android:gravity="center"
+                        android:text=""
+                        android:textColor="#082028"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif"
+                        android:includeFontPadding="false"
+                        android:lineSpacingExtra="0dp"
+                        android:maxLines="2"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/widget_bento_d_btn_icon"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/fitflow_bento_btn_food"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/widget_bento_ic_pencil"
+                        android:visibility="gone"
+                        android:contentDescription="@null" />
+                </FrameLayout>
+                </LinearLayout>
             </LinearLayout>
 
             <FrameLayout
