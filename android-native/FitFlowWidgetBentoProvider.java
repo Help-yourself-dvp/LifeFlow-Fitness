@@ -53,6 +53,43 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
        (правило «никаких видимых заглушек»). */
     private static final String[] SUPPORTED = { "steps", "water", "food", "activity" };
 
+    /* 0.9.40 (владелец: «выбираю сон — на бенто появляется пустой блок»).
+       Показатели без пары «значение / цель». Раньше они молча
+       выбрасывались из состава, и если выбор пользователя состоял
+       в основном из них, плита оставалась пустой. Теперь такие
+       показатели занимают маленькую плиту и печатаются строкой,
+       а шкала на ней прячется — заполнять её нечем.
+       Строки считает app.js, натив их только показывает. */
+    private static final String[] SUPPORTED_LINES = {
+        "sleep", "weight", "day-plan", "day-mood", "workout", "courses"
+    };
+
+    private static boolean isLine(String id) {
+        for (String s : SUPPORTED_LINES) if (s.equals(id)) return true;
+        return false;
+    }
+
+    /* Текст строкового показателя. Пусто = данных нет, слот не занимаем:
+       пустая плита хуже отсутствующей (правило «никаких заглушек»). */
+    private static String lineOf(FitFlowWidgetData d, String id) {
+        String s = null;
+        if ("sleep".equals(id)) s = d.sleepLine;
+        else if ("weight".equals(id)) s = d.weightLine;
+        else if ("day-plan".equals(id)) s = d.dayPlanLine;
+        else if ("day-mood".equals(id)) s = d.moodLine;
+        else if ("workout".equals(id)) s = d.workoutLine;
+        else if ("courses".equals(id)) s = d.coursesLine;
+        return s == null ? "" : s.trim();
+    }
+
+    /* Хвост после двоеточия: подпись слота печатается отдельно. */
+    private static String lineTail(String line) {
+        String s = line == null ? "" : line.trim();
+        int colon = s.indexOf(':');
+        if (colon >= 0 && colon + 1 < s.length()) s = s.substring(colon + 1).trim();
+        return s;
+    }
+
     /* Порядок во всех трёх массивах — water, food, activity, steps
        (см. indexOf). Он же порядок наложенных ProgressBar в разметке. */
     private static final int[] RINGS_A = {
@@ -97,6 +134,15 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         for (String id : SUPPORTED) {
             if (d.shows(id) && !out.contains(id)) out.add(id);
         }
+        /* 0.9.40: строковые показатели идут ПОСЛЕ числовых — крупная плита A
+           с кольцом должна достаться тому, у кого есть цель. Порядок между
+           самими строками — пользовательский. */
+        for (String id : d.order()) {
+            if (out.size() >= 3) break;
+            if (!isLine(id) || out.contains(id)) continue;
+            if (lineOf(d, id).length() == 0) continue;  // нет данных — не занимаем плиту
+            out.add(id);
+        }
         if (out.isEmpty()) {
             out.add("steps");
             out.add("water");
@@ -109,6 +155,12 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         if ("water".equals(id)) return "Вода";
         if ("food".equals(id)) return "Калории";
         if ("activity".equals(id)) return "Активность";
+        if ("sleep".equals(id)) return "Сон";
+        if ("weight".equals(id)) return "Вес";
+        if ("day-plan".equals(id)) return "План дня";
+        if ("day-mood".equals(id)) return "Самочувствие";
+        if ("workout".equals(id)) return "Тренировка";
+        if ("courses".equals(id)) return "Витамины";
         return "Шаги";
     }
 
@@ -116,6 +168,12 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         if ("water".equals(id)) return R.drawable.widget_bento_ic_drop;
         if ("food".equals(id)) return R.drawable.widget_bento_ic_plate;
         if ("activity".equals(id)) return R.drawable.widget_bento_ic_clock;
+        /* 0.9.40: у бенто ровно шесть своих PNG (новые требуют правки
+           сборки), поэтому строковым показателям отдаём подходящие из
+           имеющихся: «Сон» — часы (время), остальным — карандаш (запись).
+           Ботинок оставляем только шагам, иначе он врёт. */
+        if ("sleep".equals(id)) return R.drawable.widget_bento_ic_clock;
+        if (isLine(id)) return R.drawable.widget_bento_ic_pencil;
         return R.drawable.widget_bento_shoe;
     }
 
@@ -186,11 +244,20 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
             // --- Слот A: крупный, кольцо вокруг иконки ---
             views.setTextViewText(R.id.widget_bento_a_label, labelOf(a));
             views.setImageViewResource(R.id.widget_bento_a_icon, iconOf(a));
-            views.setTextViewText(R.id.widget_bento_a_value,
-                FitFlowWidgetPaint.spaced(valueOf(d, a)));
-            views.setTextViewText(R.id.widget_bento_a_goal,
-                "из " + FitFlowWidgetPaint.spaced(goalOf(d, a)) + unitOf(a));
-            showBar(views, RINGS_A, indexOf(a), pctOf(d, a));
+            if (isLine(a)) {
+                /* Строковый показатель в крупной плите (числовых не выбрано
+                   вовсе): значение — текстом, кольцо гасим полностью, иначе
+                   висела бы пустая дуга на 0 %. */
+                views.setTextViewText(R.id.widget_bento_a_value, lineTail(lineOf(d, a)));
+                views.setTextViewText(R.id.widget_bento_a_goal, "");
+                showBar(views, RINGS_A, -1, 0);
+            } else {
+                views.setTextViewText(R.id.widget_bento_a_value,
+                    FitFlowWidgetPaint.spaced(valueOf(d, a)));
+                views.setTextViewText(R.id.widget_bento_a_goal,
+                    "из " + FitFlowWidgetPaint.spaced(goalOf(d, a)) + unitOf(a));
+                showBar(views, RINGS_A, indexOf(a), pctOf(d, a));
+            }
 
             renderSmallSlot(context, views, b,
                 R.id.widget_bento_b_card, R.id.widget_bento_b_label,
@@ -206,9 +273,13 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
 
             StringBuilder talk = new StringBuilder("FitFlow.");
             for (String slot : slots) {
-                talk.append(' ').append(labelOf(slot)).append(' ')
-                    .append(valueOf(d, slot)).append(" из ").append(goalOf(d, slot))
-                    .append(unitOf(slot)).append('.');
+                if (isLine(slot)) {
+                    talk.append(' ').append(lineOf(d, slot)).append('.');
+                } else {
+                    talk.append(' ').append(labelOf(slot)).append(' ')
+                        .append(valueOf(d, slot)).append(" из ").append(goalOf(d, slot))
+                        .append(unitOf(slot)).append('.');
+                }
             }
             views.setContentDescription(R.id.widget_bento_root, talk.toString());
 
@@ -248,10 +319,18 @@ public class FitFlowWidgetBentoProvider extends AppWidgetProvider {
         }
         views.setViewVisibility(cardId, android.view.View.VISIBLE);
         views.setTextViewText(labelId, labelOf(slot));
-        views.setTextViewText(valueId, FitFlowWidgetPaint.spaced(valueOf(d, slot)));
-        views.setTextViewText(goalId,
-            "из " + FitFlowWidgetPaint.spaced(goalOf(d, slot)) + unitOf(slot));
-        showBar(views, barIds, indexOf(slot), pctOf(d, slot));
+        if (isLine(slot)) {
+            /* 0.9.40: строковый показатель — значение текстом, строка цели
+               пустая, шкала спрятана (pick = -1 гасит все слои). */
+            views.setTextViewText(valueId, lineTail(lineOf(d, slot)));
+            views.setTextViewText(goalId, "");
+            showBar(views, barIds, -1, 0);
+        } else {
+            views.setTextViewText(valueId, FitFlowWidgetPaint.spaced(valueOf(d, slot)));
+            views.setTextViewText(goalId,
+                "из " + FitFlowWidgetPaint.spaced(goalOf(d, slot)) + unitOf(slot));
+            showBar(views, barIds, indexOf(slot), pctOf(d, slot));
+        }
 
         boolean textBtn = "water".equals(slot);
         boolean iconBtn = "food".equals(slot);

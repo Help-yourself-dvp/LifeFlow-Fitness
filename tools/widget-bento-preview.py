@@ -26,6 +26,14 @@ ICONS = {
     'water': 'design/widget_bento_ic_drop.png',
     'food': 'design/widget_bento_ic_plate.png',
     'activity': 'design/widget_bento_ic_clock.png',
+    # 0.9.40: своих PNG у бенто ровно шесть, новые требуют правки сборки,
+    # поэтому строковым показателям отдаём подходящие из имеющихся.
+    'sleep': 'design/widget_bento_ic_clock.png',
+    'weight': 'design/widget_bento_ic_pencil.png',
+    'day-plan': 'design/widget_bento_ic_pencil.png',
+    'day-mood': 'design/widget_bento_ic_pencil.png',
+    'workout': 'design/widget_bento_ic_pencil.png',
+    'courses': 'design/widget_bento_ic_pencil.png',
 }
 PENCIL = 'design/widget_bento_ic_pencil.png'
 GEAR = 'design/widget_bento_ic_gear.png'
@@ -35,9 +43,25 @@ COLORS = {
     'food': '#FF6B4A',
     'activity': '#38BDF8',
     'steps': '#C084FC',
+    'sleep': '#818CF8',
+    'weight': '#94A3B8',
+    'day-plan': '#94A3B8',
+    'day-mood': '#F59E0B',
+    'workout': '#94A3B8',
+    'courses': '#10B981',
 }
-LABEL = {'water': 'Вода', 'food': 'Калории', 'activity': 'Активность', 'steps': 'Шаги'}
+LABEL = {'water': 'Вода', 'food': 'Калории', 'activity': 'Активность', 'steps': 'Шаги',
+         'sleep': 'Сон', 'weight': 'Вес', 'day-plan': 'План дня',
+         'day-mood': 'Самочувствие', 'workout': 'Тренировка', 'courses': 'Витамины'}
 UNIT = {'water': ' мл', 'food': ' ккал', 'activity': ' мин', 'steps': ''}
+
+# 0.9.40: показатели без пары «значение / цель» — зеркало SUPPORTED_LINES
+# в FitFlowWidgetBentoProvider. Значение печатается строкой, шкалы нет.
+LINES = ('sleep', 'weight', 'day-plan', 'day-mood', 'workout', 'courses')
+
+
+def is_line(slot):
+    return slot in LINES
 
 TRACK = '#2A2E36'
 WHITE = '#FFFFFF'
@@ -158,7 +182,8 @@ def small_slot(im, box, slot, data, dp):
     круглая кнопка в правом верхнем углу (0.9.30)."""
     d = ImageDraw.Draw(im)
     x0, y0, x1, y1 = box
-    value, goal = data[slot]
+    line = is_line(slot)
+    value, goal = (0, 1) if line else data[slot]
     colour = COLORS[slot]
 
     has_btn = slot in ('water', 'food')
@@ -172,18 +197,22 @@ def small_slot(im, box, slot, data, dp):
 
     d.text((tx, ty), LABEL[slot], font=f_label, fill=MUTED)
     ty += f_label.getbbox('Ag')[3] + int(1 * dp)
-    d.text((tx, ty), ellipsize(d, spaced(value), f_value, x1 - pad_end - tx),
+    shown = data[slot] if line else spaced(value)
+    d.text((tx, ty), ellipsize(d, shown, f_value, x1 - pad_end - tx),
            font=f_value, fill=WHITE)
-    ty += f_value.getbbox('0')[3]
-    d.text((tx, ty), ellipsize(d, 'из ' + spaced(goal) + UNIT[slot], f_goal,
-                               x1 - pad_end - tx), font=f_goal, fill=MUTED)
+    if not line:
+        ty += f_value.getbbox('0')[3]
+        d.text((tx, ty), ellipsize(d, 'из ' + spaced(goal) + UNIT[slot], f_goal,
+                                   x1 - pad_end - tx), font=f_goal, fill=MUTED)
 
     # Шкала — отдельным слоем, во всю ширину плиты: кнопка ей больше
-    # не мешает, потому что уехала наверх.
-    bar_h = int(10 * dp)
-    bar_bottom = y1 - int(5 * dp)
-    pill(im, (tx, bar_bottom - bar_h, x1 - int(14 * dp), bar_bottom),
-         colour, pct(value, goal))
+    # не мешает, потому что уехала наверх. У строкового показателя её нет:
+    # заполнять нечем (0.9.40).
+    if not line:
+        bar_h = int(10 * dp)
+        bar_bottom = y1 - int(5 * dp)
+        pill(im, (tx, bar_bottom - bar_h, x1 - int(14 * dp), bar_bottom),
+             colour, pct(value, goal))
 
     if has_btn:
         r = int(19 * dp)
@@ -219,7 +248,8 @@ def render(slots, data, width=960):
 
     # --- слот A ---
     a = slots[0]
-    value, goal = data[a]
+    a_line = is_line(a)
+    value, goal = (0, 1) if a_line else data[a]
     f_label = font(int(12 * dp))
     d.text((a_box[0] + int(14 * dp), a_box[1] + int(10 * dp)),
            LABEL[a], font=f_label, fill=MUTED)
@@ -234,14 +264,15 @@ def render(slots, data, width=960):
     ring_r = int(35 * dp)
     cx = (a_box[0] + a_box[2]) // 2
     cy = (a_box[1] + a_box[3]) // 2 - int(12 * dp)
-    ring(im, cx, cy, ring_r, int(6 * dp), COLORS[a], pct(value, goal))
+    if not a_line:
+        ring(im, cx, cy, ring_r, int(6 * dp), COLORS[a], pct(value, goal))
     paste_icon(im, ICONS[a], (cx - 1, cy - 1, cx + 1, cy + 1), int(40 * dp))
 
     # Значение и цель — две строки, как в малых плитах.
     f_value = font(int(20 * dp), bold=True)
     f_goal = font(int(11 * dp))
-    txt = spaced(value)
-    g = 'из ' + spaced(goal) + UNIT[a]
+    txt = data[a] if a_line else spaced(value)
+    g = '' if a_line else 'из ' + spaced(goal) + UNIT[a]
     bb = d.textbbox((0, 0), txt, font=f_value)
     gb = d.textbbox((0, 0), g, font=f_goal)
     cxm = (a_box[0] + a_box[2]) // 2
@@ -264,10 +295,20 @@ def main():
         'food': (0, 2500),
         'activity': (18, 21),
     }
+    # 0.9.40: строковые показатели — готовый текст, как его считает app.js.
+    data['sleep'] = '7 ч 40 мин'
+    data['weight'] = '78,4 кг'
+    data['day-plan'] = '2 из 3'
+    data['day-mood'] = '4/5'
+    data['workout'] = 'отдых'
+    data['courses'] = '1 из 2'
     variants = [
         ('по умолчанию: шаги · вода · калории', ['steps', 'water', 'food']),
         ('питание заменено активностью', ['steps', 'water', 'activity']),
         ('вода крупно, без питания', ['water', 'steps', 'activity']),
+        ('0.9.40: выбран сон — плита со строкой, а не пустой блок',
+         ['steps', 'water', 'sleep']),
+        ('0.9.40: только строковые показатели', ['sleep', 'weight', 'day-plan']),
     ]
     shots = [(title, render(slots, data)) for title, slots in variants]
 

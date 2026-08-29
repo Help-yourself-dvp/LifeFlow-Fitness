@@ -4418,9 +4418,9 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.39', '0.9.39 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.39'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.39 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  check(ver923 === '0.9.40', '0.9.40 version.txt');
+  check(/FITFLOW_VERSION = '0\.9\.40'/.test(app923), '0.9.32 FITFLOW_VERSION');
+  check(/id="about-version">v0\.9\.40 \(build 0\)/.test(html923), '0.9.32 #about-version');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -4962,11 +4962,18 @@ for (const id of ids) {
     /* 0.9.38: в КАДРЕ анимации — только лёгкое обновление списка и канвасы.
        updateAll() каскадом дёргает бенто, канвасы и полуночный будильник —
        на кадре это недопустимо дорого. Бенто исключён из анимации совсем
-       (решение владельца) и получает итог одним обновлением в конце. */
+       (решение владельца).
+       0.9.40: и получает итог СРАЗУ, ДО первого кадра, а не в конце —
+       иначе он ждал всю анимацию и лишь потом прыгал (жалоба владельца:
+       «заполняется рывком, но через 0.9 секунды»). */
     && /FitFlowWidgetProvider\.updateListOnly\(context\)/.test(anim935)
     && !/FitFlowWidgetProvider\.updateAll\(context\)/.test(anim935)
     && /FitFlowWidgetCanvasProvider\.updateAllCanvas/.test(anim935)
-    && /if \(last && sHasBento\)/.test(anim935)
+    && !/if \(last && sHasBento\)/.test(anim935)
+    /* обновление бенто стоит ДО объявления кадров, а не внутри них */
+    && anim935.indexOf('if (sHasBento) {') > 0
+    && anim935.indexOf('if (sHasBento) {')
+       < anim935.indexOf('frame[0] = new Runnable()')
     && /static void updateListOnly\(Context context\)/.test(wprov)
     && /FitFlowWidgetAnimator\.animateWater\(context, beforeTotal, waterTotal\)/.test(wprov)
     /* 0.9.36: updateAll() перед анимацией запрещён — из-за него виджет
@@ -5123,6 +5130,50 @@ for (const id of ids) {
       && prev.includes("TILES_ICONS = 'tiles'")
       && prev.includes("family + '-' + slot + '.png'");
   })(), '0.9.39 Phosphor только у плиток, вес не балансир');
+
+  /* 0.9.40 (полевой баг): кнопка воды на виджете до первого запуска
+     приложения в новый день поднимала поле "date" до сегодня, и вчерашние
+     калории/активность становились «свежими». Вместе с датой обязаны
+     обнуляться все дневные счётчики, кроме самой воды. */
+  check((() => {
+    const wp = fs932.readFileSync('android-native/FitFlowWidgetProvider.java', 'utf-8');
+    const i = wp.indexOf('ADD_WATER_250');
+    const j = wp.indexOf('animateWater', i);
+    if (i < 0 || j < 0) return false;
+    const block = wp.slice(i, j);
+    return /if \(!fresh\) \{/.test(block)
+      && /putInt\("foodTotal", 0\)/.test(block)
+      && /putInt\("activityMinutes", 0\)/.test(block)
+      && /putString\("sleepLine", ""\)/.test(block)
+      && /putString\("dayPlanLine", ""\)/.test(block)
+      /* воду обнулять нельзя — её только что добавили */
+      && !/putInt\("waterTotal", 0\)/.test(block);
+  })(), '0.9.40 новый день с виджета: вчерашние ккал не воскресают');
+
+  /* 0.9.40: бенто показывает и строковые показатели (сон, вес, план дня…).
+     Раньше они выпадали из состава и оставался пустой блок. */
+  check((() => {
+    const b = fs932.readFileSync('android-native/FitFlowWidgetBentoProvider.java', 'utf-8');
+    return /SUPPORTED_LINES/.test(b)
+      && /"sleep", "weight", "day-plan", "day-mood", "workout", "courses"/.test(b)
+      && /static boolean isLine\(String id\)/.test(b)
+      /* ветка нужна В ОБОИХ местах: в отрисовке маленькой плиты и в
+         озвучке. Одной проверки мало — правка любой из копий проходила
+         мимо сторожа (поймано мутацией при разработке 0.9.40). */
+      && (b.match(/if \(isLine\(slot\)\) \{/g) || []).length === 2
+      && /if \(isLine\(a\)\) \{/.test(b)
+      /* значение маленькой плиты — именно текст показателя */
+      && /setTextViewText\(valueId, lineTail\(lineOf\(d, slot\)\)\)/.test(b)
+      && /setTextViewText\(R\.id\.widget_bento_a_value, lineTail\(lineOf\(d, a\)\)\)/.test(b)
+      /* и озвучка читает строку целиком, а не «X из Y» */
+      && /talk\.append\(' '\)\.append\(lineOf\(d, slot\)\)/.test(b)
+      /* шкалу строковому показателю гасим: заполнять её нечем */
+      && /showBar\(views, barIds, -1, 0\)/.test(b)
+      && /showBar\(views, RINGS_A, -1, 0\)/.test(b)
+      /* нет данных — плиту не занимаем вовсе */
+      && /if \(lineOf\(d, id\)\.length\(\) == 0\) continue;/.test(b)
+      && /if \("sleep"\.equals\(id\)\) return "Сон";/.test(b);
+  })(), '0.9.40 бенто: строковые показатели вместо пустого блока');
 
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */

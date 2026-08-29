@@ -47,6 +47,21 @@ class FitFlowWidgetAnimator {
         final Handler handler = new Handler(Looper.getMainLooper());
         final long start = android.os.SystemClock.uptimeMillis();
 
+        /* 0.9.40 (владелец: «бенто заполняется рывком, но с задержкой в те
+           самые 0.9 секунды; раньше было моментально»).
+
+           Причина: бенто исключён из анимации, а итог ему показывали в
+           последнем кадре — то есть он ждал всю анимацию и лишь потом
+           прыгал. Правило теперь простое: у кого анимация есть — тот
+           плавно тянется положенные 900 мс; у кого её нет — тот получает
+           конечное значение СРАЗУ, не дожидаясь чужой анимации.
+
+           Важно: override ещё не выставлен, поэтому бенто прочитает уже
+           записанный в prefs итог. */
+        if (sHasBento) {
+            try { FitFlowWidgetBentoProvider.updateAll(context); } catch (Throwable err) { }
+        }
+
         /* Следующий кадр ставится в очередь ТОЛЬКО после того, как
            предыдущий отрисован. Так очередь не копится, а анимация
            автоматически подстраивается под скорость устройства. */
@@ -68,15 +83,6 @@ class FitFlowWidgetAnimator {
                    иначе на экране осталось бы промежуточное значение. */
                 FitFlowWidgetData.sWaterOverride = last ? -1 : value;
                 redrawAll(context);
-                if (last && sHasBento) {
-                    /* Бенто пропустил анимацию — показываем ему итог.
-                       Имя ошибки НЕ «t»: в этом методе t — доля времени
-                       анимации, и параметр catch её перекроет (javac:
-                       "variable t is already defined"). Сборка 0.9.38
-                       упала именно здесь. */
-                    try { FitFlowWidgetBentoProvider.updateAll(context); }
-                    catch (Throwable err) { }
-                }
                 if (!last) handler.postDelayed(frame[0], ANIM_MIN_STEP_MS);
             }
         };
@@ -103,7 +109,8 @@ class FitFlowWidgetAnimator {
         /* 0.9.38: бенто в анимации НЕ участвует (решение владельца).
            Он собран из готовой картинки-подложки и десятка вложенных
            вьюх, перерисовка тяжелее прочих, а выигрыш незаметен.
-           Итоговое значение он получит обычным обновлением. */
+           0.9.40: итог он получает СРАЗУ, до первого кадра (см. выше),
+           а не в конце — иначе выходила задержка на всю анимацию. */
         if (sHasCanvas) {
             try { FitFlowWidgetCanvasProvider.updateAllCanvas(context); } catch (Throwable t) { }
         }

@@ -360,12 +360,38 @@ public class FitFlowWidgetProvider extends AppWidgetProvider {
             int beforeTotal = fresh ? prefs.getInt("waterTotal", 0) : 0;
             int waterTotal = beforeTotal + 250;
             int pendingAdd = (fresh ? prefs.getInt("pendingWaterAdd", 0) : 0) + 250;
-            prefs.edit()
+            android.content.SharedPreferences.Editor ed = prefs.edit()
                 .putInt("waterTotal", waterTotal)
                 .putInt("pendingWaterAdd", pendingAdd)
                 .putString("date", today)
-                .putLong("lastWaterAt", System.currentTimeMillis()) // 0.5.5
-                .apply();
+                .putLong("lastWaterAt", System.currentTimeMillis()); // 0.5.5
+            /* 0.9.40 (полевой баг владельца: «утром добавил воду с виджета —
+               столько же ккал появилось в питании»).
+
+               Причина: до первого запуска приложения в новый день в prefs
+               лежат ВЧЕРАШНИЕ waterTotal/foodTotal/activityMinutes, а
+               защищает от них только несовпадение поля "date". Записывая
+               сюда сегодняшнюю дату, мы объявляли вчерашние остатки
+               свежими — и вчерашние калории оживали вместе с водой.
+               Совпадение чисел (250 мл ~ 250 ккал) — случайность: у
+               владельца вчерашний остаток питания оказался близок.
+
+               Поэтому вместе с датой обнуляем ВСЕ дневные счётчики, кроме
+               воды: их источник — приложение, и до его запуска честный
+               ноль вернее вчерашнего числа. */
+            if (!fresh) {
+                ed.putInt("foodTotal", 0)
+                  .putInt("activityMinutes", 0)
+                  .putInt("stepsToday", 0)
+                  /* строки-показатели тоже считает app.js — вчерашние
+                     «Сон», «Вес», «План дня» показывать нельзя */
+                  .putString("dayPlanLine", "")
+                  .putString("moodLine", "")
+                  .putString("workoutLine", "")
+                  .putString("sleepLine", "")
+                  .putString("activityLine", "");
+            }
+            ed.apply();
             /* 0.9.36: НЕ вызываем updateAll() перед анимацией. Иначе виджет
                сначала прыгал на конечное значение, потом анимация отбрасывала
                его назад к старому и доливала заново — владелец это и видел.
