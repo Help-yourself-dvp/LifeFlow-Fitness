@@ -1732,14 +1732,4 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
-
-console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
-
-console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
-
-console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
-
-console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
-
-console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

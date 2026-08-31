@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.43';
+const FITFLOW_VERSION = '0.9.44';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5435,6 +5435,10 @@ function saveState() {
            тогда единственное, что мы можем, это не упасть. */
       }
     }
+    /* 0.9.44: счётчик сбоев обязан появиться в строке состояния хранилища
+       СРАЗУ. Раньше строку перерисовывал только успешный SQLite-синк, то
+       есть ровно в том случае, когда сбоев не было. */
+    try { renderStorageEngineStatus(); } catch (err) { }
   }
 }
 
@@ -9729,56 +9733,12 @@ async function addFoodText(text) {
   toast(`Добавлено: ${items.map((i) => i.name).join(', ')} (+${fmt(totalKcal)} ккал)`);
 }
 
-function readManualMeal() {
-  const name = normalizeActivityName($('#manual-food-name').value);
-  // Важно: «1 400» с пробелом должно читаться как 1400
-  const parseNum = (id) => Number(String($(id).value || '').replace(/\s+/g, '').replace(',', '.'));
-  const kcal = Math.round(parseNum('#manual-food-kcal'));
-  const p = Math.round((parseNum('#manual-food-p') || 0) * 10) / 10 || null;
-  const f = Math.round((parseNum('#manual-food-f') || 0) * 10) / 10 || null;
-  const c = Math.round((parseNum('#manual-food-c') || 0) * 10) / 10 || null;
-  if (!name) {
-    toast('Введите название блюда (от 2 символов)');
-    $('#manual-food-name').focus();
-    return null;
-  }
-  if (!String($('#manual-food-kcal').value).trim() || !Number.isFinite(kcal) || kcal < 1 || kcal > 5000) {
-    toast('Укажите калорийность числом от 1 до 5 000 ккал');
-    $('#manual-food-kcal').focus();
-    return null;
-  }
-  return { name, kcal, p, f, c };
-}
-
-async function addManualFood() {
-  const meal = readManualMeal();
-  if (!meal) return;
-  state.food.items.push({
-    id: uid(), raw: meal.name, name: meal.name, amount: null, unit: 'порция',
-    kcal: meal.kcal, p: meal.p, f: meal.f, c: meal.c,
-    ...applySelectedMealType([{}])[0]
-  });
-  saveState();
-  resetMealTypeAfterSave();
-  $('#manual-food-name').value = '';
-  $('#manual-food-kcal').value = '';
-  $('#manual-food-p').value = '';
-  $('#manual-food-f').value = '';
-  $('#manual-food-c').value = '';
-  renderFood();
-  await syncMealRemindersForToday();
-  toast(`${meal.name}: +${fmt(meal.kcal)} ккал`);
-}
-
-function saveFavoriteMeal() {
-  const meal = readManualMeal();
-  if (!meal) return;
-  state.favoriteMeals.unshift({ id: uid(), ...meal });
-  normalizeFavoriteMeals();
-  saveState();
-  renderFavoriteMeals();
-  toast(`«${meal.name}» сохранено в мои блюда`);
-}
+/* 0.9.44: отсюда убраны readManualMeal / addManualFood / saveFavoriteMeal.
+   Они читали поля #manual-food-* и кнопки #manual-food-add /
+   #manual-food-favorite, которых в index.html больше нет, — то есть были
+   недостижимы, а при попытке позвать их упали бы на null.value. Живой
+   аналог — «⚡ Быстрые записи»: вкладка «Мои блюда» (#quick-meal-*) и
+   вкладка «Комбо» (#quick-combo-*), плюс addFavoriteMeal(id) для чипов. */
 
 async function addFavoriteMeal(id) {
   const meal = state.favoriteMeals.find((item) => item.id === id);
@@ -14960,18 +14920,12 @@ function init() {
   });
   $('#custom-meal-type-toggle').addEventListener('click', () => $('#custom-meal-type-inline').classList.toggle('is-open'));
   $('#custom-meal-type-save').addEventListener('click', addCustomMealType);
-  bindEvent('#manual-food-add', 'click', addManualFood);
-  // 0.4.15 (п.6 владельца): «☆ В комбо» у поля Питания — текст не записывается,
-  // а сохраняется фразой-шаблоном (гард «парсер не понимает → не сохраняем» в addCombo).
-  bindEvent('#food-combo-star', 'click', () => {
-    const input = $('#food-input');
-    const text = input ? input.value : '';
-    if (addCombo('', text)) {
-      renderComboChips();
-      toast('⭐ Комбо сохранено — смотрите «Быстрые записи». Поле можно очистить или нажать «Добавить», чтобы записать сразу.');
-    }
-  });
-  bindEvent('#manual-food-favorite', 'click', saveFavoriteMeal);
+  /* 0.9.44: убраны три мёртвые привязки — #manual-food-add, #food-combo-star и
+     #manual-food-favorite. Узлов с такими id в index.html нет с тех пор, как
+     ручная форма блюда переехала в «⚡ Быстрые записи» (#quick-meal-*,
+     #quick-combo-*): привязки лишь писали в консоль «Не найден элемент…» на
+     каждом запуске, а функции за ними стали недостижимы. Сохранить фразу
+     комбо можно из «Быстрых записей» и из «✨ Помощника». */
   // ⭐ Мои комбо (0.4.14)
   bindEvent('#combo-manage-btn', 'click', () => { closeQuickRecordsDialog(); openComboDialog(); });
   bindEvent('#combo-dialog-close', 'click', closeComboDialog);
@@ -15395,7 +15349,6 @@ function init() {
   // 0.5.2 + 0.5.8: диалог «Быстрые записи» с созданием комбо и блюд
   bindEvent('#quick-records-open', 'click', () => openQuickRecordsDialog('combo'));
   bindEvent('#quick-open-meals', 'click', () => openQuickRecordsDialog('meals'));
-  bindEvent('#quick-open-manual', 'click', () => openQuickRecordsDialog('manual'));
   bindEvent('#quick-records-close', 'click', closeQuickRecordsDialog);
   $$('#quick-records-tabs [data-quick-tab]').forEach((btn) =>
     btn.addEventListener('click', () => switchQuickTab(btn.dataset.quickTab)));

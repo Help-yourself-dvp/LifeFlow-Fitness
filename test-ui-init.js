@@ -1310,11 +1310,20 @@ for (const id of ids) {
   console.log(`${okSilent065 ? '✓' : '✗'} 0.5.6 вода извне: без отложенных окон («я же ничего не добавлял»)`);
 
   // Быстрые записи: все три значка привязаны к своим вкладкам (🍽 и ✍️ были мёртвыми)
-  const okQuick065 = appR.includes("openQuickRecordsDialog('combo')")
-    && appR.includes("openQuickRecordsDialog('meals')")
-    && appR.includes("openQuickRecordsDialog('manual')");
+  /* 0.9.44: сторож переписан по существу. Раньше он требовал три конкретных
+     вызова — включая openQuickRecordsDialog('manual'). Вкладку «✍️ Своё блюдо»
+     из разметки позже убрали (остались «Комбо» и «Мои блюда»), а вызов жил в
+     bindEvent на несуществующий #quick-open-manual: сторож был доволен, а
+     привязка была мертва. Теперь сверяем разметку и код: каждый вызов ведёт
+     на реально существующую вкладку, и у каждой вкладки есть свой вход. */
+  const quickTabs = [...html.matchAll(/data-quick-tab="([a-z-]+)"/g)].map((m) => m[1]);
+  const quickCalls = [...appR.matchAll(/openQuickRecordsDialog\('([a-z-]+)'\)/g)].map((m) => m[1]);
+  const okQuick065 = quickTabs.length >= 2
+    && quickCalls.length > 0
+    && quickCalls.every((tab) => quickTabs.includes(tab))
+    && quickTabs.every((tab) => quickCalls.includes(tab));
   if (!okQuick065) failed++;
-  console.log(`${okQuick065 ? '✓' : '✗'} 0.5.6 быстрые записи: ⭐/🍽/✍️ открывают свои вкладки`);
+  console.log(`${okQuick065 ? '✓' : '✗'} 0.5.6 быстрые записи: каждая вкладка открывается, лишних вызовов нет (${quickTabs.join('/')})`);
 
   // Лицензия: полное окно, кнопки из «О приложении» и из условий первого входа
   const okLicense065 = html.includes('id="license-dialog"') && html.includes('id="license-open"')
@@ -4418,9 +4427,13 @@ for (const id of ids) {
   check(/\.watch-workouts-suggest\s*\{[^}]*primary-container/.test(stripped),
     '0.9.23 внешняя пластина по-прежнему primary-container');
 
-  check(ver923 === '0.9.43', '0.9.43 version.txt');
-  check(/FITFLOW_VERSION = '0\.9\.43'/.test(app923), '0.9.32 FITFLOW_VERSION');
-  check(/id="about-version">v0\.9\.43 \(build 0\)/.test(html923), '0.9.32 #about-version');
+  /* 0.9.44: номер версии сверяем с version.txt, а не с вписанной строкой.
+     Раньше здесь стояло жёсткое '0.9.43' — при каждом подъёме версии три
+     проверки краснели, пока их не поправишь руками, и это при том, что
+     единый источник версии (VERSION) в файле уже есть. */
+  check(ver923 === VERSION, '0.9.44 version.txt — источник правды');
+  check(app923.includes("FITFLOW_VERSION = '" + VERSION + "'"), '0.9.44 FITFLOW_VERSION совпадает с version.txt');
+  check(html923.includes('id="about-version">v' + VERSION + ' (build 0)'), '0.9.44 #about-version совпадает с version.txt');
 
   if (!bad) console.log('  (0.9.23: свёрнутый список с часов снова одна пластина)');
 })();
@@ -5245,8 +5258,12 @@ for (const id of ids) {
      крайние пиксели тянутся и по низу и бокам остаётся тонкая кайма
      (полевая жалоба владельца). */
   check((() => {
-    const { execFileSync } = require('child_process');
-    const out = execFileSync('python3', ['-c', [
+    /* 0.9.44: spawnSync вместо execFileSync. Без Pillow execFileSync бросал
+       исключение, и весь прогон обрывался на этой проверке — остальные
+       (включая сторожей версии и сохранения) просто не выполнялись, а
+       итоговая строка не печаталась. Pillow — зависимость предпросмотров,
+       а не тестов: её отсутствие должно красить ОДНУ проверку. */
+    const r = cp932.spawnSync('python3', ['-c', [
       'from PIL import Image',
       'im = Image.open("assets/widget-icons/drop-shape.png")',
       'a = im.split()[3]',
@@ -5255,7 +5272,11 @@ for (const id of ids) {
       '         max(a.crop((0,0,1,h)).getdata()), max(a.crop((w-1,0,w,h)).getdata())]',
       'print(max(edges))'
     ].join('\n')], { encoding: 'utf-8' });
-    return Number(out.trim()) === 0;
+    if (r.status !== 0) {
+      console.log('  (нет python3/Pillow — проверка пропущена: ' + String(r.stderr || r.error || '').split('\n')[0] + ')');
+      return false;
+    }
+    return Number(String(r.stdout).trim()) === 0;
   })(), '0.9.41 капля: прозрачные поля, нет каймы по краю');
 
   /* 0.9.41: нижний ряд бенто делится на две половинки. */
@@ -5389,6 +5410,43 @@ for (const id of ids) {
       /* toast обёрнут: он зовётся и до готовности интерфейса */
       && /toast\(quota[\s\S]{0,400}catch \(err\)/.test(a);
   })(), '0.9.43 сохранение: переполнение хранилища видно пользователю');
+
+  /* 0.9.44 (аудит): сторож «мёртвых» селекторов. Найденное на прогоне:
+     #storage-engine-status (строка состояния хранилища из OPEN-ISSUES O1 и
+     счётчик сбоев из 0.9.43) не существовал в разметке — renderStorageEngineStatus
+     всегда выходил по «if (!statusEl) return», то есть обе заявленные
+     возможности были невидимы; плюс четыре привязки на удалённые узлы
+     (#manual-food-add, #food-combo-star, #manual-food-favorite,
+     #quick-open-manual), которые лишь писали warning на каждом запуске.
+     Ни один текстовый сторож такого не ловит: строка в app.js есть, а узла нет.
+     Поэтому сверяем ВСЕ id-селекторы app.js с разметкой (index.html + узлы,
+     которые app.js рисует сам). */
+  check((() => {
+    const js = fs932.readFileSync('app.js', 'utf-8');
+    const markup = fs932.readFileSync('index.html', 'utf-8');
+    const known = new Set();
+    for (const m of markup.matchAll(/\bid="([^"]+)"/g)) known.add(m[1]);
+    for (const m of js.matchAll(/\bid="([^"]+)"/g)) known.add(m[1].replace(/\$\{.*$/, ''));
+    const wanted = new Set();
+    for (const m of js.matchAll(/\$\('#([A-Za-z0-9_-]+)'\)/g)) wanted.add(m[1]);
+    for (const m of js.matchAll(/getElementById\('([A-Za-z0-9_-]+)'\)/g)) wanted.add(m[1]);
+    for (const m of js.matchAll(/bindEvent\('#([A-Za-z0-9_-]+)'/g)) wanted.add(m[1]);
+    const missing = [...wanted].filter((id) => !known.has(id)).sort();
+    if (missing.length) console.log('  мёртвые селекторы: ' + missing.join(', '));
+    return missing.length === 0;
+  })(), '0.9.44 все id-селекторы app.js находят узел в разметке');
+
+  /* 0.9.44 (аудит): CHANGELOG.md обрывался на 0.9.38 — пять версий
+     (0.9.39–0.9.43) в «краткую историю релизов для пользователей» не попали.
+     Сторож версии 0.9.43 сверял README/PROJECT/package.json/ROADMAP, а
+     CHANGELOG не смотрел, поэтому дыра и накопилась. */
+  check((() => {
+    const v = fs932.readFileSync('version.txt', 'utf-8').trim();
+    const log = fs932.readFileSync('CHANGELOG.md', 'utf-8');
+    const first = (log.match(/^## (\d+\.\d+\.\d+)/m) || [])[1];
+    if (first !== v) console.log('  свежайшая запись CHANGELOG: ' + first + ', ждём ' + v);
+    return first === v;
+  })(), '0.9.44 CHANGELOG.md содержит текущую версию');
 
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */
