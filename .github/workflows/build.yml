@@ -66,9 +66,17 @@ jobs:
           # public/assets/widget-icons/<id>.png, а если файла нет — рисует
           # эмодзи. Поэтому значки можно добавлять по одному.
           mkdir -p www/assets/widget-icons && cp assets/widget-icons/*.png www/assets/widget-icons/ 2>/dev/null || true
-          cp food-db.js www/ 2>/dev/null || true
-          cp manifest.json www/ 2>/dev/null || true
+          # 0.9.45 (O1): SQLite-бандл ОБЯЗАТЕЛЬНО едет в APK. index.html
+          # подключает его <script src="sqlite-bundle.js">, а без файла движок
+          # не инициализировался и приложение молча работало на резервном
+          # localStorage — этап 0.6.0 на телефоне не запускался вовсе.
+          # Файл самодостаточный (WASM вшит в base64), поэтому assets/wasm/
+          # в www/ не нужен. Цена: +906 КБ к APK — решение владельца от 31.08.2026.
+          cp sqlite-bundle.js www/
           cp icon.png www/ 2>/dev/null || true
+          # 0.9.45 (O13): строки «cp food-db.js» и «cp manifest.json» убраны —
+          # таких файлов в репозитории нет (база продуктов живёт в app.js,
+          # манифест генерирует Capacitor), а «|| true» прятал их отсутствие.
 
       - name: Inject build number (0.7.11)
         shell: bash
