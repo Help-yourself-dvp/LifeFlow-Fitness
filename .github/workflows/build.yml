@@ -276,10 +276,12 @@ jobs:
           if 'FitFlowWidgetProvider' not in t:
               t = t.replace('</application>', receiver + '    </application>')
           # 0.9.24 (пункт 5 владельца): классический виджет остаётся, рядом —
-          # капля / бенто / три кольца. Ring / Rings / Dial / Tiles убраны.
+          # варианты оформления. Ring / Rings / Dial убраны.
+          # 0.9.47 (пункт 9 владельца): «капля» убрана целиком — провайдер,
+          # разметка fitflow_widget_p5 и её кнопки-пилюли. В системном списке
+          # виджетов её больше нет, заглушки не остаётся.
           # 0.9.35: третий элемент — подпись в системном списке виджетов.
           canvas_widgets = [
-              ('FitFlowWidgetDropProvider', 'fitflow_widget_drop_info', 'FitFlow · капля'),
               ('FitFlowWidgetBentoProvider', 'fitflow_widget_bento_info', 'FitFlow · бенто'),
               ('FitFlowWidgetNeonProvider', 'fitflow_widget_neon_info', 'FitFlow · кольца'),
               # 0.9.34: те же кольца в светлой палитре — для светлых обоев.
@@ -561,59 +563,16 @@ jobs:
           # ImageView одним setImageViewBitmap: на minSdk 26 цвет ProgressBar
           # из RemoteViews не меняется, поэтому разноцветные кольца и дуги
           # вьюхами не собрать. Кнопки внизу — обычные, как у классического.
-          (drawable / 'fitflow_widget_btn_p5_water.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#CC22D3EE"/>\n'
-              '    <corners android:radius="18dp"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_widget_btn_p5_food.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#66140C10"/>\n'
-              '    <corners android:radius="18dp"/>\n'
-              '    <stroke android:width="1.5dp" android:color="#FB923C"/>\n'
-              '</shape>\n', encoding='utf-8')
-          (drawable / 'fitflow_widget_btn_p5_dose.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n'
-              '    <solid android:color="#66140C10"/>\n'
-              '    <corners android:radius="18dp"/>\n'
-              '    <stroke android:width="1.5dp" android:color="#34D399"/>\n'
-              '</shape>\n', encoding='utf-8')
-          # 0.9.24: полупрозрачная карточка на весь виджет, кнопки overlay снизу.
-          # Эта разметка — для «капли»: у неё кнопки настоящие, с фоном и текстом.
-          (layout / 'fitflow_widget_p5.xml').write_text(
-              '<?xml version="1.0" encoding="utf-8"?>\n'
-              '<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"\n'
-              '    android:id="@+id/widget_canvas_root" android:layout_width="match_parent"\n'
-              '    android:layout_height="match_parent" android:background="@android:color/transparent">\n'
-              '    <ImageView android:id="@+id/widget_canvas_image" android:layout_width="match_parent"\n'
-              '        android:layout_height="match_parent" android:scaleType="fitXY"\n'
-              '        android:contentDescription="Показатели дня FitFlow" />\n'
-              '    <LinearLayout android:id="@+id/widget_p5_buttons" android:layout_width="match_parent"\n'
-              '        android:layout_height="wrap_content" android:layout_gravity="bottom"\n'
-              '        android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="10dp"\n'
-              '        android:paddingBottom="8dp">\n'
-              '        <Button android:id="@+id/widget_canvas_water_btn" android:layout_width="0dp" android:layout_height="32dp"\n'
-              '            android:layout_weight="1" android:layout_marginEnd="4dp" android:text="+250 мл" android:textSize="11sp"\n'
-              '            android:textColor="#082028" android:background="@drawable/fitflow_widget_btn_p5_water" android:fontFamily="sans-serif-medium" />\n'
-              '        <Button android:id="@+id/widget_canvas_record_btn" android:layout_width="0dp" android:layout_height="32dp"\n'
-              '            android:layout_weight="1" android:layout_marginStart="4dp" android:layout_marginEnd="4dp"\n'
-              '            android:text="Еда" android:textSize="11sp" android:textColor="#FB923C"\n'
-              '            android:background="@drawable/fitflow_widget_btn_p5_food" android:fontFamily="sans-serif-medium" />\n'
-              '        <Button android:id="@+id/widget_canvas_dose_btn" android:layout_width="0dp" android:layout_height="32dp"\n'
-              '            android:layout_weight="1" android:layout_marginStart="4dp" android:text="Витамины" android:textSize="11sp"\n'
-              '            android:textColor="#34D399" android:background="@drawable/fitflow_widget_btn_p5_dose"\n'
-              '            android:fontFamily="sans-serif-medium" android:contentDescription="Отметить витамины" />\n'
-              '    </LinearLayout>\n'
-              '</FrameLayout>\n', encoding='utf-8')
+          # 0.9.47 (пункт 9 владельца): разметка fitflow_widget_p5 и три её
+          # кнопки-пилюли (fitflow_widget_btn_p5_water/food/dose) удалены
+          # вместе с виджетом «капля». Их больше никто не использует:
+          # «кольца» и «плитки» имеют собственные layout'ы.
 
           # 0.9.32: отдельная разметка «колец» — кнопки ПРОЗРАЧНЫЕ, только ловят
           # нажатие. Сами пилюли (заливка, кромка, значок, текст) рисует Canvas
           # в FitFlowWidgetPaint.neonPill(), иначе поверх нарисованной пилюли
-          # легла бы вторая, системная. У «капли» разметка своя (выше) и кнопки
-          # там настоящие — эти два оформления больше не делят один layout.
+          # легла бы вторая, системная. (0.9.47: раньше эту разметку делила
+          # с «каплей» общая карточка — теперь у каждого оформления своя.)
           # Отступы обязаны совпадать с neonPill(): кнопка 26dp, снизу 7dp,
           # по бокам 10dp, между кнопками 8dp.
           #
@@ -728,6 +687,11 @@ jobs:
 
           xml = res / 'xml'
           xml.mkdir(parents=True, exist_ok=True)
+          # 0.9.47 (пункт 9 владельца): у классического списочного виджета
+          # появилась картинка предпросмотра. Без неё лаунчер рисует иконку
+          # приложения, и «FitFlow · список» в системном списке не отличить
+          # от остальных. Картинку рисует tools/widget-list-preview.py —
+          # зеркало widget_layout_xml() ниже, а не рисунок от руки.
           (xml / 'fitflow_widget_info.xml').write_text(
               '<?xml version="1.0" encoding="utf-8"?>\n'
               '<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"\n'
@@ -736,6 +700,8 @@ jobs:
               '    android:updatePeriodMillis="0"\n'
               '    android:initialLayout="@layout/fitflow_widget"\n'
               '    android:resizeMode="horizontal|vertical"\n'
+              '    android:label="FitFlow · список"\n'
+              '    android:previewImage="@drawable/fitflow_preview_list"\n'
               '    android:widgetCategory="home_screen" />\n', encoding='utf-8')
 
           # 0.9.6: по одному описанию на каждый вариант оформления. Имя (label)
@@ -744,7 +710,6 @@ jobs:
           # строками нужна ширина, плиткам — квадрат.
           canvas_infos = [
               # 0.9.35: 6-й элемент — картинка предпросмотра (None = нет).
-              ('fitflow_widget_drop_info', 'FitFlow · капля', 250, 140, 'fitflow_widget_p5', None),
               # 0.9.30: бенто вернулся на 4x2 (150 dp) — владелец просил
               # компактнее. В 0.9.28 на 150 dp не хватало высоты, потому что
               # круглая кнопка стояла по центру плиты и делила её с текстом.
