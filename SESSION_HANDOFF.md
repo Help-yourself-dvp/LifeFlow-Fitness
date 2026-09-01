@@ -618,10 +618,9 @@ FitFlow — офлайн-трекер здоровья на русском: во
 
 **П.5 — в APK с 0.9.24, ждёт полевой проверки.** Три JPEG владельца были брифом
 визуала. Классическая строка осталась; Ring / Rings / Dial / Tiles убраны.
-Новые провайдеры: `FitFlowWidgetDropProvider`, `FitFlowWidgetBentoProvider`,
-`FitFlowWidgetNeonProvider` + `FitFlowWidgetPaint`. Макеты по-прежнему в
-`design/WIDGET-P5.md`. Честный потолок — полупрозрачная карточка; wallpaper-blur
-только если лаунчер рисует сам.
+Новые провайдеры: `FitFlowWidgetBentoProvider`, `FitFlowWidgetNeonProvider`
++ `FitFlowWidgetPaint` (капля убрана в 0.9.47). Честный потолок — полупрозрачная
+карточка; wallpaper-blur только если лаунчер рисует сам.
 
 **0.9.21:**
 - **Список «⌚ Тренировки с часов» сворачивается.** Часы пишут «тренировкой» и
@@ -991,9 +990,8 @@ ML Kit и `BarcodeDetector` для сканера (требуют Google Play Se
 | `ISSUES.md` | полевые случаи распознавания еды |
 | `DISTRIBUTION.md` / `PRIVACY.md` / `THIRD_PARTY.md` / `DATA_SOURCES.md` | публикация и правовое |
 | `COMMAND_DICTIONARY.md` | словарь команд умного ввода |
-| `design/WIDGET-P5.md` | п.5: бриф трёх макетов и потолок (в APK с 0.9.24) |
 | `design/WIDGET-HOWTO.md` | как создаётся виджет: сетка, бюджет высоты, слоты, CI, чек-лист |
-| `design/widget-p5-*.png` | макеты капля / бенто / кольца, честный вид, потолок A/B, сводный лист |
+| ~~`design/WIDGET-P5.md`, `widget-p5-*.png`~~ | удалены в 0.9.48 вместе с виджетом «капля» (0.9.47) |
 | `design/wp-dawn.jpg` / `wp-night.jpg` | живые обои макетов (JPEG; PNG-оригиналы не в git) |
 | `design/ref-{light,bento,rings}.jpg` | три JPEG владельца — бриф визуала, не вклейка |
 | `tools/widget-preview-p5.py` | генератор PNG п.5 (Pillow, шрифт Manrope) |
