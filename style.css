@@ -4749,6 +4749,20 @@ html[data-palette="berry"] .ai-icon-btn {
   white-space: nowrap;
 }
 .strength-quick-hint { margin: 2px 0 4px; font-size: 0.68rem; opacity: 0.65; }
+
+/* ===== 0.9.46 (п.10 владельца): подходы числом в основном блоке =====
+   Три пилюли «вес × повторения × подходы» рядом с кнопкой «Добавить».
+   Владелец просил именно пилюли — поэтому border-radius 999px, а поле
+   веса не обязательное: у упражнений со своим весом оно может быть пустым. */
+.strength-bulk-row { display: flex; gap: 5px; align-items: center; margin-top: 8px; }
+.strength-bulk-input {
+  flex: 1; min-width: 0; padding: 7px 4px; font-size: 0.82rem; text-align: center;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 999px;
+  background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface);
+}
+/* Первому полю (вес) — чуть больше места: «+ жилет» длиннее «Подходы». */
+.strength-bulk-input[data-s-bulk-weight] { flex: 1.25; }
+.strength-bulk-row .strength-set-x { flex: none; opacity: 0.5; font-size: 0.78rem; }
 .strength-cancel-btn { color: var(--md-sys-color-error); }
 /* Кнопка «своё время отдыха» — тот же размер, что у пресетов, но пунктиром:
    видно, что это добавление, а не ещё одно готовое значение. */

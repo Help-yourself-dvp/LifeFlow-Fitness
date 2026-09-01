@@ -3360,6 +3360,69 @@ for (const id of ids) {
   if (!quickUi) failed++;
   console.log(`${quickUi ? '✓' : '✗'} 0.9.12 поле быстрого ввода отрисовано и подключено к обработчику`);
 
+  // --- 0.9.46 (п.10 владельца): подходы числом в основном блоке ---
+  // Три пилюли «вес × повторения × подходы» + кнопка «Добавить». Кнопка
+  // «＋ подход» остаётся: владелец просил её не убирать.
+  const bulkUi = /data-s-bulk-weight="\$\{idx\}"/.test(app)
+    && /data-s-bulk-reps="\$\{idx\}"/.test(app)
+    && /data-s-bulk-sets="\$\{idx\}"/.test(app)
+    && /data-s-bulk-apply="\$\{idx\}"/.test(app)
+    && /function applyBulkSetsFromInputs/.test(app)
+    && /closest\('\[data-s-bulk-apply\]'\)/.test(app)
+    && /data-s-add-set="\$\{idx\}"/.test(app);
+  if (!bulkUi) failed++;
+  console.log(`${bulkUi ? '✓' : '✗'} 0.9.46 подходы вводятся числом в основном блоке, кнопка «＋ подход» сохранена`);
+
+  // --- 0.9.46: пилюли разбираются правильно (проверяется исполнение, а не текст) ---
+  const bulk = typeof api.buildBulkSetsLine === 'function' ? api.buildBulkSetsLine : null;
+  const bulkCases = [
+    // [значения, свойВес, ожидаемая строка / причина отказа]
+    [{ weight: '12', reps: '10', sets: '5' }, false, '5x10x12'],
+    [{ weight: '12,5', reps: '8', sets: '4' }, false, '4x8x12.5'], // запятая и дробный вес
+    [{ weight: '', reps: '10', sets: '3' }, true, '3x10'],        // подтягивания: вес не нужен
+    [{ weight: '5', reps: '10', sets: '3' }, true, '3x10x5'],     // но жилет учесть можно
+    [{ weight: '', reps: '10', sets: '3' }, false, 'weight-required'], // жим лёжа без веса — ошибка
+    [{ weight: '12', reps: '', sets: '3' }, false, 'reps'],
+    [{ weight: '12', reps: '10', sets: '' }, false, 'sets'],
+    [{ weight: '12', reps: '0', sets: '3' }, false, 'reps'],
+    [{ weight: '-5', reps: '10', sets: '3' }, false, 'weight'],
+    [{ weight: '12', reps: 'abc', sets: '3' }, false, 'reps'],
+  ];
+  const bulkLogicOk = !!bulk && bulkCases.every(([vals, bw, want]) => {
+    const got = bulk(vals, bw);
+    return got.ok ? got.line === want : got.reason === want;
+  });
+  if (!bulkLogicOk) failed++;
+  console.log(`${bulkLogicOk ? '✓' : '✗'} 0.9.46 вес × повторения × подходы разбираются во всех ${bulkCases.length} случаях`);
+
+  // Пилюли обязаны складываться в строку, которую понимает общий разбор.
+  // Иначе два способа ввода разъедутся при первой же правке.
+  const bulkParses = !!bulk && bulkCases
+    .filter(([, , want]) => typeof want === 'string' && want.includes('x'))
+    .every(([vals, bw]) => qs(bulk(vals, bw).line) !== null);
+  if (!bulkParses) failed++;
+  console.log(`${bulkParses ? '✓' : '✗'} 0.9.46 результат пилюль разбирается тем же парсером, что и поле «всё сразу»`);
+
+  // --- 0.9.46: поле «всё сразу» не должно открывать цифровую клавиатуру ---
+  // Полевое замечание владельца: с inputmode="decimal" на телефоне открывается
+  // панель цифр, на ней нет буквы «x» и строку 5x10x12 нельзя набрать вовсе.
+  const keyboardOk = /<input type="text" inputmode="text"[^>]*data-s-quick="\$\{idx\}"/.test(app)
+    && !/inputmode="decimal"[^>]*data-s-quick="\$\{idx\}"/.test(app);
+  if (!keyboardOk) failed++;
+  console.log(`${keyboardOk ? '✓' : '✗'} 0.9.46 поле «всё сразу» открывает обычную клавиатуру (там есть буква x)`);
+
+  // --- 0.9.46: очистка заполнения подтверждается своим окном ---
+  // Владелец просил убрать системный белый прямоугольник с OK/Cancel.
+  const cancelDialogOk = /id="strength-cancel-dialog"/.test(html)
+    && /id="strength-cancel-confirm"/.test(html)
+    && /id="strength-cancel-keep"/.test(html)
+    && /function confirmStrengthCancel/.test(app)
+    && /function openStrengthCancelDialog/.test(app)
+    && /bindEvent\('#strength-cancel-confirm'/.test(app)
+    && !/window\.confirm\('Очистить заполнение/.test(app);
+  if (!cancelDialogOk) failed++;
+  console.log(`${cancelDialogOk ? '✓' : '✗'} 0.9.46 очистка заполнения подтверждается окном в стиле приложения`);
+
   // --- Термины: «повторы» ≠ «повторения» ---
   // Владелец отдельно указал, что это разные вещи; в подходе — повторения.
   const diaryStart = appS.indexOf('function renderStrengthDiary');

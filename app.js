@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.45';
+const FITFLOW_VERSION = '0.9.46';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -11005,6 +11005,83 @@ function applyQuickSetsFromInput(idx) {
   toast(`✓ ${res.added} × ${res.reps} повторений${weightText}` + (res.clipped ? ' (больше не поместилось)' : ''));
 }
 
+/* 0.9.46 (п.10 владельца): подходы задаются числом в основном блоке.
+   Три поля — вес × повторения × подходы — складываются в ту же строку,
+   что разбирает parseQuickSets, поэтому логика разбора остаётся одна и
+   покрыта существующими тестами. Для упражнений со своим весом поле веса
+   не обязательное: тогда строка из двух чисел читается как подходы ×
+   повторения (ровно так parseQuickSets и трактует два числа). */
+const BULK_SETS_MESSAGES = {
+  'reps': 'Укажите повторения — сколько раз в каждом подходе',
+  'sets': 'Укажите число подходов — например, 3',
+  'weight': 'Вес — число от 0 до 500 кг',
+  'weight-required': 'Укажите вес в килограммах. Для упражнения со своим весом поле можно оставить пустым',
+};
+
+/* Чистая часть: три значения из пилюль → строка для parseQuickSets.
+   Вынесена из обработчика, чтобы её можно было проверить тестом без DOM. */
+function buildBulkSetsLine(values, isBw) {
+  const norm = (v) => {
+    const raw = String(v == null ? '' : v).trim().replace(/\s+/g, '').replace(',', '.');
+    return { raw, val: raw === '' ? null : Number(raw) };
+  };
+  const w = norm(values && values.weight);
+  const r = norm(values && values.reps);
+  const st = norm(values && values.sets);
+  if (!r.raw || !Number.isFinite(r.val) || r.val < 1) return { ok: false, reason: 'reps' };
+  if (!st.raw || !Number.isFinite(st.val) || st.val < 1) return { ok: false, reason: 'sets' };
+  if (w.raw !== '' && (!Number.isFinite(w.val) || w.val < 0)) return { ok: false, reason: 'weight' };
+  const weight = w.raw === '' ? 0 : w.val;
+  if (!isBw && !(weight > 0)) return { ok: false, reason: 'weight-required' };
+  return { ok: true, line: weight > 0 ? `${st.val}x${r.val}x${weight}` : `${st.val}x${r.val}` };
+}
+
+function applyBulkSetsFromInputs(idx) {
+  if (typeof document === 'undefined') return;
+  const ex = strengthDraft.exercises[idx];
+  if (!ex) return;
+  const read = (sel) => {
+    const el = document.querySelector(sel);
+    return el ? el.value : '';
+  };
+  const built = buildBulkSetsLine({
+    weight: read(`[data-s-bulk-weight="${idx}"]`),
+    reps: read(`[data-s-bulk-reps="${idx}"]`),
+    sets: read(`[data-s-bulk-sets="${idx}"]`),
+  }, strengthLoadFor(ex.name).coef > 0);
+  if (!built.ok) return toast(BULK_SETS_MESSAGES[built.reason] || 'Не разобрал: проверьте числа');
+  const res = applyQuickSets(idx, built.line);
+  if (!res.ok) {
+    if (res.reason === 'full') return toast(`Больше ${STRENGTH_MAX_SETS} подходов в одном упражнении не поместится`);
+    return toast('Не разобрал: проверьте числа (вес до 500 кг, повторения до 500)');
+  }
+  renderStrengthDiary();
+  const weightText = res.weight > 0 ? ` по ${fmt(res.weight)} кг` : '';
+  toast(`✓ Добавлено подходов: ${res.added} × ${res.reps}${weightText}` + (res.clipped ? ' (больше не поместилось)' : ''));
+}
+
+/* 0.9.46 (п.10 владельца): подтверждение очистки — своим окном.
+   window.confirm() на Android рисует системный белый прямоугольник с
+   кнопками OK/Cancel, который выбивается из оформления приложения. */
+function openStrengthCancelDialog() {
+  const dialog = $('#strength-cancel-dialog');
+  if (dialog) { dialog.hidden = false; return; }
+  confirmStrengthCancel(); // разметки нет (Node-прогоны) — чистим сразу
+}
+
+function closeStrengthCancelDialog() {
+  const dialog = $('#strength-cancel-dialog');
+  if (dialog) dialog.hidden = true;
+}
+
+function confirmStrengthCancel() {
+  closeStrengthCancelDialog();
+  resetStrengthDraft();
+  renderStrengthDiary();
+  toast('Заполнение очищено');
+  return true;
+}
+
 function cancelStrengthDraft() {
   const hadData = strengthDraft.exercises.length > 0
     || !!String(strengthDraft.title || '').trim()
@@ -11012,13 +11089,9 @@ function cancelStrengthDraft() {
   if (!hadData) return false;
   // Спрашиваем подтверждение: заполненный дневник — это несколько минут работы,
   // и случайный тап по «Отменить» не должен стирать тренировку молча.
-  if (typeof window !== 'undefined' && window.confirm && !window.confirm('Очистить заполнение? Несохранённые подходы будут удалены.')) {
-    return false;
-  }
-  resetStrengthDraft();
-  renderStrengthDiary();
-  toast('Заполнение очищено');
-  return true;
+  // 0.9.46: окно своё, в стиле приложения (был системный confirm с OK/Cancel).
+  openStrengthCancelDialog();
+  return false;
 }
 
 function renderStrengthDiary() {
@@ -11047,8 +11120,20 @@ function renderStrengthDiary() {
       // с весом сбивала с толку — там обычно веса нет.
       const quickPlaceholder = isBw ? '3x10' : '5x10x12';
       const quickHint = isBw
-        ? 'Заполнить разом: 3x10 — три подхода по десять. С жилетом — 3x10x8.'
-        : 'Заполнить разом: 5x10x12 — пять подходов по десять повторений с весом 12 кг.';
+        ? 'Или одной строкой: 3x10 — три подхода по десять (с жилетом 3x10x8). Знак «x» латинский или русский — не важно.'
+        : 'Или одной строкой: 5x10x12 — пять подходов по десять с весом 12 кг. Знак «x» латинский или русский — не важно.';
+      /* 0.9.46 (п.10 владельца): подходы вводятся числом в основном блоке,
+         а не только кнопкой «＋ подход». Поле «всё сразу» осталось, но ему
+         возвращена обычная клавиатура: с inputmode="decimal" на телефоне
+         открывалась цифровая панель без буквы «x», и строку 5x10x12 нельзя
+         было набрать вовсе (полевое замечание владельца). */
+      const bulkWeightPlaceholder = isBw ? '+ жилет' : 'Вес, кг';
+      const bulkWeightAria = isBw
+        ? 'Дополнительный вес в килограммах, необязательно'
+        : 'Вес в килограммах для всех подходов';
+      const bulkHint = isBw
+        ? 'Разом: повторения × подходы, вес не обязателен.'
+        : 'Разом: вес × повторения × подходы.';
       const setsHtml = ex.sets.map((set, si) => `
         <div class="strength-set">
           <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="${wPlaceholder}" value="${escapeHtml(set.weight)}" data-s-field="weight" data-s-ex="${idx}" data-s-set="${si}" aria-label="${wAria}">
@@ -11077,11 +11162,19 @@ function renderStrengthDiary() {
             <button class="strength-exercise-remove" type="button" data-s-remove-exercise="${idx}" aria-label="Удалить упражнение">×</button>
           </div>
           ${setsHtml}
+          <div class="strength-bulk-row">
+            <input type="text" inputmode="decimal" class="strength-bulk-input" placeholder="${bulkWeightPlaceholder}" value="" data-s-bulk-weight="${idx}" aria-label="${bulkWeightAria}">
+            <span class="strength-set-x" aria-hidden="true">×</span>
+            <input type="text" inputmode="numeric" class="strength-bulk-input" placeholder="Повторения" value="" data-s-bulk-reps="${idx}" aria-label="Повторения в каждом подходе">
+            <span class="strength-set-x" aria-hidden="true">×</span>
+            <input type="text" inputmode="numeric" class="strength-bulk-input" placeholder="Подходы" value="" data-s-bulk-sets="${idx}" aria-label="Сколько подходов добавить">
+            <button class="strength-quick-apply" type="button" data-s-bulk-apply="${idx}">Добавить</button>
+          </div>
           <div class="strength-quick-row">
-            <input type="text" inputmode="decimal" class="strength-quick-input" placeholder="${quickPlaceholder}" value="" data-s-quick="${idx}" aria-label="Заполнить сразу все подходы одной строкой">
+            <input type="text" inputmode="text" spellcheck="false" autocomplete="off" class="strength-quick-input" placeholder="${quickPlaceholder}" value="" data-s-quick="${idx}" aria-label="Заполнить сразу все подходы одной строкой">
             <button class="strength-quick-apply" type="button" data-s-quick-apply="${idx}">Заполнить</button>
           </div>
-          <p class="strength-quick-hint">${quickHint}</p>
+          <p class="strength-quick-hint">${bulkHint} ${quickHint}</p>
           <button class="strength-set-add" type="button" data-s-add-set="${idx}">＋ подход</button>
         </div>`;
     });
@@ -15163,6 +15256,9 @@ function init() {
     // 0.9.12: быстрый ввод «подходы × повторения × вес»
     const quick = e.target.closest('[data-s-quick-apply]');
     if (quick) return applyQuickSetsFromInput(Number(quick.dataset.sQuickApply));
+    // 0.9.46 (п.10): вес × повторения × подходы в основном блоке
+    const bulk = e.target.closest('[data-s-bulk-apply]');
+    if (bulk) return applyBulkSetsFromInputs(Number(bulk.dataset.sBulkApply));
     // 0.9.12: отмена заполнения
     if (e.target.closest('[data-s-cancel]')) return cancelStrengthDraft();
     const save = e.target.closest('[data-s-save]');
@@ -15260,6 +15356,9 @@ function init() {
     if (pick) { addStrengthExercise(pick.dataset.sPick); closeStrengthExercisePicker(); renderStrengthDiary(); return; }
   });
   bindEvent('#strength-exercise-cancel', 'click', closeStrengthExercisePicker);
+  // 0.9.46 (п.10): подтверждение очистки заполнения — своё окно вместо системного confirm
+  bindEvent('#strength-cancel-confirm', 'click', confirmStrengthCancel);
+  bindEvent('#strength-cancel-keep', 'click', closeStrengthCancelDialog);
   bindEvent('#strength-custom-add', 'click', () => {
     addStrengthExercise($('#strength-custom-name').value);
     closeStrengthExercisePicker();
@@ -18155,6 +18254,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
     parseQuickSets, parseRestInput, formatRestSeconds, // 0.9.12
+    buildBulkSetsLine, // 0.9.46: вес × повторения × подходы
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
     getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal,
     normalizeDailyHistory, normalizeDailyHistoryList, getStatsDays, statsActivityMinutes, activityMinutesForDate, mergeDuplicateFoodItems, normalizeOptionalNote, updateNativeWidget, parseSmartEntry, canScheduleReminderToday, profileStateKey, estimateActivityKcal, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildAiChatAnswer, normalizeCommandText, normalizeSmartUnits,
