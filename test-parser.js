@@ -9,7 +9,7 @@ if (typeof global.localStorage === 'undefined') {
     clear: () => { Object.keys(store).forEach((k) => delete store[k]); }
   };
 }
-const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics } = require('./app.js');
+const { parseMealText, parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName, getMorningMotivationMessage, morningMotivationVariantsCount, normalizeFavoriteMeal, parseSmartEntry, canScheduleReminderToday, groupFoodItemsByMealType, normalizeHomeLayoutValue, normalizeAllProfilesBackup, normalizeWeightHistory, getMealTypeIdByTime, MEAL_TIME_RANGES, buildWaterReminderTimes, buildExpertInsights, addCustomFood, removeCustomFood, parseOffProduct, describeFoodItemLine, buildProgressAnswer, cloudErrorText, COMPANION_GRAMS, normalizeCourse, normalizeCourseTimes, addCourse, updateCourse, removeCourse, toggleCourseDose, courseDayNumber, courseDayLabel, isCourseActiveOn, courseDosesForDate, canUseLocalLlm, parseMealTextDetailed, ruForms, ruUnitName, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS, isPhotoNoFoodAnswer, buildParseLogEntry, normalizeParseLogList, formatParseLogForClipboard, PARSE_LOG_LIMIT, normalizeCombos, COMBOS_LIMIT, resolveHealthSteps, mapWatchWorkoutType, computeFoodBudgetAdjustmentPure, EXERCISE_CATALOG, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, computeStrengthRecords, strengthLadderFor, strengthTargetAt, computeStrengthLevel, normalizeStepsHistory, normalizeStrengthTemplatesList, normalizeStrengthPlanList, computeLoadBalance, mergeStepsBackfill, searchFoodDb, buildCsvExport, compactFoodItemsForHistory, mergeWeightsFromMetrics, stripSecretsForBackup } = require('./app.js');
 
 const tests = [
   ['картофель 150г, котлета 1шт', 2],
@@ -1729,6 +1729,28 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok28 = bad === 0;
   if (!ok28) failed++;
   console.log(`${ok28 ? '✓' : '✗'} 0.8.23 вес с весов: новые даты добавляются, существующие/мусор не трогаются`);
+}
+
+// ===== 0.9.45 (O8): ключ облачного провайдера не едет в резервную копию =====
+{
+  let bad = 0;
+  const snapshot = {
+    water: { total: 500 },
+    aiSettings: { cloudProvider: 'gemini', cloudKey: 'СЕКРЕТ-123', cloudModel: 'gemini-2.0-flash' }
+  };
+  const frozen = JSON.parse(JSON.stringify(snapshot));
+  const copy = stripSecretsForBackup(snapshot);
+  if (!(copy.aiSettings.cloudKey === '')) bad++;            // ключ вычищен
+  if (!(copy.aiSettings.cloudProvider === 'gemini')) bad++; // провайдер уцелел
+  if (!(copy.aiSettings.cloudModel === 'gemini-2.0-flash')) bad++;
+  if (!(copy.water.total === 500)) bad++;                   // данные не тронуты
+  if (!(frozen.aiSettings.cloudKey === 'СЕКРЕТ-123')) bad++; // исходник не испорчен
+  if (!(stripSecretsForBackup(null) === null)) bad++;       // мусор не роняет
+  if (!(stripSecretsForBackup('строка') === 'строка')) bad++;
+  if (!(stripSecretsForBackup({ water: {} }).water !== undefined)) bad++; // без aiSettings тоже работает
+  const ok29 = bad === 0;
+  if (!ok29) failed++;
+  console.log(`${ok29 ? '✓' : '✗'} 0.9.45 резервная копия: ключ провайдера вычищен, остальные настройки целы`);
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);

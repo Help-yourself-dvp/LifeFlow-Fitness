@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.44';
+const FITFLOW_VERSION = '0.9.45';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -13638,12 +13638,29 @@ function cloneForBackup(value) {
   try { return JSON.parse(JSON.stringify(value)); } catch (e) { return null; }
 }
 
+/* 0.9.45 (O8, решение владельца 31.08.2026): ключ облачного провайдера в
+   резервную копию НЕ кладём. Копию пересылают себе почтой и мессенджерами, а
+   ключ — это доступ к платной квоте Gemini/DeepSeek/OpenRouter/GigaChat:
+   кто получит файл, тот получит и ключ. Цена решения — на новом телефоне
+   ключ вводится заново один раз (Настройки → ✨ ИИ-помощник); дневники,
+   цели и настройки при этом переносятся как раньше.
+   Все остальные поля aiSettings (провайдер, модель, адрес) не секретные и
+   в копии остаются — иначе после восстановления пришлось бы заново
+   настраивать и их. */
+function stripSecretsForBackup(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  if (snapshot.aiSettings && typeof snapshot.aiSettings === 'object') {
+    snapshot.aiSettings = Object.assign({}, snapshot.aiSettings, { cloudKey: '' });
+  }
+  return snapshot;
+}
+
 function readProfileStateForBackup(id) {
-  if (id === profilesState.activeId) return cloneForBackup(state);
+  if (id === profilesState.activeId) return stripSecretsForBackup(cloneForBackup(state));
   try {
     const raw = localStorage.getItem(profileStateKey(id));
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === 'object' ? cloneForBackup(parsed) : null;
+    return parsed && typeof parsed === 'object' ? stripSecretsForBackup(cloneForBackup(parsed)) : null;
   } catch (e) {
     return null;
   }
@@ -18149,6 +18166,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sleepTimeToMinutes, glueSandwichFillings, normalizeSleepCheckin, isSleepWindowNow, renderDayPlan, ONBOARDING_SLIDES, PALETTES, computeMaxCardioDayMinutes, computeMealsEatenToday,
     buildExpertInsights, addCustomFood, removeCustomFood, getCustomFoodDb, parseOffProduct, buildProgressAnswer,
     cloudErrorText, COMPANION_GRAMS, parseMealTextDetailed, ruForms, ruUnitName, UNIT_RU_FORMS, SOUP_PORTION_GRAMS, SOUP_MEAT_GRAMS,
+    stripSecretsForBackup, // 0.9.45: ключ облачного провайдера не едет в копию
     normalizeCourse, normalizeCourses, normalizeCourseTimes, addCourse, updateCourse, removeCourse,
     toggleCourseDose, courseDayNumber, courseDayLabel, courseStatusLabel, isCourseActiveOn,
     courseDosesForDate, getTodayCourses, buildCoursesPlanHtml,

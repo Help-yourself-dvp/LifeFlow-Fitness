@@ -5448,6 +5448,37 @@ for (const id of ids) {
     return first === v;
   })(), '0.9.44 CHANGELOG.md содержит текущую версию');
 
+  /* 0.9.45 (O1/O13, решения владельца): SQLite-бандл обязан попадать в www/,
+     иначе движок не грузится и этап 0.6.0 на телефоне не работает; заодно
+     убраны две строки копирования файлов, которых в репозитории нет.
+     Проверяем ОБА файла: активный workflow и его зеркало. */
+  check((() => {
+    /* Команды ищем только в начале строки: в пояснительном комментарии эти же
+       слова упомянуты, и наивный поиск по подстроке давал ложный вызов. */
+    const okWorkflow = (y) => /^\s*cp sqlite-bundle\.js www\/\s*$/m.test(y)
+      && !/^\s*cp food-db\.js/m.test(y)
+      && !/^\s*cp manifest\.json/m.test(y);
+    /* Строго проверяем ЗЕРКАЛО: активный .github/workflows/build.yml агенту
+       недоступен — GitHub App отклоняет push в .github/workflows без права
+       `workflows` (проверено 31.08.2026: «refusing to allow a GitHub App to
+       create or update workflow»). Поэтому активный файл заменяет владелец
+       по двум ссылкам, а до замены сторож честно об этом пишет, но не краснеет:
+       краснеть должно зеркало — единственное, что агент контролирует. */
+    const mirrorOk = okWorkflow(fs932.readFileSync('tools/github-workflows/build.yml', 'utf-8'));
+    const activeOk = okWorkflow(fs932.readFileSync('.github/workflows/build.yml', 'utf-8'));
+    if (!activeOk) console.log('  (активный .github/workflows/build.yml ещё не заменён владельцем — SQLite в APK не попадёт)');
+    return mirrorOk;
+  })(), '0.9.45 зеркало сборки: sqlite-bundle.js копируется в www, мёртвых строк нет');
+
+  /* 0.9.45 (O2): запасные sql-wasm.js / sql-wasm.wasm удалены — они не
+     использовались никогда (WASM вшит в sqlite-bundle.js), а весили ~700 КБ.
+     Сторож не даст им «вернуться» незамеченными. */
+  check((() => {
+    return !fs932.existsSync('assets/js/sql-wasm.js')
+      && !fs932.existsSync('assets/wasm/sql-wasm.wasm')
+      && fs932.existsSync('sqlite-bundle.js');
+  })(), '0.9.45 мёртвые sql-wasm.js / sql-wasm.wasm удалены, бандл на месте');
+
   /* Анимация: буферов ДВА (отданную лаунчеру картинку править нельзя) и
      перерисовываются только те семейства, что стоят на экране. */
   check(/private static final Bitmap\[\] sAnimBuffers = new Bitmap\[2\];/.test(canvas)

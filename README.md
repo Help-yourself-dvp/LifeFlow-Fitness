@@ -6,7 +6,7 @@
 > Репозиторий объединяет два будущих приложения: **FitFlow** (фитнес-трекер) и **LifeOps** (универсальный помощник).
 > Сейчас в разработке — **FitFlow**.
 
-Актуальная версия: **0.9.44** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
+Актуальная версия: **0.9.45** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
 
 ## Текущий этап
 
@@ -95,7 +95,7 @@ node test-food-db.js   # аудит базы продуктов (согласо�
 ├── LICENSE             — лицензия проекта
 ├── design/             — проектные материалы (уровни силовых, макеты медалей)
 ├── sqlite-bundle.js    — слой SQLite (sql.js) поверх состояния
-├── assets/             — шрифты тем, sql-wasm.js и sql-wasm.wasm
+├── assets/             — шрифты тем, значки и предпросмотры виджетов
 ├── COMMAND_DICTIONARY.md — офлайн-справочник команд парсера
 ├── index.html          — разметка главного экрана и настроек
 ├── style.css           — Material 3 дизайн-система (light/dark токены)
