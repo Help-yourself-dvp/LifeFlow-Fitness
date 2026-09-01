@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.49';
+const FITFLOW_VERSION = '0.9.50';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -10904,7 +10904,11 @@ function addStrengthExercise(name) {
     toast('Упражнение уже в тренировке');
     return;
   }
-  strengthDraft.exercises.push({ name: clean, sets: [{ weight: '', reps: '' }] });
+  // 0.9.50: новое упражнение начинается БЕЗ пустой строки подхода — она
+  // дублировала строку «вес × повторения × подходы» (владелец с телефона:
+  // «зачем задублировал»). Подходы добавляются строкой чисел, полем
+  // «всё сразу» или «＋ подход» — пустых строк-двойников больше нет.
+  strengthDraft.exercises.push({ name: clean, sets: [] });
 }
 function removeStrengthExercise(idx) {
   strengthDraft.exercises.splice(idx, 1);

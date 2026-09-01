@@ -3434,6 +3434,19 @@ for (const id of ids) {
   if (!termsOk) failed++;
   console.log(`${termsOk ? '✓' : '✗'} 0.9.12 поле подхода называется «Повторения», а не «Повторы»`);
 
+  // --- 0.9.50: дубль пустой строки подхода убран, пилюли не сжимаются ---
+  // Полевое замечание владельца: у нового упражнения стояли рядом пустая
+  // строка «вес × повторения» И строка «вес × повторения × подходы», а
+  // плейсхолдеры обрезались («Повте…», «Подхо…»). Теперь новое упражнение
+  // начинается без подходов, а «Добавить» вынесена на свою строку —
+  // пилюли получают всю ширину карточки.
+  const css050 = fs.readFileSync('style.css', 'utf8');
+  const noDupOk = /exercises\.push\(\{ name: clean, sets: \[\] \}\)/.test(appS)
+    && css050.includes('.strength-bulk-row .strength-quick-apply { flex: 1 1 100%; }')
+    && /\.strength-bulk-row \{ display: flex; flex-wrap: wrap;/.test(css050);
+  if (!noDupOk) failed++;
+  console.log(`${noDupOk ? '✓' : '✗'} 0.9.50 силовая: без пустой строки-двойника, «Добавить» на своей строке`);
+
   // --- Отмена заполнения ---
   const cancelOk = /function cancelStrengthDraft/.test(appS)
     && /function resetStrengthDraft/.test(appS)
