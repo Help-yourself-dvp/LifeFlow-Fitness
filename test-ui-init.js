@@ -2767,8 +2767,9 @@ for (const id of ids) {
   const yml = fs.readFileSync('tools/github-workflows/build.yml', 'utf8');
   const appW = fs.readFileSync('app.js', 'utf8');
 
+  /* 0.9.47 (п.9 владельца): «капля» убрана — в списке остаются
+     бенто и неоновые кольца. */
   const variants = [
-    'FitFlowWidgetDropProvider',
     'FitFlowWidgetBentoProvider',
     'FitFlowWidgetNeonProvider'
   ];
@@ -2798,7 +2799,7 @@ for (const id of ids) {
   console.log(`${okCopy ? '✓' : '✗'} 0.9.6 все нативные исходники копируются в сборку`);
 
   /* Каждый вариант объявлен ресивером и получил собственный appwidget-info. */
-  const infos = ['fitflow_widget_drop_info', 'fitflow_widget_bento_info',
+  const infos = ['fitflow_widget_bento_info',
                  'fitflow_widget_neon_info'];
   const okManifest = variants.every((v) => yml.includes(`'${v}'`))
     && infos.every((i) => yml.includes(i));
@@ -2808,7 +2809,8 @@ for (const id of ids) {
   /* Разметка «рисованного» виджета генерируется и содержит все нужные id. */
   const canvasIds = ['widget_canvas_root', 'widget_canvas_image',
                      'widget_canvas_water_btn', 'widget_canvas_record_btn', 'widget_canvas_dose_btn'];
-  const okLayout = yml.includes('fitflow_widget_p5.xml')
+  /* 0.9.47: p5 (разметка капли) удалена; рисуемая разметка — fitflow_widget_neon. */
+  const okLayout = yml.includes('fitflow_widget_neon.xml')
     && canvasIds.every((id) => yml.includes('@+id/' + id));
   if (!okLayout) failed++;
   console.log(`${okLayout ? '✓' : '✗'} 0.9.6 разметка рисованного виджета описана`);
@@ -2876,8 +2878,9 @@ for (const id of ids) {
   if (!okGoals) failed++;
   console.log(`${okGoals ? '✓' : '✗'} 0.9.6 цели шагов и активности доходят до виджета`);
 
-  /* Картинка рисуется без области кнопок — иначе содержимое уезжает под них. */
-  const okRoom = /fitflow_widget_p5/.test(bundle)
+  /* Картинка рисуется без области кнопок — иначе содержимое уезжает под них.
+     0.9.47: p5 (капля) удалена — overlay-кнопки живёт в разметке «колец»/«плиток». */
+  const okRoom = /fitflow_widget_neon/.test(bundle)
     && /configureButtons/.test(bundle)
     && /WIDGET_COURSE_DOSE/.test(bundle);
   if (!okRoom) failed++;
@@ -4518,11 +4521,13 @@ for (const id of ids) {
   let bad = 0;
   const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
 
-  check(fs924.existsSync('android-native/FitFlowWidgetDropProvider.java')
+  /* 0.9.47 (п.9 владельца): «капля» убрана — её провайдер должен исчезнуть,
+     а бенто и кольца остаются. Это честная проверка удаления, не заглушка. */
+  check(!fs924.existsSync('android-native/FitFlowWidgetDropProvider.java')
     && fs924.existsSync('android-native/FitFlowWidgetBentoProvider.java')
     && fs924.existsSync('android-native/FitFlowWidgetNeonProvider.java')
     && fs924.existsSync('android-native/FitFlowWidgetPaint.java'),
-    '0.9.24 исходники капли / бенто / колец на месте');
+    '0.9.47 капля убрана, бенто / кольца на месте');
 
   /* 0.9.35: имя FitFlowWidgetTilesProvider занято НОВЫМ виджетом «плитки»
      (макет владельца со скриншота) — оно больше не в чёрном списке.
@@ -4532,26 +4537,29 @@ for (const id of ids) {
     && !fs924.existsSync('android-native/FitFlowWidgetRingsProvider.java'),
     '0.9.24 старые Ring / Rings / Dial убраны');
 
-  check(/void drawDrop\(/.test(paint924) && /void drawBento\(/.test(paint924)
+  /* 0.9.47: drawDrop убран вместе с каплей; капля-силуэт (dropPath) осталась —
+     её использует «плитки» для большого блока воды. */
+  check(/void drawBento\(/.test(paint924)
     && /void drawNeon\(/.test(paint924) && /Path dropPath\(/.test(paint924)
     && /void neonRing\(/.test(paint924) && /sWaveY\(/.test(paint924)
     && /void glass\(/.test(paint924),
-    '0.9.24 капля, S-волна, neon-glow и стекло рисуются в Canvas');
+    '0.9.47 бенто / кольца / стекло в Canvas, drawDrop убран');
 
   check(/@android:color\/transparent/.test(yml924)
-    && /fitflow_widget_p5\.xml/.test(yml924)
-    && /FrameLayout/.test(yml924),
-    '0.9.24 карточка полупрозрачная: FrameLayout без непрозрачного фона');
+    && /fitflow_widget_neon\.xml/.test(yml924)
+    && /FrameLayout/.test(yml924)
+    && !/fitflow_widget_p5\.xml/.test(yml924),
+    '0.9.47 карточка полупрозрачная (кольца), p5-разметка капли удалена');
 
   check(/boolean shows\(/.test(data924) && /parseMood\(/.test(data924)
     && /coursesLine/.test(data924) && /widgetItems/.test(data924),
     '0.9.24 раскладка, самочувствие и курс доходят до рисованных виджетов');
 
   check(/WIDGET_COURSE_DOSE/.test(can924)
-    && /FitFlowWidgetDropProvider/.test(can924)
+    && !/FitFlowWidgetDropProvider/.test(can924)
     && /FitFlowWidgetNeonProvider/.test(can924)
     && !/FitFlowWidgetRingProvider/.test(can924),
-    '0.9.24 список провайдеров новый, витамины отмечаются тем же действием');
+    '0.9.47 капля выведена из списка провайдеров, витамины — тем же действием');
 
   check(fs924.existsSync('android-native/FitFlowWidgetProvider.java'),
     '0.9.24 классический виджет на месте');
@@ -4852,15 +4860,19 @@ for (const id of ids) {
     && !/fitflow_widget_btn_p5_water/.test(neonLayout),
     '0.9.32 пилюли рисует Canvas, кнопки в разметке прозрачные');
 
-  /* «Капля» осталась на своей разметке с настоящими кнопками. */
-  const p5Layout = yml.slice(yml.indexOf("fitflow_widget_p5.xml"),
-    yml.indexOf("fitflow_widget_neon.xml"));
-  check(/fitflow_widget_btn_p5_water/.test(p5Layout)
-    && /'FitFlow · капля', 250, 140, 'fitflow_widget_p5'/.test(yml)
-    && /'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'/.test(yml)
-    && /int layoutRes\(\) \{ return R\.layout\.fitflow_widget_neon; \}/.test(neonProv)
-    && /return R\.layout\.fitflow_widget_p5;/.test(canvas),
-    '0.9.32 у «капли» своя разметка с настоящими кнопками');
+  /* 0.9.47 (п.9 владельца): «капля» убрана целиком. Ищем не по подстрокам
+     (комментарии в yml честно описывают удаление и содержат имена), а по
+     коду, который РЕАЛЬНО создавал бы артефакты: .write_text и записи в
+     canvas_widgets / canvas_infos. Нет генерации и нет регистрации —
+     значит виджета нет ни в разметке, ни в системном списке. */
+  check(!/\(layout \/ 'fitflow_widget_p5\.xml'\)\.write_text\(/.test(yml)
+    && !/\(drawable \/ 'fitflow_widget_btn_p5_water\.xml'\)\.write_text\(/.test(yml)
+    && !/'FitFlowWidgetDropProvider', 'fitflow_widget_drop_info'/.test(yml)
+    && !/\('fitflow_widget_drop_info',/.test(yml)
+    && !/return R\.layout\.fitflow_widget_p5;/.test(canvas)
+    && /abstract int layoutRes\(\);/.test(canvas)
+    && /'FitFlow · кольца', 250, 150, 'fitflow_widget_neon'/.test(yml),
+    '0.9.47 капля удалена без заглушки: ни разметки, ни кнопок, ни провайдера');
 
   /* Строка тренировки идёт из app.js: натив не знает про план и шаблоны. */
   check(/workoutLine/.test(data) && /String workoutShort\(\)/.test(data)
@@ -4979,7 +4991,11 @@ for (const id of ids) {
   const usedSlots = 15;
   const collide = bases.some((b, i) => bases.some((o, j) =>
     i !== j && Math.abs(b - o) < usedSlots));
-  check(!collide && bases.length >= 5,
+  /* 0.9.47: «капля» убрана — canvas-провайдеров стало 4. Ожидаемое число
+     баз берём из CANVAS_PROVIDERS, а не зашиваем, чтобы провайдер без
+     requestCodeBase не прошёл мимо. */
+  const provCount = (canvas.match(/FitFlowWidget\w+Provider\.class/g) || []).length;
+  check(!collide && bases.length === provCount && provCount >= 4,
     '0.9.34 requestCode виджетов не пересекаются');
 
   /* ===== 0.9.35: плитки, сон, свои значки, названия виджетов ===== */

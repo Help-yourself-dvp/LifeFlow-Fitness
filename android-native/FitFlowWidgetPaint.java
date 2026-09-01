@@ -336,34 +336,6 @@ final class FitFlowWidgetPaint {
         return p;
     }
 
-    static void paintDrop(Canvas c, RectF box, float pct, float den) {
-        float w = box.width();
-        float h = box.height();
-        if (w < 8 || h < 8) return;
-        int sc = c.save();
-        c.translate(box.left, box.top);
-        Path drop = dropPath(w, h);
-        c.clipPath(drop);
-        c.drawPath(drop, fill(0x1CFFFFFF));
-        float p = Math.max(0f, Math.min(1f, pct));
-        float fy = h * (0.97f - 0.72f * p);
-        float amp = w * 0.075f;
-        float lift = h * 0.09f;
-        c.drawPath(sWavePoly(w, h, fy + h * 0.06f, amp * 1.05f, 0.3f, lift), fill(WATER_DEEP));
-        c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), fill(WATER_TOP));
-        Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);
-        shade.setShader(new LinearGradient(0, 0, w * 0.55f, 0,
-            0x38125652, 0x00125652, Shader.TileMode.CLAMP));
-        c.drawPath(sWavePoly(w, h, fy, amp, 1.05f, lift), shade);
-        float hx = w * 0.34f;
-        float hy = sWaveY(hx, w, fy, amp, 1.05f, lift);
-        Paint hi = new Paint(Paint.ANTI_ALIAS_FLAG);
-        hi.setColor(0xA6FFFFFF);
-        hi.setMaskFilter(new BlurMaskFilter(Math.max(2f, 3f * den), BlurMaskFilter.Blur.NORMAL));
-        c.drawOval(new RectF(hx - w * 0.24f, hy - h * 0.08f, hx + w * 0.24f, hy + h * 0.03f), hi);
-        c.restoreToCount(sc);
-        c.drawPath(translated(drop, box.left, box.top), stroke(0x2EFFFFFF, 1.2f * den));
-    }
 
     static Path translated(Path src, float dx, float dy) {
         Path p = new Path(src);
@@ -458,80 +430,6 @@ final class FitFlowWidgetPaint {
 
     /* ---- три оформления ---- */
 
-    static void drawDrop(Canvas c, int w, int h, float den, FitFlowWidgetData d) {
-        glass(c, w, h, den, 0x76FFFAF6, 0x96FFFFFF);
-        float pad = 12f * den;
-        float chrome = 36f * den;
-        float leftW = w * 0.36f;
-        Paint num = text(INK, 18f * den, font, Paint.Align.LEFT);
-        Paint lab = text(INK, 11f * den, font, Paint.Align.LEFT);
-        Paint sub = text(MUTE, 9f * den, fontReg, Paint.Align.LEFT);
-        if (shows(d, "water")) {
-            c.drawText(spaced(d.water) + " мл", pad, pad + 16f * den, num);
-            c.drawText("Вода", pad, pad + 30f * den, lab);
-        } else {
-            c.drawText("FitFlow", pad, pad + 16f * den, num);
-        }
-        float dropTop = pad + 36f * den;
-        float dropH = Math.max(40f * den, h - dropTop - chrome - 8f * den);
-        float dropW = Math.min(leftW - pad, dropH * 0.88f);
-        if (shows(d, "water") && dropW > 20f * den) {
-            paintDrop(c, new RectF(pad, dropTop, pad + dropW, dropTop + dropH),
-                d.waterPct() / 100f, den);
-            Paint pctP = text(0xE6FFFFFF, 8f * den, font, Paint.Align.CENTER);
-            float fy = dropTop + dropH * (0.88f - 0.62f * d.waterPct() / 100f);
-            centered(c, "~" + d.waterPct() + "%", pad + dropW * 0.50f, fy + 8f * den, pctP);
-        }
-        c.drawText("из " + spaced(d.waterGoal) + " мл", pad + 4f * den,
-            h - chrome + 4f * den, sub);
-
-        String[] ids = {"steps", "food", "activity", "day-mood"};
-        String[] labels = {"Шаги", "Питание", "Активность", "Самочувствие"};
-        java.util.ArrayList<Integer> vis = new java.util.ArrayList<Integer>();
-        for (int i = 0; i < ids.length; i++) if (shows(d, ids[i])) vis.add(i);
-        if (vis.isEmpty()) return;
-        float gx = leftW + 2f * den;
-        float gy = 10f * den;
-        float gap = 6f * den;
-        int cols = vis.size() == 1 ? 1 : 2;
-        int rows = (vis.size() + cols - 1) / cols;
-        float tw = (w - gx - pad - gap * (cols - 1)) / cols;
-        float th = (h - gy - chrome - gap * (rows - 1)) / rows;
-        if (tw < 36f * den || th < 28f * den) return;
-        float rad = 11f * den;
-        for (int n = 0; n < vis.size(); n++) {
-            int i = vis.get(n);
-            int col = n % cols;
-            int row = n / cols;
-            float x = gx + col * (tw + gap);
-            float y = gy + row * (th + gap);
-            RectF tr = new RectF(x, y, x + tw, y + th);
-            tile(c, tr, rad, 0xE4FFFFFF, 0x5AFFFFFF);
-            float ico = 11f * den;
-            float ix = x + 7f * den;
-            float iy = y + 6f * den;
-            if (i == 0) iconSneaker(c, ix, iy, ico, 0xFF48C4A8);
-            else if (i == 1) iconBowl(c, ix, iy, ico, 0xFFE88C60);
-            else if (i == 2) iconClock(c, ix, iy, ico, 0xFF60B078);
-            else iconMood(c, ix, iy, ico, 0xFFE8B040);
-            Paint tLab = text(MUTE, 8f * den, font, Paint.Align.LEFT);
-            ellipsizeDraw(c, labels[i], ix + ico + 4f * den, y + 15f * den, tLab, tw - ico - 16f * den);
-            String val;
-            String hint;
-            if (i == 0) { val = spaced(d.steps); hint = "из " + spaced(d.stepsGoal); }
-            else if (i == 1) { val = spaced(d.food); hint = "ккал съедено"; }
-            else if (i == 2) { val = d.activity + " мин"; hint = "из " + d.activityGoal + " мин"; }
-            else {
-                if (d.mood > 0) { val = d.mood + " из 5"; hint = d.moodLineShort(); }
-                else { val = "—"; hint = "не отмечено"; }
-            }
-            Paint tVal = text(INK, Math.min(14f * den, th * 0.32f), font, Paint.Align.LEFT);
-            FitFlowWidgetDraw.fitTextSize(tVal, val, tw - 14f * den, 9f * den);
-            c.drawText(val, ix, y + th * 0.58f, tVal);
-            Paint tHint = text(MUTE, 8f * den, fontReg, Paint.Align.LEFT);
-            ellipsizeDraw(c, hint, ix, y + th - 8f * den, tHint, tw - 14f * den);
-        }
-    }
 
     static void drawBento(Canvas c, int w, int h, float den, FitFlowWidgetData d) {
         glass(c, w, h, den, 0x84100C1C, 0x24FFFFFF);

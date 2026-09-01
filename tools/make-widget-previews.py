@@ -54,6 +54,7 @@ def main():
     glass = load('glass', 'widget-glass-preview.py')
     tiles = load('tiles', 'widget-tiles-preview.py')
     bento = load('bento', 'widget-bento-preview.py')
+    lst = load('lst', 'widget-list-preview.py')
     today = ('28.08.2026', 'пятница')
 
     # Бенто рисуется по картинке-подложке с фиксированными пропорциями,
@@ -64,6 +65,10 @@ def main():
                             width=W)
 
     shots = [
+        # 0.9.47 (п.9 владельца): у классического «списка» теперь есть превью,
+        # чтобы в системном перечне его не путать с остальными виджетами.
+        ('fitflow_preview_list',
+         lst.render(['water', 'food', 'steps'], lst.DEMO, width=W, height_dp=230)),
         ('fitflow_preview_bento', bento_im),
         ('fitflow_preview_neon',
          glass.render(SLOTS, DATA, today, width=W, height=H, theme='dark')),

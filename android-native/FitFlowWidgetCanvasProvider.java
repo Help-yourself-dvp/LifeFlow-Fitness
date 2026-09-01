@@ -56,12 +56,11 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
         configureButtons(views);
     }
 
-    /* Разметка оформления. По умолчанию — общая карточка с настоящими
-       кнопками (её использует «капля»). «Кольца» переопределяют: там
-       пилюли нарисованы в картинке, а кнопки поверх прозрачные. */
-    int layoutRes() {
-        return R.layout.fitflow_widget_p5;
-    }
+    /* 0.9.47 (п.9 владельца): разметка оформления объявляется в каждом
+       провайдером обязательно. Прежнее значение по умолчанию (общая карточка
+       с настоящими кнопками) существовало только ради «капли», а она убрана —
+       оставь мы его, новый виджет молча получил бы чужую разметку. */
+    abstract int layoutRes();
 
     /* Буферы кадров анимации: живут между кадрами, чтобы не выделять
        память заново. Их ДВА и они чередуются: картинку, только что
@@ -72,7 +71,6 @@ abstract class FitFlowWidgetCanvasProvider extends AppWidgetProvider {
     private static int sAnimBufferIdx;
 
     static final Class<?>[] CANVAS_PROVIDERS = {
-        FitFlowWidgetDropProvider.class,
         FitFlowWidgetNeonProvider.class,
         /* 0.9.34: светлый вариант «колец» — отдельный провайдер, иначе он
            не обновится по кнопке воды и в полночь. */
