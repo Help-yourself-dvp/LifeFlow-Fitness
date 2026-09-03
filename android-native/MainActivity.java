@@ -376,9 +376,10 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                     int phoneSteps = prefs.getInt("steps_today", 0);
                     long lastSync = prefs.getLong("hc_last_sync_ts", 0);
                     long watchLastTs = prefs.getLong("hc_watch_last_ts", 0);
+                    long watchFirstTs = prefs.getLong("hc_watch_first_ts", 0); // 0.9.52 покрытие
                     return String.format(java.util.Locale.US,
-                        "{\"date\":\"%s\",\"hcSteps\":%d,\"watchSteps\":%d,\"hcTotalSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"watchLastTs\":%d,\"lastSync\":%d}",
-                        today, hcSteps, hcSteps, hcTotalSteps, hcKcal, phoneSteps, watchLastTs, lastSync
+                        "{\"date\":\"%s\",\"hcSteps\":%d,\"watchSteps\":%d,\"hcTotalSteps\":%d,\"hcKcal\":%.1f,\"phoneSteps\":%d,\"watchLastTs\":%d,\"watchFirstTs\":%d,\"lastSync\":%d}",
+                        today, hcSteps, hcSteps, hcTotalSteps, hcKcal, phoneSteps, watchLastTs, watchFirstTs, lastSync
                     );
                 }
             } catch (Exception e) { }
@@ -495,6 +496,7 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                         final int sleepMin = result[2];
                         final double kcal = watchSteps * 0.04;
                         final long watchLastTs = HealthConnectHelper.getLastWatchEndMs();
+                        final long watchFirstTs = HealthConnectHelper.getLastWatchStartMs(); // 0.9.52
                         prefs.edit()
                             .putInt("hc_steps_today", watchSteps)
                             .putInt("hc_total_steps_today", totalSteps)
@@ -503,6 +505,7 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                             .putString("hc_sleep_bed", HealthConnectHelper.getLastBedTime())
                             .putString("hc_sleep_wake", HealthConnectHelper.getLastWakeTime())
                             .putLong("hc_watch_last_ts", watchLastTs)
+                            .putLong("hc_watch_first_ts", watchFirstTs)
                             .putLong("hc_last_sync_ts", System.currentTimeMillis())
                             .putString("hc_last_error", HealthConnectHelper.getLastError())
                             .apply();
@@ -512,9 +515,9 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                                     WebView wv = getBridge() != null ? getBridge().getWebView() : null;
                                     if (wv != null) {
                                         String js = String.format(java.util.Locale.US,
-                                            "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s', %d);",
+                                            "window.onHealthConnectDataReceived && window.onHealthConnectDataReceived(%d, %.1f, %d, '%s', '%s', %d, %d);",
                                             watchSteps, (float) kcal, sleepMin,
-                                            HealthConnectHelper.getLastBedTime(), HealthConnectHelper.getLastWakeTime(), watchLastTs);
+                                            HealthConnectHelper.getLastBedTime(), HealthConnectHelper.getLastWakeTime(), watchLastTs, watchFirstTs);
                                         wv.evaluateJavascript(js, null);
                                     }
                                 } catch (Exception e) {}

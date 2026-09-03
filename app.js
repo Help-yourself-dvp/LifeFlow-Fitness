@@ -3038,7 +3038,7 @@ const DEFAULTS = {
   onlineFeatures: { master: false, cloudAi: false, barcodeLookup: false, modelDownload: false },
   sleepCheckin: { enabled: false, targetBed: '23:30', targetWake: '07:00', windowStart: '05:00', windowEnd: '12:00', log: [], skipped: null },
   dayMood: { date: null, rating: null },
-  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchWorkouts: [], stepsHistory: [] },
+  healthSync: { enabled: false, priority: 'auto', includeInDailyBudget: false, dailyGoal: 8000, lastSyncTs: null, lastSteps: 0, lastKcal: 0, lastSource: null, watchLastTs: 0, watchFirstTs: 0, watchWorkouts: [], stepsHistory: [] },
   aiSettings: { enabled: false, mode: 'expert', modelPath: '', modelName: '', cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: '' },
   homeLayout: { order: ['water', 'food'], visible: { water: true, food: true } },
   widgetLayout: { size: 'medium', items: ['water', 'food', 'steps'] }, // 0.9.4: что показывать на Android-виджете
@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.51';
+const FITFLOW_VERSION = '0.9.52';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -7617,6 +7617,7 @@ function normalizeHealthSync() {
     lastKcal: Math.max(0, Number(source.lastKcal) || 0),
     lastSource: typeof source.lastSource === 'string' ? source.lastSource : null,
     watchLastTs: Math.max(0, Number(source.watchLastTs) || 0),
+    watchFirstTs: Math.max(0, Number(source.watchFirstTs) || 0),
     watchWorkouts: normalizeWatchWorkouts(source.watchWorkouts),
     stepsHistory: normalizeStepsHistory(source.stepsHistory)
   };
@@ -7673,7 +7674,7 @@ function getPhoneSteps() {
    счётчика измеряют одни шаги, максимум — лучшая оценка без задвоения: снял
    часы на день (400) при 4000 на телефоне — покажется 4000, а не 400.
    Чистая функция: не читает state, чтобы её можно было проверять node-тестом. */
-function resolveHealthSteps(priority, hcSteps, phoneSteps, watchLastTs, now) {
+function resolveHealthSteps(priority, hcSteps, phoneSteps, watchLastTs, now, watchFirstTs) {
   const watch = Math.max(0, Number(hcSteps) || 0);
   const phone = Math.max(0, Number(phoneSteps) || 0);
 
@@ -7683,14 +7684,23 @@ function resolveHealthSteps(priority, hcSteps, phoneSteps, watchLastTs, now) {
   if (priority === 'health_connect_only') {
     return { steps: watch, source: watch > 0 ? 'часы / Health Connect' : 'часы / Health Connect (нет данных)' };
   }
-  // auto: берём МАКСИМУМ из двух независимых счётчиков. Они измеряют одни и те
-  // же реальные шаги, поэтому максимум — лучшая оценка истины и никогда не
-  // даёт задвоения (сумма — даёт). Полевое замечание владельца (0.9.51): снял
-  // часы на весь день, вечером надел — часы показали 400, телефон накопил 4000,
-  // а «Авто» отдавал 400, потому что брал часы при любом их значении >0.
-  // Теперь в таком случае побеждает телефон (4000), а при полных сутках с часами —
-  // часы, если они насчитали больше. Источник подписываем честно — тот, что больше.
+  // auto: максимум источников, НО с поправкой на «покрытие дня» часами.
   if (watch <= 0 && phone <= 0) return { steps: 0, source: 'нет данных' };
+  /* 0.9.52 (решение владельца): чистый максимум имеет дыру — телефон в машине
+     насчитывает ложные шаги, а часы на полке нет, и максимум возьмёт ложь.
+     Различаем по покрытию: если записи шагов часов тянутся через большую часть
+     прошедшей части суток (часы были на руке), доверяем часам. Если часы
+     отметились только вечером (покрытие малое) — берём максимум: телефон донёс
+     остальной день (кейс владельца: часы 400 за вечер, телефон 4000 за день). */
+  const first = Math.max(0, Number(watchFirstTs) || 0);
+  const last = Math.max(0, Number(watchLastTs) || 0);
+  const nowMs = Math.max(0, Number(now) || 0);
+  if (watch > 0 && first > 0 && last > first && nowMs > 0) {
+    const d = new Date(nowMs); d.setHours(0, 0, 0, 0);
+    const elapsed = Math.max(1, nowMs - d.getTime());
+    const coverage = Math.min(1, (last - first) / elapsed);
+    if (coverage >= 0.5) return { steps: watch, source: 'часы / Health Connect' };
+  }
   if (phone > watch) return { steps: phone, source: 'шагомер телефона' };
   return { steps: watch, source: 'часы / Health Connect' };
 }
@@ -8968,7 +8978,7 @@ function showStepsSyncTick() {
 }
 
 if (typeof window !== 'undefined') {
-  window.onHealthConnectDataReceived = function(steps, kcal, sleepMin, bedTime, wakeTime, watchLastTs) {
+  window.onHealthConnectDataReceived = function(steps, kcal, sleepMin, bedTime, wakeTime, watchLastTs, watchFirstTs) {
     normalizeHealthSync();
     const receivedSteps = Math.max(0, Number(steps) || 0);
     const receivedSleepMin = Math.max(0, Number(sleepMin) || 0);
@@ -8976,7 +8986,9 @@ if (typeof window !== 'undefined') {
     // 0.7.10: приоритет источника решается здесь же — нативный мост отдаёт шаги С ЧАСОВ,
     // а телефон берём из аппаратного шагомера (не из суммы всех источников Health Connect).
     // 0.7.11: watchLastTs — время последней записи шагов с часов (показываем возраст подсказкой).
-    const resolved = resolveHealthSteps(state.healthSync.priority, receivedSteps, getPhoneSteps(), watchLastTs);
+    // 0.9.52: watchFirstTs — время первой записи; вместе даёт «покрытие дня» часами.
+    state.healthSync.watchFirstTs = Math.max(0, Number(watchFirstTs) || 0);
+    const resolved = resolveHealthSteps(state.healthSync.priority, receivedSteps, getPhoneSteps(), watchLastTs, Date.now(), watchFirstTs);
     state.healthSync.lastSteps = resolved.steps;
     state.healthSync.lastKcal = Math.round(resolved.steps * 0.04);
     state.healthSync.lastSource = resolved.source;
@@ -9057,7 +9069,9 @@ function syncHealthDataNow() {
           const hcSteps = Math.max(0, Number(snap.watchSteps !== undefined ? snap.watchSteps : snap.hcSteps) || 0);
           const phoneSteps = Math.max(0, Number(snap.phoneSteps) || 0);
           const watchLastTs = Math.max(0, Number(snap.watchLastTs) || 0);
-          const resolved = resolveHealthSteps(state.healthSync.priority, hcSteps, phoneSteps, watchLastTs);
+          const watchFirstTs = Math.max(0, Number(snap.watchFirstTs) || 0);
+          const resolved = resolveHealthSteps(state.healthSync.priority, hcSteps, phoneSteps, watchLastTs, Date.now(), watchFirstTs);
+          state.healthSync.watchFirstTs = watchFirstTs;
           state.healthSync.lastSteps = resolved.steps;
           state.healthSync.lastSource = resolved.source;
           state.healthSync.lastKcal = Math.round(resolved.steps * 0.04);

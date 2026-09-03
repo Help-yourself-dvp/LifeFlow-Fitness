@@ -31,6 +31,13 @@ object HealthConnectHelper {
     @JvmStatic
     var lastWatchEndMs: Long = 0L
 
+    // 0.9.52: время ПЕРВОЙ записи шагов с часов за сегодня (epoch ms, 0 = нет).
+    // Вместе с lastWatchEndMs даёт «покрытие дня» часами: если записи тянутся
+    // через большую часть суток — часы были на руке и им можно доверять в
+    // режиме «Авто»; если только вечером — телефон донёс остальной день.
+    @JvmStatic
+    var lastWatchStartMs: Long = 0L
+
     // Приложения-спутники носимых устройств (часы/браслеты), которые пишут
     // в Health Connect данные именно с устройства, а не с телефона.
     // ВАЖНО: Google Fit (com.google.android.apps.fitness) сюда НЕ входит —
@@ -134,6 +141,7 @@ object HealthConnectHelper {
             var totalSteps = 0L
             var watchSteps = 0L
             var watchLastEndMs = 0L
+            var watchFirstStartMs = Long.MAX_VALUE // 0.9.52: покрытие дня часами
             val origins = mutableMapOf<String, Long>()
             var pageToken: String? = null
             do {
@@ -151,11 +159,14 @@ object HealthConnectHelper {
                     if (WEARABLE_PACKAGES.contains(pkg)) {
                         watchSteps += record.count
                         if (endMs > watchLastEndMs) watchLastEndMs = endMs
+                        val startMs = record.startTime.toEpochMilli()
+                        if (startMs < watchFirstStartMs) watchFirstStartMs = startMs
                     }
                 }
                 pageToken = stepsResponse.pageToken
             } while (pageToken != null)
             lastWatchEndMs = watchLastEndMs
+            lastWatchStartMs = if (watchFirstStartMs == Long.MAX_VALUE) 0L else watchFirstStartMs
 
             // 2. СОН: ночная сессия пересекает полночь, поэтому окно с 18:00
             // вчерашнего дня до 18:00 сегодняшнего накрывает её целиком.

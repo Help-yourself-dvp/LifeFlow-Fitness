@@ -4,7 +4,7 @@
 работу без истории диалога: что за проект, где мы сейчас, что делать дальше и на
 каких граблях уже потоптались.
 
-Актуально на **01.09.2026**, версия **0.9.51**, ветка `arena/01a0580b-lifeflow-fitness`.
+Актуально на **01.09.2026**, версия **0.9.52**, ветка `arena/01a0580b-lifeflow-fitness`.
 
 ---
 
@@ -95,7 +95,16 @@ FitFlow — офлайн-трекер здоровья на русском: во
 (б) кнопка «+ 250 мл» на часах — **только если часы на Wear OS**; на связке
 «Honor + Zepp» кнопок не будет по причине из раздела ниже (0.9.19).
 
-**0.9.51 (текущая):** две полевые правки. (1) Главная не перерисовывалась при
+**0.9.52 (текущая):** «Авто» шаги + покрытие дня часами. Натив отдаёт
+`watchFirstTs`/`watchLastTs` (HealthConnectHelper.kt `lastWatchStartMs`,
+MainActivity snapshot+колбэк, HealthSyncReceiver pref `hc_watch_first_ts`).
+`resolveHealthSteps(priority,hc,phone,watchLastTs,now,watchFirstTs)`: если
+покрытие (last-first)/elapsed ≥0.5 и watch>0 → часы; иначе МАКСИМУМ. Тесты
+test-parser (covFull 6000@8–19ч→часы; covLow 400/4000@18–19→телефон). Вечерний
+вопрос: фон гасит с 0.9.15 (`readTodayExerciseMinutes`+`cancelTrainingReminderNotification`),
+JS — `onHealthWorkoutsReceived/History`→`syncTrainingReminderForToday`; НЕ тронуто.
+
+**0.9.51:** две полевые правки. (1) Главная не перерисовывалась при
 возврате с др. экранов — `switchView('home')` теперь зовёт
 `renderStepsCard/renderWater/renderFood/renderDayPlan`. (2) `resolveHealthSteps`
 «авто» = МАКСИМУМ(часы,телефон), а не «часы при >0» (кейс: часы 400 за вечер,

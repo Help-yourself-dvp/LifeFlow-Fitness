@@ -1371,6 +1371,17 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   // Часы насчитали больше (полные сутки с часами) → часы
   const autoWatchMore = resolveHealthSteps('auto', 9000, 7000, now, now);
   if (!(autoWatchMore.steps === 9000 && autoWatchMore.source === 'часы / Health Connect')) bad++;
+
+  // 0.9.52 покрытие: часы на руке весь день (записи 08–19 при 20:00) → доверяем
+  // часам, даже если телефон в машине насчитал больше.
+  const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+  const at = (h) => dayStart.getTime() + h * 3600 * 1000;
+  const now20 = at(20);
+  const covFull = resolveHealthSteps('auto', 6000, 9000, at(19), now20, at(8));
+  if (!(covFull.steps === 6000 && covFull.source === 'часы / Health Connect')) bad++;
+  // Часы отметились только вечером (18–19) → покрытие 5% → максимум (телефон).
+  const covLow = resolveHealthSteps('auto', 400, 4000, at(19), now20, at(18));
+  if (!(covLow.steps === 4000 && covLow.source === 'шагомер телефона')) bad++;
   // Явный «Только телефон» — всегда телефон, даже если часы есть
   const phoneOnly = resolveHealthSteps('phone_only', W, P, 0, now);
   if (!(phoneOnly.steps === P)) bad++;

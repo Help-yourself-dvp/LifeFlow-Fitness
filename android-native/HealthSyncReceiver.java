@@ -66,6 +66,7 @@ public class HealthSyncReceiver extends BroadcastReceiver {
                                 .putString("hc_sleep_bed", HealthConnectHelper.getLastBedTime())
                                 .putString("hc_sleep_wake", HealthConnectHelper.getLastWakeTime())
                                 .putLong("hc_watch_last_ts", HealthConnectHelper.getLastWatchEndMs())
+                                .putLong("hc_watch_first_ts", HealthConnectHelper.getLastWatchStartMs()) // 0.9.52 покрытие
                                 .putLong("hc_last_sync_ts", System.currentTimeMillis())
                                 .putString("hc_last_error", HealthConnectHelper.getLastError())
                                 .apply();
