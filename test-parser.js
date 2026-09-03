@@ -1364,6 +1364,13 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   // Часов за сегодня нет (сняты на весь день) → телефон
   const noWatch = resolveHealthSteps('auto', 0, P, now, now);
   if (!(noWatch.steps === P && noWatch.source === 'шагомер телефона')) bad++;
+  // 0.9.51 (полевое): часы 400 за вечер, телефон 4000 за день → авто = 4000,
+  // а не 400. Максимум источников, задвоения нет.
+  const autoMax = resolveHealthSteps('auto', 400, 4000, now, now);
+  if (!(autoMax.steps === 4000 && autoMax.source === 'шагомер телефона')) bad++;
+  // Часы насчитали больше (полные сутки с часами) → часы
+  const autoWatchMore = resolveHealthSteps('auto', 9000, 7000, now, now);
+  if (!(autoWatchMore.steps === 9000 && autoWatchMore.source === 'часы / Health Connect')) bad++;
   // Явный «Только телефон» — всегда телефон, даже если часы есть
   const phoneOnly = resolveHealthSteps('phone_only', W, P, 0, now);
   if (!(phoneOnly.steps === P)) bad++;

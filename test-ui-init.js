@@ -3447,6 +3447,23 @@ for (const id of ids) {
   if (!noDupOk) failed++;
   console.log(`${noDupOk ? '✓' : '✗'} 0.9.50 силовая: без пустой строки-двойника, «Добавить» на своей строке`);
 
+  // --- 0.9.51: Главная перерисовывается при возврате (данные с др. экранов) ---
+  // Полевое: добавил активность на экране «Активность» — вернулся, а «План дня»
+  // показал «сегодня без активности». switchView('home') обязан перерисовать
+  // показатели, а не только подсветку быстрого перехода.
+  const homeRerenderOk = /if \(isHome\) \{[\s\S]{0,400}?renderDayPlan\(\);[\s\S]{0,200}?syncQuickNavTop\(\);/.test(appS);
+  if (!homeRerenderOk) failed++;
+  console.log(`${homeRerenderOk ? '✓' : '✗'} 0.9.51 возврат на Главную перерисовывает карточки и План дня`);
+
+  // --- 0.9.51: «Авто» шаги = максимум источников (часы 400 vs телефон 4000) ---
+  const rh = typeof api.resolveHealthSteps === 'function' ? api.resolveHealthSteps : null;
+  const stepsMaxOk = !!rh
+    && rh('auto', 400, 4000).steps === 4000
+    && rh('auto', 9000, 7000).steps === 9000
+    && rh('auto', 0, 0).steps === 0;
+  if (!stepsMaxOk) failed++;
+  console.log(`${stepsMaxOk ? '✓' : '✗'} 0.9.51 «Авто» шаги: максимум источников без задвоения`);
+
   // --- Отмена заполнения ---
   const cancelOk = /function cancelStrengthDraft/.test(appS)
     && /function resetStrengthDraft/.test(appS)

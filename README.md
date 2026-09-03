@@ -6,7 +6,7 @@
 > Репозиторий объединяет два будущих приложения: **FitFlow** (фитнес-трекер) и **LifeOps** (универсальный помощник).
 > Сейчас в разработке — **FitFlow**.
 
-Актуальная версия: **0.9.50** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
+Актуальная версия: **0.9.51** — история изменений в [CHANGELOG.md](CHANGELOG.md), дорожная карта в [ROADMAP.md](ROADMAP.md), конфиденциальность в [PRIVACY.md](PRIVACY.md), полное текстовое описание приложения в [APP_DESCRIPTION.md](APP_DESCRIPTION.md).
 
 ## Текущий этап
 
