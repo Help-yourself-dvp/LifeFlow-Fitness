@@ -4,7 +4,7 @@
 работу без истории диалога: что за проект, где мы сейчас, что делать дальше и на
 каких граблях уже потоптались.
 
-Актуально на **01.09.2026**, версия **0.9.52**, ветка `arena/01a0580b-lifeflow-fitness`.
+Актуально на **01.09.2026**, версия **0.9.53**, ветка `arena/01a0580b-lifeflow-fitness`.
 
 ---
 
@@ -95,7 +95,13 @@ FitFlow — офлайн-трекер здоровья на русском: во
 (б) кнопка «+ 250 мл» на часах — **только если часы на Wear OS**; на связке
 «Honor + Zepp» кнопок не будет по причине из раздела ниже (0.9.19).
 
-**0.9.52 (текущая):** «Авто» шаги + покрытие дня часами. Натив отдаёт
+**0.9.53 (текущая):** полевой баг — утром вход через виджет (возврат из фона)
+показывал воду вчера (1,5 л), шаги свежие. Сброс дня жил только в loadState
+(холодный старт). Вынесен в `rolloverDayIfNeeded(rerender)`, зовётся в loadState,
+в `refreshHealthDataOnResume` (visibilitychange) и в `addWater`. todayKey = локальная
+дата телефона (таймзона не виновата). Сторож 0.9.53 в test-ui-init.
+
+**0.9.52:** «Авто» шаги + покрытие дня часами. Натив отдаёт
 `watchFirstTs`/`watchLastTs` (HealthConnectHelper.kt `lastWatchStartMs`,
 MainActivity snapshot+колбэк, HealthSyncReceiver pref `hc_watch_first_ts`).
 `resolveHealthSteps(priority,hc,phone,watchLastTs,now,watchFirstTs)`: если

@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.52';
+const FITFLOW_VERSION = '0.9.53';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -4985,6 +4985,38 @@ function migrateStateSchema() {
   state.schemaVersion = STATE_SCHEMA_VERSION;
 }
 
+/* 0.9.53: единый дневной сброс. Полевой баг: утром при входе через виджет
+   приложение возвращалось из ФОНА (не холодный старт), срабатывал только
+   visibilitychange — шаги обновлялись, а вода/еда оставались «вчерашними»,
+   потому что сброс жил только в loadState. Теперь сброс вызывается и при
+   холодном старте, и при каждом возврате в приложение.
+   rerender=false — на старте (рисовать ещё рано), true — при возврате. */
+function rolloverDayIfNeeded(rerender) {
+  const today = todayKey();
+  const prevWater = state.water.date;
+  const prevFood = state.food.date;
+  if (prevWater !== today || prevFood !== today) {
+    recordDailySummary(prevWater !== today ? prevWater : prevFood);
+  }
+  let changed = false;
+  if (state.water.date !== today) {
+    state.water = { date: today, total: 0, log: [], goal: state.water.goal || DEFAULTS.water.goal };
+    changed = true;
+  }
+  if (state.food.date !== today) {
+    state.food = { date: today, items: [], goal: state.food.goal || DEFAULTS.food.goal };
+    changed = true;
+  }
+  if (changed) {
+    try { localStorage.setItem(profileStateKey(), JSON.stringify(state)); } catch (e) { }
+    scheduleSqliteSync();
+    if (rerender && typeof document !== 'undefined') {
+      renderWater(); renderFood(); renderDayPlan();
+    }
+  }
+  return changed;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(profileStateKey());
@@ -4992,19 +5024,7 @@ function loadState() {
   } catch (e) { /* повреждённые данные — начинаем заново */ }
 
   migrateStateSchema(); // 0.5.0
-
-  const today = todayKey();
-  const previousWaterDate = state.water.date;
-  const previousFoodDate = state.food.date;
-  if (previousWaterDate !== today || previousFoodDate !== today) {
-    recordDailySummary(previousWaterDate !== today ? previousWaterDate : previousFoodDate);
-  }
-  if (state.water.date !== today) {
-    state.water = { date: today, total: 0, log: [], goal: state.water.goal || DEFAULTS.water.goal };
-  }
-  if (state.food.date !== today) {
-    state.food = { date: today, items: [], goal: state.food.goal || DEFAULTS.food.goal };
-  }
+  rolloverDayIfNeeded(false); // 0.9.53: сброс на новый день при холодном старте
   normalizeDailyHistory();
   normalizeReminderSettings();
   normalizeDayMoodReminder();
@@ -5033,9 +5053,6 @@ function loadState() {
   normalizeOnlineFeatures();
   normalizeAiSettings();
   normalizeHealthSync();
-  if (previousWaterDate !== today || previousFoodDate !== today) {
-    try { localStorage.setItem(profileStateKey(), JSON.stringify(state)); } catch (e) { /* localStorage недоступен */ }
-  }
 }
 
 
@@ -8889,6 +8906,9 @@ const HEALTH_AUTO_READ_MIN_INTERVAL = 30 * 1000;
 let pendingAutoHealthSync = false;
 
 function refreshHealthDataOnResume() {
+  // 0.9.53: первым делом — дневной сброс (вода/еда), иначе при возврате из
+  // фона утром шаги свежие, а вода «вчерашняя». Не зависит от healthSync.
+  rolloverDayIfNeeded(true);
   normalizeHealthSync();
   if (!state.healthSync.enabled) return;
   syncHealthDataNow();          // мгновенно: кэш из SharedPreferences
@@ -9681,6 +9701,7 @@ function escapeHtml(s) {
    Действия: вода
    ============================================================ */
 function addWater(ml) {
+  rolloverDayIfNeeded(false); // 0.9.53: запись с виджета после полуночи идёт в новый день
   state.water.total += ml;
   state.water.log.push({ ts: Date.now(), ml });
   state.water.lastAddedAt = Date.now(); // момент записи — для правила «записал — ближайшее напоминание молчит»

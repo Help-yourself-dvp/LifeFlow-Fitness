@@ -3464,6 +3464,16 @@ for (const id of ids) {
   if (!stepsMaxOk) failed++;
   console.log(`${stepsMaxOk ? '✓' : '✗'} 0.9.51 «Авто» шаги: максимум источников без задвоения`);
 
+  // --- 0.9.53: дневной сброс воды/еды и при возврате из фона, не только на старте ---
+  // Полевой баг: утром вход через виджет = возврат из фона; шаги обновились,
+  // а вода осталась «вчерашней», т.к. сброс жил только в loadState.
+  const rolloverOk = /function rolloverDayIfNeeded/.test(appS)
+    && /function refreshHealthDataOnResume\(\) \{[\s\S]{0,300}?rolloverDayIfNeeded\(true\);/.test(appS)
+    && /function addWater\(ml\) \{\s*rolloverDayIfNeeded\(false\);/.test(appS)
+    && /rolloverDayIfNeeded\(false\); \/\/ 0.9.53: сброс на новый день при холодном старте/.test(appS);
+  if (!rolloverOk) failed++;
+  console.log(`${rolloverOk ? '✓' : '✗'} 0.9.53 вода/еда сбрасываются на новый день при возврате из фона`);
+
   // --- Отмена заполнения ---
   const cancelOk = /function cancelStrengthDraft/.test(appS)
     && /function resetStrengthDraft/.test(appS)
