@@ -5649,6 +5649,104 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.35: плитки, сон, свои значки, имена виджетов, анимация)');
 })();
 
+/* --- 0.9.56 (шаг P2): честная деградация в веб-версии ---
+   Проверяем ПовЕДЕНИЕ, а не текст: собираем настоящий DOM из index.html в
+   jsdom и запускаем приложение дважды — как в браузере (нет window.Capacitor)
+   и как в APK (Capacitor есть). В браузере карточка «Шаги» и блоки с
+   атрибутом data-native-only обязаны быть скрыты, а надпись data-web-only —
+   видна; в APK всё ровно наоборот. jsdom — необязательная зависимость:
+   если его нет, проверка пропускается, а не валит весь прогон. */
+(function test0956WebMode() {
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+  let JSDOM = null;
+  try { JSDOM = require('jsdom').JSDOM; } catch (e) { JSDOM = null; }
+  if (!JSDOM) {
+    console.log('  (нет jsdom — поведенческая проверка веб-режима пропущена)');
+    return;
+  }
+
+  const openApp = (withCapacitor) => new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+    JSDOM.fromFile('index.html', {
+      runScripts: 'dangerously',
+      resources: 'usable',
+      pretendToBeVisual: true,
+      /* origin — file://, поэтому у jsdom «непрозрачное» хранилище: подменяем
+         localStorage/sessionStorage своей реализацией, иначе init() падает на
+         SecurityError и проверка ничего не проверяет. */
+      beforeParse(window) {
+        const makeStore = () => {
+          const map = new Map();
+          return {
+            getItem: (k) => (map.has(String(k)) ? map.get(String(k)) : null),
+            setItem: (k, v) => { map.set(String(k), String(v)); },
+            removeItem: (k) => { map.delete(String(k)); },
+            clear: () => { map.clear(); },
+            key: (i) => Array.from(map.keys())[i] ?? null,
+            get length() { return map.size; }
+          };
+        };
+        Object.defineProperty(window, 'localStorage', { value: makeStore(), configurable: true });
+        Object.defineProperty(window, 'sessionStorage', { value: makeStore(), configurable: true });
+        window.matchMedia = () => ({
+          matches: false, media: '', onchange: null,
+          addListener() {}, removeListener() {},
+          addEventListener() {}, removeEventListener() {},
+          dispatchEvent() { return false; }
+        });
+        if (withCapacitor) window.Capacitor = { Plugins: {} };
+        const guard = setTimeout(() => done(window), 9000);
+        window.addEventListener('load', () => {
+          setTimeout(() => { clearTimeout(guard); done(window); }, 400);
+        });
+      }
+    }).catch(() => done(null));
+  });
+
+  const state = { web: null, native: null };
+  const run = (async () => {
+    const webWin = await openApp(false);
+    state.web = webWin && {
+      stepsHidden: webWin.document.querySelector('#steps-card').hidden === true,
+      statsStepsHidden: !webWin.document.querySelector('#stats-steps-section')
+        || webWin.document.querySelector('#stats-steps-section').hidden === true,
+      nativeHidden: Array.from(webWin.document.querySelectorAll('[data-native-only]'))
+        .every((el) => el.hidden === true),
+      nativeCount: webWin.document.querySelectorAll('[data-native-only]').length,
+      webNoteShown: Array.from(webWin.document.querySelectorAll('[data-web-only]'))
+        .every((el) => el.hidden !== true),
+      webNoteCount: webWin.document.querySelectorAll('[data-web-only]').length,
+      shellFlag: webWin.document.body ? true : false
+    };
+    if (webWin) webWin.close();
+
+    const nativeWin = await openApp(true);
+    state.native = nativeWin && {
+      stepsShown: nativeWin.document.querySelector('#steps-card').hidden === false,
+      nativeShown: Array.from(nativeWin.document.querySelectorAll('[data-native-only]'))
+        .every((el) => el.hidden !== true),
+      webNoteHidden: Array.from(nativeWin.document.querySelectorAll('[data-web-only]'))
+        .every((el) => el.hidden === true)
+    };
+    if (nativeWin) nativeWin.close();
+
+    const w = state.web, n = state.native;
+    const checks = [
+      !!w && w.stepsHidden && w.statsStepsHidden && w.nativeHidden && w.webNoteShown
+        && w.nativeCount >= 4 && w.webNoteCount >= 1,
+      !!n && n.stepsShown && n.nativeShown && n.webNoteHidden
+    ];
+    check(checks.every(Boolean),
+      '0.9.56 веб-режим: в браузере скрыты шаги и нативные блоки, показана честная надпись'
+      + (checks.every(Boolean) ? '' : ' — проверено: ' + JSON.stringify(checks)));
+    check(checks[1],
+      '0.9.56 веб-режим: в APK ничего не изменилось (шаги и нативные блоки на месте)');
+  })();
+  global.__fitflowAsyncChecks = (global.__fitflowAsyncChecks || []).concat(run);
+})();
+
 /* --- 0.9.55: веб-версия для iPhone (PWA) ---
    Сторожа следят за тремя вещами: (1) установка «на Домой» вообще возможна
    (манифест + иконка iPhone), (2) офлайн-кэш не трогает чужие домены и знает

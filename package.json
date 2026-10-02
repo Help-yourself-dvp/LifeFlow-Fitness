@@ -1,6 +1,6 @@
 {
   "name": "fitflow",
-  "version": "0.9.55",
+  "version": "0.9.56",
   "description": "FitFlow — офлайн-фитнес-трекер (Capacitor/WebView, Material 3, светлая/тёмная тема)",
   "private": true,
   "main": "index.html",
@@ -11,5 +11,8 @@
     "test:food": "node test-food-db.js",
     "test:all": "node test-parser.js && node test-ui-init.js && node test-food-db.js"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "jsdom": "^30.1.1"
+  }
 }

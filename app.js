@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.55';
+const FITFLOW_VERSION = '0.9.56';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -3169,7 +3169,38 @@ function isWidgetItemAvailable(id) {
   return true;
 }
 
+/* ===== 0.9.56 (шаг P2): честная деградация в веб-версии (iPhone) =====
+   Веб-версия — тот же код, но без нативных возможностей Android. Правило
+   проекта «никаких видимых заглушек» означает: элемент, который в браузере
+   заведомо не работает, НЕ показывается вовсе; вместо него — одна честная
+   надпись (см. разметку с data-web-only). В Node-тестах (нет window/document)
+   функция возвращает false — то есть тесты видят поведение APK. */
+function isWebShell() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  return !window.Capacitor;
+}
+
+/* Карточка «Шаги» в веб-версии показывала бы нули: источник данных —
+   Health Connect, которого в браузере нет (шаги на iPhone появятся на шаге P6
+   через «Команды»). Поэтому карточка выключена во всём приложении — так же,
+   как выключенный пользователем показатель (0.8.25). */
+function isHomeCardSupportedInShell(id) {
+  if (isWebShell() && id === 'steps') return false;
+  return true;
+}
+
+/* Прячем то, что есть только в Android-приложении, и показываем то, что
+   написано специально для веб-версии. Разметку менять не нужно: достаточно
+   атрибутов data-native-only / data-web-only. */
+function applyWebModeUi() {
+  if (typeof document === 'undefined') return;
+  const web = isWebShell();
+  $$('[data-native-only]').forEach((el) => { el.hidden = web; });
+  $$('[data-web-only]').forEach((el) => { el.hidden = !web; });
+}
+
 function isHomeCardFeatureEnabled(id) {
+  if (!isHomeCardSupportedInShell(id)) return false;
   const density = state.homeDensity || 'normal';
   if (density === 'minimal') {
     if (id === 'day-plan' || id === 'day-mood') return false;
@@ -3207,6 +3238,7 @@ function syncHomeCardVisibility(id) {
 const TRACKER_CARDS = ['water', 'food', 'steps', 'weight'];
 
 function isTrackerEnabled(id, layout) {
+  if (!isHomeCardSupportedInShell(id)) return false;
   if (!TRACKER_CARDS.includes(id)) return true;
   const l = layout || normalizeHomeLayoutValue(state.homeLayout);
   return l.visible[id] !== false;
@@ -7365,8 +7397,9 @@ function renderHomeLayoutSettings() {
   const status = $('#home-layout-status');
   if (!status) return;
   const layout = normalizeHomeLayoutValue(state.homeLayout);
-  const visibleCount = Object.values(layout.visible).filter(Boolean).length;
-  status.textContent = `Показывается: ${visibleCount} из ${HOME_CARDS.length}`;
+  const cards = HOME_CARDS.filter((card) => isHomeCardSupportedInShell(card.id));
+  const visibleCount = cards.filter((card) => layout.visible[card.id]).length;
+  status.textContent = `Показывается: ${visibleCount} из ${cards.length}`;
 }
 
 function renderHomeLayoutDialog() {
@@ -7375,7 +7408,7 @@ function renderHomeLayoutDialog() {
   const layout = normalizeHomeLayoutValue(state.homeLayout);
   list.innerHTML = layout.order.map((id, index) => {
     const card = HOME_CARDS.find((item) => item.id === id);
-    if (!card) return '';
+    if (!card || !isHomeCardSupportedInShell(card.id)) return '';
     return `<div class="home-layout-row">
       <div class="home-layout-card-name"><span aria-hidden="true">${homeCardIcon(card.id)}</span><strong>${card.label}</strong></div>
       <div class="home-layout-controls">
@@ -14582,8 +14615,13 @@ function markSetupWizardDone() {
   try { localStorage.setItem(SETUP_WIZARD_DONE_KEY, '1'); } catch (e) { }
 }
 
+/* 0.9.56: в веб-версии шагов нет — шаг мастера про цель шагов пропускаем. */
+function setupWizardSteps() {
+  return SETUP_WIZARD_STEPS.filter((step) => !(isWebShell() && step.kind === 'steps'));
+}
+
 function renderSetupWizardStep() {
-  const total = SETUP_WIZARD_STEPS.length;
+  const total = setupWizardSteps().length;
   const emoji = $('#setup-wizard-emoji');
   const title = $('#setup-wizard-title');
   const text = $('#setup-wizard-text');
@@ -14607,7 +14645,7 @@ function renderSetupWizardStep() {
     return;
   }
   if (setupWizardStep < total) {
-    const step = SETUP_WIZARD_STEPS[setupWizardStep];
+    const step = setupWizardSteps()[setupWizardStep];
     if (emoji) emoji.textContent = step.emoji;
     title.textContent = step.title;
     if (text) text.textContent = step.text;
@@ -14657,7 +14695,7 @@ function answerSetupWizard(yes) {
     }
     return;
   }
-  const step = SETUP_WIZARD_STEPS[setupWizardStep];
+  const step = setupWizardSteps()[setupWizardStep];
   if (step) {
     if (step.kind === 'steps') {
       const input = $('#setup-wizard-steps');
@@ -14990,6 +15028,7 @@ function init() {
   loadProfiles();
   loadState();
   initTheme();
+  applyWebModeUi(); // 0.9.56: спрятать нативное (в APK — ничего не делает)
   renderGreeting();
   const aboutVersion = $('#about-version');
   if (aboutVersion) aboutVersion.textContent = `v${FITFLOW_VERSION} (${FITFLOW_BUILD})`;

@@ -685,6 +685,11 @@
         <div><strong id="profile-settings-name">Мой профиль</strong><small>Вес, цели, история и уведомления относятся к этому профилю.</small></div>
       </div>
 
+      <!-- 0.9.56 (шаг P2): честная надпись для веб-версии на iPhone. Показывается
+           только в браузере: в APK скрыта через data-web-only (см. applyWebModeUi).
+           Перечисляем ровно то, чего в веб-версии нет, вместо «мёртвых» кнопок. -->
+      <p class="settings-hint" data-web-only hidden>📱 <b>Веб-версия (iPhone).</b> Вода, еда, статистика, тренировки, вес и копии работают здесь так же, как в приложении. Пока недоступны: напоминания, шаги и сон с часов, виджет на рабочем столе и нейросеть на устройстве — они есть в Android-приложении. Как это изменится дальше — в разделе «О приложении» и в документе IOS_WEB_APP.md.</p>
+
       <div class="settings-group">
         <p class="settings-label">Разделы настроек</p>
         <nav class="settings-menu" aria-label="Разделы настроек">
@@ -803,7 +808,7 @@
           <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
         </div>
       </div>
-      <div class="settings-group home-layout-settings">
+      <div class="settings-group home-layout-settings" data-native-only>
         <div class="settings-label-row">
           <div><p class="settings-label">Виджет на рабочем столе <span class="help-dot" role="button" tabindex="0" data-help="widget-layout" aria-label="Справка: Виджет на рабочем столе" title="Что это и зачем?">?</span></p><p class="settings-hint" id="widget-layout-status">—</p></div>
           <button class="btn btn-secondary home-layout-open" id="widget-layout-open" type="button">Настроить</button>
@@ -910,7 +915,7 @@
         </div>
       </div>
 
-            <div class="settings-group">
+            <div class="settings-group" id="health-settings-group" data-native-only>
         <p class="settings-label">🏃 Шаги и синхронизация (Health Connect / телефон)</p>
         <p class="settings-hint">Автоматический учёт шагов и активности с часов или браслета (любого производителя, через Android Health Connect) или со встроенного аппаратного шагомера телефона.</p>
         <div class="settings-label-row">
@@ -960,7 +965,10 @@
   </div><!-- /settings-profile-view -->
 
   <div id="settings-notifications-view" hidden>
-    <section class="card settings-card settings-sub-card">
+    <!-- 0.9.56 (шаг P2): в веб-версии напоминаний пока нет вовсе — весь раздел
+         скрыт (data-native-only), чтобы не было настроек, которые ни на что не
+         влияют. Вернёмся сюда на шаге P8 (фоновые напоминания через web-push). -->
+    <section class="card settings-card settings-sub-card" data-native-only>
       <div class="card-header">
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="bell">🔔</span></div>
         <div class="card-title-wrap">
@@ -1147,7 +1155,7 @@
           <div class="segmented" id="ai-mode-choices" role="radiogroup" aria-label="Режим работы ИИ">
             <button class="active" type="button" data-ai-mode="expert" title="Факты из базы продуктов, рецепты и аналитика — мгновенно и офлайн">⚡ Быстрый (офлайн)</button>
             <button type="button" data-ai-mode="cloud" title="Нейросеть провайдера на ваш выбор — нужен интернет и ваш ключ">☁️ Облако</button>
-            <button type="button" data-ai-mode="litert" title="Нейросеть работает прямо на телефоне: без интернета, без ключей; умеет смотреть фото еды">Gemma на устройстве</button>
+            <button type="button" data-ai-mode="litert" data-native-only title="Нейросеть работает прямо на телефоне: без интернета, без ключей; умеет смотреть фото еды">Gemma на устройстве</button>
           </div>
           <div id="ai-cloud-box" class="ai-model-box" hidden>
             <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — по вашему ключу</p>
@@ -1373,7 +1381,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.55 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.56 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 
