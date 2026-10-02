@@ -1,0 +1,74 @@
+name: Publish Web (PWA)
+
+# Веб-версия FitFlow для iPhone: та же самая папка файлов, что едет в APK
+# (index.html, style.css, app.js, sqlite-bundle.js, шрифты), публикуется как
+# устанавливаемое веб-приложение.
+#
+# Почему отдельный workflow, а не «Deploy from a branch» напрямую:
+#   – рабочая ветка меняется каждую сессию (arena/…), а владельцу нужен ОДИН
+#     постоянный адрес без переустановки значка и без ручных переключений;
+#   – этот workflow собирает веб-папку из последнего пуша в ЛЮБУЮ ветку и
+#     кладёт её в служебную ветку gh-pages. GitHub Pages отдаёт gh-pages по
+#     постоянному адресу, поэтому после слияния в main ничего перенастраивать
+#     не нужно: следующий пуш снова обновит gh-pages.
+#   – прав на запись в содержимое достаточно (contents: write), среда
+#     github-pages и её правила веток не задействуются вовсе.
+#
+# Что нужно сделать один раз руками (владелец):
+#   1. Добавить этот файл в .github/workflows/pages.yml рабочей ветки.
+#   2. Settings → Pages → Source: «Deploy from a branch» → ветка gh-pages,
+#      папка / (root) → Save. Ветка появится после первого успешного прогона.
+# Активный файл обязан совпадать с зеркалом tools/github-workflows/pages.yml.
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+concurrency:
+  group: publish-web
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Собрать папку веб-версии
+        run: |
+          set -e
+          rm -rf web
+          mkdir -p web/assets/pwa web/assets/fonts
+          # Ровно те файлы, которые нужны веб-приложению. version.txt нужен
+          # службе офлайн-кэша: по нему страница узнаёт о новой версии.
+          cp index.html style.css app.js sqlite-bundle.js manifest.json sw.js icon.png version.txt web/
+          cp assets/pwa/*.png web/assets/pwa/
+          cp assets/fonts/*.ttf web/assets/fonts/
+          echo "Файлы веб-версии:"
+          find web -type f | sort
+
+      - name: Проверить, что активный workflow совпадает с зеркалом
+        run: |
+          if cmp -s .github/workflows/pages.yml tools/github-workflows/pages.yml; then
+            echo "✓ pages.yml совпадает с зеркалом."
+          else
+            echo "⚠️ Активный pages.yml отличается от зеркала tools/github-workflows/pages.yml."
+            diff --stat .github/workflows/pages.yml tools/github-workflows/pages.yml || true
+          fi
+
+      - name: Опубликовать в ветку gh-pages
+        run: |
+          set -e
+          cd web
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name "FitFlow web build"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "web: ${GITHUB_SHA::7} (${GITHUB_REF_NAME})" || echo "Изменений нет — публикуем прежнюю сборку"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          echo "✓ Веб-версия опубликована: https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"

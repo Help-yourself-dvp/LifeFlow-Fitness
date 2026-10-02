@@ -5649,5 +5649,60 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.35: плитки, сон, свои значки, имена виджетов, анимация)');
 })();
 
+/* --- 0.9.55: веб-версия для iPhone (PWA) ---
+   Сторожа следят за тремя вещами: (1) установка «на Домой» вообще возможна
+   (манифест + иконка iPhone), (2) офлайн-кэш не трогает чужие домены и знает
+
+   про version.txt — иначе веб-версия застрянет на старой сборке, (3) в APK
+   ничего из этого не уезжает: сборка по-прежнему копирует только перечисленные
+   файлы, поэтому нативное приложение не меняется. */
+(function test0955WebApp() {
+  const fsW = require('fs');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+  const html = fsW.readFileSync('index.html', 'utf8');
+  const appW = fsW.readFileSync('app.js', 'utf8');
+  const sw = fsW.existsSync('sw.js') ? fsW.readFileSync('sw.js', 'utf8') : '';
+  let manifest = null;
+  try { manifest = JSON.parse(fsW.readFileSync('manifest.json', 'utf8')); } catch (e) { manifest = null; }
+
+  check(!!manifest && manifest.display === 'standalone'
+    && manifest.start_url === './' && manifest.scope === './'
+    && Array.isArray(manifest.icons)
+    && manifest.icons.some((i) => i.sizes === '192x192')
+    && manifest.icons.some((i) => i.purpose === 'maskable'),
+    '0.9.55 веб-версия: манифест приложения (standalone, start_url, иконки 192 и maskable)');
+
+  check(/<link rel="manifest" href="manifest\.json">/.test(html)
+    && /<link rel="apple-touch-icon"[^>]*assets\/pwa\/apple-touch-icon-180\.png/.test(html),
+    '0.9.55 веб-версия: index.html подключает манифест и иконку для iPhone');
+
+  check(['assets/pwa/apple-touch-icon-180.png', 'assets/pwa/icon-192.png',
+    'assets/pwa/icon-512.png', 'assets/pwa/icon-maskable-512.png']
+    .every((p) => fsW.existsSync(p)) && fsW.existsSync('tools/make-pwa-icons.py'),
+    '0.9.55 веб-версия: четыре иконки и генератор tools/make-pwa-icons.py на месте');
+
+  check(sw.includes('fitflow-shell-') && /caches\.open/.test(sw)
+    && /'\.\/app\.js'/.test(sw) && /'\.\/style\.css'/.test(sw) && /'\.\/sqlite-bundle\.js'/.test(sw)
+    && /VERSION_URL = 'version\.txt'/.test(sw)
+    && /url\.origin !== self\.location\.origin/.test(sw),
+    '0.9.55 веб-версия: служба кэширует оболочку, не трогает чужие домены, знает version.txt');
+
+  check(/function isWebAppShell\(\)/.test(appW) && /if \(window\.Capacitor\) return false;/.test(appW)
+    && /navigator\.serviceWorker\.register\('sw\.js'\)/.test(appW)
+    && /type: 'fitflow-refresh-shell'/.test(appW) && /fitflow-shell-updated/.test(appW)
+    && /initWebAppShell\(\); \/\/ 0\.9\.55/.test(appW),
+    '0.9.55 веб-версия: служба регистрируется только вне APK, обновление по version.txt');
+
+  /* Манифест, служба и иконки PWA не должны уезжать в APK: сборка копирует в
+     www/ только перечисленные файлы. Сторож — от «добавлю на всякий случай». */
+  const buildW = fsW.readFileSync('tools/github-workflows/build.yml', 'utf8');
+  check(!/cp manifest\.json www\//.test(buildW) && !/cp sw\.js www\//.test(buildW)
+    && !/assets\/pwa\/\*/.test(buildW),
+    '0.9.55 веб-версия: манифест, служба и иконки PWA не едут в APK');
+
+  if (!bad) console.log('  (0.9.55: веб-версия — манифест, служба офлайн-кэша, иконки)');
+})();
+
 console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
 process.exit(failed === 0 ? 0 : 1);

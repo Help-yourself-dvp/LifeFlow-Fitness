@@ -8,6 +8,13 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- 0.9.55: веб-версия (PWA). manifest.json даёт установку «на Домой» из
+       Safari, apple-touch-icon — ту самую иконку на экране iPhone, а sw.js
+       (регистрируется из app.js) — запуск без интернета. В APK эти файлы не
+       попадают: сборка копирует в www/ только перечисленные файлы. -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/pwa/apple-touch-icon-180.png">
+  <meta name="apple-mobile-web-app-title" content="FitFlow">
   <title>FitFlow — фитнес-трекер</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -1366,7 +1373,7 @@
         <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
         <div class="card-title-wrap">
           <h2>О приложении</h2>
-          <p>FitFlow <span id="about-version">v0.9.54 (build 0)</span> · Offline-first</p>
+          <p>FitFlow <span id="about-version">v0.9.55 (build 0)</span> · Offline-first</p>
         </div>
       </div>
 

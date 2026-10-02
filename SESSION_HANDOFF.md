@@ -81,7 +81,24 @@ FitFlow — офлайн-трекер здоровья на русском: во
 ## 4. Где мы сейчас
 
 **02.10.2026 — новый приоритет владельца: веб-версия FitFlow для iPhone
-(PWA).** Полный разбор и план — `IOS_WEB_APP.md` (обязательно прочитать перед
+(PWA).** **0.9.55 — шаг P1 сделан:** `manifest.json`, `sw.js` (офлайн-кэш +
+автообновление по `version.txt`), иконки `assets/pwa/` (`tools/make-pwa-icons.py`),
+подключение в `index.html`, регистрация службы в `app.js` (только вне APK),
+тесты 0.9.55, публикующий workflow `pages.yml` (зеркало
+`tools/github-workflows/pages.yml`). В APK из этого не попадает ничего.
+**Осталось разовое действие владельца:** добавить `pages.yml` (ссылки — ниже)
+и включить Pages: Settings → Pages → Deploy from a branch → `gh-pages` /
+`(root)`. Дальше адрес вечной веб-версии:
+`https://help-yourself-dvp.github.io/LifeFlow-Fitness/` — он не меняется при
+новой рабочей ветке и при переносе в `main`, потому что workflow публикует
+веб-папку в служебную ветку `gh-pages` при каждом пуше в любую ветку.
+
+Следующий шаг по плану — **P2**: честная деградация Android-блоков на iPhone
+(Health Connect, виджет, Gemma, курс-уведомления) и проверка основной базы на
+живом iPhone. Затем P8 (фоновые напоминания через web-push, нужен маленький
+планировщик — `IOS_WEB_APP.md` § 5.4), P3 (сканер — под вопросом), P6/P7,
+синхронизация — в самом конце и, возможно, не делается вовсе.
+ Полный разбор и план — `IOS_WEB_APP.md` (обязательно прочитать перед
 работой над веб-версией). Суть: тот же код публикуется как веб-приложение
 (GitHub Pages + `manifest.json` + `sw.js` + иконки), Android-линейка и `main`
 не трогаются, отдельный репозиторий коду не нужен. Ограничения iOS (нет
@@ -867,19 +884,47 @@ AGP 8.8.1 и compileSdk 35, у нас 8.2.1 / 34). P37 (тоннаж для уп
 Активный workflow заменяет владелец вручную по зеркалу:
 
 1. Скопировать зеркало целиком:
-   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/01a02da3-lifeflow-fitness/tools/github-workflows/build.yml
+   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/01a0fc42-lifeflow-fitness/tools/github-workflows/build.yml
 2. Открыть активный workflow в режиме редактирования и заменить всё содержимое:
-   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/01a02da3-lifeflow-fitness/.github/workflows/build.yml
+   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/edit/arena/01a0fc42-lifeflow-fitness/.github/workflows/build.yml
 3. Commit changes → вкладка «Actions» → дождаться сборки → APK в Releases.
 
 Замена нужна **только если менялся нативный код или сама сборка**. Правки
 JS/HTML/CSS собираются обычным релизом.
 
+### Протокол публикации веб-версии (делает владелец ОДИН раз)
+
+Агент не может пушить `.github/workflows/**` (нет прав), поэтому файл
+`pages.yml` владелец добавляет сам — ровно как когда-то `build.yml`.
+Порядок и две ссылки:
+
+1. **Откуда копировать (raw):**
+   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/01a0fc42-lifeflow-fitness/tools/github-workflows/pages.yml
+2. **Куда вставлять (редактор, создать файл):**
+   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/new/arena/01a0fc42-lifeflow-fitness/.github/workflows/pages.yml
+   (страница «Create new file»; имя файла — `pages.yml`).
+3. Commit changes → вкладка **Actions** → дождаться прогона **Publish Web
+   (PWA)** (он создаст ветку `gh-pages`).
+4. **Settings → Pages → Source: «Deploy from a branch» → Branch: `gh-pages`,
+   папка `/ (root)` → Save.**
+5. Открыть в Safari: https://help-yourself-dvp.github.io/LifeFlow-Fitness/ →
+   «Поделиться» → «На экран „Домой“» → «Добавить». Дальше открывать **только
+   с иконки** (у вкладки Safari отдельное хранилище данных).
+
+Проверка без владельца (из песочницы):
+```
+gh run list -L 5 --json databaseId,status,conclusion,name
+```
+Обновления веб-версии идут сами: `app.js` сравнивает `version.txt` с
+установленной версией и просит службу перекачать оболочку. Поэтому **любой
+commit (в том числе в новой сессии — в новой ветке) обновляет веб-версию без
+участия владельца**. Если `pages.yml` не менялся — ничего копировать не нужно.
+
 ### Коммит и проверка сборки
 `git add -A` захватывает `.github/workflows/build.yml` — **коммитить явным
 списком файлов**. Проверка сборки:
 ```
-gh run list --branch arena/01a02da3-lifeflow-fitness --limit 5 --json databaseId,status,conclusion,headSha
+gh run list --branch arena/01a0fc42-lifeflow-fitness --limit 5 --json databaseId,status,conclusion,headSha
 gh run watch <ID> --exit-status --interval 20
 gh release list --limit 2
 ```
@@ -967,7 +1012,7 @@ gh release list --limit 2
   дереве. Лечение без потери работы:
   ```
   tar czf /tmp/bk-tree.tgz --exclude=.git .
-  git fetch origin arena/01a02da3-lifeflow-fitness
+  git fetch origin arena/01a0fc42-lifeflow-fitness
   git reset FETCH_HEAD          # без --hard
   ```
 

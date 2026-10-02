@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.54';
+const FITFLOW_VERSION = '0.9.55';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -14931,6 +14931,60 @@ function collapseWaterCustomRow() {
   if (toggle) toggle.setAttribute('aria-expanded', 'false');
 }
 
+/* ===== 0.9.55: веб-версия (PWA) для iPhone =====
+   В APK (Capacitor) эти функции не делают ничего: проверка !window.Capacitor
+   отсекает регистрацию службы — установленному приложению офлайн-кэш не нужен
+   и не должен вмешиваться в работу WebView. */
+function isWebAppShell() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (window.Capacitor) return false;                                              // APK — не наш случай
+  if (!('serviceWorker' in navigator)) return false;                               // старый браузер
+  if (typeof location === 'undefined' || location.protocol === 'file:') return false; // открыли файлом с диска
+  return true;
+}
+
+/* Свежесть веб-версии. Служба офлайн-кэша отдаёт сохранённые файлы (это и
+   нужно для офлайна), поэтому сама о новой версии она не узнает. Спрашиваем
+   version.txt прямо из сети — служба его не кэширует. Если номер новее,
+   просим службу перекачать оболочку: она ответит 'fitflow-shell-updated', и
+   мы один раз за сеанс перезагрузимся, чтобы не остаться на старом коде. */
+async function checkWebShellVersion() {
+  if (!isWebAppShell()) return;
+  try {
+    const res = await fetch('version.txt', { cache: 'no-store' });
+    if (!res || !res.ok) return;
+    const fresh = String(await res.text()).trim();
+    if (!fresh || fresh === FITFLOW_VERSION) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sw = (reg && (reg.active || reg.waiting || reg.installing)) || navigator.serviceWorker.controller;
+    if (sw) sw.postMessage({ type: 'fitflow-refresh-shell', version: fresh });
+  } catch (e) {
+    /* нет сети — работаем из кэша: для FitFlow это штатный режим */
+  }
+}
+
+function initWebAppShell() {
+  if (!isWebAppShell()) return;
+  try {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'fitflow-shell-updated') return;
+      if (!data.version || data.version === FITFLOW_VERSION) return;
+      const flag = 'fitflow:shell-reloaded:' + data.version;
+      try {
+        if (sessionStorage.getItem(flag)) return;  // повторно не перезагружаемся
+        sessionStorage.setItem(flag, '1');
+      } catch (e) { /* приватный режим — обойдёмся без метки */ }
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    checkWebShellVersion();
+  } catch (e) {
+    /* веб-оболочка — удобство, а не условие работы: без неё приложение
+       просто открывается из сети, как обычный сайт */
+  }
+}
+
 function init() {
   try {
   loadProfiles();
@@ -14952,6 +15006,7 @@ function init() {
   installActivityNotificationListener();
   registerNotificationSettingsActions();
   window.__fitflowReady = true; // 0.5.5: нативная сторона ждёт флаг перед доставкой действий виджета (полевой баг потери «+250 мл»)
+  initWebAppShell(); // 0.9.55: офлайн-кэш и автообновление веб-версии (в APK — no-op)
   refreshMorningMotivationScheduleOnLaunch();
   refreshMealRemindersOnLaunch();
   refreshTrainingReminderOnLaunch();
