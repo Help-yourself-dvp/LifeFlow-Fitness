@@ -1,0 +1,35 @@
+{
+  "name": "FitFlow — фитнес-трекер",
+  "short_name": "FitFlow",
+  "description": "Офлайн-трекер воды, питания, активности, тренировок и веса. Данные хранятся только на устройстве.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#00696B",
+  "theme_color": "#00696B",
+  "categories": ["health", "fitness", "lifestyle"],
+  "icons": [
+    {
+      "src": "assets/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

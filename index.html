@@ -1,0 +1,2488 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#FAFDFC" id="meta-theme">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- 0.9.55: веб-версия (PWA). manifest.json даёт установку «на Домой» из
+       Safari, apple-touch-icon — ту самую иконку на экране iPhone, а sw.js
+       (регистрируется из app.js) — запуск без интернета. В APK эти файлы не
+       попадают: сборка копирует в www/ только перечисленные файлы. -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/pwa/apple-touch-icon-180.png">
+  <meta name="apple-mobile-web-app-title" content="FitFlow">
+  <title>FitFlow — фитнес-трекер</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== Шапка ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="8.7" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M4.9 12h3.2l1.8-4.2 3.1 8.2 2.1-4h3.9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>FitFlow</h1>
+        <p id="date-label" aria-label="Дата"><span id="date-weekday">—</span><span id="date-month">—</span></p>
+      </div>
+      <!-- 0.8.29: индикатор режима работы. Показывает, выходит ли приложение
+           в интернет прямо сейчас. Текст задаётся из renderNetStatus(). -->
+      <button id="net-status" class="net-status is-offline" type="button"
+              aria-label="Режим работы: офлайн. Открыть настройки онлайн-функций">
+        <span class="net-status-dot" aria-hidden="true"></span>
+        <span class="net-status-text">Офлайн</span>
+      </button>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="profile-switcher" id="profile-switcher" type="button" aria-haspopup="dialog" aria-label="Выбрать профиль" title="Текущий профиль: Мой профиль">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 20c.8-3.5 3-5.3 6.5-5.3s5.7 1.8 6.5 5.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn ai-center-header" id="ai-center-open" type="button" aria-label="ИИ и быстрый ввод: рецепты, аналитика и голосовой ввод" title="ИИ и быстрый ввод FitFlow">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m12 3 2.1 5.3L19.5 10l-5.4 1.7L12 17l-2.1-5.3L4.5 10l5.4-1.7L12 3Z" fill="currentColor"/>
+          <path d="m19 15 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z" fill="currentColor" opacity="0.75"/>
+          <path d="m5 16 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z" fill="currentColor" opacity="0.75"/>
+        </svg>
+      </button>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Переключить тему" title="Светлая / тёмная тема">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5 5l1.6 1.6M17.4 17.4 19 19M19 5l-1.6 1.6M6.6 17.4 5 19"
+                stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"
+                stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== Основной экран ===== -->
+  <main class="content">
+
+  <div id="home-view">
+    <section class="greeting">
+      <p class="greeting-title" id="greeting-title">Доброе утро!</p>
+      <p class="greeting-sub" id="greeting-sub">Маленькие шаги каждый день важнее идеального понедельника</p>
+    </section>
+
+    <nav class="home-quicknav" id="home-quicknav" aria-label="Быстрый переход по разделам" hidden></nav>
+
+    <div class="home-cards" id="home-cards">
+
+    <div id="day-plan-card" hidden></div>
+    <div id="day-mood-card" hidden></div>
+
+    <!-- ===== Карточка: Шаги и движение (0.7.0) ===== -->
+    <section class="card steps-card" id="steps-card" aria-labelledby="steps-card-title">
+      <div class="card-header">
+        <div class="card-icon steps-icon" aria-hidden="true">👟</div>
+        <div class="card-title-wrap">
+          <h2 id="steps-card-title">Шаги и движение</h2>
+          <p id="steps-card-source">датчик телефона</p>
+        </div>
+        <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#steps-goal-stepper" aria-expanded="false" title="Изменить суточную цель шагов">Цель</button>
+        <div class="goal-stepper" id="steps-goal-stepper" hidden>
+          <button class="mini-btn" id="steps-goal-minus" type="button" aria-label="Уменьшить цель шагов">−</button>
+          <button class="mini-btn" id="steps-goal-plus" type="button" aria-label="Увеличить цель шагов">+</button>
+        </div>
+      </div>
+      <div class="steps-progress-row clickable-metric" id="steps-card-metrics" role="button" tabindex="0" aria-label="Подробный расчёт шагов" title="Нажмите для подробного расчёта формулы шагов">
+        <strong id="steps-card-count">0</strong>
+        <span class="steps-goal-target" id="steps-card-goal">из 8 000 шагов</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="steps-card-progress"></div></div>
+      <div class="steps-sub-info">
+        <span id="steps-card-kcal">🔥 0 ккал</span>
+        <span class="steps-sub-right">
+          <span class="steps-sync-check" id="steps-sync-check" hidden aria-hidden="true">✓</span>
+          <button class="steps-sync-btn" id="steps-card-sync-btn" type="button" aria-label="Синхронизировать шаги" title="Синхронизировать шаги">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.6 5.7L4 15.5M4 20v-4.5h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>sync</span>
+          </button>
+        </span>
+      </div>
+      <p class="steps-sync-hint" id="steps-card-sync-hint" hidden>обновлено …</p>
+    </section>
+
+    <!-- ===== Карточка: Вода ===== -->
+    <section class="card water-card" id="water-card" aria-labelledby="water-title">
+      <div class="card-header">
+        <div class="card-icon water-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2.5c-4 4.2-6.5 7.6-6.5 10.6a6.5 6.5 0 0 0 13 0C18.5 10.1 16 6.7 12 2.5Z"
+                  fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="water-title">Вода</h2>
+          <p>Прогресс за сегодня</p>
+        </div>
+        <button class="icon-btn mic-header-btn" id="water-voice-btn" type="button" aria-label="Добавить воду голосом" title="Надиктовать воду голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="water-body">
+        <div class="water-ring-wrap">
+          <svg class="water-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="var(--grad-a)"/>
+                <stop offset="100%" stop-color="var(--grad-b)"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="60" cy="60" r="54"/>
+            <circle class="ring-fg" id="water-ring-fg" cx="60" cy="60" r="54"/>
+          </svg>
+          <div class="water-ring-center clickable-metric" id="water-ring-center" role="button" tabindex="0" title="Нажмите для подробного расчёта нормы воды">
+            <span class="water-value" id="water-total">0</span>
+            <span class="water-unit">мл</span>
+            <span class="water-sub" id="water-status">из 2 500 мл</span>
+          </div>
+        </div>
+
+        <div class="water-actions">
+          <button class="chip" data-water="250" type="button">
+            <span class="chip-emoji" aria-hidden="true">🥛</span> +250 мл
+          </button>
+          <button class="chip" data-water="500" type="button">
+            <span class="chip-water-bottle" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M10 2h4v3l1.4 1.5v12.8A2.7 2.7 0 0 1 12.7 22h-1.4a2.7 2.7 0 0 1-2.7-2.7V6.5L10 5V2Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                <path d="M8.9 13h6.2" stroke="var(--md-sys-color-on-primary)" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </span> +500 мл
+          </button>
+          <button class="chip" id="water-custom-toggle" type="button" aria-expanded="false" title="Добавить свой объём в миллилитрах">Своя мл</button>
+          <button class="chip chip-danger" id="water-undo" type="button" aria-label="Отменить последнее добавление воды" title="Отменить последнее добавление воды">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 5v5h5M4.6 10a8 8 0 1 1-1.1 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Отмена
+          </button>
+        </div>
+
+        <div class="water-custom-row" id="water-custom-row" hidden>
+          <input id="water-custom-ml" type="text" inputmode="numeric" maxlength="4" placeholder="Например: 300" aria-label="Свой объём воды в миллилитрах">
+          <button class="icon-btn field-clear-btn" id="water-custom-clear" type="button" title="Очистить введённое число" aria-label="Очистить введённое число" hidden>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button class="btn btn-primary" id="water-custom-add" type="button">Добавить</button>
+          <button class="btn btn-ghost water-custom-cancel" id="water-custom-cancel" type="button" title="Закрыть поле ввода, ничего не добавляя">Отмена</button>
+        </div>
+
+        <div class="goal-row">
+          <span class="goal-label">Цель на день</span>
+          <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#water-goal-stepper" aria-expanded="false" title="Изменить цель на день">Цель</button>
+          <div class="goal-stepper" id="water-goal-stepper" hidden>
+            <button class="mini-btn" id="water-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
+            <span class="goal-value" id="water-goal">2500 мл</span>
+            <button class="mini-btn" id="water-goal-plus" type="button" aria-label="Увеличить цель">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Карточка: Еда ===== -->
+    <section class="card food-card" id="food-card" aria-labelledby="food-title">
+      <div class="card-header">
+        <div class="card-icon food-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 3v7M4 3v4a2.5 2.5 0 0 0 5 0V3M18.5 3c-1.7 0-3 1.8-3 4.5 0 1.6 1 2.9 2.3 3.2L17.4 21M7 13v8M17 10v11"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="food-title">Питание</h2>
+          <p>Дневник питания и БЖУ</p>
+        </div>
+        <button class="card-menu icon-btn" id="custom-food-open" type="button" aria-label="Мои продукты" title="Мои продукты — точные значения с упаковки">
+          <span aria-hidden="true" style="font-size:1.05rem">🏷️</span>
+        </button>
+        <button class="card-menu icon-btn" id="product-search-open" type="button" aria-label="Поиск по базе продуктов" title="Поиск по базе продуктов — КБЖУ и порции">
+          <span aria-hidden="true" style="font-size:1.05rem">🔍</span>
+        </button>
+        <button class="card-menu icon-btn mic-header-btn" id="food-voice-btn" type="button" aria-label="Ввести еду голосом" title="Надиктовать еду голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="calorie-summary">
+        <div class="calorie-numbers clickable-metric" id="food-calorie-numbers" role="button" tabindex="0" title="Нажмите для подробного расчёта нормы калорий">
+          <span class="calorie-value" id="food-total">0</span>
+          <span class="calorie-divider">/</span>
+          <span class="calorie-goal" id="food-goal-label">2 000</span>
+          <span class="calorie-unit">ккал</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="2000" aria-valuenow="0" id="food-progress">
+          <div class="progress-fill" id="food-progress-fill"></div>
+        </div>
+        <p class="calorie-hint" id="food-status">Добавьте приём пищи, чтобы начать</p>
+        <div class="food-macros" id="food-macros" aria-label="Распределение белков, жиров и углеводов"></div>
+      </div>
+
+      <form class="food-form" id="food-form" autocomplete="off">
+        <div class="input-wrap">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input type="text" id="food-input" class="food-input" inputmode="text"
+                 placeholder="Например: гречка 100г" aria-label="Что вы съели?">
+          <button class="icon-btn field-clear-btn" id="food-input-clear" type="button" title="Очистить поле" aria-label="Очистить набранный текст" hidden>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <!-- 0.5.1 (п.3 владельца): кнопки отдельной строкой — поле ввода во всю ширину -->
+        <div class="food-form-actions">
+          <button class="btn btn-primary" id="food-add" type="submit">Добавить</button>
+          <button class="btn btn-ghost" id="food-repeat-yesterday" type="button" title="Повторить вчерашний приём пищи">↺ Вчера</button>
+        </div>
+      </form>
+
+      <p class="parse-error" id="food-error" hidden></p>
+
+      <!-- ⭐ Мои комбо (0.4.14): сохранённые фразы умного ввода — завтрак одним тапом -->
+      <!-- 0.4.15 (п.5 владельца): «Быстрые записи» — единый блок; разница ясна из подписи -->
+      <!-- 0.5.5 (решение владельца): вместо одной большой кнопки — компактный ряд
+           иконок без надписей (⭐ комбо · 🍽 мои блюда · ✍️ своё блюдо); описание — в «?». -->
+      <div class="quick-entry-row" role="group" aria-label="Быстрые записи">
+        <button class="quick-entry-btn" id="quick-records-open" type="button" aria-haspopup="dialog" aria-label="Мои комбо — сохранённые фразы" title="Мои комбо — сохранённые фразы"><span data-icon-slot="combo">⭐</span></button>
+        <button class="quick-entry-btn" id="quick-open-meals" type="button" aria-haspopup="dialog" aria-label="Мои блюда — шаблоны" title="Мои блюда — сохранённые шаблоны"><span data-icon-slot="food">🍽️</span></button>
+        <span class="help-dot" role="button" tabindex="0" data-help="quick-records" aria-label="Справка: быстрые записи" title="Чем комбо отличается от блюд?">?</span>
+      </div>
+
+      <div class="meal-type-section">
+        <div class="meal-type-summary">
+          <span class="meal-type-current" id="meal-type-current">Приём пищи: —</span>
+          <button class="chip chip-sm meal-type-expand" id="meal-type-expand" type="button" aria-expanded="false">Изменить</button>
+        </div>
+        <div class="meal-type-full" id="meal-type-full" hidden>
+          <div class="quick-chips" id="meal-type-picker"></div>
+          <div class="meal-type-custom-row">
+            <button class="btn btn-secondary" id="custom-meal-type-toggle" type="button">＋ Свой тип</button>
+            <div class="meal-type-custom-inline" id="custom-meal-type-inline">
+              <input id="custom-meal-type-name" type="text" maxlength="40" placeholder="Например, второй завтрак">
+              <button class="btn btn-secondary" id="custom-meal-type-save" type="button">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="food-list" id="food-list"></ul>
+
+      <div class="goal-row">
+        <span class="goal-label">Цель по калориям</span>
+        <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#food-goal-stepper" aria-expanded="false" title="Изменить дневную цель">Цель</button>
+        <div class="goal-stepper" id="food-goal-stepper" hidden>
+          <button class="mini-btn" id="food-goal-minus" type="button" aria-label="Уменьшить цель">−</button>
+          <span class="goal-value" id="food-goal">2 000 ккал</span>
+          <button class="mini-btn" id="food-goal-plus" type="button" aria-label="Увеличить цель">+</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card weight-home-card" id="weight-card" aria-labelledby="weight-home-title">
+      <div class="card-header">
+        <div class="card-icon weight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div class="card-title-wrap">
+          <h2 id="weight-home-title">Вес</h2>
+          <p>Текущий вес и динамика профиля</p>
+        </div>
+      </div>
+      <div class="weight-home-body">
+        <div><strong id="home-weight-current">—</strong><p id="home-weight-trend">Записей веса пока нет</p></div>
+        <button class="btn btn-secondary weight-home-add" id="weight-quick-open" type="button">Записать</button>
+      </div>
+      <button class="stats-details-btn weight-details-open" type="button" data-open-detail="weight">График и история веса →</button>
+    </section>
+    </div><!-- /home-cards -->
+
+    <p class="privacy-note">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z"
+              stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      Все данные хранятся локально на устройстве. Регистрация не требуется.
+    </p>
+  </div><!-- /home-view -->
+
+  <!-- ===== Статистика ===== -->
+  <div id="stats-view" hidden>
+    <section class="card ai-stats-card" aria-labelledby="ai-stats-title">
+      <div class="card-header">
+        <div class="card-icon ai-stats-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
+        <div>
+          <h2 id="ai-stats-title">Анализ периода · Помощник FitFlow<span class="beta-badge" role="button" tabindex="0" data-help="beta-ai-analysis" aria-label="Бета-функция: анализ периода. Подробнее" title="Бета: функция в разработке и тестировании">бета</span></h2>
+          <p class="card-subtitle">Выводы по записям — за период, выбранный в статистике ниже</p>
+        </div>
+      </div>
+      <div class="settings-row" style="margin:10px 0 12px">
+        <button class="btn btn-primary" id="ai-stats-run-btn" type="button">✨ Анализировать выбранный период</button>
+      </div>
+      <div id="ai-stats-report-box" class="ai-result-box" hidden></div>
+    </section>
+    <!-- Период статистики вынесен из карточки: у .card overflow:hidden,
+         который ломал position:sticky, и панель уезжала при прокрутке. -->
+    <div class="segmented stats-periods" id="stats-periods" role="radiogroup" aria-label="Период статистики">
+      <button type="button" data-stats-period="day">Сегодня</button>
+      <button class="active" type="button" data-stats-period="week">7 дней</button>
+      <button type="button" data-stats-period="month">30 дней</button>
+    </div>
+    <section class="card stats-card" aria-labelledby="stats-title">
+      <div class="card-header">
+        <div class="card-icon stats-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="stats-title">Статистика</h2>
+          <p id="stats-period-caption">Итоги за 7 дней</p>
+        </div>
+        <!-- 0.5.1 (п.4 владельца): напротив заголовка, а не под ним -->
+        <button class="btn btn-secondary stats-day-edit-btn" id="stats-day-edit-open" type="button" title="Записать или поправить итог прошлого дня" aria-label="Поправить итог прошлого дня">✏️ Править</button>
+      </div>
+
+      <section class="stats-section stats-water" id="stats-water-section" aria-labelledby="stats-water-title">
+        <div class="stats-section-head">
+          <h3 id="stats-water-title">💧 Вода</h3>
+          <strong id="stats-water-total">—</strong>
+        </div>
+        <p id="stats-water-hint">—</p>
+        <div class="stats-bars" id="stats-water-bars" aria-label="График воды"></div>
+        <button class="stats-details-btn" type="button" data-open-detail="water">Подробнее о воде →</button>
+      </section>
+
+      <section class="stats-section stats-food" id="stats-food-section" aria-labelledby="stats-food-title">
+        <div class="stats-section-head">
+          <h3 id="stats-food-title">🍽️ Питание</h3>
+          <strong id="stats-food-total">—</strong>
+        </div>
+        <p id="stats-food-hint">—</p>
+        <div class="stats-bars" id="stats-food-bars" aria-label="График калорий"></div>
+        <button class="stats-details-btn" type="button" data-open-detail="food">Подробнее о питании →</button>
+      </section>
+
+      <section class="stats-section stats-activity" aria-labelledby="stats-activity-title">
+        <div class="stats-section-head">
+          <h3 id="stats-activity-title">🌿 Активность</h3>
+          <strong id="stats-activity-total">—</strong>
+        </div>
+        <p id="stats-activity-hint">—</p>
+        <div class="stats-bars" id="stats-activity-bars" aria-label="График активности"></div>
+      </section>
+
+      <section class="stats-section stats-steps" id="stats-steps-section" aria-labelledby="stats-steps-title">
+        <div class="stats-section-head">
+          <h3 id="stats-steps-title">👟 Шаги</h3>
+          <strong id="stats-steps-total">—</strong>
+        </div>
+        <p id="stats-steps-hint">—</p>
+        <div class="stats-bars" id="stats-steps-bars" aria-label="График шагов"></div>
+      </section>
+
+      <section class="stats-section stats-sleep" id="stats-sleep-section" aria-labelledby="stats-sleep-title">
+        <div class="stats-section-head">
+          <h3 id="stats-sleep-title">🌙 Сон и восстановление</h3>
+          <strong id="stats-sleep-total">—</strong>
+        </div>
+        <p id="stats-sleep-hint">—</p>
+        <div class="stats-bars" id="stats-sleep-bars" aria-label="График сна"></div>
+      </section>
+
+      <section class="stats-section stats-compare" id="stats-compare-section" aria-labelledby="stats-compare-title" hidden>
+        <div class="stats-section-head">
+          <h3 id="stats-compare-title">📈 Сравнение с прошлым периодом</h3>
+        </div>
+        <p id="stats-compare-text">—</p>
+        <p id="stats-compare-motivation" class="settings-hint"></p>
+      </section>
+
+      <section class="stats-section stats-weight" id="stats-weight-section" aria-labelledby="stats-weight-title">
+        <div class="stats-section-head">
+          <h3 id="stats-weight-title"><span aria-hidden="true" style="display:inline-flex;width:1.1em;vertical-align:-0.2em"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Вес</h3>
+          <strong id="stats-weight-total">—</strong>
+        </div>
+        <p id="stats-weight-hint">—</p>
+        <div class="stats-weight-chart-wrap weight-chart-wrap" id="stats-weight-chart-wrap" hidden>
+          <svg class="weight-chart" id="stats-weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса за последние 3 месяца"></svg>
+          <p class="settings-hint stats-weight-chart-caption" id="stats-weight-chart-caption"></p>
+        </div>
+        <button class="stats-details-btn" type="button" data-open-detail="weight">График и история веса →</button>
+      <div id="stats-mood"></div>
+      </section>
+    </section>
+  </div><!-- /stats-view -->
+
+  <!-- ===== Подробно: вода ===== -->
+  <div id="water-details-view" hidden>
+    <section class="card detail-card stats-water" aria-labelledby="water-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon water-icon" aria-hidden="true" data-icon-slot="water">💧</div>
+        <div class="card-title-wrap">
+          <h2 id="water-details-title">Вода подробно</h2>
+          <p id="water-details-caption">Итоги за 7 дней</p>
+        </div>
+      </div>
+      <div class="segmented detail-periods" id="water-detail-periods" role="radiogroup" aria-label="Период воды">
+        <button type="button" data-detail-period="day">Сегодня</button>
+        <button class="active" type="button" data-detail-period="week">7 дней</button>
+        <button type="button" data-detail-period="month">30 дней</button>
+      </div>
+      <div class="detail-highlight"><strong id="water-details-total">—</strong><span id="water-details-average">—</span></div>
+      <div class="stats-bars detail-bars" id="water-details-bars" aria-label="Подробный график воды"></div>
+      <p class="detail-insight" id="water-details-insight">—</p>
+    </section>
+  </div><!-- /water-details-view -->
+
+  <!-- ===== Подробно: питание ===== -->
+  <div id="food-details-view" hidden>
+    <section class="card detail-card stats-food" aria-labelledby="food-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon food-icon" aria-hidden="true" data-icon-slot="food">🍽️</div>
+        <div class="card-title-wrap">
+          <h2 id="food-details-title">Питание подробно</h2>
+          <p id="food-details-caption">Итоги за 7 дней</p>
+        </div>
+      </div>
+      <div class="segmented detail-periods" id="food-detail-periods" role="radiogroup" aria-label="Период питания">
+        <button type="button" data-detail-period="day">Сегодня</button>
+        <button class="active" type="button" data-detail-period="week">7 дней</button>
+        <button type="button" data-detail-period="month">30 дней</button>
+      </div>
+      <div class="detail-highlight"><strong id="food-details-total">—</strong><span id="food-details-average">—</span></div>
+      <div class="stats-bars detail-bars" id="food-details-bars" aria-label="Подробный график питания"></div>
+      <p class="detail-insight" id="food-details-insight">—</p>
+    </section>
+  </div><!-- /food-details-view -->
+
+  <!-- ===== Подробно: вес ===== -->
+  <div id="weight-details-view" hidden>
+    <section class="card detail-card stats-weight" aria-labelledby="weight-details-title">
+      <button class="detail-back-btn" type="button" data-back-to-stats>← К статистике</button>
+      <div class="card-header">
+        <div class="card-icon weight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <div class="card-title-wrap">
+          <h2 id="weight-details-title">Вес и динамика</h2>
+          <p id="weight-current">Вес пока не записан</p>
+        </div>
+      </div>
+      <form class="weight-form" id="weight-form" autocomplete="off">
+        <label class="weight-field" for="weight-history-date"><span>Дата</span><input id="weight-history-date" type="date" aria-label="Дата измерения веса"></label>
+        <label class="weight-field" for="weight-history-input"><span>Вес, кг</span><input id="weight-history-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
+        <button class="btn btn-secondary" type="submit">Записать</button>
+      </form>
+      <p class="settings-hint" id="weight-history-hint">Запись за сегодня также используется для примерной оценки расхода энергии при активности.</p>
+      <div class="segmented weight-periods" id="weight-periods" role="radiogroup" aria-label="Период графика веса">
+        <button type="button" data-weight-period="week">7 дней</button>
+        <button type="button" data-weight-period="month">30 дней</button>
+        <button type="button" data-weight-period="all">Всё время</button>
+      </div>
+      <div class="weight-chart-wrap" id="weight-chart-wrap" hidden>
+        <svg class="weight-chart" id="weight-chart" viewBox="0 0 320 150" role="img" aria-label="График веса"></svg>
+      </div>
+      <ul class="weight-history-list" id="weight-history-list"></ul>
+    </section>
+  </div><!-- /weight-details-view -->
+
+  <!-- ===== Активность ===== -->
+  <div id="training-view" hidden>
+    <section class="card training-card" aria-labelledby="training-title">
+      <div class="card-header">
+        <div class="card-icon training-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 4v16M17 4v16M4 8.5h3M4 15.5h3M17 8.5h3M17 15.5h3M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="training-title">Активность</h2>
+          <p>Прогулки, спорт и активный отдых — всё в одном месте</p>
+        </div>
+      </div>
+
+      <div class="training-summary">
+        <span class="training-summary-label">Сегодня</span>
+        <strong id="training-total">0 мин</strong>
+      </div>
+
+      <div class="weekly-activity-goal">
+        <div class="weekly-goal-header-row">
+          <div class="weekly-goal-label-group">
+            <span class="weekly-goal-title">Цель за 7 дней</span>
+            <span class="weekly-status-chip todo" id="weekly-status-chip" role="status">осталось 2 ч 30 мин</span>
+          </div>
+          <div class="weekly-goal-controls">
+            <button class="chip chip-sm goal-edit-toggle" type="button" data-goal-toggle="#weekly-goal-stepper" aria-expanded="false" title="Изменить цель на 7 дней">Цель</button>
+            <span class="help-dot" role="button" tabindex="0" data-help="weekly-goal" aria-label="Справка: цель активности на 7 дней" title="Что считается и как выбрать цель?">?</span>
+            <div class="goal-stepper" id="weekly-goal-stepper" hidden>
+              <button class="mini-btn" id="weekly-goal-minus" type="button" aria-label="Уменьшить недельную цель">−</button>
+              <button class="mini-btn" id="weekly-goal-plus" type="button" aria-label="Увеличить недельную цель">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="weekly-goal-value-row">
+          <strong id="weekly-activity-total">0 мин из 150 мин</strong>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="weekly-activity-progress"></div></div>
+        <p class="training-hint weekly-load-balance" id="weekly-load-balance" aria-live="polite"></p>
+      </div>
+
+      <!-- ===== 0.8.0: подсказка «нашли тренировки с часов» ===== -->
+      <div class="watch-workouts-suggest" id="watch-workouts-suggest" hidden></div>
+
+      <!-- ===== 0.8.4: дневник силовых тренировок (вес × повторы) ===== -->
+      <section class="collapsible-block strength-diary-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-diary-content" aria-expanded="false">
+          <span>🏋️ Тренировка в зале: подходы</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-diary-content"><div>
+          <div class="strength-rest-timer">
+            <span class="strength-rest-label">⏱ Отдых</span>
+            <div class="strength-rest-presets" id="strength-rest-presets"></div>
+            <button class="watch-btn watch-btn-add" id="strength-rest-start" type="button">Старт</button>
+            <span class="strength-rest-count" id="strength-rest-count" hidden>0:00</span>
+          </div>
+          <p class="training-hint">Записывайте упражнения и подходы — приложение само посчитает объём работы. Для отжиманий и подтягиваний вес указывать не нужно: он берётся из вашего профиля, а в поле веса впишите только добавку — жилет или блин на поясе. Укажите длительность — она зачтётся в недельную цель активности.</p>
+          <div class="strength-diary" id="strength-diary"></div>
+        </div></div>
+      </section>
+
+      <!-- ===== 0.8.5: прогресс и рекорды силовых ===== -->
+      <section class="collapsible-block strength-history-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-history-content" aria-expanded="false">
+          <span>📈 Прогресс силовых</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-history-content"><div>
+          <p class="training-hint" style="margin-top:0"><span class="beta-badge" role="button" tabindex="0" data-help="beta-strength" aria-label="Бета-функция: прогресс силовых. Подробнее" title="Бета: функция в разработке и тестировании">бета</span> Ваши подходы записаны точно. А 1RM, уровни и цели — расчётная оценка по формулам: ориентир для сравнения с собой, а не проверенный максимум.</p>
+          <div class="strength-history" id="strength-history"></div>
+        </div></div>
+      </section>
+
+      <!-- ===== 0.8.9: план тренировок по дням недели ===== -->
+      <section class="collapsible-block strength-plan-section">
+        <button class="collapsible-toggle" type="button" data-collapse-target="strength-plan-content" aria-expanded="false">
+          <span>📅 План тренировок</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="collapsible-content" id="strength-plan-content"><div>
+          <p class="training-hint">Шаблон создаётся в разделе «🏋️ Тренировка в зале: подходы» кнопкой «⭐ Сохранить как шаблон». Затем назначьте его дням недели — приложение подскажет «что сегодня» и само отметит выполненное.</p>
+          <div class="strength-plan" id="strength-plan"></div>
+        </div></div>
+      </section>
+
+      <form id="training-form" class="training-form" autocomplete="off">
+        <section class="collapsible-block activity-templates-section">
+          <button class="collapsible-toggle" type="button" data-collapse-target="activity-templates-content" aria-expanded="false">
+            <span>Готовые варианты активности</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="collapsible-content" id="activity-templates-content"><div>
+            <ul class="activity-template-list" id="activity-templates" aria-live="polite"></ul>
+          </div></div>
+        </section>
+
+        <div>
+          <p class="training-field-label">Вид активности</p>
+          <div class="workout-type-selector" role="radiogroup" aria-label="Вид активности">
+            <button class="workout-type-btn active" type="button" data-activity-type="walk" role="radio" aria-checked="true">🚶 Прогулка</button>
+            <button class="workout-type-btn" type="button" data-activity-type="cardio" role="radio" aria-checked="false">🏃 Кардио / бег</button>
+            <button class="workout-type-btn" type="button" data-activity-type="swim" role="radio" aria-checked="false">🏊 Плавание</button>
+            <button class="workout-type-btn" type="button" data-activity-type="bike" role="radio" aria-checked="false">🚲 Велосипед</button>
+            <button class="workout-type-btn" type="button" data-activity-type="strength" role="radio" aria-checked="false">🏋️ Силовая</button>
+            <button class="workout-type-btn" type="button" data-activity-type="stretch" role="radio" aria-checked="false">🧘 Растяжка</button>
+            <button class="workout-type-btn" type="button" data-activity-type="leisure" role="radio" aria-checked="false">⛸️ Активный отдых</button>
+            <button class="workout-type-btn" type="button" data-activity-type="other" role="radio" aria-checked="false">💪 Другое</button>
+          </div>
+        </div>
+
+        <div class="activity-intensity" id="activity-intensity" role="radiogroup" aria-label="Интенсивность активности">
+          <span class="training-field-label">Интенсивность</span>
+          <div class="quick-chips">
+            <button class="chip chip-sm" type="button" data-intensity="low">Лёгкая</button>
+            <button class="chip chip-sm active" type="button" data-intensity="medium">Средняя</button>
+            <button class="chip chip-sm" type="button" data-intensity="high">Высокая</button>
+          </div>
+        </div>
+
+        <p class="training-hint" id="activity-kcal-hint" aria-live="polite"></p>
+
+        <label class="workout-duration-label" for="workout-duration">
+          <span>Длительность</span>
+          <span class="workout-duration-input-wrap">
+            <input id="workout-duration" type="text" inputmode="decimal" placeholder="30" aria-describedby="workout-duration-hint">
+            <button class="duration-unit-btn" id="workout-duration-unit" type="button" aria-haspopup="dialog"><span id="workout-duration-unit-label">мин</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </span>
+        </label>
+        <p class="training-hint" id="workout-duration-hint">По умолчанию минуты. При выборе часов можно указать 0,5 = 30 мин или 1,5 = 1 ч 30 мин.</p>
+        <label class="weight-field workout-date-field" for="workout-date"><span>Дата</span><input id="workout-date" type="date" aria-label="Дата активности: по умолчанию сегодня, не позже сегодня"></label>
+
+        <section class="collapsible-block">
+          <button class="collapsible-toggle" type="button" data-collapse-target="activity-extra-content" aria-expanded="false">
+            <span>Дополнительно: заметка и готовый вариант</span><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="collapsible-content" id="activity-extra-content"><div>
+            <label class="activity-note-label" for="activity-note">Заметка <span>(необязательно)</span>
+              <input id="activity-note" type="text" maxlength="120" placeholder="Например, прогулка в парке">
+            </label>
+
+            <label class="activity-save-template-toggle">
+              <input id="activity-save-template" type="checkbox">
+              <span>Одновременно сохранить как готовый вариант</span>
+            </label>
+            <div class="activity-template-inline" id="activity-template-inline">
+              <label for="activity-template-name">Название готового варианта</label>
+              <input id="activity-template-name" type="text" maxlength="60" placeholder="Например, Кардио 45 мин">
+              <p class="training-hint">Сохранится вместе с текущей записью, без повторного ввода времени.</p>
+            </div>
+          </div></div>
+        </section>
+
+        <button class="btn btn-primary training-add-btn" type="submit">Сохранить активность</button>
+      </form>
+
+      <ul class="workout-list" id="training-list" aria-live="polite"></ul>
+    </section>
+  </div><!-- /training-view -->
+
+  <!-- ===== Настройки ===== -->
+  <div id="settings-view" hidden>
+    <section class="card settings-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2>Настройки</h2>
+          <p>Оформление Главной и разделы приложения</p>
+        </div>
+      </div>
+
+      <div class="profile-settings-context" id="profile-settings-context">
+        <span aria-hidden="true">👤</span>
+        <div><strong id="profile-settings-name">Мой профиль</strong><small>Вес, цели, история и уведомления относятся к этому профилю.</small></div>
+      </div>
+
+      <!-- 0.9.56 (шаг P2): честная надпись для веб-версии на iPhone. Показывается
+           только в браузере: в APK скрыта через data-web-only (см. applyWebModeUi).
+           Перечисляем ровно то, чего в веб-версии нет, вместо «мёртвых» кнопок. -->
+      <p class="settings-hint" data-web-only hidden>📱 <b>Веб-версия (iPhone).</b> Вода, еда, статистика, тренировки, вес и копии работают здесь так же, как в приложении. Пока недоступны: напоминания, шаги и сон с часов, виджет на рабочем столе и нейросеть на устройстве — они есть в Android-приложении. Как это изменится дальше — в разделе «О приложении» и в документе IOS_WEB_APP.md.</p>
+
+      <div class="settings-group">
+        <p class="settings-label">Разделы настроек</p>
+        <nav class="settings-menu" aria-label="Разделы настроек">
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-general">
+            <span class="settings-menu-emoji" aria-hidden="true">⚙️</span>
+            <span class="settings-menu-text"><b>Общее</b><small>Тема, чек-лист, карточки Главной, игровой режим</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-general" aria-label="Справка: Общее" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-profile">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="profile">👤</span>
+            <span class="settings-menu-text"><b>Профиль и цели</b><small>Пол, возраст, рост, активность, расчёт норм</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-profile" aria-label="Справка: Профиль и цели" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-notifications">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="bell">🔔</span>
+            <span class="settings-menu-text"><b>Уведомления</b><small>Мотивация, приёмы пищи, вода и вечерняя активность</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-notifications" aria-label="Справка: Уведомления" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-courses">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="course">💊</span>
+            <span class="settings-menu-text"><b>Мой курс</b><small>Витамины, добавки и приёмы по расписанию с напоминаниями</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-courses" aria-label="Справка: Мой курс" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-ai">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="ai">✨</span>
+            <span class="settings-menu-text"><b>Помощник FitFlow</b><small>Офлайн-анализ, облачная нейросеть или модель на устройстве</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-ai" aria-label="Справка: Помощник FitFlow" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-online">
+            <span class="settings-menu-emoji" aria-hidden="true">🌐</span>
+            <span class="settings-menu-text"><b>Онлайн-функции</b><small id="settings-online-status">Выключены — приложение работает полностью офлайн</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-online" aria-label="Справка: Онлайн-функции" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-data">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="backup">💾</span>
+            <span class="settings-menu-text"><b>Данные и резервные копии</b><small>Экспорт, импорт, сброс</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-data" aria-label="Справка: Данные и резервные копии" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="settings-menu-btn" type="button" data-settings-view="settings-about">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="about">ℹ️</span>
+            <span class="settings-menu-text"><b>О приложении</b><small>Версия, источники данных, методика, условия</small></span>
+            <span class="help-dot" role="button" tabindex="0" data-help="settings-about" aria-label="Справка: О приложении" title="Что это за раздел?">?</span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <!-- 0.5.1 (решение владельца, п.13): PRO-каркас — экран активации кода.
+               НИЧЕГО не закрыто: все функции доступны бесплатно, PRO — поддержка проекта. -->
+          <button class="settings-menu-btn" id="pro-open" type="button">
+            <span class="settings-menu-emoji" aria-hidden="true" data-icon-slot="medals">🏅</span>
+            <span class="settings-menu-text"><b>FitFlow PRO</b><small id="pro-menu-status">Поддержка проекта — не активировано</small></span>
+            <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </nav>
+      </div>
+    </section>
+  </div><!-- /settings-view -->
+
+  <div id="settings-general-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="settings">⚙️</span></div>
+        <div class="card-title-wrap">
+          <h2>Общее</h2>
+          <p>Внешний вид, Главная и игровой режим</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Тема оформления</p>
+        <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="Тема оформления">
+          <button type="button" data-theme-mode="auto">Авто</button>
+          <button type="button" data-theme-mode="light">Светлая</button>
+          <button type="button" data-theme-mode="dark">Тёмная</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <p class="settings-label">Стиль интерфейса</p>
+        <div class="segmented" id="palette-segmented" role="radiogroup" aria-label="Стиль интерфейса">
+          <button type="button" data-palette="standard">🌊 Стандарт</button>
+          <button type="button" data-palette="neon">🌃 Neon</button>
+          <button type="button" data-palette="sport">⚡ Sport</button>
+          <button type="button" data-palette="forest">🌿 Лес</button>
+          <button type="button" data-palette="berry">🍇 Виноград</button>
+        </div>
+        <p class="settings-hint" id="palette-status">Стиль работает поверх светлого/тёмного режима. Neon эффектнее всего в тёмном режиме, Sport — с оранжевым характером, Лес и Виноград — спокойные в обоих режимах.</p>
+      </div>
+      <div class="settings-group">
+        <p class="settings-label">Шрифт</p>
+        <div class="segmented" id="font-segmented" role="radiogroup" aria-label="Шрифт интерфейса">
+          <button type="button" data-font="standard">Стандарт</button>
+          <button type="button" data-font="condensed">Узкий</button>
+          <button type="button" data-font="serif">Книжный</button>
+        </div>
+        <p class="settings-hint" id="font-status">Узкий — компактнее строки, книжный — спокойнее для чтения. Тематические шрифты (Neon, Sport, Лес, Виноград) меняются сами вместе со стилем; ручной выбор здесь сильнее тематического.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Чек-лист дня <span class="help-dot" role="button" tabindex="0" data-help="day-checklist" aria-label="Справка: Чек-лист дня" title="Что это и зачем?">?</span></p>
+          <label class="switch" for="day-checklist-toggle">
+            <input id="day-checklist-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Показывать чек-лист дня на Главной</span>
+          </label>
+        </div>
+        <p class="settings-hint" id="day-checklist-status">Чек-лист скрыт.</p>
+      </div>
+      <div class="settings-group home-layout-settings">
+        <div class="settings-label-row">
+          <div><p class="settings-label">Карточки на Главной <span class="help-dot" role="button" tabindex="0" data-help="home-layout" aria-label="Справка: Карточки на Главной" title="Что это и зачем?">?</span></p><p class="settings-hint" id="home-layout-status">—</p></div>
+          <button class="btn btn-secondary home-layout-open" id="home-layout-open" type="button">Настроить</button>
+        </div>
+      </div>
+      <div class="settings-group home-layout-settings" data-native-only>
+        <div class="settings-label-row">
+          <div><p class="settings-label">Виджет на рабочем столе <span class="help-dot" role="button" tabindex="0" data-help="widget-layout" aria-label="Справка: Виджет на рабочем столе" title="Что это и зачем?">?</span></p><p class="settings-hint" id="widget-layout-status">—</p></div>
+          <button class="btn btn-secondary home-layout-open" id="widget-layout-open" type="button">Настроить</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <p class="settings-label">📱 Плотность Главного экрана</p>
+        <div class="segmented" id="home-density-segmented" role="radiogroup" aria-label="Плотность Главного экрана">
+          <button type="button" data-density="minimal">Минимум</button>
+          <button class="active" type="button" data-density="normal">Обычный</button>
+          <button type="button" data-density="full">Полный</button>
+        </div>
+        <p class="settings-hint" id="home-density-hint">Обычный: шаги, вода, питание, вес, план дня и самочувствие.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">🎮 Игровой режим <span class="help-dot" role="button" tabindex="0" data-help="game-mode" aria-label="Справка: Игровой режим" title="Что это и зачем?">?</span></p>
+          <label class="switch" for="game-mode-toggle">
+            <input id="game-mode-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить задания дня и медали</span>
+          </label>
+        </div>
+        <p class="settings-hint" id="game-mode-status">Задания дня и медали скрыты.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">😴 Чек-ин сна <span class="help-dot" role="button" tabindex="0" data-help="sleep-checkin" aria-label="Справка: Чек-ин сна" title="Что это и зачем?">?</span></p>
+          <label class="switch" for="sleep-checkin-toggle">
+            <input id="sleep-checkin-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить утренний чек-ин сна</span>
+          </label>
+        </div>
+        <div class="sleep-targets-row" id="sleep-targets-row" hidden>
+          <label for="sleep-target-bed">Отбой
+            <input class="form-input" id="sleep-target-bed" type="time" aria-label="Целевое время отбоя">
+          </label>
+          <label for="sleep-target-wake">Подъём
+            <input class="form-input" id="sleep-target-wake" type="time" aria-label="Целевое время подъёма">
+          </label>
+        </div>
+        <div class="sleep-targets-row sleep-window-row" id="sleep-window-row" hidden>
+          <label for="sleep-window-start">Диалог с
+            <input class="form-input" id="sleep-window-start" type="time" aria-label="Показывать утренний диалог сна начиная с этого времени">
+          </label>
+          <label for="sleep-window-end">до
+            <input class="form-input" id="sleep-window-end" type="time" aria-label="Показывать утренний диалог сна до этого времени">
+          </label>
+        </div>
+        <p class="settings-hint" id="sleep-checkin-status">Чек-ин сна выключен.</p>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Первый запуск</p>
+        <div class="settings-row">
+          <button class="btn btn-secondary" id="setup-wizard-open" type="button">⚙️ Быстрая настройка (6 вопросов)</button>
+        </div>
+        <p class="settings-hint">Пять коротких вопросов включают нужное: напоминания о воде и приёмах пищи, утреннюю мотивацию, «План дня», игровой режим. Все ответы потом меняются прямо здесь, в Настройках.</p>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-general-view -->
+
+  <div id="settings-profile-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="profile">👤</span></div>
+        <div class="card-title-wrap">
+          <h2>Профиль и цели</h2>
+          <p>Данные для расчёта ориентировочных целей (все поля необязательны)</p>
+        </div>
+      </div>
+
+      <div class="settings-group profile-basics-group">
+        <p class="settings-hint">Все поля необязательны: заполнение делает нормы воды, калорий и рекомендации точнее. Эти данные, как и всё в FitFlow, по умолчанию хранятся только на вашем устройстве. Сеть используется, только если вы явно включите онлайн-функции (облачный ИИ — Настройки → Помощник).</p>
+        <div id="profile-basics-options">
+          <p class="settings-label">Пол</p>
+          <div class="segmented" id="profile-sex-choices" role="radiogroup" aria-label="Пол">
+            <button type="button" data-profile-sex="female">Женский</button>
+            <button type="button" data-profile-sex="male">Мужской</button>
+            <button type="button" data-profile-sex="none">Не указан</button>
+          </div>
+          <p class="settings-hint">Повторное нажатие на выбранный вариант снимает выбор.</p>
+          <div class="profile-basics-row">
+            <label for="profile-age-input">Возраст, лет</label>
+            <input id="profile-age-input" class="form-input" type="number" inputmode="numeric" min="5" max="120" placeholder="—">
+          </div>
+          <div class="profile-basics-row">
+            <label for="profile-height-input">Рост, см</label>
+            <input id="profile-height-input" class="form-input" type="number" inputmode="numeric" min="80" max="250" placeholder="—">
+          </div>
+          <p class="settings-label" style="margin-top:10px">Средняя активность</p>
+          <div class="segmented" id="profile-activity-choices" role="radiogroup" aria-label="Средняя активность">
+            <button type="button" data-profile-activity="low">Низкая</button>
+            <button type="button" data-profile-activity="medium">Умеренная</button>
+            <button type="button" data-profile-activity="high">Высокая</button>
+            <button type="button" data-profile-activity="none">Не указан</button>
+          </div>
+          <p class="settings-hint">Низкая — в основном сидячий день. Умеренная — прогулки или тренировки 2–4 раза в неделю. Высокая — занятия спортом почти каждый день или физическая работа.</p>
+          <button class="btn btn-secondary" id="norms-calc-btn" type="button">Рассчитать ориентировочные цели (вода и ккал)</button>
+          <p class="settings-hint">Дневные цели подстраиваются на карточках «Вода» и «Питание»: нажмите «Цель» — откроются шаги −/+.</p>
+        </div>
+      </div>
+
+            <div class="settings-group" id="health-settings-group" data-native-only>
+        <p class="settings-label">🏃 Шаги и синхронизация (Health Connect / телефон)</p>
+        <p class="settings-hint">Автоматический учёт шагов и активности с часов или браслета (любого производителя, через Android Health Connect) или со встроенного аппаратного шагомера телефона.</p>
+        <div class="settings-label-row">
+          <p class="settings-label">Синхронизация шагов</p>
+          <label class="switch" for="health-sync-toggle">
+            <input id="health-sync-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить синхронизацию шагов</span>
+          </label>
+        </div>
+        <div id="health-sync-options" hidden>
+          <p class="settings-label">Приоритет источников</p>
+          <div class="segmented" id="health-priority-choices" role="radiogroup" aria-label="Приоритет источников шагов">
+            <button class="active" type="button" data-health-priority="auto">Авто (Часы → Телефон)</button>
+            <button type="button" data-health-priority="phone_only">Только телефон</button>
+            <button type="button" data-health-priority="health_connect_only">Только часы</button>
+          </div>
+          <div class="settings-label-row" style="margin-top:12px">
+            <p class="settings-label">Калории тренировок в балансе питания</p>
+            <label class="switch" for="health-budget-toggle">
+              <input id="health-budget-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Учитывать сожжённые калории в дневном балансе питания</span>
+            </label>
+          </div>
+          <p class="settings-hint">Добавляет к норме калории тренировок (по MET) и шагов (≈0,04 ккал/шаг). Шаги во время бега/ходьбы не считаются дважды: пересечение с тренировками вычитается.</p>
+          <div class="about-links" style="margin-top:10px">
+            <button class="btn btn-primary" id="health-sync-now-btn" type="button" style="width:100%">🔄 Загрузить данные из Health Connect</button>
+            <button class="btn btn-secondary" id="health-diag-btn" type="button">🩺 Проверить связь и датчики (диагностика)</button>
+            <button class="btn btn-secondary" id="health-connect-open-btn" type="button">⚙️ Системные разрешения Health Connect</button>
+            <button class="btn btn-secondary" id="health-phone-perm-btn" type="button">🚶 Разрешение шагомера телефона</button>
+          </div>
+          <!-- 0.9.15: фоновое чтение Health Connect. Блок скрыт полностью,
+               пока не выяснено состояние: показываем только если разрешение
+               реально можно выдать (Android 15+ и оно ещё не выдано). -->
+          <div id="health-background-read-block" hidden style="margin-top:12px">
+            <p class="settings-hint" id="health-background-read-hint">Сейчас данные с часов подтягиваются только когда приложение открыто.</p>
+            <button class="btn btn-secondary" id="health-background-read-btn" type="button" style="width:100%">🌙 Разрешить чтение в фоне</button>
+          </div>
+          <p class="settings-hint" style="margin-top:12px">Если данные с часов приходят с задержкой — дело обычно не в FitFlow: приложение часов (Zepp, Mi Fitness, Huawei Health) отдаёт их в Health Connect только когда работает само. Отключите для него экономию батареи в настройках Android, тогда синхронизация пойдёт без открытия приложения часов.</p>
+        </div>
+        <p class="settings-hint" id="health-sync-status">Синхронизация выключена.</p>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-profile-view -->
+
+  <div id="settings-notifications-view" hidden>
+    <!-- 0.9.56 (шаг P2): в веб-версии напоминаний пока нет вовсе — весь раздел
+         скрыт (data-native-only), чтобы не было настроек, которые ни на что не
+         влияют. Вернёмся сюда на шаге P8 (фоновые напоминания через web-push). -->
+    <section class="card settings-card settings-sub-card" data-native-only>
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="bell">🔔</span></div>
+        <div class="card-title-wrap">
+          <h2>Уведомления</h2>
+          <p>Утренняя мотивация, приёмы пищи, вода, вечерняя активность и оценка дня</p>
+        </div>
+      </div>
+
+      <p class="settings-hint" id="notif-daily-summary" role="status"></p>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Утренняя мотивация</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="morning-motivation-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="morning-motivation-toggle">
+            <input id="morning-motivation-toggle" type="checkbox" role="switch" aria-describedby="morning-motivation-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить утреннее мотивирующее уведомление</span>
+          </label>
+        </div>
+        <div id="morning-motivation-options" hidden>
+          <div class="reminder-time-row">
+            <label for="morning-motivation-time">Присылать каждый день в</label>
+            <input id="morning-motivation-time" class="time-input" type="time" value="08:00" aria-label="Время утренней мотивации">
+          </div>
+          <div class="motivation-theme-row">
+            <span>Тема фраз</span>
+            <button class="theme-picker-btn" id="morning-motivation-theme" type="button" aria-haspopup="dialog">
+              <span id="morning-motivation-theme-label">Смешанная</span>
+              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="settings-hint" id="morning-motivation-status">Утренние фразы выключены.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Напоминания о приёмах пищи</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="meal-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="meal-reminders-toggle">
+            <input id="meal-reminders-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить напоминания о приёмах пищи</span>
+          </label>
+        </div>
+        <div id="meal-reminders-options" hidden>
+          <div class="settings-row meal-reminder-actions">
+            <button class="btn btn-secondary" id="meal-reminders-all" type="button">Выбрать все</button>
+            <button class="btn btn-secondary" id="meal-reminders-none" type="button">Снять все</button>
+          </div>
+          <div class="meal-reminders-list" id="meal-reminders-list"></div>
+        </div>
+        <p class="settings-hint" id="meal-reminders-status">Напоминания о питании выключены.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Вечерняя активность</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="workout-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="workout-reminder-toggle">
+            <input id="workout-reminder-toggle" type="checkbox" role="switch" aria-describedby="workout-reminder-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить вечернее напоминание об активности</span>
+          </label>
+        </div>
+        <div id="workout-reminder-options" hidden>
+          <div class="reminder-time-row">
+            <label for="workout-reminder-time">Напоминать каждый день в</label>
+            <input id="workout-reminder-time" class="time-input" type="time" value="20:00" aria-label="Время вечернего напоминания об активности">
+          </div>
+        </div>
+        <p class="settings-hint" id="workout-reminder-status">Напоминание выключено.</p>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <p class="settings-label">Вечерняя оценка дня</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="day-mood-reminder-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="day-mood-reminder-toggle">
+            <input id="day-mood-reminder-toggle" type="checkbox" role="switch" aria-describedby="day-mood-reminder-status">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить вечерний вопрос о самочувствии</span>
+          </label>
+        </div>
+        <div id="day-mood-reminder-options" hidden>
+          <div class="reminder-time-row">
+            <label for="day-mood-reminder-time">Спрашивать каждый день в</label>
+            <input id="day-mood-reminder-time" class="time-input" type="time" value="21:00" aria-label="Время вечернего вопроса о самочувствии">
+          </div>
+        </div>
+        <p class="settings-hint" id="day-mood-reminder-status">Напоминание выключено.</p>
+      </div>
+      <div class="settings-group">
+        <p class="settings-label">Напоминания о воде</p>
+        <p class="settings-hint">Регулярные напоминания выпить воду в течение дня.</p>
+        <div class="settings-label-row">
+          <p class="settings-label">Включить напоминания</p>
+          <button class="settings-group-collapse" type="button" data-collapse-for="water-reminders-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="water-reminders-toggle">
+            <input id="water-reminders-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить напоминания о воде</span>
+          </label>
+        </div>
+        <div id="water-reminders-options" hidden>
+          <p class="settings-label">Интервал</p>
+          <div class="segmented" id="water-interval-choices" role="radiogroup" aria-label="Интервал напоминаний о воде">
+            <button type="button" data-water-interval="60">60 мин</button>
+            <button class="active" type="button" data-water-interval="90">90 мин</button>
+            <button type="button" data-water-interval="120">120 мин</button>
+          </div>
+          <p class="settings-label" style="margin-top:10px">Период напоминаний</p>
+          <div class="reminder-time-row water-time-window-row">
+            <label for="water-reminder-window-start">С</label>
+            <input id="water-reminder-window-start" class="time-input" type="time" value="08:00" aria-label="Начало периода напоминаний о воде">
+            <label for="water-reminder-window-end" style="margin-left:6px">до</label>
+            <input id="water-reminder-window-end" class="time-input" type="time" value="22:00" aria-label="Конец периода напоминаний о воде">
+          </div>
+          <!-- 0.5.6 (решение владельца): вместо переключателя «пауза» — автоматика:
+               записали воду — ближайшее напоминание пропускается само, сетка не сдвигается;
+               следующее приходит в свой обычный час. -->
+          <p class="settings-hint">Записали воду — ближайшее напоминание пропустится само, следующее придёт по обычному расписанию.</p>
+          <p class="settings-hint" id="water-reminders-status">Напоминания о воде выключены.</p>
+        </div>
+      </div>
+      <div class="settings-group notification-settings-group">
+        <p class="settings-label">Настройки всех уведомлений</p>
+        <button class="btn btn-secondary notification-setup-btn" id="notification-setup-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Настроить уведомления
+        </button>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-notifications-view -->
+
+  <div id="settings-courses-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="course">💊</span></div>
+        <div class="card-title-wrap">
+          <h2>Мой курс</h2>
+          <p>Витамины, спортивные добавки и назначения по времени</p>
+        </div>
+      </div>
+      <div class="settings-group">
+        <p class="settings-hint">Добавьте приём по расписанию: название, сколько раз в день и время каждого приёма, на сколько дней курс. На Главной в карточке «План дня» появятся строки с кнопками-отметками, а в заданное время придёт напоминание. FitFlow не назначает схемы приёма: их даёт специалист или инструкция, здесь — только учёт и напоминания.</p>
+      </div>
+      <div class="settings-group">
+        <div class="custom-food-list" id="course-list"></div>
+        <p class="settings-hint" id="course-empty">Пока ни одного курса. Добавьте первый — например, «Витамин D» утром в 08:00 на 30 дней.</p>
+      </div>
+      <div class="settings-group">
+        <button class="btn btn-primary" id="course-add" type="button" style="width:100%">＋ Добавить курс</button>
+      </div>
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-courses-view -->
+
+  <div id="settings-ai-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="ai">✨</span></div>
+        <div class="card-title-wrap">
+          <h2>Помощник FitFlow</h2>
+          <p>Локальные факты из базы или настоящая нейросеть через ваш ключ</p>
+        </div>
+      </div>
+
+      <div class="settings-group ai-settings-group">
+        <div class="settings-label-row">
+          <div>
+            <p class="settings-label">✨ Помощник FitFlow</p>
+            <p class="settings-hint">Три честных режима: локальные факты из базы продуктов (мгновенно, офлайн), облачная нейросеть через ваш ключ (ответит на любой вопрос, распознает фото) или Gemma прямо на устройстве (офлайн, без ключей).</p>
+          </div>
+          <button class="settings-group-collapse" type="button" data-collapse-for="ai-settings-options" aria-expanded="true" aria-label="Свернуть или развернуть раздел"><svg class="chevron-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <label class="switch" for="ai-toggle">
+            <input id="ai-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Включить Помощника FitFlow</span>
+          </label>
+        </div>
+        <div id="ai-settings-options" hidden>
+          <p class="settings-label" style="margin-top:10px">Режим работы ИИ-ядра</p>
+          <div class="segmented" id="ai-mode-choices" role="radiogroup" aria-label="Режим работы ИИ">
+            <button class="active" type="button" data-ai-mode="expert" title="Факты из базы продуктов, рецепты и аналитика — мгновенно и офлайн">⚡ Быстрый (офлайн)</button>
+            <button type="button" data-ai-mode="cloud" title="Нейросеть провайдера на ваш выбор — нужен интернет и ваш ключ">☁️ Облако</button>
+            <button type="button" data-ai-mode="litert" data-native-only title="Нейросеть работает прямо на телефоне: без интернета, без ключей; умеет смотреть фото еды">Gemma на устройстве</button>
+          </div>
+          <div id="ai-cloud-box" class="ai-model-box" hidden>
+            <p class="settings-label" style="margin-top:0">☁️ Облачная нейросеть — по вашему ключу</p>
+            <!-- 0.8.28: облако не работает, пока не разрешён выход в сеть. Говорим об этом прямо,
+                 а не молча отдаём офлайн-ответ. -->
+            <p class="settings-hint" id="ai-cloud-blocked" style="margin:0 0 8px;font-weight:600;color:var(--md-sys-color-error)" hidden>
+              🔒 Онлайн-функции выключены — облако не используется, ответы считаются офлайн.
+              Включите: Настройки → Онлайн-функции → «Облачная нейросеть».
+            </p>
+            <p class="settings-hint">Более свободные ответы о питании, живой текст рецептов и анализа, распознавание фото моделью Gemini. Нужен интернет и ваш личный ключ; текст запроса уходит выбранному провайдеру. Бесплатные варианты: OpenRouter (модели с пометкой «free», ~50 запросов в день) и Gemini (дневной лимит; доступность зависит от страны). Для ежедневной работы приложения облако не требуется. Ключ хранится только на устройстве.</p>
+            <div class="segmented" id="ai-cloud-provider" role="radiogroup" aria-label="Провайдер облачного ИИ">
+              <button class="active" type="button" data-cloud-provider="gemini">Google Gemini</button>
+              <button type="button" data-cloud-provider="deepseek">DeepSeek</button>
+              <button type="button" data-cloud-provider="openrouter">OpenRouter</button>
+              <button type="button" data-cloud-provider="pollinations">Pollinations</button>
+              <button type="button" data-cloud-provider="gigachat">GigaChat</button>
+              <button type="button" data-cloud-provider="custom">Свой сервер</button>
+            </div>
+            <p class="settings-hint" id="ai-cloud-hint" style="margin-top:8px"></p>
+            <div class="profile-basics-row" id="ai-cloud-base-row" hidden>
+              <label for="ai-cloud-base">Адрес сервера</label>
+              <input id="ai-cloud-base" class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="например: http://192.168.1.5:8080/v1">
+            </div>
+            <div class="profile-basics-row">
+              <label for="ai-cloud-key">API-ключ</label>
+              <input id="ai-cloud-key" class="form-input" type="password" inputmode="text" autocomplete="off" placeholder="Вставьте ключ сюда">
+            </div>
+            <div class="profile-basics-row">
+              <label for="ai-cloud-model">Модель</label>
+              <input id="ai-cloud-model" class="form-input" type="text" autocomplete="off" placeholder="выберется автоматически">
+            </div>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-primary" id="ai-cloud-check" type="button">✓ Проверить подключение</button>
+              <button class="btn btn-secondary" id="ai-cloud-clear" type="button">Очистить ключ</button>
+            </div>
+            <p class="settings-hint" id="ai-cloud-status" style="margin-top:8px"></p>
+          </div>
+          <div id="ai-litert-box" class="ai-model-box" hidden>
+            <p class="settings-hint" id="ai-model-status">○ Модель не выбрана: укажите файл Gemma (.litertlm) с телефона или скачайте автоматически.</p>
+            <p class="settings-hint ai-device-hint" id="ai-device-hint" hidden></p>
+            <p class="settings-hint" style="margin-top:8px">
+              Модель скачивается один раз с сайта Hugging Face: нужен бесплатный аккаунт и согласие с условиями Gemma.
+              <span class="help-dot" role="button" tabindex="0" data-help="ai-model-download" aria-label="Справка: как получить файл модели" title="Пошаговая инструкция">?</span>
+            </p>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="ai-model-page-btn" type="button">🔗 Открыть страницу модели</button>
+            </div>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="ai-select-btn" type="button">📁 Выбрать файл модели (.litertlm)</button>
+              <button class="btn btn-secondary" id="ai-download-btn" type="button">📥 Скачать Gemma автоматически</button>
+              <input type="file" id="ai-model-file-input" accept=".litertlm,.task" hidden>
+            </div>
+            <div id="ai-download-panel" hidden>
+              <div class="profile-basics-row">
+                <label for="ai-download-url">Прямая ссылка на файл .litertlm</label>
+                <input id="ai-download-url" class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="https://…/gemma.litertlm?download=true">
+              </div>
+              <p class="settings-hint" id="ai-download-hint">💡 Где взять ссылку: нажмите «Открыть страницу модели» выше, войдите в аккаунт Hugging Face и примите условия Gemma, затем во вкладке «Files and versions» скопируйте прямую ссылку на файл .litertlm (долгое нажатие на значок скачивания → «Копировать ссылку»). Ссылка действует ограниченное время — вставляйте её сразу. GGUF (llama.cpp) не подходит. Для слабых телефонов берите модель поменьше — Gemma 3 1B (~0,5 ГБ).</p>
+              <div class="settings-row">
+                <button class="btn btn-primary" id="ai-download-start" type="button">Начать скачивание</button>
+                <button class="btn btn-secondary" id="ai-download-cancel" type="button" hidden>Остановить</button>
+              </div>
+            </div>
+            <div id="ai-progress-wrap" class="ai-progress-wrap" hidden>
+              <div class="ai-progress-bar"><div id="ai-progress-fill" class="ai-progress-fill" style="width:0%"></div></div>
+              <p class="settings-hint" id="ai-progress-text">Загрузка модели: 0%</p>
+            </div>
+          </div>
+          <div class="ai-model-box" style="margin-top:12px">
+            <p class="settings-label" style="margin-top:0">🔬 Журнал распознаваний</p>
+            <p class="settings-hint" id="parse-log-status">Пока пусто. Каждый разбор умного ввода и фото будет писаться сюда автоматически.</p>
+            <div class="settings-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="parse-log-export-btn" type="button">📄 Скачать файл</button>
+              <button class="btn btn-secondary" id="parse-log-copy-btn" type="button">📋 Копировать</button>
+              <button class="btn btn-ghost" id="parse-log-clear-btn" type="button">🧹 Очистить</button>
+            </div>
+            <p class="settings-hint">Пишется всё: что ввели или сфотографировали → что распозналось → что не разобрано → записано ли в дневник. Сам никуда не отправляется: файл сохраните и пришлите разработчику (или загрузите на GitHub) — по нему чинится точность.</p>
+          </div>
+          <div class="ai-model-box" style="margin-top:12px;border:1px solid var(--primary)">
+            <p class="settings-label" style="margin-top:0">💬 Проверочный запрос в выбранную модель</p>
+            <p class="settings-hint">Отправьте свой контрольный вопрос, чтобы убедиться, что модель реально работает:</p>
+            <div class="settings-row" style="margin-top:8px">
+              <input type="text" id="ai-test-query-input" class="form-input" placeholder="Например: сколько калорий в 100г овсянки?" style="flex:1">
+              <button class="btn btn-primary" id="ai-test-query-btn" type="button">⚡ Отправить</button>
+            </div>
+            <div id="ai-test-query-result" class="ai-result-box" style="margin-top:10px" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-ai-view -->
+
+  <!-- 0.8.28 (решение владельца): единый рубильник онлайн-функций.
+       FitFlow остаётся офлайн-приложением: общий переключатель ВЫКЛ по умолчанию,
+       и пока он выключен, ни одна функция не может выйти в сеть. -->
+  <div id="settings-online-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji">🌐</span></div>
+        <div class="card-title-wrap">
+          <h2>Онлайн-функции</h2>
+          <p>По умолчанию всё выключено — приложение работает полностью офлайн</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label-row">
+          <div>
+            <p class="settings-label">🌐 Разрешить выход в интернет</p>
+            <p class="settings-hint">Главный рубильник. Пока он выключен, FitFlow не отправляет ни одного запроса в сеть — что бы ни было настроено в других разделах. Все основные функции (вода, калории, тренировки, база 960+ продуктов) работают офлайн и в интернете не нуждаются.</p>
+          </div>
+          <label class="switch" for="online-master-toggle">
+            <input id="online-master-toggle" type="checkbox" role="switch">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Разрешить выход в интернет</span>
+          </label>
+        </div>
+
+        <div id="online-features-options" hidden>
+          <p class="settings-hint" style="margin:10px 0 0">Ниже включайте по отдельности только то, что нужно вам. Выключение главного рубильника мгновенно отключает всё сразу.</p>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">☁️ Облачная нейросеть</p>
+              <p class="settings-hint">Разрешает режим «Облако» в разделе «Помощник FitFlow»: текст вашего вопроса и фото еды (если распознаёте по фото) уходят выбранному провайдеру. Распознаёт еду заметно точнее модели на устройстве. Ключ хранится только у вас.</p>
+            </div>
+            <label class="switch" for="online-cloud-ai-toggle">
+              <input id="online-cloud-ai-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить облачную нейросеть</span>
+            </label>
+          </div>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">🔍 Поиск по штрих-коду</p>
+              <p class="settings-hint">Ищет продукт в открытой базе Open Food Facts по штрих-коду с упаковки (кнопка «Сканировать штрих-код» в «Мои продукты»). В сеть уходит только сам код — фотографии никуда не отправляются. Найденные значения всё равно предлагается сверить с упаковкой. Уже отсканированные продукты запоминаются и потом работают без интернета.</p>
+            </div>
+            <label class="switch" for="online-barcode-toggle">
+              <input id="online-barcode-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить поиск по штрих-коду</span>
+            </label>
+          </div>
+
+          <div class="settings-label-row" style="margin-top:12px">
+            <div>
+              <p class="settings-label">⬇️ Скачивание модели на устройство</p>
+              <p class="settings-hint">Нужно ровно один раз, чтобы принести файл модели (около 1 ГБ) для офлайн-нейросети. Сама модель потом работает без интернета. Файл можно выбрать и вручную — тогда сеть не нужна вовсе.</p>
+            </div>
+            <label class="switch" for="online-model-download-toggle">
+              <input id="online-model-download-toggle" type="checkbox" role="switch">
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="sr-only">Разрешить скачивание модели</span>
+            </label>
+          </div>
+        </div>
+
+        <p class="settings-hint" id="online-summary" style="margin-top:14px;font-weight:600"></p>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-online-view -->
+
+  <div id="settings-data-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="backup">💾</span></div>
+        <div class="card-title-wrap">
+          <h2>Данные и резервные копии</h2>
+          <p>Одна копия сохраняет все локальные профили разом</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Резервное копирование</p>
+        <div class="settings-row">
+          <p class="settings-hint" id="backup-last-info" role="status">Резервная копия ещё не создавалась.</p>
+          <button class="btn btn-secondary" id="export-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Экспорт
+          </button>
+          <button class="btn btn-secondary" id="import-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 14V3M7.5 8.5 12 4l4.5 4.5M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Импорт
+          </button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+        <p class="settings-hint">Один экспорт сохраняет все локальные профили и их данные. При полном импорте текущие профили на устройстве будут заменены резервной копией.</p>
+      </div>
+
+      <!-- 0.9.44: строка состояния движка хранения. Её описывали OPEN-ISSUES (O1)
+           и разбор 0.9.43 (O7), но самого узла в разметке не было — поэтому
+           renderStorageEngineStatus() всегда выходил по «if (!statusEl) return»,
+           и ни движок, ни счётчик сорванных сохранений никто не видел.
+           Текст целиком задаёт app.js, здесь — только честное стартовое
+           значение до первой отрисовки. -->
+      <div class="settings-group">
+        <p class="settings-label">Хранилище</p>
+        <p class="settings-hint" id="storage-engine-status" role="status">💾 Хранилище: localStorage (Dual-Write резерв)</p>
+      </div>
+
+      <div class="settings-group">
+        <p class="settings-label">Данные</p>
+        <button class="btn btn-secondary" id="export-csv-btn" type="button">📄 Экспорт в CSV (для Excel)</button>
+        <button class="btn btn-danger" id="reset-btn" type="button">Сбросить все данные</button>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-data-view -->
+
+  <div id="settings-about-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="about">ℹ️</span></div>
+        <div class="card-title-wrap">
+          <h2>О приложении</h2>
+          <p>FitFlow <span id="about-version">v0.9.57 (build 0)</span> · Offline-first</p>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-about-content">
+          <p class="settings-hint">Все данные хранятся только на вашем устройстве, регистрация не требуется.</p>
+
+          <div class="about-group">
+            <p class="settings-label">Справка</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="faq-open" type="button">❓ Частые вопросы (FAQ)</button>
+              <button class="btn btn-secondary" id="onboarding-open" type="button">💧 Как пользоваться приложением</button>
+              <button class="btn btn-secondary" id="methodology-open" type="button">🧮 Методика расчётов</button>
+            </div>
+          </div>
+
+          <div class="about-group">
+            <p class="settings-label">Правовое и данные</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="privacy-help" type="button">🔒 Приватность и офлайн-работа</button>
+              <button class="btn btn-secondary" id="terms-open" type="button">🛡️ Условия использования</button>
+              <button class="btn btn-secondary" id="license-open" type="button">📜 Лицензия и сторонние компоненты</button>
+              <button class="btn btn-secondary" id="sources-open" type="button">ℹ️ Источники пищевых данных</button>
+            </div>
+          </div>
+
+          <div class="about-group">
+            <p class="settings-label">Поддержка проекта</p>
+            <div class="about-links">
+              <button class="btn btn-secondary" id="about-support-open" type="button">💝 FitFlow PRO · Как поддержать</button>
+              <button class="btn btn-secondary" id="about-charity-open" type="button">🤝 Добрые дела · Отчёты</button>
+            </div>
+          </div>
+
+          <div class="charity-block" id="about-support-block" hidden></div>
+          <div class="charity-block" id="charity-block" hidden><div id="charity-list"></div></div>
+          <p class="settings-hint" id="terms-status" style="margin-top:10px">Условия использования приняты.</p>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn settings-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /settings-about-view -->
+
+  <!-- ===== Медали: отдельный экран (только медали) ===== -->
+  <div id="game-medals-view" hidden>
+    <section class="card settings-card settings-sub-card">
+      <div class="card-header">
+        <div class="card-icon settings-icon" aria-hidden="true"><span class="settings-sub-emoji" data-icon-slot="medals">🏅</span></div>
+        <div class="card-title-wrap">
+          <h2>Медали</h2>
+          <p id="game-medals-count">—</p>
+        </div>
+      </div>
+      <div id="game-medals-grid"></div>
+      <p class="settings-hint">Цифра внутри значка — цель медали. Медали «Бег» и «Шаги» расстояние и шаги не измеряют напрямую, а честно оценивают по минутам активности (пометка «по оценке»).</p>
+      <button class="btn btn-ghost setup-back-btn" id="game-medals-back" type="button">← Назад на Главную</button>
+    </section>
+  </div><!-- /game-medals-view -->
+
+  <!-- ===== Чек-ин сна: утренний диалог ===== -->
+  <div class="app-dialog-backdrop" id="sleep-checkin-dialog" role="dialog" aria-modal="true" aria-labelledby="sleep-checkin-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">😴</div>
+      <h2 id="sleep-checkin-title">Как спалось?</h2>
+      <p class="app-dialog-text">Оцените сон одним нажатием — остальное по желанию.</p>
+      <div class="sleep-rating-row" id="sleep-rating-row" role="group" aria-label="Оценка сна">
+        <button type="button" data-sleep-rating="1" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">😫</span><small>ужасно</small></button>
+        <button type="button" data-sleep-rating="2" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🙁</span><small>плохо</small></button>
+        <button type="button" data-sleep-rating="3" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">😐</span><small>нормально</small></button>
+        <button type="button" data-sleep-rating="4" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🙂</span><small>хорошо</small></button>
+        <button type="button" data-sleep-rating="5" aria-pressed="false"><span class="sleep-emoji" aria-hidden="true">🚀</span><small>отлично</small></button>
+      </div>
+      <button type="button" class="sleep-extra-toggle" id="sleep-extra-toggle" aria-expanded="false">🕐 Ещё: время сна и «перед сном» ▾</button>
+      <div class="sleep-extra" id="sleep-extra" hidden>
+        <div class="sleep-time-row">
+          <label for="sleep-bed-input">Лёг(ла)
+            <input class="form-input" id="sleep-bed-input" type="time" aria-label="Во сколько легли спать">
+          </label>
+          <label for="sleep-wake-input">Встал(а)
+            <input class="form-input" id="sleep-wake-input" type="time" aria-label="Во сколько проснулись">
+          </label>
+          <button type="button" class="btn btn-ghost" id="sleep-fill-targets" title="Подставить целевые время отбоя и подъёма из настроек">По режиму</button>
+        </div>
+        <p class="settings-label sleep-tags-label">Что было перед сном?</p>
+        <div class="sleep-tags" id="sleep-tags">
+          <button type="button" class="chip" data-sleep-tag="phone" aria-pressed="false">📱 Экран</button>
+          <button type="button" class="chip" data-sleep-tag="sport" aria-pressed="false">🏋️ Спорт</button>
+          <button type="button" class="chip" data-sleep-tag="coffee" aria-pressed="false">☕ Кофе/чай</button>
+          <button type="button" class="chip" data-sleep-tag="food" aria-pressed="false">🍽️ Поздняя еда</button>
+          <button type="button" class="chip" data-sleep-tag="work" aria-pressed="false">💼 Работа</button>
+          <button type="button" class="chip" data-sleep-tag="book" aria-pressed="false">📖 Чтение</button>
+          <button type="button" class="chip" data-sleep-tag="alcohol" aria-pressed="false">🍷 Алкоголь</button>
+          <button type="button" class="chip" data-sleep-tag="walk" aria-pressed="false">🚶 Прогулка</button>
+        </div>
+      </div>
+      <p class="settings-hint" id="sleep-summary"></p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="sleep-save-btn" type="button">Сохранить</button>
+        <button class="btn btn-ghost" id="sleep-skip-btn" type="button">Позже</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Справка по разделу (значок «?») ===== -->
+  <div class="app-dialog-backdrop" id="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💡</div>
+      <h2 id="help-title">Справка</h2>
+      <p class="app-dialog-text" id="help-text"></p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="help-ok" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== 0.8.4: выбор упражнения для силовой ===== -->
+  <!-- 0.9.46 (п.10 владельца): подтверждение очистки заполнения силовой — своим окном.
+       Системный confirm() на Android показывает белый прямоугольник с кнопками
+       OK/Cancel, который выбивается из оформления приложения. -->
+  <div class="app-dialog-backdrop" id="strength-cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="strength-cancel-title" hidden>
+    <section class="app-dialog strength-cancel-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🧹</div>
+      <h2 id="strength-cancel-title">Очистить заполнение?</h2>
+      <p>Несохранённые подходы этой тренировки будут удалены. Сохранённые ранее тренировки останутся на месте.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="strength-cancel-keep" type="button">Продолжить</button>
+        <button class="btn btn-primary" id="strength-cancel-confirm" type="button">Очистить</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="strength-exercise-dialog" role="dialog" aria-modal="true" aria-labelledby="strength-exercise-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏋️</div>
+      <h2 id="strength-exercise-title">Выберите упражнение</h2>
+      <div class="strength-groups" id="strength-groups"></div>
+      <div class="strength-exercise-list" id="strength-exercise-list"></div>
+      <label class="strength-custom">
+        <span>Своё упражнение</span>
+        <input type="text" class="form-input" id="strength-custom-name" maxlength="60" placeholder="Например, болгарские выпады">
+      </label>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="strength-exercise-cancel" type="button">Отмена</button>
+        <button class="btn btn-primary" id="strength-custom-add" type="button">Добавить своё</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== FAQ: частые вопросы с поиском (0.7.18, полностью офлайн) ===== -->
+  <div class="app-dialog-backdrop" id="faq-dialog" role="dialog" aria-modal="true" aria-labelledby="faq-title" hidden>
+    <section class="app-dialog faq-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">❓</div>
+      <h2 id="faq-title">Частые вопросы</h2>
+      <input type="search" class="form-input faq-search" id="faq-search" placeholder="Поиск по вопросам…" aria-label="Поиск по частым вопросам">
+      <div class="faq-list" id="faq-list"></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="faq-close" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== 0.8.20: поиск по базе продуктов («Что в базе») ===== -->
+  <div class="app-dialog-backdrop" id="product-search-dialog" role="dialog" aria-modal="true" aria-labelledby="product-search-title" hidden>
+    <section class="app-dialog product-search-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🔍</div>
+      <h2 id="product-search-title">Что в базе</h2>
+      <input type="search" class="form-input product-search-input" id="product-search-input" placeholder="Начните вводить продукт…" aria-label="Поиск продукта в базе">
+      <div class="product-search-list" id="product-search-list"></div>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="product-search-close" type="button">Закрыть</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
+    <section class="app-dialog onboarding-dialog">
+      <div class="app-dialog-icon" id="onboarding-emoji" aria-hidden="true">💧</div>
+      <h2 id="onboarding-title">Добро пожаловать</h2>
+      <p class="app-dialog-text" id="onboarding-text"></p>
+      <div class="onboarding-dots" id="onboarding-dots" aria-hidden="true"></div>
+      <div class="app-dialog-actions onboarding-actions">
+        <button class="btn btn-ghost" id="onboarding-skip" type="button">Пропустить</button>
+        <button class="btn btn-primary" id="onboarding-next" type="button">Далее →</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Настройка уведомлений ===== -->
+  <div id="notifications-view" hidden>
+    <section class="card notification-setup-card" aria-labelledby="notification-setup-title">
+      <div class="card-header">
+        <div class="card-icon notification-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="card-title-wrap">
+          <h2 id="notification-setup-title">Настроить уведомления</h2>
+          <p>Чтобы вечернее напоминание пришло вовремя</p>
+        </div>
+      </div>
+
+      <p class="notification-intro">Android может ограничивать работу приложений в фоне. Проверьте три пункта ниже — обычно это занимает меньше минуты.</p>
+
+      <ol class="setup-steps">
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">1</span>
+          <div class="setup-step-content">
+            <h3>Показ уведомлений</h3>
+            <p>Без этого разрешения FitFlow не сможет показать напоминание.</p>
+            <p class="setup-state setup-state-ok" id="setup-notifications-ok" hidden>✓ Уже разрешено</p>
+            <p class="setup-state setup-state-bad" id="setup-notifications-bad" hidden>✗ Запрещено — напоминание не придёт</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="notifications">Открыть настройку</button>
+          </div>
+        </li>
+
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">2</span>
+          <div class="setup-step-content">
+            <h3>Работа без ограничений батареи</h3>
+            <p>Иначе система может «заморозить» приложение, и напоминание опоздает.</p>
+            <p class="setup-state setup-state-ok" id="setup-battery-ok" hidden>✓ Уже разрешено</p>
+            <p class="setup-state setup-state-bad" id="setup-battery-bad" hidden>✗ Не разрешено — напоминание может опоздать</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="battery">Открыть настройку</button>
+          </div>
+        </li>
+
+        <li class="setup-step">
+          <span class="setup-number" aria-hidden="true">3</span>
+          <div class="setup-step-content">
+            <h3 id="setup-autostart-title">Автозапуск и работа в фоне</h3>
+            <p id="setup-autostart-hint">Разрешите FitFlow запускаться после перезагрузки телефона и работать в фоне.</p>
+            <button class="btn btn-secondary btn-setup" type="button" data-open-settings="autostart">Открыть настройку</button>
+          </div>
+        </li>
+      </ol>
+
+      <p class="vendor-note" id="setup-vendor-note">На «чистом» Android обычно достаточно первых двух пунктов.</p>
+
+      <div class="notification-test-box">
+        <h3>Проверить уведомление</h3>
+        <p>Отправит отдельное тестовое уведомление примерно через 5 секунд. Вечерний вопрос и его время не изменятся.</p>
+        <button class="btn btn-secondary" id="notification-test-btn" type="button">Отправить тест</button>
+      </div>
+
+      <button class="btn btn-ghost setup-back-btn" id="notifications-back-btn" type="button">← Назад к настройкам</button>
+    </section>
+  </div><!-- /notifications-view -->
+
+  <!-- ===== ИИ-центр: отдельный экран (0.3.16, фикс кейса GBoard) =====
+       Раньше — модальный #ai-dialog на фиксированной подложке: после холодного
+       старта приложения первая фокусировка его поля в WebView рвалась (клавиатура
+       со 2-го тапа, микрофон GBoard молчал). Обычный экран ведёт себя как поле
+       Питания на Главной, где фокус работает всегда. -->
+  <div id="ai-view" hidden>
+    <section class="card ai-center" aria-labelledby="ai-center-title">
+      <div class="ai-center-head">
+        <div class="card-icon ai-center-icon" aria-hidden="true" data-icon-slot="ai">✨</div>
+        <div class="card-title-wrap">
+          <h2 id="ai-center-title">Помощник FitFlow</h2>
+          <p>Быстрый ввод, рецепт, анализ периода и вопросы о питании</p>
+        </div>
+      </div>
+<div class="segmented" id="ai-tabs" role="tablist" aria-label="Режимы ИИ" style="margin-bottom:12px">
+        <button class="active" id="ai-tab-quick-btn" type="button" role="tab" data-ai-tab="quick"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2.5 5.5 14H11l-1.5 7.5L17 10h-5.5L13 2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Ввод</button>
+        <button id="ai-tab-recipe-btn" type="button" role="tab" data-ai-tab="recipe"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.6c2.3-.9 4.6-.7 7 .9 2.4-1.6 4.7-1.8 7-.9v14c-2.3-.9-4.6-.7-7 .9-2.4-1.6-4.7-1.8-7-.9v-14Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Рецепт</button>
+        <button id="ai-tab-analysis-btn" type="button" role="tab" data-ai-tab="analysis"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 16.5v-4M12.5 16.5v-8M17.5 16.5v-5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.5 19.5h15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Анализ</button>
+        <button id="ai-tab-chat-btn" type="button" role="tab" data-ai-tab="chat"><svg class="ai-tab-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.8 9.2a7.2 6.3 0 1 1 4.1 6H8.5l-3.2 2.6a.4.4 0 0 1-.5-.3V9.2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.2v4.6M9.7 9.5h4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Спросить</button>
+      </div>
+      <!-- Вкладка: Умный ввод за день (текст / голос / фото-заметка) -->
+      <div id="ai-tab-quick" class="ai-tab-panel">
+        <p class="settings-hint" style="margin-top:0">Одной фразой — всё сразу: «500 мл воды, овсянка 150 г, гулял 40 мин» — FitFlow сам разложит по разделам (офлайн, база 960+ продуктов). Можно надиктовать голосом или сфотографировать блюдо. <button class="chip chip-sm" id="ai-quick-example" type="button" title="Подставить пример фразы в поле ниже">Подставить пример</button></p>
+        <div class="ai-input-stack">
+          <textarea id="ai-quick-input" class="form-input ai-textarea" rows="3" placeholder="Например: 500 мл воды, овсянка 150г с бананом, гулял 40 мин" aria-label="Что вы съели, выпили или какую активность выполнили"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-quick-voice-btn" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-camera-btn" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-gallery-btn" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-quick-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-quick-parse-btn" type="button">Разобрать</button>
+            <input type="file" id="ai-quick-camera-input" accept="image/*" capture="environment" hidden>
+            <input type="file" id="ai-quick-gallery-input" accept="image/*" hidden>
+          </div>
+        </div>
+        <div id="ai-quick-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Рецепт из холодильника -->
+      <div id="ai-tab-recipe" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">Перечислите продукты, которые есть дома, или сфотографируйте полку холодильника — FitFlow предложит блюдо из них с учётом вашей нормы калорий.</p>
+        <div class="ai-input-stack">
+          <textarea id="ai-recipe-input" class="form-input ai-textarea" rows="3" placeholder="Например: куриная грудка, рис, помидоры, сыр, яйца" aria-label="Какие продукты у вас есть?"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-voice-btn" type="button" title="Назвать продукты голосом" aria-label="Назвать продукты голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-camera-btn" type="button" title="Сфотографировать продукты" aria-label="Сфотографировать продукты">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1-1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-gallery-btn" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-recipe-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-generate-recipe" type="button">Создать</button>
+            <input type="file" id="ai-recipe-camera-input" accept="image/*" capture="environment" hidden>
+            <input type="file" id="ai-recipe-gallery-input" accept="image/*" hidden>
+          </div>
+        </div>
+        <div id="ai-recipe-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Анализ моей недели / месяца -->
+      <div id="ai-tab-analysis" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0"><span class="beta-badge" role="button" tabindex="0" data-help="beta-ai-analysis" aria-label="Бета-функция: анализ периода. Подробнее" title="Бета: функция в разработке и тестировании">бета</span> FitFlow соберёт итоги за период: вес, воду, питание, активность и оценки самочувствия — и подскажет, что идёт хорошо и на что обратить внимание.</p>
+        <div class="ai-input-stack">
+          <div class="segmented" id="ai-analysis-period" role="radiogroup" aria-label="Период анализа">
+            <button class="active" type="button" data-ai-period="7">7 дней</button>
+            <button type="button" data-ai-period="30">30 дней</button>
+          </div>
+          <div class="ai-actions-row">
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-run-analysis" type="button">Анализ</button>
+          </div>
+        </div>
+        <div id="ai-analysis-result" class="ai-result-box" hidden></div>
+      </div>
+      <!-- Вкладка: Спросить о питании -->
+      <div id="ai-tab-chat" class="ai-tab-panel" hidden>
+        <p class="settings-hint" style="margin-top:0">Спросите о питании, воде или тренировках простыми словами. Локально отвечу фактами из базы продуктов; с облачным ИИ (Настройки → Помощник) нейросеть ответит на любой вопрос с учётом вашего дня. Вопрос можно и надиктовать.</p>
+        <div class="ai-input-stack">
+          <textarea id="ai-chat-input" class="form-input ai-textarea" rows="3" placeholder="Например: сколько белка нужно после пробежки?" aria-label="Вопрос о питании"></textarea>
+          <div class="ai-actions-row">
+            <button class="icon-btn ai-icon-btn" id="ai-chat-voice-btn" type="button" title="Надиктовать вопрос голосом" aria-label="Надиктовать вопрос голосом">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn ai-icon-btn" id="ai-chat-clear-btn" type="button" title="Очистить поле" aria-label="Очистить поле">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <span class="ai-actions-spacer"></span>
+            <button class="btn btn-primary" id="ai-send-chat" type="button">Спросить</button>
+          </div>
+        </div>
+        <div id="ai-chat-result" class="ai-result-box" hidden></div>
+      </div>
+      <button class="btn btn-ghost detail-back-btn" id="ai-view-back" type="button">← Назад на главную</button>
+    </section>
+  </div><!-- /ai-view -->
+
+  </main>
+
+  <!-- ===== Нижняя навигация ===== -->
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <button class="nav-item active" data-nav="home" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4v-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+      <span>Главная</span>
+    </button>
+    <button class="nav-item" data-nav="stats" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Статистика</span>
+    </button>
+    <button class="nav-item" data-nav="training" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 4v16M17 4v16M4 8.5h3M4 15.5h3M17 8.5h3M17 15.5h3M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>Активность</span>
+    </button>
+    <button class="nav-item" data-nav="settings" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7h8M18 7h2M4 12h2M10 12h10M4 17h11M19 17h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="15" cy="7" r="2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="7" cy="12" r="2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="16.5" cy="17" r="2" stroke="currentColor" stroke-width="1.8"/>
+      </svg>
+      <span>Настройки</span>
+    </button>
+  </nav>
+
+  <button class="activity-fab" id="activity-fab" type="button" hidden>↓ К форме</button>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Первый вход в раздел «Активность»: вопрос о напоминании -->
+  <div class="app-dialog-backdrop" id="sources-dialog" role="dialog" aria-modal="true" aria-labelledby="sources-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">ℹ️</div>
+      <h2 id="sources-dialog-title">Источники пищевых данных</h2>
+      <div class="terms-list">
+        <p><b>USDA FoodData Central / SR Legacy.</b> Открытая государственная база пищевой ценности. Данные добавлены как усреднённые справочные значения.</p>
+        <p><b>Open Food Facts.</b> Открытая база упакованных продуктов. Используется на условиях Open Database License (ODbL) с указанием источника.</p>
+        <p><b>Важно.</b> У конкретного бренда, рецепта, размера порции и способа приготовления калорийность может отличаться. Всегда ориентируйтесь на этикетку продукта, если она доступна.</p>
+      </div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="sources-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <!-- Мои продукты: личная база с точными значениями с упаковки (0.3.25) -->
+  <div class="app-dialog-backdrop" id="custom-food-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-food-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🏷️</div>
+      <h2 id="custom-food-title">Мои продукты</h2>
+      <p class="settings-hint">Точные значения с упаковки вашего бренда или рецепта. Свой продукт перекрывает усреднённый из общей базы — расчёт становится правдивее. Калорийность и БЖУ указываются на 100 г, как на этикетке.</p>
+      <!-- 0.9.2: сканер штрих-кода камерой (ZXing, офлайн, без Google Play Services).
+           Ручного ввода кода нет намеренно: набирать 13 цифр дольше, чем сами
+           значения с этикетки. Кнопка скрыта по умолчанию и показывается из
+           syncBarcodeScanButton() только при наличии нативного моста и камеры,
+           поэтому в браузере и на устройстве без камеры её не видно вовсе. -->
+      <div class="custom-food-form">
+        <button class="btn btn-secondary" id="custom-food-scan" type="button" hidden>📷 Сканировать штрих-код</button>
+        <input class="dialog-text-input" id="custom-food-name" type="text" placeholder="Название (напр., «Творог 5%»)" maxlength="60">
+        <div class="custom-food-grid">
+          <label>ккал/100 г*<input class="dialog-text-input" id="custom-food-kcal" type="number" inputmode="decimal" min="1" max="900" placeholder="105"></label>
+          <label>Белки/100 г<input class="dialog-text-input" id="custom-food-p" type="number" inputmode="decimal" min="0" placeholder="16"></label>
+          <label>Жиры/100 г<input class="dialog-text-input" id="custom-food-f" type="number" inputmode="decimal" min="0" placeholder="5"></label>
+          <label>Углеводы/100 г<input class="dialog-text-input" id="custom-food-c" type="number" inputmode="decimal" min="0" placeholder="3.5"></label>
+          <label>Вес 1 шт, г<input class="dialog-text-input" id="custom-food-piece" type="number" inputmode="decimal" min="0" placeholder="—"></label>
+        </div>
+        <p class="settings-hint" style="margin:0">«Вес 1 шт» — только для штучных продуктов (батончик, сырник, печенье): тогда «2 шт» посчитается честно.</p>
+        <!-- 0.9.7 (замечание владельца): «я это съел, а не веду справочник».
+             Кнопка скрыта и появляется из showScannedEatButton() только после
+             удачного сканирования, когда уже известны и вес упаковки, и ккал:
+             никаких заглушек, пока считать нечего. -->
+        <button class="btn btn-primary" id="custom-food-eat" type="button" hidden></button>
+        <button class="btn btn-primary" id="custom-food-save" type="button">Сохранить продукт</button>
+      </div>
+      <div class="custom-food-list" id="custom-food-list"></div>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="custom-food-close" type="button" style="width:100%">Готово</button></div>
+    </section>
+  </div>
+
+  <!-- Подтверждение удаления своего продукта (0.3.26) -->
+  <div class="app-dialog-backdrop" id="custom-food-del-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-food-del-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🗑️</div>
+      <h2 id="custom-food-del-title">Удалить продукт?</h2>
+      <p id="custom-food-del-name" style="font-weight:600"></p>
+      <p class="settings-hint">После удаления разбор снова будет брать усреднённые значения общей базы.</p>
+      <div class="app-dialog-actions" style="display:grid;gap:8px">
+        <button class="btn btn-primary" id="custom-food-del-confirm" type="button">Да, удалить</button>
+        <button class="btn btn-secondary" id="custom-food-del-cancel" type="button">Отмена</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Диалог курса (0.3.30): добавление/правка — все параметры расписания -->
+  <div class="app-dialog-backdrop" id="course-dialog" role="dialog" aria-modal="true" aria-labelledby="course-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💊</div>
+      <h2 id="course-dialog-title">Новый курс</h2>
+      <div class="custom-food-form">
+        <input class="dialog-text-input" id="course-name" type="text" placeholder="Название (напр., «Витамин D»)" maxlength="60">
+        <div class="settings-group" style="margin:0">
+          <p class="settings-label">Приёмов в день</p>
+          <div class="segmented" id="course-doses" role="radiogroup" aria-label="Приёмов в день">
+            <button type="button" data-doses="1">1</button>
+            <button type="button" data-doses="2">2</button>
+            <button type="button" data-doses="3">3</button>
+            <button type="button" data-doses="4">4</button>
+          </div>
+        </div>
+        <div class="course-times" id="course-times"></div>
+        <label class="settings-label" style="display:grid;gap:6px">Длительность курса, дней (0 — пока не остановлю)
+          <input class="dialog-text-input" id="course-days" type="number" inputmode="numeric" min="0" max="365" placeholder="30">
+        </label>
+        <div class="settings-label-row">
+          <p class="settings-label">Напоминания о приёмах</p>
+          <label class="switch" for="course-remind">
+            <input id="course-remind" type="checkbox" role="switch" checked>
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="sr-only">Напоминать о приёмах курса</span>
+          </label>
+        </div>
+        <p class="settings-hint" style="margin:0">Схема «каждые 8 часов» задаётся тремя временами: например 08:00, 16:00 и 00:00. Отметки ставятся вручную в «Плане дня» на Главной — приём нельзя угадать из других записей.</p>
+        <button class="btn btn-primary" id="course-save" type="button">Сохранить курс</button>
+        <button class="btn btn-secondary" id="course-cancel" type="button" style="width:100%">Отмена</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Подтверждение удаления курса (0.3.30) -->
+  <div class="app-dialog-backdrop" id="course-del-dialog" role="dialog" aria-modal="true" aria-labelledby="course-del-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🗑️</div>
+      <h2 id="course-del-title">Удалить курс?</h2>
+      <p id="course-del-name" style="font-weight:600"></p>
+      <p class="settings-hint">Дневные отметки и напоминания этого курса тоже исчезнут. Остальные курсы не пострадают.</p>
+      <div class="app-dialog-actions" style="display:grid;gap:8px">
+        <button class="btn btn-primary" id="course-del-confirm" type="button">Да, удалить</button>
+        <button class="btn btn-secondary" id="course-del-cancel" type="button">Отмена</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="methodology-dialog" role="dialog" aria-modal="true" aria-labelledby="methodology-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🧮</div>
+      <h2 id="methodology-dialog-title">Методика расчётов</h2>
+      <div class="terms-list">
+        <p><b>Как FitFlow понимает фразы.</b> Текст разбирается по правилам и словарям прямо на телефоне, без интернета: сначала находится количество («150 г», «2 шт», «250 мл»), затем название продукта сопоставляется со встроенной базой из 960+ позиций, а из неё берутся калории и БЖУ на 100 г и пересчитываются на вашу порцию.</p>
+        <p><b>Откуда значения.</b> База продуктов собрана из открытых научных источников (USDA FoodData Central, Open Food Facts). Это усреднённые справочные данные: у конкретного бренда, сорта или рецепта значения могут отличаться — поэтому важные приёмы пищи лучше перепроверять по упаковке.</p>
+        <p><b>Средняя калорийность и объёмы по умолчанию.</b> Калорийность блюд в базе — усреднённая: у одного и того же блюда рецепты отличаются (суп может быть овощным, а может — с мясом и макаронами), поэтому расчёт показывает честную среднюю оценку, а не точный лабораторный состав именно вашей порции. Это не упрощение FitFlow, а реальность открытых научных баз: USDA и Open Food Facts публикуют именно усреднённые значения, а точный состав конкретной порции не знает ни одно приложение. Если у вас есть точные данные с упаковки — внесите продукт в «Мои продукты» (кнопка 🏷 в разделе Питание): ваши значения перекроют усреднённые. То же с объёмами без точного указания: «тарелка» считается как ≈250 г, «стакан» — 250 мл, «чашка» — 200 мл, «порция» — 200 г, «кусок» хлеба — 40 г, а еда совсем без количества — осторожные «≈ 100 г». Хотите максимальную точность — укажите вес или рецепт вручную (граммы честнее любых средних).</p>
+        <p><b>Активность и калории.</b> Энергозатраты считаются по методу MET (метаболический эквивалент вида активности): ккал ≈ MET × вес (кг) × длительность (часы). Метод международный, но даёт оценку «в среднем» — реальный расход зависит от возраста, пола и интенсивности.</p>
+        <p><b>Личные нормы воды и калорий.</b> Вода — ориентир ~30 мл на кг веса с надбавкой при высокой активности. Калории — формула Миффлина — Сан Жеора (пол, возраст, рост, вес) с поправкой на среднюю активность; если данные не заполнены, используется упрощённая оценка по весу. Расчёт выполняется на устройстве в Настройках → «Профиль и цели».</p>
+        <p><b>Цели по умолчанию.</b> Вода — 2500 мл, калории — 2000 ккал в день: это общие бытовые ориентиры, а не врачебная рекомендация. Свою норму лучше уточнить у специалиста и задать в профиле.</p>
+        <p><b>Встроенный анализ.</b> Разделы «Анализ», «Рецепт» и «Спросить» работают офлайн: по правилам, словарям и вашим записям — без отправки данных куда-либо. Рецепт собирается из реально перечисленных продуктов, ответы — по тематическим правилам и базе 960+ продуктов; при малом числе записей выводы честно помечаются как общие. Полноценная нейросеть — опционально: на устройстве (без интернета) или облачно по вашему ключу (Настройки → Помощник): она пишет живой текст и оценивает еду по фото (≈ оценку всегда можно исправить перед сохранением).</p>
+        <p><b>Характер данных.</b> Все показатели FitFlow — справочные, а не медицинские: приложение помогает вести учёт и видеть картину, но не заменяет врача.</p>
+      </div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="methodology-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="norms-dialog" role="dialog" aria-modal="true" aria-labelledby="norms-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🎯</div>
+      <h2 id="norms-dialog-title">Ориентировочные цели на день</h2>
+      <p id="norms-dialog-text" style="font-size:1.05rem;text-align:center">—</p>
+      <p class="app-dialog-hint" id="norms-dialog-hint">—</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="norms-dialog-cancel" type="button">Отмена</button>
+        <button class="btn btn-primary" id="norms-dialog-apply" type="button">Использовать как цель</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="home-layout-dialog" role="dialog" aria-modal="true" aria-labelledby="home-layout-title" hidden>
+    <section class="app-dialog home-layout-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">▦</div>
+      <h2 id="home-layout-title">Карточки на Главной</h2>
+      <p>Включайте нужные карточки и меняйте их порядок. Хотя бы одна карточка останется видимой.</p>
+      <div class="home-layout-list" id="home-layout-list"></div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="home-layout-close" type="button">Готово</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="widget-layout-dialog" role="dialog" aria-modal="true" aria-labelledby="widget-layout-title" hidden>
+    <section class="app-dialog home-layout-dialog widget-layout-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🧩</div>
+      <h2 id="widget-layout-title">Виджет на рабочем столе</h2>
+      <p>Выберите, что показывать на виджете. Число строк ограничено его размером.</p>
+      <div class="segmented" id="widget-size-segmented" role="radiogroup" aria-label="Размер виджета">
+        <button type="button" role="radio" aria-checked="false" data-widget-size="small">2×1</button>
+        <button class="active" type="button" role="radio" aria-checked="true" data-widget-size="medium">4×2</button>
+        <button type="button" role="radio" aria-checked="false" data-widget-size="large">4×4</button>
+      </div>
+      <p class="settings-hint widget-layout-counter" id="widget-layout-counter">—</p>
+      <div class="home-layout-list" id="widget-layout-list"></div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="widget-layout-close" type="button">Готово</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="profiles-dialog" role="dialog" aria-modal="true" aria-labelledby="profiles-dialog-title" hidden>
+    <section class="app-dialog profiles-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">👥</div>
+      <h2 id="profiles-dialog-title">Профили на устройстве</h2>
+      <p>Данные каждого профиля хранятся отдельно на этом телефоне.</p>
+      <p class="profiles-dialog-hint">Нажмите название, чтобы сразу перейти в профиль. Стрелка откроет его параметры.</p>
+      <div class="profile-list" id="profile-list"></div>
+      <div class="profile-add-row">
+        <input id="profile-new-name" type="text" maxlength="40" placeholder="Имя нового профиля">
+        <button class="btn btn-secondary" id="profile-add" type="button">Добавить</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="profiles-dialog-cancel" type="button">Закрыть</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="profile-rename-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-rename-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✎</div>
+      <h2 id="profile-rename-title">Переименовать профиль</h2>
+      <input class="dialog-text-input" id="profile-rename-input" type="text" maxlength="40" placeholder="Название профиля">
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="profile-rename-cancel" type="button">Отмена</button><button class="btn btn-primary" id="profile-rename-confirm" type="button">Сохранить</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="weight-quick-dialog" role="dialog" aria-modal="true" aria-labelledby="weight-quick-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="7.3" width="7" height="3.8" rx="1.2" fill="currentColor"/><path d="M7.5 16.6c.7-2 2.2-3 4.5-3s3.8 1 4.5 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+      <h2 id="weight-quick-title">Записать вес</h2>
+      <p>Запись относится только к активному профилю.</p>
+      <form class="weight-quick-form" id="weight-quick-form" autocomplete="off">
+        <label class="weight-field" for="weight-quick-date"><span>Дата</span><input id="weight-quick-date" type="date" aria-label="Дата измерения веса"></label>
+        <label class="weight-field" for="weight-quick-input"><span>Вес, кг</span><input id="weight-quick-input" type="number" min="25" max="300" step="0.1" inputmode="decimal" placeholder="Например, 70" aria-label="Вес в килограммах"></label>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="weight-quick-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="all-profiles-import-dialog" role="dialog" aria-modal="true" aria-labelledby="all-profiles-import-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">📦</div>
+      <h2 id="all-profiles-import-title">Восстановить все профили?</h2>
+      <p id="all-profiles-import-text">—</p>
+      <p class="app-dialog-hint">Текущие профили, их история, цели, питание, вода, активность и настройки на этом устройстве будут заменены данными из копии. Это нельзя отменить.</p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="all-profiles-import-cancel" type="button">Отмена</button><button class="btn btn-danger" id="all-profiles-import-confirm" type="button">Восстановить</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.0: редактирование записи питания -->
+  <div class="app-dialog-backdrop" id="food-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="food-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✏️</div>
+      <h2 id="food-edit-title">Изменить запись питания</h2>
+      <p>Правится запись текущего дня; итоги пересчитаются сами.</p>
+      <form id="food-edit-form" autocomplete="off">
+        <input id="food-edit-id" type="hidden">
+        <label class="weight-field" for="food-edit-name"><span>Название</span><input id="food-edit-name" type="text" maxlength="80" aria-label="Название блюда"></label>
+        <!-- 0.9.7 (замечание владельца): перенос записи между приёмами пищи.
+             Тип ставится автоматически по времени, но поесть можно раньше или
+             позже — раньше исправить это было нельзя вообще. -->
+        <label class="weight-field" for="food-edit-meal"><span>Приём пищи</span><select id="food-edit-meal" aria-label="Приём пищи"></select></label>
+        <label class="weight-field" for="food-edit-kcal"><span>Калории, ккал</span><input id="food-edit-kcal" type="number" min="0" max="5000" step="1" inputmode="numeric" aria-label="Калории"></label>
+        <div class="food-edit-macros">
+          <label class="weight-field" for="food-edit-p"><span>Белки, г</span><input id="food-edit-p" type="number" min="0" max="500" step="0.1" inputmode="decimal" aria-label="Белки, граммы"></label>
+          <label class="weight-field" for="food-edit-f"><span>Жиры, г</span><input id="food-edit-f" type="number" min="0" max="500" step="0.1" inputmode="decimal" aria-label="Жиры, граммы"></label>
+          <label class="weight-field" for="food-edit-c"><span>Углеводы, г</span><input id="food-edit-c" type="number" min="0" max="800" step="0.1" inputmode="decimal" aria-label="Углеводы, граммы"></label>
+        </div>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="food-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: редактирование активности (в т.ч. перенос на другую дату) -->
+  <div class="app-dialog-backdrop" id="workout-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="workout-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✏️</div>
+      <h2 id="workout-edit-title">Изменить активность</h2>
+      <p>Можно перенести запись на другую дату (не позже сегодня).</p>
+      <form id="workout-edit-form" autocomplete="off">
+        <input id="workout-edit-id" type="hidden">
+        <label class="weight-field" for="workout-edit-type"><span>Вид</span><select id="workout-edit-type" aria-label="Вид активности"></select></label>
+        <label class="weight-field" for="workout-edit-minutes"><span>Длительность, мин</span><input id="workout-edit-minutes" type="number" min="5" max="1440" step="1" inputmode="numeric" aria-label="Длительность в минутах"></label>
+        <label class="weight-field" for="workout-edit-date"><span>Дата</span><input id="workout-edit-date" type="date" aria-label="Дата активности"></label>
+        <label class="weight-field" for="workout-edit-note"><span>Заметка (необязательно)</span><input id="workout-edit-note" type="text" maxlength="80" aria-label="Заметка к активности"></label>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="workout-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: поправить итог ПРОШЛОГО дня («забыл записать вчера») -->
+  <div class="app-dialog-backdrop" id="day-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="day-edit-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🗓️</div>
+      <h2 id="day-edit-title">Поправить итог дня</h2>
+      <p>Для прошлого дня, за который забыли записать. Пустое поле — без изменений. Цели дня не меняются.</p>
+      <form id="day-edit-form" autocomplete="off">
+        <label class="weight-field" for="day-edit-date"><span>Дата (не сегодня)</span><input id="day-edit-date" type="date" aria-label="Дата прошлого дня"></label>
+        <!-- 0.5.1 (п.4): стопка во всю ширину вместо сетки 3 колонки -->
+        <div class="day-edit-fields">
+          <label class="weight-field" for="day-edit-water"><span>Вода, мл</span><input id="day-edit-water" type="number" min="0" max="10000" step="10" inputmode="numeric" placeholder="без изменений" aria-label="Вода, миллилитры"></label>
+          <label class="weight-field" for="day-edit-kcal"><span>Еда, ккал</span><input id="day-edit-kcal" type="number" min="0" max="10000" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Калории"></label>
+          <label class="weight-field" for="day-edit-minutes"><span>Активность, мин</span><input id="day-edit-minutes" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="без изменений" aria-label="Минуты активности"></label>
+        </div>
+        <p class="settings-hint day-edit-note">Активность прошлого дня хранится просто как сумма минут, без вида — это упрощённая честная запись «для забывчивых»: на статистику влияет только количество минут.</p>
+        <div class="app-dialog-actions"><button class="btn btn-secondary" id="day-edit-cancel" type="button">Отмена</button><button class="btn btn-primary" type="submit">Сохранить</button></div>
+      </form>
+    </section>
+  </div>
+
+  <!-- 0.5.0: системная отмена удалений и правок дня -->
+  <div id="undo-snackbar" role="status" aria-live="polite" hidden>
+    <span id="undo-snackbar-text">Удалено</span>
+    <button id="undo-snackbar-action" type="button">Отменить</button>
+  </div>
+
+  <div class="app-dialog-backdrop" id="profile-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-delete-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⚠️</div>
+      <h2 id="profile-delete-title">Удалить профиль?</h2>
+      <p id="profile-delete-text">Данные профиля будут удалены только с этого устройства. Это нельзя отменить.</p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="profile-delete-cancel" type="button">Отмена</button><button class="btn btn-danger" id="profile-delete-confirm" type="button">Удалить</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="smart-entry-dialog" role="dialog" aria-modal="true" aria-labelledby="smart-entry-title" hidden>
+    <section class="app-dialog smart-entry-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">✦</div>
+      <h2 id="smart-entry-title">Быстрый ввод</h2>
+      <p>Напишите или надиктуйте одной фразой воду, еду и активность. FitFlow разложит понятные части по разделам и попросит подтверждение.</p>
+      <textarea id="smart-entry-input" rows="4" placeholder="Например: позанимался 45 минут, выпил 500 мл воды и съел банан"></textarea>
+      <button class="smart-help-btn" id="smart-voice-help-open" type="button">О голосовом офлайн-вводе <span class="help-dot smart-help-dot" aria-hidden="true">?</span></button>
+      <div class="smart-preview" id="smart-entry-preview" hidden></div>
+      <!-- 0.5.7 (полевой баг владельца): пять широких кнопок сжимались в одну
+           строку, «Разобрать» обрезался по нижней границе. Теперь как в экране
+           «Помощник»: иконки-источники слева, «Разобрать» справа — всегда на виду. -->
+      <div class="app-dialog-actions smart-entry-actions">
+        <button class="icon-btn ai-icon-btn" id="smart-entry-voice" type="button" title="Надиктовать голосом" aria-label="Надиктовать голосом">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo" type="button" title="Сфотографировать блюдо" aria-label="Сфотографировать блюдо">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="12" cy="14" r="3.4" stroke="currentColor" stroke-width="1.8"/>
+          </svg>
+        </button>
+        <button class="icon-btn ai-icon-btn" id="smart-entry-photo-gallery" type="button" title="Выбрать фото из галереи" aria-label="Выбрать фото из галереи">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.8"/>
+            <circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4.5 17.5 10 12l3.5 3.5L17 12l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span class="ai-actions-spacer"></span>
+        <button class="btn btn-primary" id="smart-entry-parse" type="button">Разобрать</button>
+      </div>
+      <div class="smart-save-actions" style="margin-top:12px;display:flex;gap:8px;align-items:stretch">
+        <button class="btn btn-primary" id="smart-entry-save" type="button" style="flex:1;min-height:44px" hidden>Сохранить записи</button>
+        <button class="btn btn-secondary" id="smart-entry-combo-btn" type="button" title="Сохранить эту фразу в комбо" style="flex:0 0 auto;min-height:44px;padding:0 14px;white-space:nowrap;font-size:0.85rem" hidden>☆ В комбо</button>
+      </div>
+      <button class="btn btn-ghost smart-entry-cancel-btn" id="smart-entry-cancel" type="button">Отмена</button>
+      <input type="file" id="smart-entry-photo-input" accept="image/*" capture="environment" hidden>
+      <input type="file" id="smart-entry-photo-file-input" accept="image/*" hidden>
+    </section>
+  </div>
+
+  <!-- ⭐ Диалог «Мои комбо» (0.4.14): список, переименование, удаление, создание вручную -->
+  <div class="app-dialog-backdrop" id="combo-dialog" role="dialog" aria-modal="true" aria-labelledby="combo-dialog-title" hidden>
+    <section class="app-dialog">
+      <h3 id="combo-dialog-title">⭐ Мои комбо</h3>
+      <p class="settings-hint">Сохранённые фразы умного ввода. Тап по ▶ записывает весь набор одним нажатием — калории каждый раз считаются заново по актуальной базе.</p>
+      <div class="combo-list" id="combo-list"></div>
+      <div class="combo-new">
+        <input id="combo-new-name" type="text" maxlength="40" placeholder="Название (например: Завтрак)" aria-label="Название комбо">
+        <input id="combo-new-text" type="text" maxlength="300" placeholder="Фраза: овсянка 150 г, кофе с молоком" aria-label="Текст комбо">
+        <button class="btn btn-primary" id="combo-add-btn" type="button">＋ Добавить комбо</button>
+      </div>
+      <button class="btn btn-secondary" id="combo-dialog-close" type="button" style="width:100%;margin-top:10px">Закрыть</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="smart-voice-help-dialog" role="dialog" aria-modal="true" aria-labelledby="smart-voice-help-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🎙️</div>
+      <h2 id="smart-voice-help-title">Голосовой ввод</h2>
+      <div class="terms-list">
+        <p><b>Как работает сейчас.</b> Нажмите «🎙 Надиктовать» — текст появится в этом же окне для проверки вместе с разбором по позициям, и попадёт в дневник только после кнопки «Сохранить записи».</p>
+        <p><b>Без интернета.</b> FitFlow просит у Android офлайн-распознавание: если языковой пакет Google скачан на устройство, диктовка работает и без сети.</p>
+        <p><b>Продвинутый режим.</b> Скачиваемая нейросеть (Настройки → Помощник, режим «Gemma на устройстве») будет понимать длинные свободные фразы целиком на телефоне — подключается отдельным обновлением.</p>
+        <p><b>Приватность.</b> Распознавание и разбор выполняются на устройстве; в облако ничего не отправляется.</p>
+      </div>
+      <p class="app-dialog-hint">Если распознавание обрывает фразу на паузе — это ограничение распознавателя телефона: надиктуйте короче или продолжите второй фразой, разбор поймёт обе части (например: «каша 200 г, … второй бутерброд»).</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="smart-voice-help-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="duration-unit-dialog" role="dialog" aria-modal="true" aria-labelledby="duration-unit-title" hidden>
+    <section class="app-dialog theme-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⏱️</div>
+      <h2 id="duration-unit-title">Единица длительности</h2>
+      <p>Выберите, в чём вводить длительность активности.</p>
+      <div class="theme-choice-list" id="duration-unit-choices">
+        <button type="button" data-duration-unit="minutes">Минуты</button>
+        <button type="button" data-duration-unit="hours">Часы</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="duration-unit-cancel" type="button">Отмена</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⚠️</div>
+      <h2 id="reset-dialog-title">Сбросить все данные?</h2>
+      <p>Будут удалены вода, питание, активность, избранные блюда, история и настройки. Это действие нельзя отменить.</p>
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="reset-dialog-cancel" type="button">Отмена</button><button class="btn btn-danger" id="reset-dialog-confirm" type="button">Сбросить</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="terms-blocked-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-blocked-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">⛔</div>
+      <h2 id="terms-blocked-title">Использование недоступно</h2>
+      <p>Для использования FitFlow необходимо принять условия. При следующем запуске они будут показаны снова.</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="terms-blocked-ok" type="button">ОК</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.3: второй уровень первого запуска — «Быстрая настройка» (идея владельца:
+       6 вопросов вместо ручного обхода всех настроек; пропуск = текущие значения
+       по умолчанию, повтор — из Настройки → Общее). -->
+  <div class="app-dialog-backdrop" id="setup-wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="setup-wizard-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" id="setup-wizard-emoji" aria-hidden="true">⚙️</div>
+      <h2 id="setup-wizard-title">Быстрая настройка</h2>
+      <p id="setup-wizard-text"></p>
+      <p class="settings-hint" id="setup-wizard-progress" role="status"></p>
+      <label class="weight-field setup-wizard-steps-row" id="setup-wizard-steps-row" hidden>
+        <span>Цель шагов в день</span>
+        <input type="number" id="setup-wizard-steps" min="1000" max="50000" step="500" inputmode="numeric" placeholder="8000" aria-label="Цель шагов в день">
+      </label>
+      <div class="app-dialog-actions" id="setup-wizard-actions">
+        <button class="btn btn-secondary" id="setup-wizard-no" type="button">Нет</button>
+        <button class="btn btn-primary" id="setup-wizard-yes" type="button">Да</button>
+      </div>
+      <div class="app-dialog-actions" id="setup-wizard-finish-actions" hidden>
+        <button class="btn btn-secondary" id="setup-wizard-prof" type="button">Заполнить профиль</button>
+        <button class="btn btn-primary" id="setup-wizard-done" type="button">Готово</button>
+      </div>
+      <button class="btn btn-ghost" id="setup-wizard-skip" type="button">Пропустить всё — настрою сам в Настройках</button>
+    </section>
+  </div>
+
+  <!-- 0.5.3, переработано 0.5.4 (уточнение владельца): первый показ после примерно
+       десятого запуска, дальше — не чаще раза в 14 дней («В другой раз»);
+       активным PRO не показывается; то же — всегда в Настройки → О приложении. -->
+  <div class="app-dialog-backdrop" id="support-dialog" role="dialog" aria-modal="true" aria-labelledby="support-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💝</div>
+      <h2 id="support-dialog-title">FitFlow — бесплатно навсегда</h2>
+      <p>Весь функционал уже открыт, и так будет всегда. Если приложение стало полезным, разработку можно поддержать добровольным переводом любой удобной суммы — это благодарность, а не покупка: код PRO просто отметит вас как сторонника проекта, ничего не разблокируя. Часть собранных средств направляется на благотворительность — суммы и фонды открыто публикуются в Настройки → О приложении, там эта информация есть всегда. Напоминаем редко: не чаще раза в две недели, а после активации PRO плашка больше не появляется.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="support-later" type="button">В другой раз</button>
+        <button class="btn btn-primary" id="support-open-pro" type="button">💝 Поддержать проект</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 0.5.2: «Быстрые записи» — один диалог с тремя вкладками вместо россыпи блоков
+       на карточке питания (решение владельца: текущая структура путала, в каком случае
+       какой раздел использовать). Все id у узлов прежние — привязки не переписывались. -->
+  <div class="app-dialog-backdrop" id="quick-records-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-records-title" hidden>
+    <section class="app-dialog quick-records-dialog">
+      <h2 id="quick-records-title">⚡ Быстрые записи</h2>
+      <div class="segmented quick-records-tabs" id="quick-records-tabs" role="tablist" aria-label="Виды быстрых записей">
+        <button type="button" role="tab" data-quick-tab="combo" class="active" aria-selected="true"><span data-icon-slot="combo">⭐</span> Комбо</button>
+        <button type="button" role="tab" data-quick-tab="meals" aria-selected="false"><span data-icon-slot="food">🍽</span> Мои блюда</button>
+      </div>
+      <p class="settings-hint quick-records-tab-hint" id="quick-records-tab-hint">Сценарий одним тапом: одна фраза записывает СРАЗУ воду, еду и активность — например «500 мл воды, овсянка 150 г, бег 30 минут». Для одного блюда удобнее вкладка «Мои блюда».</p>
+
+      <div class="quick-panel" id="quick-panel-combo" role="tabpanel">
+        <p class="quick-label">Ваши комбо (тап — мгновенная запись воды, еды и активности):</p>
+        <div class="quick-chips" id="combo-chips"></div>
+        <p class="settings-hint" id="combo-hint"></p>
+        <button class="chip chip-sm" id="combo-manage-btn" type="button" hidden>Управление комбо…</button>
+        <div class="combo-quick-add" style="margin-top:12px">
+          <button class="btn btn-secondary quick-add-accordion-toggle" id="quick-combo-toggle" type="button" aria-expanded="false" style="width:100%">＋ Создать новое комбо ▾</button>
+          <div class="quick-add-accordion-body" id="quick-combo-body" hidden style="margin-top:8px">
+            <div class="manual-food-row">
+              <input class="dialog-text-input" id="quick-combo-name" type="text" maxlength="40" placeholder="Название (напр., Завтрак)" aria-label="Название комбо">
+              <input class="dialog-text-input" id="quick-combo-text" type="text" maxlength="300" placeholder="Напр.: 500 мл воды, овсянка 150 г, бег 30 мин" aria-label="Фраза комбо">
+            </div>
+            <button class="btn btn-primary" id="quick-combo-save-btn" type="button" style="width:100%;margin-top:6px">Сохранить комбо</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="quick-panel" id="quick-panel-meals" role="tabpanel" hidden>
+        <p class="quick-label">Ваши блюда — точные ккал с упаковки (тап — запись в дневник):</p>
+        <div class="quick-chips" id="favorite-meals"></div>
+        <div class="meal-quick-add" style="margin-top:12px">
+          <button class="btn btn-secondary quick-add-accordion-toggle" id="quick-meal-toggle" type="button" aria-expanded="false" style="width:100%">＋ Добавить своё блюдо в шаблоны ▾</button>
+          <div class="quick-add-accordion-body" id="quick-meal-body" hidden style="margin-top:8px">
+            <div class="manual-food-row">
+              <input class="dialog-text-input" id="quick-meal-name" type="text" maxlength="60" placeholder="Название (напр., Творог 5%)" aria-label="Название блюда">
+              <input class="dialog-text-input" id="quick-meal-kcal" type="text" inputmode="numeric" placeholder="ккал на 100г / шт" aria-label="Калории">
+            </div>
+            <div class="manual-food-macros" style="margin-top:6px">
+              <input class="dialog-text-input" id="quick-meal-p" type="text" inputmode="decimal" placeholder="Белки г" aria-label="Белки">
+              <input class="dialog-text-input" id="quick-meal-f" type="text" inputmode="decimal" placeholder="Жиры г" aria-label="Жиры">
+              <input class="dialog-text-input" id="quick-meal-c" type="text" inputmode="decimal" placeholder="Углеводы г" aria-label="Углеводы">
+            </div>
+            <button class="btn btn-primary" id="quick-meal-save-btn" type="button" style="width:100%;margin-top:6px">Сохранить в Мои блюда</button>
+          </div>
+        </div>
+        <p class="quick-label" style="margin-top:14px">Готовые чипы:</p>
+        <div class="quick-chips">
+          <button class="chip chip-sm" data-quick="гречка 100г" type="button">Гречка 100г</button>
+          <button class="chip chip-sm" data-quick="яйцо 2шт" type="button">Яйцо 2шт</button>
+          <button class="chip chip-sm" data-quick="куриная грудка 150г" type="button">Грудка 150г</button>
+          <button class="chip chip-sm" data-quick="банан 1шт" type="button">Банан</button>
+        </div>
+      </div>
+
+
+
+      <div class="app-dialog-actions"><button class="btn btn-secondary" id="quick-records-close" type="button">Закрыть</button></div>
+    </section>
+  </div>
+
+  <!-- 0.7.0 Диагностика Health Connect и датчиков шагомера -->
+  <div class="app-dialog-backdrop" id="health-diag-dialog" role="dialog" aria-modal="true" aria-labelledby="health-diag-title" hidden>
+    <section class="app-dialog" style="max-width:440px">
+      <div class="app-dialog-icon" aria-hidden="true">🩺</div>
+      <h2 id="health-diag-title">Диагностика связи и датчиков</h2>
+      <div id="health-diag-content" class="diag-content-box" style="text-align:left; font-size:13px; margin:12px 0; max-height:280px; overflow-y:auto; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; border:1px solid rgba(0,0,0,0.08);">
+        <p>Загрузка диагностики...</p>
+      </div>
+      <div class="app-dialog-actions" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+        <button class="btn btn-primary" id="health-diag-sync-btn" type="button">🔄 Запросить синхронизацию</button>
+        <button class="btn btn-secondary" id="health-diag-copy-btn" type="button">📋 Скопировать отчёт</button>
+        <button class="btn btn-secondary" id="health-diag-close-btn" type="button">Закрыть</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 0.7.5 Объяснимые расчёты: почему это число? -->
+  <div class="app-dialog-backdrop" id="explain-dialog" role="dialog" aria-modal="true" aria-labelledby="explain-dialog-title" hidden>
+    <section class="app-dialog" style="max-width:400px">
+      <div class="app-dialog-icon" aria-hidden="true">🧮</div>
+      <h2 id="explain-dialog-title">Откуда это число?</h2>
+      <div id="explain-dialog-content" class="diag-content-box" style="text-align:left; font-size:13px; margin:12px 0; line-height:1.5; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; border:1px solid rgba(0,0,0,0.08);"></div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="explain-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <!-- 0.7.5 Поддержка проекта: добровольный донат без кодов и налоговых рисков -->
+  <div class="app-dialog-backdrop" id="pro-dialog" role="dialog" aria-modal="true" aria-labelledby="pro-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">💛</div>
+      <h2 id="pro-dialog-title">Поддержать проект FitFlow</h2>
+      <p>FitFlow — это полностью бесплатное независимое приложение без рекламы, платных подписок и сбора данных. Все функции доступны вам сразу и навсегда.</p>
+      <p class="settings-hint" id="pro-active-line" role="status" hidden></p>
+      <p class="settings-hint" id="pro-howto">Если вам нравится проект и вы хотите сказать спасибо автору, вы можете сделать добровольный перевод (по СБП или на карту). Часть средств направляется на добрые дела (отчёты открыты в «О приложении»).</p>
+      <div style="display:flex; flex-direction:column; gap:8px; margin:12px 0;">
+        <button class="btn btn-primary" id="pro-activate" type="button">💛 Сказать спасибо (я поддержал проект)</button>
+        <button class="btn btn-secondary" id="pro-cancel" type="button">Закрыть</button>
+      </div>
+      <div hidden>
+        <input id="pro-email" type="hidden" value="supporter@fitflow.app">
+        <input id="pro-code" type="hidden" value="SUPPORTED">
+        <p id="pro-status"></p>
+        <button id="pro-deactivate" type="button"></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="privacy-dialog" role="dialog" aria-modal="true" aria-labelledby="privacy-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🛡️</div>
+      <h2 id="privacy-dialog-title">Приватность и работа без интернета</h2>
+      <p>FitFlow работает без обязательного Интернета. Вода, питание, активность, уведомления и резервные копии хранятся на вашем устройстве. Регистрация и аккаунт не требуются.</p>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="privacy-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="terms-dialog" role="dialog" aria-modal="true" aria-labelledby="terms-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🛡️</div>
+      <h2 id="terms-dialog-title">Условия использования</h2>
+      <p>Перед использованием FitFlow ознакомьтесь с условиями и подтвердите их принятие.</p>
+      <div class="terms-list">
+        <p><b>Справочный характер.</b> FitFlow предназначен только для личного учёта воды, питания и активности и не является медицинским изделием или услугой.</p>
+        <p><b>Нет медицинских рекомендаций.</b> Приложение не заменяет консультацию врача, диетолога, тренера, психолога или другого квалифицированного специалиста.</p>
+        <p><b>Приблизительность расчётов.</b> Калорийность, цели, графики, уведомления и иные сведения имеют информационный характер и не предназначены для диагностики, лечения или принятия решений при неотложных состояниях.</p>
+        <p><b>Ответственное использование.</b> Пользователь самостоятельно оценивает состояние здоровья и нагрузку. При жалобах, заболеваниях или сомнениях необходимо обратиться к специалисту.</p>
+        <p><b>Данные и резервные копии.</b> Записи хранятся на устройстве пользователя. Пользователь самостоятельно создаёт резервные копии перед переустановкой или заменой устройства.</p>
+        <p><b>Лицензия.</b> FitFlow — авторская разработка: личное некоммерческое использование свободно; распространение, монетизация и публикация изменённых версий — только с письменного согласия автора. Полный текст — кнопкой ниже и в Настройки → О приложении → «📜 Лицензия».</p>
+      </div>
+      <button class="btn btn-secondary" id="terms-license-open" type="button" style="width:100%">📜 Читать лицензию полностью</button>
+      <p class="app-dialog-hint">Нажатием «Понимаю и принимаю» вы подтверждаете ознакомление с условиями использования и лицензией FitFlow.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="terms-decline" type="button">Не принимаю</button>
+        <button class="btn btn-primary" id="terms-accept" type="button">Понимаю и принимаю</button>
+      </div>
+      <p class="terms-decline-hint" id="terms-decline-hint" hidden>Без принятия условий использовать приложение нельзя.</p>
+    </section>
+  </div>
+
+  <!-- 0.5.6 (п.10 владельца): полный текст лицензии отдельным окном — по кнопке
+       «📜 Лицензия» в «О приложении» и по кнопке в окне условий при первом входе.
+       Нормативный текст — файла LICENSE репозитория (русский приоритетен). -->
+  <div class="app-dialog-backdrop" id="license-dialog" role="dialog" aria-modal="true" aria-labelledby="license-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">📜</div>
+      <h2 id="license-dialog-title">Лицензия FitFlow</h2>
+      <div class="segmented license-lang-tabs" id="license-lang-tabs" role="tablist" aria-label="Язык лицензии">
+        <button type="button" role="tab" data-license-tab="ru" class="active" aria-selected="true">🇷🇺 Русский</button>
+        <button type="button" role="tab" data-license-tab="en" aria-selected="false">🇬🇧 English</button>
+        <button type="button" role="tab" data-license-tab="third-party" aria-selected="false">📦 Сторонние библиотеки</button>
+      </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-ru">
+        <p><b>Версия 1.0 · 10.08.2026.</b> Автор и правообладатель: владелец репозитория Help-yourself-dvp/LifeFlow-Fitness (GitHub). Программа: FitFlow — офлайн-дневник воды, питания и активности (исходный код репозитория и собранные установочные пакеты).</p>
+        <p><b>1. Разрешается без отдельного согласования:</b> личное некоммерческое использование — установка APK из раздела Releases репозитория, запуск, создание резервных копий своих данных; просмотр исходного кода и его изучение в личных целях; личные копии и локальные изменения кода для себя, без передачи результатов третьим лицам; ссылки на репозиторий и на опубликованные автором релизы — свободно.</p>
+        <p><b>2. Запрещается без предварительного письменного согласия автора:</b> распространение программы или её частей — публикация APK/сборок в любом магазине приложений, на сайтах, в каналах и репозиториях, передача третьим лицам иначе как ссылкой на этот репозиторий; монетизация — продажа, платные сборки, подписки, встроенная реклама, сбор пожертвований за копии программы, любое извлечение дохода из программы или её производных; изменение кода с распространением результата — форки, «моды», пересборки и иные производные версии, публикуемые или передаваемые третьим лицам; выдача программы за свою — удаление или изменение указаний авторства, использование названия «FitFlow» для сторонних сборок; использование программы для создания конкурирующих коммерческих продуктов на её основе.</p>
+        <p><b>3. Ограничение ответственности:</b> программа предоставляется «как есть», без каких-либо гарантий. Она не является медицинским изделием или медицинской услугой: рекомендации и расчёты носят информационный характер и не заменяют консультацию специалиста. Автор не несёт ответственности за любой ущерб от использования или невозможности использования программы.</p>
+        <p><b>4. Сторонние компоненты:</b> встроенные базы, шрифты и библиотеки поставляются по их собственным открытым лицензиям (вкладка «Сторонние библиотеки» выше и раздел «О приложении»).</p>
+        <p><b>5. Контакт для разрешений:</b> запросы на распространение, модификацию или коммерческое использование — через раздел Issues репозитория проекта на GitHub.</p>
+        <p><b>Коротко:</b> скачивайте и пользуйтесь бесплатно для себя; делиться — ссылкой на репозиторий; продавать, выкладывать как своё и публиковать изменённые версии — нельзя без согласия автора. При расхождениях между языковыми версиями приоритет имеет русский текст.</p>
+      </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-en" hidden>
+        <p><b>FitFlow License v1.0 · August 10, 2026.</b> Author & Copyright Holder: Repository Owner Help-yourself-dvp/LifeFlow-Fitness (GitHub). Software: FitFlow — offline water, food, and fitness tracker (source code and binary packages).</p>
+        <p><b>1. Permitted without prior consent:</b> Personal non-commercial use — installing released APKs, running the application, and making local backups; viewing and studying the source code for private education; private local code modifications strictly for personal use without distributing results to third parties; sharing direct links to the official repository and releases.</p>
+        <p><b>2. Prohibited without prior written consent of the Author:</b> Redistribution of the application or any of its parts (publishing APKs/binaries in app stores, web portals, public channels, or third-party repositories); Commercial use and monetization (selling, paid distributions, subscriptions, in-app ads, collecting donations for application copies, or extracting revenue from derivatives); Public distribution of modified versions (forks, mods, custom builds, or repackaged binaries); Misrepresentation and plagiarism (removing or modifying copyright notices, or using the "FitFlow" brand for third-party builds); Creating competing commercial software based on the application code.</p>
+        <p><b>3. Disclaimer of Warranty:</b> The software is provided "AS IS", without warranties of any kind. It is not a medical device or healthcare service: calculations and recommendations are for informational purposes only and do not substitute professional medical advice. The Author shall not be liable for any claims or damages arising from the use of this software.</p>
+        <p><b>4. Third-Party Components:</b> Bundled open-source libraries, databases, and fonts are governed by their respective licenses (see the "Third-Party" tab).</p>
+        <p><b>5. Permission Requests:</b> Requests for commercial licensing, distribution, or partnerships should be submitted via GitHub Issues.</p>
+      </div>
+
+      <div class="terms-list license-tab-panel" id="license-panel-third-party" hidden>
+        <p><b>Открытые компоненты и библиотеки:</b></p>
+        <p>• <b>SQLite (sql.js WASM + IndexedDB)</b> — MIT License / Public Domain.<br>• <b>Capacitor (Core, Android)</b> — MIT License. Copyright (c) 2017-present Drifty Co.<br>• <b>LiteRT-LM Android Runtime</b> — Apache License 2.0. Copyright (c) The Google AI Edge Authors.<br>• <b>USDA FoodData Central / SR Legacy</b> — Public Domain (U.S. Government Work).<br>• <b>Open Food Facts</b> — Open Database License (ODbL) 1.0 (openfoodfacts.org).<br>• <b>ZXing Core + zxing-android-embedded</b> (сканер штрих-кода) — Apache License 2.0. Copyright (c) ZXing Authors, Journey Mobile, Inc.<br>• <b>Шрифты Roboto / PT Serif / Comfortaa / Manrope / Russo One</b> — SIL Open Font License 1.1 / Apache 2.0.<br>• <b>Kotlin Standard Library & AndroidX</b> — Apache License 2.0.</p>
+        <p class="settings-hint">Все компоненты используются в строгом соответствии с их открытыми лицензиями.</p>
+        <p class="settings-hint"><b>Модель локального ИИ.</b> Файл модели в приложение не входит и нами не распространяется: вы скачиваете его самостоятельно со страницы автора (репозитории litert-community на Hugging Face). Модели семейства Gemma предоставляются Google на условиях Gemma Terms of Use и Prohibited Use Policy — их нужно принять на сайте перед скачиванием; личное использование бесплатно. Результаты работы модели принадлежат вам: Google на них не претендует. Названия Gemma, Google и Hugging Face упомянуты исключительно для указания источника; товарные знаки принадлежат их правообладателям. Ответы модели носят справочный характер и не являются медицинской рекомендацией.</p>
+        <p class="settings-hint"><b>Данные о продуктах.</b> Сведения, полученные по штрих-коду, предоставлены проектом Open Food Facts (openfoodfacts.org) и распространяются на условиях Open Database License (ODbL) 1.0. Это народная база: значения вносят обычные люди, поэтому их следует сверять с упаковкой. Приложение только показывает данные и хранит их копию на вашем устройстве; изменённые или дополненные вами карточки продуктов остаются вашими и никуда не передаются.</p>
+      </div>
+
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="license-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <!-- 0.5.8: отдельный диалог для открытых отчётов о благотворительности -->
+  <div class="app-dialog-backdrop" id="charity-dialog" role="dialog" aria-modal="true" aria-labelledby="charity-dialog-title" hidden>
+    <section class="app-dialog terms-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🤝</div>
+      <h2 id="charity-dialog-title">Добрые дела · Отчёты</h2>
+      <p class="settings-hint">FitFlow бесплатен навсегда. Часть средств от добровольной поддержки направляется в благотворительные фонды. Все перечисления и отчёты открыто публикуются здесь.</p>
+      <div class="charity-modal-list" id="charity-modal-list"></div>
+      <div class="app-dialog-actions"><button class="btn btn-primary" id="charity-dialog-ok" type="button">Понятно</button></div>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="morning-theme-dialog" role="dialog" aria-modal="true" aria-labelledby="morning-theme-dialog-title" hidden>
+    <section class="app-dialog theme-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">☀️</div>
+      <h2 id="morning-theme-dialog-title">Тема утренних фраз</h2>
+      <p>Выберите настроение, которое подходит вам сейчас.</p>
+      <div class="theme-choice-list" id="morning-theme-choices">
+        <button type="button" data-morning-theme="mixed">Смешанная</button>
+        <button type="button" data-morning-theme="calm">Спокойный день</button>
+        <button type="button" data-morning-theme="health">Здоровье</button>
+        <button type="button" data-morning-theme="food">Питание</button>
+        <button type="button" data-morning-theme="activity">Активность</button>
+      </div>
+      <button class="btn btn-secondary theme-dialog-cancel" id="morning-theme-dialog-cancel" type="button">Отмена</button>
+    </section>
+  </div>
+
+  <div class="app-dialog-backdrop" id="morning-message-dialog" role="dialog" aria-modal="true" aria-labelledby="morning-message-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">☀️</div>
+      <h2 id="morning-message-dialog-title">Доброе утро</h2>
+      <p id="morning-message-dialog-text">—</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-primary" id="morning-message-dialog-ok" type="button">Понятно</button>
+      </div>
+    </section>
+  </div>
+
+  
+  <div class="app-dialog-backdrop" id="activity-reminder-dialog" role="dialog" aria-modal="true" aria-labelledby="activity-reminder-dialog-title" hidden>
+    <section class="app-dialog">
+      <div class="app-dialog-icon" aria-hidden="true">🌿</div>
+      <h2 id="activity-reminder-dialog-title">Спрашивать об активности вечером?</h2>
+      <p>Вечером FitFlow спросит, была ли сегодня прогулка, спорт или активный отдых — чтобы вы могли быстро зафиксировать это в приложении.</p>
+      <div class="app-dialog-actions">
+        <button class="btn btn-secondary" id="activity-reminder-decline" type="button">Не сейчас</button>
+        <button class="btn btn-primary" id="activity-reminder-accept" type="button">Включить</button>
+      </div>
+      <p class="app-dialog-hint">Это вечернее уведомление «Была сегодня активность?» — напоминает отметить тренировку, если день прошёл без неё. Время и выключение: Настройки → Уведомления.</p>
+    </section>
+  </div>
+
+  <!-- ===== Модальное окно ИИ-центра FitFlow ===== -->
+  <div hidden>
+    <button id="smart-entry-open" type="button"></button>
+  </div>
+  <!-- IME-док (0.3.18): при фокусе поле ввода вместе с его кнопками
+       переносится в панель над клавиатурой — не скрыть клавиатуру, чтобы
+       отправить текст (пункты 4 и 5 пользователя). -->
+  <div id="ime-dock" hidden></div>
+  <script src="sqlite-bundle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

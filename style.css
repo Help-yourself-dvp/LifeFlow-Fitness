@@ -1,0 +1,4775 @@
+/* Глобальная защита скрытых элементов */
+[hidden] { display: none !important; }
+
+/* ============================================================
+   FitFlow — Material 3 дизайн-система
+   Светлая / тёмная тема через data-theme на <html>
+   ============================================================ */
+
+/* ---------- Токены: СВЕТЛАЯ тема ---------- */
+:root,
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --md-sys-color-primary: #00696b;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #9cf1f2;
+  --md-sys-color-on-primary-container: #002021;
+  --md-sys-color-secondary: #4a6363;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #cce8e8;
+  --md-sys-color-on-secondary-container: #051f20;
+  --md-sys-color-tertiary: #8f4c00;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffdcc2;
+  --md-sys-color-on-tertiary-container: #2e1500;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+
+  --md-sys-color-surface: #fafdfc;
+  --md-sys-color-on-surface: #191c1c;
+  --md-sys-color-surface-dim: #d9e4e3;
+  --md-sys-color-surface-bright: #fafdfc;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f4f9f8;
+  --md-sys-color-surface-container: #eef4f3;
+  --md-sys-color-surface-container-high: #e8efee;
+  --md-sys-color-surface-container-highest: #e2e9e8;
+  --md-sys-color-on-surface-variant: #3f4948;
+  --md-sys-color-outline: #6f7979;
+  --md-sys-color-outline-variant: #bec9c8;
+
+  /* Градиенты и акценты приложения */
+  --grad-a: #008f8f;
+  --grad-b: #4cc9c0;
+  --calorie-accent: #ff9e3d;
+  --success: #2e7d32;
+
+  --topbar-bg: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent);
+  --card-border: 1px solid var(--md-sys-color-outline-variant);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.075);
+  --card-bg: var(--md-sys-color-surface-container-low);
+  --scrim: rgb(0 0 0 / 0.4);
+
+  --bg-blob-a: rgb(0 143 143 / 0.09);
+  --bg-blob-b: rgb(255 158 61 / 0.07);
+
+  /* Алиас, на который ссылаются новые компоненты (раньше ТОКЕН НЕ БЫЛ
+     ОПРЕДЕЛЁН — var(--primary) давал «прозрачность»: исчезали прогресс-бары
+     заданий и медалей, рамки выделения чипов. 0.3.14: чиним в корне). */
+  --primary: var(--md-sys-color-primary);
+}
+
+/* ---------- Токены: ТЁМНАЯ тема ---------- */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --md-sys-color-primary: #7fd6d8;
+  --md-sys-color-on-primary: #003738;
+  --md-sys-color-primary-container: #005052;
+  --md-sys-color-on-primary-container: #9cf1f2;
+  --md-sys-color-secondary: #b1cbca;
+  --md-sys-color-on-secondary: #1c3534;
+  --md-sys-color-secondary-container: #334b4b;
+  --md-sys-color-on-secondary-container: #cce8e8;
+  --md-sys-color-tertiary: #ffb77c;
+  --md-sys-color-on-tertiary: #4c2700;
+  --md-sys-color-tertiary-container: #6b3a00;
+  --md-sys-color-on-tertiary-container: #ffdcc2;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000a;
+  --md-sys-color-on-error-container: #ffdad6;
+
+  /* Лёгкая «зелёно-чёрная» поверхность — выигрышно на AMOLED */
+  --md-sys-color-surface: #0e1514;
+  --md-sys-color-on-surface: #dde4e3;
+  --md-sys-color-surface-dim: #0e1514;
+  --md-sys-color-surface-bright: #343b3a;
+  --md-sys-color-surface-container-lowest: #090f0e;
+  --md-sys-color-surface-container-low: #161d1c;
+  --md-sys-color-surface-container: #1a2120;
+  --md-sys-color-surface-container-high: #252b2b;
+  --md-sys-color-surface-container-highest: #303635;
+  --md-sys-color-on-surface-variant: #bec8c7;
+  --md-sys-color-outline: #889392;
+  --md-sys-color-outline-variant: #3f4948;
+
+  --grad-a: #7fd6d8;
+  --grad-b: #2a9d8f;
+  --calorie-accent: #ffb77c;
+  --success: #81c995;
+
+  --topbar-bg: color-mix(in srgb, var(--md-sys-color-surface) 78%, transparent);
+  --card-border: 1px solid var(--md-sys-color-outline-variant);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 30px rgb(0 0 0 / 0.5);
+  --card-bg: var(--md-sys-color-surface-container);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --bg-blob-a: rgb(127 214 216 / 0.08);
+  --bg-blob-b: rgb(255 183 124 / 0.06);
+}
+
+/* ---------- Базовый сброс ---------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--md-sys-color-on-surface);
+  background:
+    radial-gradient(900px 420px at 88% -8%, var(--bg-blob-a), transparent 60%),
+    radial-gradient(760px 400px at -10% 30%, var(--bg-blob-b), transparent 55%),
+    var(--md-sys-color-surface);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+svg {
+  display: block;
+}
+
+h1, h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Шапка ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 20px 10px;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid transparent;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--md-sys-color-on-primary);
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  box-shadow: 0 4px 14px rgb(0 143 143 / 0.35);
+}
+
+.brand-logo svg {
+  width: 26px;
+  height: 26px;
+}
+
+.brand-text h1 {
+  font-size: 1.28rem;
+  line-height: 1.15;
+}
+
+/* 0.5.1 (п.15 владельца): У правила ниже был text-transform: «каждое слово
+   с большой», что давало «10 Авг. 2026 Г.» — убран; первая буква дня недели —
+   через #date-label::first-letter (ниже в файле), остальное — как пишут по-русски. */
+.brand-text p {
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 0.8.29: индикатор режима работы в шапке.
+   Офлайн — нейтральный (это норма для FitFlow, а не ошибка),
+   онлайн — акцентный tertiary, чтобы выход в сеть был заметен. */
+.net-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  padding: 4px 9px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.net-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.net-status.is-online {
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+  border-color: transparent;
+}
+
+.local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.local-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-low);
+  transition: background 0.2s ease, transform 0.1s ease, color 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Значки солнца/луны: показываем только активный */
+html[data-theme="light"] .icon-moon { display: none; }
+html[data-theme="dark"] .icon-sun { display: none; }
+
+/* ---------- Контент ---------- */
+.content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 16px 8px;
+}
+
+.greeting {
+  padding: 2px 6px 10px; /* 0.5.0: компактнее, строка «Профиль:» убрана */
+}
+
+/* Быстрый переход по разделам Главной: прилипает под шапкой,
+   чипы показываются только для видимых карточек. */
+.home-quicknav {
+  position: sticky;
+  top: var(--quicknav-top, 64px);
+  z-index: 15;
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 12px;
+  padding: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  /* 0.5.1 (п.1 владельца): чипы — отдельные пилюли во всю ширину экрана;
+     общая рамка-пилюля контейнера убрана, контейнер прозрачный. */
+  background: transparent;
+  border: none;
+}
+.home-quicknav::-webkit-scrollbar { display: none; }
+.home-quicknav[hidden] { display: none; }
+.home-quicknav .quicknav-chip {
+  /* 0.8.26 (п.1 владельца): было flex:1 1 0 — ширина делилась поровну между
+     чипами, и при 6 включённых разделах длинные названия («Самочувствие»)
+     обрезались многоточием. Теперь пилюля равна своему тексту и не сжимается,
+     а если все вместе не влезли — панель прокручивается вбок (overflow-x:auto
+     у контейнера). Читаемость больше не зависит от числа включённых карточек. */
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface-variant);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.home-quicknav .quicknav-chip.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: transparent;
+}
+/* Цели перехода не должны прятаться под шапкой и панелью.
+   --quicknav-scroll-margin задаёт syncQuickNavTop: это низ прилипающей панели,
+   тот же, что и порог подсветки (минус запас). */
+#home-cards > * { scroll-margin-top: var(--quicknav-scroll-margin, 116px); }
+
+.greeting-title {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.greeting-sub {
+  margin-top: 2px;
+  font-size: 0.92rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ---------- Карточки ---------- */
+.card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  /* 0.3.17: акцентная линия тоньше и единого цвета современной палитры
+     (запрос пользователя: «слишком выделяется, нужен небольшой акцент,
+     один цвет для всех разделов, цвет — от темы»). 65% primary
+     поверх фона карточки = мягкий тон, не яркая полоса. */
+  border-left: 3px solid color-mix(in srgb, var(--primary) 65%, transparent);
+  border-radius: 24px;
+  box-shadow: var(--card-shadow);
+  padding: 18px 18px 14px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+  animation: card-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.food-card {
+  animation-delay: 0.08s;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  /* 0.9.42 (полевой баг владельца: в теме «Спорт» блок «Анализ периода ·
+     Помощник FitFlow» вылезал за правый край).
+
+     Причина НЕ в самой теме, а здесь. По умолчанию флекс-ребёнок имеет
+     min-width:auto и не может стать уже своего содержимого: длинный
+     заголовок в одну строку распирал шапку, и карточка уезжала за экран.
+     Тема «Спорт» лишь проявила дефект — она добавляет заголовкам
+     letter-spacing и просит сжатый шрифт, которого на Android нет,
+     поэтому подставляется обычный и строка выходит ещё длиннее.
+
+     min-width:0 разрешает колонке сжиматься, перенос по словам
+     довершает дело. Правило общее — чинит все карточки и все темы
+     разом, а не один экран. */
+  min-width: 0;
+}
+
+.card-header > * {
+  min-width: 0;
+}
+
+.card-header h2,
+.card-header .card-subtitle {
+  overflow-wrap: anywhere;
+}
+
+/* 0.9.42: та же защита для остальных флекс-строк с текстом. Проверка
+   tools/check-flex-overflow.py находит их статически — браузера в
+   песочнице нет, а на устройстве такой дефект виден только когда
+   совпадут длинная строка, узкий экран и тема с разрядкой букв.
+   Список получен проверкой, а не наугад. */
+.ai-center-head,
+.app-dialog-actions,
+.motivation-theme-row,
+.profile-basics-row,
+.profile-settings-context,
+.reminder-time-row,
+.setup-step,
+.sleep-targets-row,
+.sleep-time-row,
+.stats-bars,
+.stats-section-head,
+.settings-label-row,
+.privacy-note,
+.food-list,
+.topbar,
+.about-links,
+.settings-row,
+.food-form {
+  min-width: 0;
+}
+
+.ai-center-head > *,
+.motivation-theme-row > *,
+.profile-basics-row > *,
+.profile-settings-context > *,
+.reminder-time-row > *,
+.setup-step > *,
+.sleep-targets-row > *,
+.sleep-time-row > *,
+.stats-section-head > *,
+.settings-label-row > *,
+.privacy-note > *,
+.topbar > *,
+.about-links > * {
+  min-width: 0;
+}
+
+/* Длинные слова и составные заголовки переносим, а не выталкиваем. */
+.ai-center-head h2,
+.stats-section-head h3,
+.settings-label-row .settings-label,
+.profile-settings-context strong,
+.profile-settings-context small {
+  overflow-wrap: anywhere;
+}
+
+.card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.card-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.water-icon {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+
+.food-icon {
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+}
+
+.card-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title-wrap h2 {
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.card-title-wrap p {
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.card-menu {
+  width: 38px;
+  height: 38px;
+  opacity: 0.75;
+}
+
+/* ============================================================
+   Карточка ВОДЫ
+   ============================================================ */
+.water-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.water-ring-wrap {
+  position: relative;
+  width: 168px;
+  height: 168px;
+}
+
+.water-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--md-sys-color-surface-container-highest);
+  stroke-width: 11;
+}
+
+.ring-fg {
+  fill: none;
+  stroke: url(#ring-grad);
+  stroke-width: 11;
+  stroke-linecap: round;
+  stroke-dasharray: 339.292;
+  stroke-dashoffset: 339.292;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.3, 0.8, 0.4, 1);
+  filter: drop-shadow(0 2px 6px rgb(0 143 143 / 0.35));
+}
+
+.water-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.water-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.water-unit {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.water-sub {
+  margin-top: 6px;
+  font-size: 0.74rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.water-card.goal-reached .water-ring-center .water-value {
+  color: var(--success);
+}
+
+/* Кнопки воды — строгая сетка 2×2: текст всегда внутри «пилюли». */
+.water-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 300px;
+  margin: 4px auto 0;
+}
+
+.water-actions .chip {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.79rem;
+  line-height: 1.15;
+  overflow: hidden;
+}
+.water-actions .chip > span,
+.water-actions .chip > svg { flex: 0 0 auto; }
+
+/* Чипы */
+.chip {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 10px;
+  border-radius: 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  transition: filter 0.2s ease, transform 0.1s ease, background 0.2s ease;
+}
+
+.chip:hover {
+  filter: brightness(0.97);
+}
+
+.chip:active {
+  transform: scale(0.96);
+}
+
+.chip-emoji {
+  font-size: 1rem;
+}
+
+.chip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chip-danger {
+  flex: 0 0 auto;
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+}
+
+.chip-sm {
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+}
+
+.chip-sm:hover {
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+/* ---------- Строка цели ---------- */
+.goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  margin-top: 2px;
+}
+
+.goal-label {
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.goal-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goal-value {
+  min-width: 86px;
+  text-align: center;
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  transition: transform 0.1s ease;
+}
+
+.mini-btn:active {
+  transform: scale(0.9);
+}
+
+/* ============================================================
+   Карточка ЕДЫ
+   ============================================================ */
+.calorie-summary {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.calorie-numbers {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.calorie-value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorie-divider,
+.calorie-goal {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.calorie-goal {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorie-unit {
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-highest);
+  margin: 10px 0 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--calorie-accent), var(--grad-b));
+  transition: width 0.5s cubic-bezier(0.3, 0.8, 0.4, 1);
+}
+
+.food-card.over-goal .progress-fill {
+  background: var(--md-sys-color-error);
+}
+
+.calorie-hint {
+  font-size: 0.78rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ---------- Полоска БЖУ ---------- */
+.food-macros {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.macro-bar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.macro-bar-track {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface-container-highest);
+  margin-top: 2px;
+}
+
+.macro-bar-p { background: #4a9eff; height: 100%; transition: width 0.4s ease; }
+.macro-bar-f { background: #f0a040; height: 100%; transition: width 0.4s ease; }
+.macro-bar-c { background: #4caf50; height: 100%; transition: width 0.4s ease; }
+
+.manual-food-macros {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.manual-food-macros input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 8px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.manual-food-macros input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.food-item-macros {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  white-space: nowrap;
+}
+
+/* ---------- План дня (бывш. чек-лист) ---------- */
+#day-plan-card { margin-bottom: 16px; }
+.checklist-card { padding: 14px 16px 12px; }
+.checklist-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; font-weight: 800; color: var(--md-sys-color-on-surface); }
+.checklist-items { display: grid; gap: 8px; }
+.checklist-item { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+.checklist-item.done { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.checklist-icon { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 0.9rem; flex-shrink: 0; }
+.checklist-icon.done { background: var(--success); color: #fff; }
+.checklist-icon.pending { border: 2px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-outline-variant); }
+
+/* ---------- Форма ввода ---------- */
+/* 0.5.1 (п.3 владельца): поле ввода — на всю строку, «Добавить» и «☆ В комбо» —
+   отдельной строкой ниже (поле перестало ужиматься из-за кнопок). */
+.food-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.food-form .input-wrap { flex: 1 1 100%; }
+
+.food-form-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.food-form-actions > * {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+}
+
+.input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.food-form #food-add { flex: 1 1 0; }
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  color: var(--md-sys-color-on-surface-variant);
+  pointer-events: none;
+}
+
+.food-input {
+  width: 100%;
+  padding: 13px 14px 13px 38px;
+  border-radius: 16px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-lowest);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.food-input::placeholder {
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.75;
+}
+
+.food-input:focus {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.btn {
+  border-radius: 16px;
+  padding: 13px 16px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: transform 0.1s ease, filter 0.2s ease;
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+/* 0.9.43: ни одна кнопка не должна быть шире своего контейнера.
+   Общая страховка на случай длинной подписи, крупного системного
+   шрифта или темы с разрядкой букв («Спорт» пишет капслоком). */
+.btn {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.btn-primary {
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-ghost {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost svg {
+  width: 20px;
+  height: 20px;
+}
+
+.parse-error {
+  margin: 10px 2px 0;
+  font-size: 0.82rem;
+  color: var(--md-sys-color-error);
+  background: var(--md-sys-color-error-container);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+/* ---------- Быстрые добавления ---------- */
+.quick-meals {
+  margin-top: 12px;
+}
+
+.quick-label {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-bottom: 8px;
+}
+
+.quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Список продуктов ---------- */
+.food-list {
+  list-style: none;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.food-empty {
+  text-align: center;
+  padding: 18px 8px;
+  font-size: 0.85rem;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1.5px dashed var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+
+.food-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 16px;
+  animation: item-in 0.3s ease both;
+}
+
+@keyframes item-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.food-item-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  font-size: 0.95rem;
+}
+
+.food-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.food-item-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.food-item-desc {
+  font-size: 0.76rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.food-item-kcal {
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.food-item-remove {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--md-sys-color-on-surface-variant);
+  flex-shrink: 0;
+}
+
+.food-item-remove:hover {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+
+.food-item-remove svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------- Примечание приватности ---------- */
+.privacy-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 18px 4px 6px;
+  font-size: 0.76rem;
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: center;
+}
+
+.privacy-note svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Нижняя навигация
+   ============================================================ */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: var(--topbar-bg);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.nav-item {
+  flex: 1;
+  max-width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border-radius: 16px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.nav-item:active {
+  transform: scale(0.94);
+}
+
+.nav-item svg {
+  width: 24px;
+  height: 24px;
+}
+
+.nav-item.active {
+  color: var(--md-sys-color-primary);
+}
+
+.nav-item.active svg {
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent));
+}
+
+.soon-badge {
+  font-style: normal;
+  font-size: 0.56rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  /* 0.4.7 (полевая жалоба): короткий тост перекрывался полем ввода + IME-доком
+     клавиатуры — поднят выше зоны gboard, читается и с открытой клавиатурой. */
+  bottom: calc(45vh + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(20px);
+  z-index: 50;
+  max-width: min(92vw, 420px);
+  background: var(--md-sys-color-inverse-surface, var(--md-sys-color-surface-container-highest));
+  color: var(--md-sys-color-on-surface);
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: var(--card-shadow);
+  border: var(--card-border);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Диалог первого входа в «Активность» ---------- */
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  /* Плотное затемнение + размытие: контент позади диалога не отвлекает. */
+  background: rgb(0 0 0 / 0.56);
+  backdrop-filter: blur(6px) saturate(0.9);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
+}
+
+.app-dialog-backdrop[hidden] {
+  display: none;
+}
+
+/* Круглые кнопки микрофона в шапках карточек (Вода / Питание) */
+.mic-header-btn {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.mic-header-btn:hover { filter: brightness(0.97); }
+.mic-header-btn:active { transform: scale(0.9); }
+.mic-header-btn svg { width: 19px; height: 19px; }
+
+/* Базовое оформление текстовых полей приложения (до 0.2.8 у .form-input
+   не было стилей — показывался сырой системный вид WebView) */
+.form-input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.form-input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 0.75; }
+.form-input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+/* Иконочные кнопки внутри ИИ-центра (голос, камера) */
+.ai-icon-btn {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.ai-icon-btn:hover { filter: brightness(0.97); }
+.ai-icon-btn:active { transform: scale(0.9); }
+.ai-icon-btn svg { width: 18px; height: 18px; }
+
+/* Единые основные кнопки ИИ-центра: одинаковые вид и размер на всех вкладках */
+.ai-center .btn-primary {
+  flex: 0 0 auto;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 20px;
+  font-size: 0.84rem;
+}
+
+/* Поле ввода ИИ-центра: всегда в полную строку, многострочное,
+   тянется за уголок (resize: vertical) если текста много. */
+.ai-input-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+textarea.form-input.ai-textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  max-height: 240px;
+  resize: vertical;
+  line-height: 1.35;
+  font-family: inherit;
+}
+.ai-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ai-actions-spacer { flex: 1 1 auto; }
+.ai-center #ai-tabs button { font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.ai-tab-icon { width: 14px; height: 14px; flex: 0 0 auto; }
+
+.app-dialog {
+  width: min(100%, 390px);
+  padding: 22px 20px 18px;
+  background: var(--md-sys-color-surface-container-low);
+  border: var(--card-border);
+  border-radius: 24px;
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.28);
+  text-align: center;
+}
+
+/* ИИ-центр — полноценный экран (0.3.16).
+   min-width: 0 у grid-элемента и перенос вкладок устраняют выпадение за край. */
+.ai-center {
+  width: min(560px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+  overflow-x: hidden;
+}
+.ai-center-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ai-center #ai-tabs { flex-wrap: wrap; }
+.ai-center #ai-tabs button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 8px;
+  white-space: nowrap;
+}
+.ai-center .settings-row { flex-wrap: wrap; }
+.ai-center .settings-row .form-input { flex: 1 1 100%; }
+
+/* Стрелки-шевроны: сворачиваемые разделы Настроек и списки на Главной */
+.chevron-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  transition: transform 0.22s ease;
+}
+.settings-group-collapse {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.settings-group-collapse:hover {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.settings-group-collapse.is-collapsed .chevron-icon { transform: rotate(-90deg); }
+.collapsible-toggle[aria-expanded="false"] .chevron-icon { transform: rotate(-90deg); }
+
+/* Подсказка про оценку самочувствия в чек-листе дня */
+.checklist-hint {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.85;
+}
+
+/* Отдельная карточка самочувствия (отделена от чек-листа в 0.2.9) */
+#day-mood-card { margin-bottom: 16px; }
+.mood-card .mood-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+/* 0.5.2: развёрнутый вечерний вариант убран — плашка всегда компактная строка;
+   стили mood-card-value/mood-emoji больше не нужны и удалены (гард нагромождения). */
+.mood-card { padding: 8px 12px; }
+
+/* Компактная строка типа приёма пищи */
+.meal-type-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+.meal-type-current {
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.meal-type-current b { color: var(--md-sys-color-on-surface); }
+.meal-type-auto {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+.meal-type-expand { flex: 0 0 auto; padding: 7px 12px; }
+.meal-type-full { margin-top: 9px; }
+
+/* Своя порция воды */
+.water-custom-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+.water-custom-row .water-custom-cancel { flex: 0 0 auto; padding: 4px 8px; font-size: 0.72rem; border-radius: 10px; align-self: center; }
+.water-custom-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.88rem;
+}
+.water-custom-row input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.app-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 10px;
+  background: var(--md-sys-color-primary-container);
+  border-radius: 16px;
+  font-size: 1.5rem;
+}
+
+.app-dialog h2 {
+  font-size: 1.15rem;
+}
+
+.app-dialog > p {
+  margin-top: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.84rem;
+  line-height: 1.48;
+}
+
+.app-dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.app-dialog-actions .btn {
+  flex: 1;
+  padding: 11px 10px;
+  /* 0.3.31 (кейс пользователя: «Отмена» на широкой кнопке залипала влево —
+     .btn-secondary это inline-flex без выравнивания): во ВСЕХ диалогах с
+     подтверждением надпись по центру. */
+  justify-content: center;
+  text-align: center;
+}
+
+.app-dialog-hint {
+  font-size: 0.75rem !important;
+}
+
+/* ============================================================
+   Настройки
+   ============================================================ */
+.settings-icon {
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+}
+
+.settings-group {
+  padding: 14px 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.settings-group:first-of-type {
+  border-top: none;
+}
+
+.settings-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-bottom: 10px;
+}
+
+.settings-hint {
+  font-size: 0.78rem;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* Поля в рядах настроек не должны выталкивать кнопки и обрезать текст */
+.settings-row > input { min-width: 0; }
+
+.settings-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 14px;
+}
+
+.btn-secondary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-danger {
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+  border-radius: 14px;
+}
+
+/* ---------- Тренировки ---------- */
+.training-icon {
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+}
+
+.training-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+}
+
+.training-summary-label {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.training-summary strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+
+.training-form {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-template-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.activity-template-empty {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 13px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.activity-template-item {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 13px;
+}
+
+.activity-template-use {
+  display: grid;
+  min-width: 0;
+  padding: 8px 9px 8px 11px;
+  text-align: left;
+}
+
+.activity-template-use span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-template-use small {
+  margin-top: 1px;
+  font-size: 0.7rem;
+  opacity: 0.82;
+}
+
+.activity-template-remove {
+  width: 32px;
+  flex: 0 0 32px;
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.activity-template-remove:active {
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+}
+
+.activity-template-create {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.activity-template-create > label {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.activity-template-create-row {
+  display: flex;
+  gap: 8px;
+}
+
+.activity-template-create-row input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 11px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 13px;
+  font-size: 0.84rem;
+}
+
+.activity-template-create-row input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.activity-template-create-row .btn {
+  flex: 0 0 auto;
+  padding: 10px 11px;
+  font-size: 0.76rem;
+}
+
+.workout-type-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.workout-type-btn {
+  min-height: 42px;
+  padding: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 13px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.workout-type-btn.active {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
+.workout-duration-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.workout-duration-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.workout-duration-input-wrap input {
+  width: 84px;
+  padding: 7px 9px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 9px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.workout-duration-input-wrap input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+.training-hint {
+  margin-top: -3px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.training-add-btn {
+  width: 100%;
+}
+
+.workout-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  list-style: none;
+}
+
+.workout-empty {
+  padding: 14px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.workout-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.workout-item:last-child {
+  border-bottom: none;
+}
+
+.workout-item-emoji {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 11px;
+  font-size: 1rem;
+}
+
+.workout-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.workout-item-info p {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.workout-item-info span {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+}
+
+.workout-item-remove {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: 50%;
+}
+
+.workout-item-remove:active {
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+}
+
+.workout-item-remove svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* 0.8.11: кнопка экспорта тренировки в Health Connect */
+.workout-item-export {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: 50%;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.workout-item-export:active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.workout-item-export svg { width: 18px; height: 18px; }
+
+/* ---------- Вечернее напоминание ---------- */
+.settings-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-label-row .settings-label {
+  margin-bottom: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch-track {
+  display: flex;
+  align-items: center;
+  width: 48px;
+  height: 30px;
+  padding: 3px;
+  background: var(--md-sys-color-outline-variant);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.switch-thumb {
+  width: 24px;
+  height: 24px;
+  background: var(--md-sys-color-surface-container-lowest);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--md-sys-color-primary);
+}
+
+.switch input:checked + .switch-track .switch-thumb {
+  transform: translateX(18px);
+  background: var(--md-sys-color-on-primary);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 3px solid color-mix(in srgb, var(--md-sys-color-primary) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.reminder-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.time-input {
+  min-width: 104px;
+  padding: 7px 9px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 9px;
+  font-weight: 700;
+}
+
+.motivation-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.motivation-theme-row select {
+  max-width: 160px;
+  padding: 7px 28px 7px 9px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.notification-setup-btn {
+  margin-top: 12px;
+}
+
+/* ---------- Экран настройки уведомлений ---------- */
+.notification-icon {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+
+.notification-intro {
+  margin: 2px 0 14px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.setup-steps {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  counter-reset: setup;
+}
+
+.setup-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+
+.setup-number {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-radius: 50%;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.setup-step-content {
+  min-width: 0;
+}
+
+.setup-step-content h3 {
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.setup-step-content > p {
+  margin-top: 3px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.setup-state {
+  font-weight: 700;
+}
+
+.setup-step-content > .setup-state-ok {
+  color: var(--success);
+}
+
+.setup-step-content > .setup-state-bad {
+  color: var(--md-sys-color-error);
+}
+
+.btn-setup {
+  margin-top: 9px;
+  padding: 9px 11px;
+  font-size: 0.78rem;
+}
+
+.vendor-note {
+  margin-top: 12px;
+  padding: 11px 12px;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 14px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.notification-test-box {
+  margin-top: 12px;
+  padding: 13px;
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+
+.notification-test-box h3 {
+  font-size: 0.9rem;
+}
+
+.notification-test-box p {
+  margin-top: 4px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.notification-test-box .btn {
+  margin-top: 10px;
+  padding: 9px 11px;
+  font-size: 0.78rem;
+}
+
+.setup-back-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Сегментированный выбор темы */
+.segmented {
+  display: flex;
+  flex-wrap: wrap; /* 5+ кнопок (провайдеры облака) переносятся на вторую строку, не уезжая за экран */
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: 11px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.segmented button.active {
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+
+/* 0.4.14: палитра и шрифт — компактные ряды (5 стилей не влезали, «Виноград»
+   уезжал): разрешён перенос 3+2, значок и название строго в одну строку. */
+#palette-segmented button, #font-segmented button {
+  padding: 7px 6px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+#palette-segmented button { flex: 1 1 27%; }
+
+html[data-theme="dark"] .segmented button.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+/* Плавное переключение экранов */
+#home-view,
+#stats-view,
+#training-view,
+#settings-view,
+#notifications-view {
+  animation: view-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Доступность ---------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .content { padding: 14px 12px 4px; }
+  .card { padding: 16px 14px 12px; }
+  .water-ring-wrap { width: 150px; height: 150px; }
+  .btn-primary { padding: 13px 12px; }
+}
+
+/* ---------- Свои и избранные блюда ---------- */
+.manual-food-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 14px;
+  padding: 18px 16px;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 16px;
+}
+
+/* Текст не должен прилипать к скруглённым граням карточки */
+.manual-food-section > :first-child { margin-top: 0; }
+.manual-food-section > :last-child { margin-bottom: 0; }
+
+/* Две кнопки — одинаковые размер, стиль и центрирование текста */
+.manual-food-section .manual-food-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.manual-food-section .manual-food-actions .btn {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 8px;
+  font-size: 0.76rem;
+  text-align: center;
+  justify-content: center;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.manual-food-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.manual-food-row input#manual-food-name { flex: 1; }
+.manual-food-row input#manual-food-kcal { flex: 0 0 84px; }
+
+.manual-food-row input {
+  min-width: 0;
+  padding: 10px 11px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.manual-food-row input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+#manual-food-name { flex: 1; }
+#manual-food-kcal { width: 74px; flex: 0 0 74px; }
+
+.manual-food-section .btn {
+  padding: 9px 10px;
+  font-size: 0.76rem;
+}
+
+.favorite-meals-section {
+  margin-top: 14px;
+}
+
+.favorite-meal {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 999px;
+}
+
+.favorite-meal-use {
+  overflow: hidden;
+  padding: 7px 5px 7px 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-meal-remove {
+  width: 27px;
+  flex: 0 0 27px;
+  color: var(--md-sys-color-on-secondary-container);
+  font-size: 1.08rem;
+}
+
+.favorite-meal-remove:active {
+  color: var(--md-sys-color-on-error-container);
+  background: var(--md-sys-color-error-container);
+}
+
+.favorite-meals-empty {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+}
+
+/* ⭐ Мои комбо (0.4.14): чипы записи набора одним тапом + диалог управления */
+.combo-section {
+  margin-top: 12px;
+}
+
+.combo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.combo-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.combo-section .quick-chips {
+  margin-top: 0;
+}
+
+.combo-chip {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* ---------- FAQ с поиском (0.7.18) ---------- */
+.faq-dialog { text-align: left; }
+.faq-dialog h2 { text-align: center; }
+.faq-search { margin: 10px 0 12px; }
+.faq-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(52dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 4px;
+  text-align: left;
+}
+.faq-item {
+  padding: 10px 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-lowest);
+}
+.faq-item strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--md-sys-color-primary);
+}
+.faq-item p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--md-sys-color-on-surface-variant);
+  white-space: pre-line;
+}
+.faq-empty {
+  padding: 16px 8px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.8;
+}
+
+.combo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.combo-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--md-sys-color-outline-variant, rgba(0, 0, 0, 0.12));
+  border-radius: 14px;
+  background: var(--md-sys-color-surface-container-lowest, rgba(0, 0, 0, 0.03));
+}
+
+.combo-row-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.combo-row-main b {
+  font-size: 0.9rem;
+}
+
+.combo-row-text {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.combo-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.combo-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Профиль и цели: необязательные поля антропометрии */
+.profile-basics-group .segmented { margin-top: 4px; }
+.profile-basics-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.profile-basics-row label { font-size: 0.82rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
+.profile-basics-row .form-input { flex: 0 0 110px; width: 110px; text-align: center; }
+.profile-basics-row input[type="number"]::-webkit-outer-spin-button,
+.profile-basics-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#norms-calc-btn { margin-top: 12px; width: 100%; }
+
+/* О приложении: одинаковые кнопки-ссылки столбиком */
+.about-links { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.about-links .btn { width: 100%; justify-content: center; text-align: center; }
+/* 0.8.22: кнопка «↺ Вчера» рядом с «Добавить» */
+.food-form-actions .btn-ghost { flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; }
+/* 0.8.17: «О приложении» — сгруппированные подразделы, компактнее */
+.about-group { margin-top: 14px; }
+.about-group .settings-label { margin-bottom: 0; }
+
+/* ---------- Статистика ---------- */
+.stats-icon {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+
+.stats-periods {
+  position: sticky;
+  top: var(--quicknav-top, 64px);
+  z-index: 14;
+  margin-bottom: 14px;
+  padding: 6px;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+}
+/* Период статистики всегда на виду: смена периода доступна и у карточки «Вес» */
+.stats-periods button { padding: 8px 10px; font-size: 0.76rem; }
+
+/* ИИ-аналитик: компактные органы управления в духе ИИ-центра */
+.ai-stats-card .settings-row { flex-wrap: wrap; gap: 8px; }
+.ai-stats-card .card-subtitle { font-size: 0.78rem; }
+.ai-stats-card .segmented { flex: 1 1 100%; }
+.ai-stats-card .segmented button { padding: 8px 10px; font-size: 0.74rem; }
+.ai-stats-card #ai-stats-run-btn {
+  /* 0.9.43 (владелец, скриншот темы «Спорт»): кнопка уезжала за правый
+     край. В 0.9.42 я починил заголовок — он и правда переносится, — но
+     виновата была КНОПКА, и по трём причинам сразу:
+       1) flex: 0 0 auto запрещал ей сжиматься;
+       2) height: 38px фиксировал одну строку, так что перенос текста её
+          бы всё равно разорвал;
+       3) тема «Спорт» пишет подписи капслоком и добавляет разрядку —
+          «АНАЛИЗИРОВАТЬ ВЫБРАННЫЙ ПЕРИОД» шире того же текста строчными
+          примерно на четверть.
+     На остальных темах строка чуть короче ширины экрана — поэтому баг и
+     выглядел «только спортивным».
+     Разрешаем сжиматься и переносить, высоту делаем минимальной. */
+  flex: 1 1 auto;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 9px 16px;
+  border-radius: 19px;
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+.stats-section {
+  margin-top: 10px;
+  padding: 13px;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 16px;
+}
+
+.stats-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stats-section-head h3 {
+  font-size: 0.9rem;
+}
+
+.stats-section-head strong {
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.stats-section > p {
+  margin-top: 2px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.76rem;
+}
+
+.stats-bars {
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  height: 86px; /* 0.5.1: запас под цифру над столбцом + строку даты */
+  margin-top: 10px;
+}
+
+.stats-bar-wrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+
+/* 0.5.1 (п.8 владельца: у самого высокого столбца «06» уехала вниз и обрезалась
+   за край): двухъярусная колонка — цифра и столбец в гибкой зоне, дата всегда
+   в фиксированной строке снизу. */
+.stats-bar-col {
+  flex: 1 1 auto;
+  /* 0.8.25 (повторный разбор «столбики шагов без цвета»): процентная высота
+     ребёнка считается от РОДИТЕЛЯ С ОПРЕДЕЛЁННОЙ высотой. У flex-элемента без
+     явной height часть движков (в т.ч. Android WebView) резолвит height:N% в
+     auto — столбец схлопывался до min-height:2px и читался как «нет цвета».
+     Правка 0.8.16 красила фон, но красить было нечего: высота была 2 пикселя.
+     Явная height:100% делает высоту определённой, проценты снова работают. */
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.stats-bar {
+  /* Ширина задаётся явно: в flex-колонке auto-ширина зависит от содержимого,
+     а содержимого у столбца нет — пустой div мог остаться нулевой ширины. */
+  width: 100%;
+  align-self: stretch;
+  min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  /* Цвет через собственную переменную: одно правило вместо каскада по секциям,
+     контур делает столбец видимым на любом фоне и в любой теме. */
+  background: var(--stats-bar-color, var(--md-sys-color-primary));
+  border: 1px solid color-mix(in srgb, var(--stats-bar-color, var(--md-sys-color-primary)) 65%, transparent);
+  box-sizing: border-box;
+  transition: height 0.3s ease;
+}
+
+/* День без записей — честный пустой контур, а не «столбик неизвестного цвета». */
+.stats-bar.is-empty {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--md-sys-color-outline-variant);
+}
+
+.stats-water { --stats-bar-color: var(--grad-a); }
+.stats-food { --stats-bar-color: var(--calorie-accent); }
+.stats-activity { --stats-bar-color: var(--md-sys-color-primary); }
+.stats-sleep { --stats-bar-color: #5C6BC0; }
+.stats-steps { --stats-bar-color: var(--grad-b); }
+
+/* Дублируем цвет прямым правилом: если движок не поддержит наследование
+   переменной с секции, столбцы всё равно останутся окрашенными. */
+.stats-water .stats-bar:not(.is-empty) { background: var(--grad-a); }
+.stats-food .stats-bar:not(.is-empty) { background: var(--calorie-accent); }
+.stats-activity .stats-bar:not(.is-empty) { background: var(--md-sys-color-primary); }
+.stats-sleep .stats-bar:not(.is-empty) { background: #5C6BC0; }
+.stats-steps .stats-bar:not(.is-empty) { background: var(--grad-b); }
+
+.stats-bar-label {
+  flex: 0 0 auto;
+  line-height: 1.25;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.62rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Подсказка «нашли тренировки с часов» (0.8.0) ---------- */
+.watch-workouts-suggest {
+  margin: 10px 0 4px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 14px;
+  background: var(--md-sys-color-primary-container);
+  overflow: hidden;
+}
+/* 0.9.21: список свёрнут под заголовок. Паддинг переехал с контейнера внутрь,
+   иначе в свёрнутом виде оставалась пустая полоса под строкой-заголовком.
+   0.9.23: две класса (0,2,0). Одноклассные .watch-workouts-block /
+   .watch-workouts-toggle проигрывают общим .collapsible-block /
+   .collapsible-toggle ниже по файлу (margin-top:12px, серый фон тоггла) —
+   на теме «Лес» это зелёный зазор сверху и серо-белая полоса-заголовок. */
+.collapsible-block.watch-workouts-block {
+  margin-top: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+}
+.collapsible-toggle.watch-workouts-toggle {
+  background: transparent;
+  color: var(--md-sys-color-on-primary-container);
+  font-size: 0.8rem;
+  padding: 11px 12px;
+  gap: 10px;
+}
+.watch-workouts-toggle span:first-child { line-height: 1.35; }
+.watch-workouts-suggest .collapsible-content > div { padding: 0 12px 10px; }
+.watch-workout-hint {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-primary-container);
+}
+.watch-workout {
+  padding: 8px 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+.watch-workout:first-child { border-top: none; }
+/* 0.8.25: строка добавленной автоматически тренировки — приглушённая,
+   чтобы визуально отличаться от сессий, которые ещё ждут решения. */
+.watch-workout-auto .watch-workout-info strong,
+.watch-workout-auto .watch-workout-emoji { opacity: 0.85; }
+.watch-workout-auto .watch-workout-info span { opacity: 0.66; }
+/* 0.9.10: сессия, похожая на уже записанную вручную. Не прячем и не добавляем
+   сами — предупреждаем, решение за владельцем. */
+.watch-workout-dup {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--md-sys-color-error);
+  opacity: 1;
+}
+.watch-workout-maybe .watch-workout-info strong { opacity: 0.9; }
+.watch-workout-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.watch-workout-emoji { font-size: 1.5rem; flex-shrink: 0; }
+.watch-workout-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.watch-workout-info strong { font-size: 0.85rem; color: var(--md-sys-color-on-primary-container); }
+.watch-workout-info span { font-size: 0.72rem; color: var(--md-sys-color-on-primary-container); opacity: 0.78; line-height: 1.35; }
+.watch-workout-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+/* Компактные кнопки баннера — не наследуют крупный паддинг .btn */
+.watch-btn {
+  border: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+.watch-btn:active { transform: scale(0.96); }
+.watch-btn-add {
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+}
+.watch-btn-ghost {
+  color: var(--md-sys-color-on-primary-container);
+  background: transparent;
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* ---------- Дневник силовых тренировок (0.8.4) ---------- */
+.strength-diary-section { text-align: left; }
+.strength-diary { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
+.strength-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.strength-title-field { display: grid; gap: 5px; min-width: 0; }
+.strength-title-field span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-empty { margin: 0; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-exercises { display: grid; gap: 8px; min-width: 0; }
+.strength-exercise { padding: 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; min-width: 0; max-width: 100%; }
+.strength-exercise-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.strength-exercise-head strong { font-size: 0.85rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.strength-exercise-summary { font-size: 0.72rem; color: var(--md-sys-color-primary); min-width: 0; text-align: right; }
+.strength-exercise-remove { border: none; background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
+.strength-set { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.strength-set input { width: 0; flex: 1 1 0; min-width: 0; padding: 7px 9px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.8rem; }
+.strength-set-x { color: var(--md-sys-color-on-surface-variant); }
+.strength-set-remove { border: none; background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 1rem; cursor: pointer; padding: 0 4px; }
+.strength-set-add { border: 1px dashed var(--md-sys-color-outline-variant); background: transparent; color: var(--md-sys-color-primary); font-size: 0.75rem; border-radius: 9px; padding: 5px 10px; cursor: pointer; }
+.strength-saved { display: grid; gap: 4px; }
+.strength-saved-hint { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin: 0; }
+.strength-saved-row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-groups { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; justify-content: center; }
+.strength-exercise-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; margin-bottom: 10px; text-align: left; }
+.strength-exercise-btn { text-align: left; padding: 9px 11px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); font: inherit; font-size: 0.78rem; cursor: pointer; min-width: 0; overflow-wrap: anywhere; }
+.strength-custom { display: grid; gap: 5px; margin-bottom: 4px; text-align: left; }
+.strength-custom span { font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); }
+/* Прогресс силовых (0.8.5) */
+.strength-history-section { text-align: left; }
+.strength-history { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
+.strength-history-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
+.strength-records { display: grid; gap: 4px; min-width: 0; }
+.strength-record { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; min-width: 0; }
+.strength-record strong { font-size: 0.8rem; overflow-wrap: anywhere; }
+.strength-record span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-record-goal { color: var(--md-sys-color-primary); font-weight: 600; }
+/* 0.9.17: динамика по упражнению — «в прошлый раз 50, сейчас 57». */
+.strength-progress { display: grid; gap: 4px; min-width: 0; margin-bottom: 8px; }
+.strength-progress-row { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; border-left-width: 3px; min-width: 0; }
+.strength-progress-row strong { font-size: 0.8rem; overflow-wrap: anywhere; }
+.strength-progress-line { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); overflow-wrap: anywhere; }
+.strength-progress-delta { font-size: 0.72rem; font-weight: 700; }
+.strength-progress-row.up { border-left-color: #2e7d32; }
+.strength-progress-row.up .strength-progress-delta { color: #2e7d32; }
+.strength-progress-row.down { border-left-color: #b3261e; }
+.strength-progress-row.down .strength-progress-delta { color: #b3261e; }
+.strength-progress-row.same { border-left-color: var(--md-sys-color-outline-variant); }
+.strength-progress-row.same .strength-progress-delta { color: var(--md-sys-color-on-surface-variant); }
+/* 0.9.18: «смешанно» — один показатель вырос, другой упал (вес больше, повторов
+   меньше). Отдельный цвет, чтобы это не читалось ни как успех, ни как провал. */
+.strength-progress-row.mixed { border-left-color: #b26a00; }
+.strength-progress-row.mixed .strength-progress-delta { color: #b26a00; }
+/* Строка показателя: подпись слева, дельта справа — два показателя друг под другом. */
+.strength-progress-metric { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.strength-progress-metric .strength-progress-line { flex: 1 1 auto; }
+.strength-progress-metric .strength-progress-delta { flex: 0 0 auto; white-space: nowrap; }
+.strength-progress-base { font-size: 0.66rem; color: var(--md-sys-color-on-surface-variant); opacity: .8; margin-top: 2px; }
+/* Переключатель периода над блоком прогресса. */
+.strength-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.strength-progress-head .strength-history-hint { margin: 0; }
+.strength-progress-periods { flex: 0 0 auto; }
+.strength-progress-periods button { padding: 5px 9px; font-size: 0.7rem; }
+.strength-progress-empty { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin: 0 0 8px; }
+/* Шаблоны силовых (0.8.8) */
+.strength-templates { display: grid; gap: 6px; min-width: 0; }
+.strength-templates-hint { margin: 0; font-size: 0.72rem; font-weight: 600; color: var(--md-sys-color-primary); }
+.strength-template-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+.strength-template-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.strength-template-info strong { font-size: 0.8rem; overflow-wrap: anywhere; }
+.strength-template-info span { font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); }
+.strength-template-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+/* План тренировок (0.8.9) */
+.strength-plan-section { text-align: left; }
+.strength-plan { display: grid; gap: 10px; text-align: left; min-width: 0; max-width: 100%; }
+.strength-plan-today { margin: 0; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-primary); }
+.strength-plan-today-list { display: grid; gap: 4px; min-width: 0; }
+.strength-plan-today-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.strength-plan-name { font-size: 0.78rem; min-width: 0; overflow-wrap: anywhere; }
+.strength-plan-done { font-size: 0.72rem; color: var(--md-sys-color-primary); font-weight: 600; }
+.strength-plan-grid { display: grid; gap: 4px; min-width: 0; }
+.strength-plan-head, .strength-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
+}
+.strength-plan-head span { font-size: 0.66rem; color: var(--md-sys-color-on-surface-variant); text-align: center; }
+.strength-plan-head span:first-child { text-align: left; overflow-wrap: anywhere; }
+.strength-plan-day {
+  padding: 5px 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-align: center;
+  min-width: 0;
+}
+.strength-plan-day.on {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-color: transparent;
+}
+/* Таймер отдыха (0.8.10) */
+.strength-rest-timer { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; min-width: 0; }
+.strength-rest-label { font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-primary); }
+.strength-rest-presets { display: flex; gap: 4px; flex-wrap: wrap; }
+.strength-rest-presets button {
+  padding: 4px 8px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 8px;
+  background: transparent; color: var(--md-sys-color-on-surface-variant); font-size: 0.72rem; cursor: pointer;
+  white-space: nowrap;
+}
+.strength-rest-presets button.on { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); border-color: transparent; }
+.strength-rest-count { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--md-sys-color-primary); min-width: 42px; text-align: center; }
+.weekly-load-balance { margin: 8px 0 0; text-align: left; }
+.strength-history-list { display: grid; gap: 4px; }
+.strength-history-row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 0.74rem; color: var(--md-sys-color-on-surface-variant); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+
+/* ---------- Поиск по базе продуктов (0.8.20) ---------- */
+.product-search-dialog { text-align: left; }
+.product-search-dialog h2 { text-align: center; }
+.product-search-input { margin: 10px 0 12px; }
+.product-search-list {
+  display: grid;
+  gap: 4px;
+  max-height: min(52dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 4px;
+  text-align: left;
+}
+.product-search-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 10px;
+}
+.product-search-row strong { font-size: 0.8rem; }
+.product-search-row span { font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+.product-search-custom { font-size: 0.66rem; color: var(--md-sys-color-primary); font-weight: 600; }
+.product-search-hint { padding: 10px 4px; font-size: 0.78rem; color: var(--md-sys-color-on-surface-variant); text-align: center; }
+
+/* ---------- Карточка: Шаги на Главной (0.7.0) ---------- */
+.steps-card .steps-progress-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.steps-card .steps-progress-row strong {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--md-sys-color-primary);
+  font-weight: 700;
+}
+.steps-goal-target {
+  font-size: 0.88rem;
+  color: var(--md-sys-color-on-surface-variant);
+  font-weight: 500;
+}
+.steps-sub-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+/* 0.7.13: компактная кнопка синхронизации шагов — иконка + «sync» */
+.steps-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  line-height: 1;
+}
+.steps-sync-btn:active { opacity: 0.6; }
+.steps-sync-btn svg { width: 14px; height: 14px; }
+/* 0.7.15: тихая галочка успешной фоновой синхронизации */
+.steps-sub-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.steps-sync-check {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--md-sys-color-primary);
+  transform: scale(0);
+}
+.steps-sync-check.pop {
+  animation: stepsTick 2.2s ease forwards;
+}
+@keyframes stepsTick {
+  0%   { transform: scale(0); }
+  18%  { transform: scale(1.25); }
+  30%  { transform: scale(1); }
+  75%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+.steps-sync-hint {
+  margin: 6px 0 0;
+  font-size: 0.68rem;
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.72;
+  text-align: right;
+}
+
+.activity-note-label {
+  display: grid;
+  gap: 6px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.activity-note-label span { font-weight: 500; }
+
+.activity-note-label input {
+  padding: 10px 11px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 13px;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.activity-note-label input:focus {
+  outline: none;
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+}
+
+/* ---------- Подробные экраны воды и питания ---------- */
+.stats-details-btn,
+.detail-back-btn {
+  margin-top: 8px;
+  padding: 5px 0;
+  color: var(--md-sys-color-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.detail-back-btn { margin: -4px 0 10px; }
+.detail-card .card-header { margin-bottom: 12px; }
+.detail-highlight {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 16px;
+}
+.detail-highlight strong { font-size: 1.25rem; }
+.detail-highlight span,
+.detail-insight { color: var(--md-sys-color-on-surface-variant); font-size: 0.8rem; }
+.detail-bars { height: 150px; }
+.detail-insight { margin-top: 10px; line-height: 1.45; }
+
+/* ---------- Выбор темы утренней мотивации ---------- */
+.theme-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 170px;
+  padding: 7px 9px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.theme-choice-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+  text-align: left;
+}
+
+.theme-choice-list button {
+  padding: 12px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 13px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.theme-choice-list button.active {
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-color: var(--md-sys-color-primary);
+}
+
+.theme-dialog-cancel { width: 100%; margin-top: 12px; }
+
+/* ---------- Компактные раскрываемые блоки ---------- */
+.collapsible-block {
+  margin-top: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.collapsible-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 13px;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface-container-high);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.collapsible-toggle span:last-child { transition: transform 0.25s ease; }
+.collapsible-toggle[aria-expanded="true"] span:last-child { transform: rotate(180deg); }
+
+.collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  /* minmax(0, 1fr) по горизонтали: контент формы («Своё блюдо» и др.)
+     не растягивает трек за пределы карточки, поля аккуратно сжимаются. */
+  grid-template-columns: minmax(0, 1fr);
+  transition: grid-template-rows 0.28s ease;
+}
+
+/* Паддинг 0.1px не даёт margin первым/последним дочерним элементам
+   «просачиваться» наружу — в свёрнутом виде текст больше не выглядывает. */
+.collapsible-content > div { min-width: 0; min-height: 0; overflow: hidden; padding: 0.1px 1px; }
+.collapsible-content.is-open { grid-template-rows: 1fr; }
+
+.collapsible-content .manual-food-section { margin: 10px 0 0; }
+.collapsible-content .favorite-meals-section { margin: 10px 0; padding: 0 10px; }
+.collapsible-content .activity-template-create { margin: 10px; }
+.collapsible-content .activity-template-list { margin: 10px; }
+
+/* Резерв снизу на экране «Активность»: плавающая кнопка «＋ Запись»
+   не должна перекрывать последние элементы формы и списка записей. */
+#training-view { padding-bottom: 64px; }
+
+.activity-fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(98px + env(safe-area-inset-bottom));
+  z-index: 40;
+  padding: 13px 16px;
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+  border-radius: 999px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+/* ---------- Условия использования ---------- */
+.chip-water-bottle { display: inline-grid; place-items: center; }
+.chip-water-bottle svg { width: 19px; height: 19px; }
+
+.terms-dialog { max-height: min(82dvh, 620px); overflow-y: auto; }
+.terms-list { display: grid; gap: 8px; margin-top: 14px; text-align: left; }
+.terms-list p { margin: 0; padding: 9px 10px; background: var(--md-sys-color-surface-container-high); border-radius: 12px; font-size: 0.78rem; line-height: 1.42; }
+.terms-list b { color: var(--md-sys-color-on-surface); }
+.terms-decline-hint { color: var(--md-sys-color-error) !important; font-weight: 700; }
+
+/* ---------- Уточнения активности, приватности и воды ---------- */
+.privacy-help {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 50%;
+}
+.privacy-help svg { width: 21px; height: 21px; }
+
+.chip-water-bottle {
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+  border-radius: 8px;
+}
+.chip-water-bottle svg { width: 18px; height: 18px; }
+
+.training-form > .activity-templates-section { order: 10; }
+.training-form > .activity-save-template-toggle { order: 2; }
+.training-form > .activity-template-inline { order: 3; }
+.training-form > .training-add-btn { order: 1; }
+
+.activity-save-template-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.activity-save-template-toggle input { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
+.activity-template-inline {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.activity-template-inline > * { overflow: hidden; }
+.activity-template-inline.is-open { grid-template-rows: 1fr; }
+.activity-template-inline.is-open > * { margin-top: 2px; }
+.activity-template-inline label { color: var(--md-sys-color-on-surface-variant); font-size: 0.78rem; font-weight: 700; }
+.activity-template-inline input { margin-top: 6px; padding: 10px 11px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 13px; font: inherit; font-size: 0.84rem; }
+
+@media (max-width: 420px) {
+  .manual-food-row { flex-wrap: wrap; }
+  #manual-food-name { flex-basis: 100%; }
+  #manual-food-kcal { flex: 1; width: auto; }
+  .manual-food-section .settings-row { display: grid; grid-template-columns: 1fr; }
+  .manual-food-section .btn { width: 100%; white-space: normal; }
+  .collapsible-toggle span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .activity-template-create-row { flex-wrap: wrap; }
+  .activity-template-create-row input { flex-basis: 100%; }
+  .activity-template-create-row .btn { width: 100%; }
+}
+.activity-template-inline { display: block; max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+.activity-template-inline.is-open { max-height: 190px; }
+.settings-about-block { margin-top: 0; }
+.settings-about-content { margin: 10px 12px; }
+.settings-about-content .settings-hint { margin-top: 8px; }
+
+/* ---------- Напоминания о приёмах пищи ---------- */
+.meal-reminder-actions .btn { padding: 8px 10px; font-size: 0.76rem; }
+.meal-reminders-list { display: grid; gap: 8px; margin-top: 10px; }
+.meal-reminder-row { display: flex; align-items: center; gap: 9px; padding: 9px 10px; background: var(--md-sys-color-surface-container-high); border-radius: 13px; }
+.meal-reminder-row label { flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 700; }
+.meal-reminder-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--md-sys-color-primary); }
+.meal-reminder-row input[type="time"] { width: 96px; padding: 6px 7px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.8rem; font-weight: 700; }
+.sources-open-btn { margin-top: 10px; padding: 8px 10px; font-size: 0.76rem; }
+.chip-water-bottle { color: var(--md-sys-color-primary) !important; background: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent) !important; }
+
+/* ---------- Тип приёма пищи ---------- */
+.meal-type-section { margin-top: 14px; }
+.meal-type-section .quick-chips { margin-top: 7px; }
+.meal-type-chip.active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary); }
+.meal-type-custom-row { margin-top: 8px; }
+.meal-type-custom-row .btn { padding: 8px 10px; font-size: 0.76rem; }
+.meal-type-custom-inline { display: none; gap: 7px; margin-top: 8px; }
+.meal-type-custom-inline.is-open { display: flex; }
+.meal-type-custom-inline input { flex: 1; min-width: 0; padding: 8px 10px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 11px; font: inherit; font-size: 0.8rem; }
+@media (max-width:420px) { .meal-type-custom-inline { flex-wrap: wrap; } .meal-type-custom-inline input { flex-basis:100%; } .meal-type-custom-inline .btn { width:100%; } }
+
+/* ---------- Быстрый умный ввод ---------- */
+.brand-logo { border: 0; }
+.smart-entry-dialog { text-align: left; }
+.smart-entry-dialog h2, .smart-entry-dialog > p { text-align: center; }
+#smart-entry-input { width: 100%; margin-top: 14px; padding: 11px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; font: inherit; font-size: 0.85rem; resize: vertical; }
+.smart-help-btn { margin-top: 8px; color: var(--md-sys-color-primary); font-size: 0.78rem; font-weight: 700; }
+/* Превью разбора прокручивается само, иначе при длинном разборе
+   кнопка «Сохранить записи» уезжала за нижнюю границу экрана. */
+.smart-preview { display: grid; gap: 6px; margin-top: 12px; padding: 11px; background: var(--md-sys-color-primary-container); border-radius: 14px; font-size: 0.82rem; max-height: min(36dvh, 320px); overflow-y: auto; overscroll-behavior: contain; }
+.smart-preview p { margin: 0; }
+#smart-entry-save { width: 100%; margin-top: 10px; }
+@media (max-width:420px) { .manual-food-section { padding: 8px; } .manual-food-row input { padding: 9px 10px; } .manual-food-section .settings-row { gap: 6px; } }
+/* Свёрнутый список должен быть полностью невидимым: старые margin/padding
+   секций «просвечивали» сквозь свёрнутый контейнер (ошибка 0.2.5–0.2.7). */
+.collapsible-content:not(.is-open) > div {
+  visibility: hidden;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.collapsible-content .manual-food-section .quick-label { display: block; }
+.collapsible-content.is-open > div { overflow: visible; }
+.workout-duration-input-wrap select { width: 72px; padding: 7px 6px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px; font: inherit; font-size: 0.78rem; font-weight: 700; }
+.duration-unit-btn { display:inline-flex; align-items:center; gap:5px; padding:7px 8px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-lowest); border:1px solid var(--md-sys-color-outline-variant); border-radius:9px; font:inherit; font-size:.78rem; font-weight:700; }
+.activity-fab { padding-left:12px; padding-right:12px; }
+.notification-settings-group { border-top:1px solid var(--md-sys-color-outline-variant); }
+
+/* ---------- Локальные профили ---------- */
+.profile-switcher { display:inline-flex; align-items:center; gap:4px; max-width:150px; margin-top:1px; padding:0; color:var(--md-sys-color-primary); font-size:.76rem; font-weight:700; }
+.profile-switcher span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.profile-list { display:grid; gap:7px; margin-top:14px; text-align:left; }
+.profile-list button { display:flex; align-items:center; justify-content:space-between; width:100%; padding:11px 12px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:13px; font-size:.85rem; font-weight:700; }
+.profile-list button.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
+.profile-add-row { display:flex; gap:7px; margin-top:12px; }
+.profile-add-row input { flex:1; min-width:0; padding:10px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:12px; font:inherit; font-size:.84rem; }
+.profile-add-row .btn { padding:10px; font-size:.78rem; }
+
+/* ---------- Оценка расхода энергии ---------- */
+.activity-intensity { display:grid; gap:6px; }
+.activity-intensity .chip.active { color:var(--md-sys-color-on-primary-container); background:var(--md-sys-color-primary-container); border-color:var(--md-sys-color-primary); }
+.energy-estimate { color:var(--md-sys-color-primary); font-weight:700; }
+.profile-list .profile-row { display:flex; gap:6px; }
+.profile-list .profile-row > button:first-child { flex:1; }
+.profile-list .profile-delete-btn { flex:0 0 40px; width:40px; padding:0; color:var(--md-sys-color-on-error-container); background:var(--md-sys-color-error-container); justify-content:center; font-size:1.1rem; }
+/* ---------- Компактная шапка и профили ---------- */
+.brand { gap: 8px; }
+.brand-logo { width: 36px; height: 36px; border-radius: 11px; }
+.brand-logo svg { width: 22px; height: 22px; }
+.profile-switcher { display:grid; place-items:center; width:36px; height:36px; margin:0; padding:0; color:var(--md-sys-color-on-secondary-container); background:var(--md-sys-color-secondary-container); border-radius:50%; }
+.profile-switcher svg { width:20px; height:20px; }
+.profiles-dialog { width:min(100%,390px); max-height:min(82dvh,640px); overflow-y:auto; }
+.profile-add-row { flex-wrap:wrap; }
+.profile-add-row input { flex-basis:100%; }
+.profile-add-row .btn { flex:1; }
+.dialog-text-input { width:100%; margin-top:14px; padding:11px; color:var(--md-sys-color-on-surface); background:var(--md-sys-color-surface-container-high); border:1px solid var(--md-sys-color-outline-variant); border-radius:13px; font:inherit; }
+.profile-list .profile-edit-btn { flex:0 0 40px; width:40px; padding:0; color:var(--md-sys-color-on-secondary-container); background:var(--md-sys-color-secondary-container); justify-content:center; font-size:1rem; }
+.reminder-test-btn { margin-top:10px; padding:8px 10px; font-size:.76rem; }
+/* ---------- Контекст активного профиля ---------- */
+.topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+.brand-logo { width:36px; height:36px; border-radius:50%; margin-left:0; }
+.brand-logo svg { width:22px; height:22px; }
+.profile-settings-context { display:flex; gap:9px; align-items:flex-start; margin:0 0 8px; padding:10px 11px; background:var(--md-sys-color-secondary-container); border-radius:14px; }
+.profile-settings-context span { font-size:1.05rem; }
+.profile-settings-context strong { display:block; color:var(--md-sys-color-on-secondary-container); font-size:.84rem; }
+.profile-settings-context small { display:block; margin-top:2px; color:var(--md-sys-color-on-secondary-container); font-size:.74rem; line-height:1.35; }
+
+/* ---------- Сворачиваемый список профилей ---------- */
+.profiles-dialog-hint { margin: 5px 0 0; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; line-height: 1.4; }
+.profile-list { gap: 8px; }
+.profile-card { overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 14px; background: var(--md-sys-color-surface-container-high); }
+.profile-card.active { border-color: var(--md-sys-color-primary); }
+.profile-card-header { display: flex; align-items: stretch; min-height: 52px; }
+.profile-card-header button { border: 0; border-radius: 0; }
+.profile-select { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; color: var(--md-sys-color-on-surface); background: transparent; font: inherit; font-size: .86rem; font-weight: 700; text-align: left; }
+.profile-card.active .profile-select { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.profile-card-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-card-status { flex: 0 0 auto; color: var(--md-sys-color-on-surface-variant); font-size: .72rem; font-weight: 700; }
+.profile-card.active .profile-card-status { color: var(--md-sys-color-on-primary-container); }
+.profile-expand-btn { display: grid; flex: 0 0 50px; place-items: center; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-high); font-size: 1.2rem; line-height: 1; transition: transform .2s ease; }
+.profile-card.active .profile-expand-btn { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.profile-expand-btn[aria-expanded="true"] { transform: rotate(180deg); }
+.profile-card-details { padding: 11px 12px 12px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.profile-card-details > p { margin: 0; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; line-height: 1.4; }
+.profile-card-actions { display: flex; gap: 7px; margin-top: 10px; }
+.profile-card-actions button { flex: 1; justify-content: center; min-height: 39px; padding: 8px 9px; border-radius: 10px; font-size: .77rem; }
+.profile-card-actions .profile-edit-btn { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
+.profile-card-actions .profile-delete-btn { color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); }
+/* Не наследуем ширину и размер старых кнопок списка в новых карточках. */
+.profile-card-header button, .profile-card-actions button { width: auto; }
+.profile-card-actions .profile-edit-btn, .profile-card-actions .profile-delete-btn { flex: 1; width: auto; padding: 8px 9px; }
+
+/* ---------- Дневник питания по приёмам пищи ---------- */
+.food-group { list-style: none; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 16px; background: var(--md-sys-color-surface-container-low); }
+.food-group-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.food-group-header h3 { margin: 0; min-width: 0; font-size: .82rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.food-group-header span { flex: 0 0 auto; font-size: .76rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.food-group-items { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 7px; list-style: none; }
+.food-group-items .food-item { background: var(--md-sys-color-surface-container-high); }
+/* 0.3.31: заголовок приёма пищи — кнопка сворачивания (шеврон ▾).
+   С 4+ записями группа стартует свёрнутой — видны «N зап. · X ккал». */
+button.food-group-header { width: 100%; border: 0; font: inherit; cursor: pointer; text-align: left; }
+button.food-group-header:active { filter: brightness(0.97); }
+.food-group-chevron { display: inline-block; transition: transform 0.18s ease; opacity: 0.85; font-size: 0.8rem; }
+.food-group.collapsed .food-group-chevron { transform: rotate(-90deg); }
+
+/* ---------- Шапка и контекст активного профиля ---------- */
+.topbar { gap: 6px; padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.brand { flex: 1 1 auto; min-width: 0; gap: 6px; }
+.brand-logo { flex: 0 0 36px; width: 36px; height: 36px; min-width: 36px; aspect-ratio: 1 / 1; margin-left: -3px; border-radius: 11px; transform: translateY(-2px); }
+.brand-text { min-width: 0; }
+.brand-text h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#date-label { display: grid; gap: 1px; line-height: 1.1; } /* 0.4.15: заглавная — только первая буква (ниже) */
+#date-label span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#date-weekday { font-weight: 700; }
+#date-month { font-size: .72rem; }
+/* 0.8.29: индикатор режима — компактная шапка. Бренд-блок становится
+   строкой, где текст сжимается, а бейдж режима не даёт себя ужать. */
+.brand { align-items: center; }
+.net-status { margin-left: 0; padding: 3px 7px; font-size: .64rem; }
+@media (max-width: 359px) {
+  /* Меньше 360px место занимает шапка: оставляем только цветную точку,
+     подпись остаётся доступной через aria-label и долгое нажатие. */
+  .net-status { padding: 5px; }
+  .net-status .net-status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.net-status-dot { width: 6px; height: 6px; flex-basis: 6px; }
+.topbar-actions { flex: 0 0 auto; gap: 4px; }
+.topbar-actions > button { display: grid; place-items: center; width: 36px; height: 36px; min-width: 36px; padding: 0; color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); border: 0; border-radius: 50%; }
+.topbar-actions > button:hover { color: var(--md-sys-color-on-secondary-container); background: var(--md-sys-color-secondary-container); }
+.topbar-actions > button svg { width: 20px; height: 20px; }
+
+/* ---------- Параметры веса внутри профиля ---------- */
+
+/* ---------- Настройка карточек Главной ---------- */
+.home-cards { display: contents; }
+.home-layout-settings .settings-label-row { align-items: flex-start; }
+.home-layout-settings .settings-label { margin-bottom: 0; }
+.home-layout-settings .settings-hint { margin-top: 3px; }
+.home-layout-open { flex: 0 0 auto; padding: 8px 10px; font-size: .76rem; }
+.home-layout-dialog { text-align: left; }
+.home-layout-dialog > h2, .home-layout-dialog > p { text-align: center; }
+.home-layout-list { display: grid; gap: 8px; margin-top: 14px; }
+.home-layout-row { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding: 10px; background: var(--md-sys-color-surface-container-high); border-radius: 13px; }
+.home-layout-card-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: .84rem; }
+.home-layout-card-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-layout-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.home-layout-order { display: flex; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; }
+.home-layout-order button { display: grid; place-items: center; width: 32px; height: 32px; color: var(--md-sys-color-on-surface-variant); font-weight: 800; }
+.home-layout-order button + button { border-left: 1px solid var(--md-sys-color-outline-variant); }
+.home-layout-order button:disabled { opacity: .35; }
+.home-layout-order button:not(:disabled):active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+/* 0.9.4: конфигуратор Android-виджета (тот же список, что и карточки Главной,
+   плюс «стоимость» строки и подсветка выбранных элементов) */
+.widget-layout-dialog #widget-size-segmented { margin-top: 12px; }
+.widget-layout-counter { margin-top: 8px; text-align: center; }
+.widget-layout-row.on { background: var(--md-sys-color-primary-container); }
+.widget-layout-row.off { opacity: .55; }
+.widget-layout-text { display: flex; min-width: 0; flex-direction: column; }
+.widget-layout-cost { color: var(--md-sys-color-on-surface-variant); font-size: .7rem; }
+
+/* ---------- Вес и динамика по профилю ---------- */
+.weight-settings .settings-label-row { align-items: flex-start; }
+.weight-settings .settings-label { margin-bottom: 0; }
+.weight-current { margin-top: 3px; color: var(--md-sys-color-primary); font-size: .8rem; font-weight: 800; }
+.weight-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; margin-top: 11px; align-items: end; }
+.weight-field { display: grid; gap: 4px; min-width: 0; color: var(--md-sys-color-on-surface-variant); font-size: .72rem; font-weight: 700; }
+.weight-field input { width: 100%; min-width: 0; padding: 9px 8px; color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-high); border: 1px solid var(--md-sys-color-outline-variant); border-radius: 10px; font: inherit; font-size: .82rem; }
+.weight-form .btn { min-height: 38px; padding: 9px 10px; font-size: .78rem; white-space: nowrap; }
+.weight-periods { margin-top: 12px; }
+.weight-chart-wrap { margin-top: 10px; padding: 8px 5px 2px; background: var(--md-sys-color-surface-container-high); border-radius: 14px; }
+.weight-chart { display: block; width: 100%; height: auto; overflow: visible; }
+.weight-grid { stroke: var(--md-sys-color-outline-variant); stroke-width: 1; stroke-dasharray: 3 3; }
+.weight-line { fill: none; stroke: var(--md-sys-color-primary); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.weight-point { fill: var(--md-sys-color-primary-container); stroke: var(--md-sys-color-primary); stroke-width: 2; }
+.weight-axis-label, .weight-date-label { fill: var(--md-sys-color-on-surface-variant); font-family: sans-serif; font-size: 10px; }
+.weight-history-list { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.weight-history-list li { display: flex; align-items: center; gap: 8px; padding: 8px 9px; background: var(--md-sys-color-surface-container-high); border-radius: 11px; font-size: .78rem; }
+.weight-history-list li > span { flex: 1; color: var(--md-sys-color-on-surface-variant); }
+.weight-history-list li > strong { font-variant-numeric: tabular-nums; }
+.weight-history-list button { display: grid; place-items: center; width: 28px; height: 28px; color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); border-radius: 8px; font-size: 1rem; }
+.weight-history-list .weight-history-empty { display: block; text-align: center; color: var(--md-sys-color-on-surface-variant); }
+@media (max-width: 360px) { .weight-form { grid-template-columns: 1fr 1fr; } .weight-form .btn { grid-column: 1 / -1; } }
+
+/* ---------- Компактные действия воды ---------- */
+.water-actions { gap: 6px; }
+.water-actions .chip { min-height: 33px; padding: 5px 8px; gap: 5px; white-space: nowrap; text-overflow: ellipsis; }
+.water-actions .chip-danger svg { width: 14px; height: 14px; }
+
+/* ---------- Вес: Главная и Статистика ---------- */
+.weight-icon { color: var(--md-sys-color-on-tertiary-container); background: var(--md-sys-color-tertiary-container); }
+.weight-home-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.weight-home-body > div { min-width: 0; }
+#home-weight-current { display: block; color: var(--md-sys-color-on-surface); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+#home-weight-trend { margin-top: 2px; color: var(--md-sys-color-on-surface-variant); font-size: .76rem; }
+.weight-home-add { flex: 0 0 auto; padding: 9px 11px; font-size: .78rem; }
+.weight-details-open { margin-top: 10px; }
+.weight-quick-form { display: grid; gap: 10px; margin-top: 14px; }
+.weight-quick-form .app-dialog-actions { margin-top: 2px; }
+
+/* ---------- Оценка дня ---------- */
+.checklist-mood { display: flex; align-items: center; gap: 8px; padding: 10px 11px; border-radius: 12px; font-size: 0.82rem; font-weight: 600; background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.mood-pick-btn { flex-shrink: 0; }
+.mood-picker { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.mood-btn { display: grid; gap: 2px; justify-items: center; padding: 10px 8px; border-radius: 14px; border: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); transition: background 0.2s, border-color 0.2s; }
+.mood-btn:hover { background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary-container); }
+.mood-btn span { font-size: 1.5rem; }
+.mood-btn small { font-size: 0.7rem; font-weight: 700; }
+.stats-mood { margin-top: 10px; padding: 13px; background: var(--md-sys-color-secondary-container); border-radius: 16px; }
+.stats-mood h3 { font-size: 0.9rem; color: var(--md-sys-color-on-secondary-container); }
+.stats-mood p { margin-top: 4px; color: var(--md-sys-color-on-secondary-container); font-size: 0.78rem; line-height: 1.5; }
+.mood-correlation { display: inline-flex; gap: 6px; align-items: center; padding: 3px 8px; border-radius: 8px; background: var(--md-sys-color-surface-container-low); font-weight: 700; }
+.mood-correlation.good { color: var(--success); }
+.mood-correlation.bad { color: var(--md-sys-color-error); }
+
+/* ===== ИИ-центр и Настройки ИИ FitFlow ===== */
+/* 0.3.33 (кейс пользователя: «две вертикальные полосы слева, текст уехал вправо»):
+   у .card уже есть стандартная акцентная линия (primary 65%) — так во ВСЕХ
+   подразделах настроек. Здесь дополнительно жила вторая bar-линия (primary 100%)
+   от раннего дизайна ИИ-раздела: две полосы в ~18px друг от друга, весь текст
+   смещён и сужен. Дополнительная линия УБРАНА — раздел приведён к общему виду. */
+.ai-model-box {
+  background: var(--surface-variant);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+.ai-progress-wrap {
+  margin-top: 10px;
+}
+.ai-progress-bar {
+  background: var(--outline-variant);
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ai-progress-fill {
+  background: var(--primary);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+/* P14: честная подсказка о совместимости телефона с офлайн-моделью
+   (зелёная — тянет, жёлтая — медленно, оранжевая — слабое устройство) */
+.ai-device-hint {
+  margin-top: 6px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.ai-device-ok {
+  background: color-mix(in srgb, #2E7D32 12%, transparent);
+  border-color: color-mix(in srgb, #2E7D32 45%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+.ai-device-warn {
+  background: color-mix(in srgb, #F9A825 14%, transparent);
+  border-color: color-mix(in srgb, #F9A825 50%, transparent);
+}
+.ai-device-bad {
+  background: color-mix(in srgb, #EF6C00 14%, transparent);
+  border-color: color-mix(in srgb, #EF6C00 50%, transparent);
+}
+.ai-device-unknown {
+  background: var(--surface-variant);
+  border-color: var(--outline-variant);
+}
+.ai-result-box {
+  background: var(--surface-variant);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 14px;
+  padding: 10px 14px 14px;
+  margin-top: 14px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  /* Длинные ответы (рецепт, анализ) прокручиваются внутри блока,
+     а не уезжают за экран вместе со всей страницей.
+     0.3.26: блок РЕЗУЛЬТАТА выделен как отдельная прокручиваемая панель
+     (полоса-ручка сверху, рамка, тень, видимый скроллбар) — раньше он
+     сливался со страницей, и бегунок казался «сломанной прокруткой». */
+  max-height: min(45dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: inset 0 12px 16px -14px rgb(0 0 0 / 0.45), 0 8px 18px -12px rgb(0 0 0 / 0.30);
+  scrollbar-width: thin;
+}
+/* 0.3.29: полоса-«ручка» УБРАНА — ложный аффорданс (обещала drag, была
+   только декором; кейс пользователя «тяну — не влияет»). Отдельность
+   панели теперь честно дают рамка, тень и видимый скроллбар ниже. */
+/* 0.3.32 (просьба пользователя): полосы прокрутки приведены к единому
+   семейству. Основной экран — приглушённая primary 30%, тонкая 5px;
+   текстовые окна с разбором (ИИ-ответы, предпросмотр умного ввода) — чуть
+   уже прежних 8px (6px) и насыщеннее (55%), чтобы зоны различались
+   оттенком, а не «серая против зелёной». */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 30%, transparent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--primary) 42%, transparent); }
+
+.ai-result-box::-webkit-scrollbar { width: 6px; }
+.ai-result-box::-webkit-scrollbar-track { background: color-mix(in srgb, var(--outline-variant) 30%, transparent); border-radius: 4px; }
+.ai-result-box::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 3px; min-height: 28px; }
+
+/* Предпросмотр умного ввода — тот же насыщенный оттенок, что у ИИ: оба
+   окна показывают разбор текста. */
+.smart-preview::-webkit-scrollbar { width: 6px; }
+.smart-preview::-webkit-scrollbar-track { background: color-mix(in srgb, var(--outline-variant) 30%, transparent); border-radius: 3px; }
+.smart-preview::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--primary) 55%, transparent); border-radius: 3px; min-height: 28px; }
+
+/* Пункт 3 (0.3.32): «?» стал классическим значком справа от надписи. */
+.smart-help-btn .smart-help-dot { margin-left: 6px; flex: none; }
+/* 0.3.31 (кейс «внизу нет полосы скролла»): Android WebView рисует скроллбар
+   мельком. Честный стойкий маркер продолжения — градиент у нижней кромки,
+   пока контент реально выше панели (класс ставит watchAiResultBoxes). Градиент
+   — не кнопка и не ручка, ложных обещаний нет (принцип №7). */
+.ai-result-box.ai-scrollable::after {
+  content: ''; display: block; position: sticky; bottom: -14px;
+  height: 22px; margin: 6px -14px -14px; border-radius: 0 0 14px 14px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-variant) 88%, black 12%) 85%);
+  pointer-events: none;
+}
+
+/* «Назад на главную» в ИИ — отлеплен от текста результата над ним (0.3.26) */
+#ai-view-back { margin-top: 16px; }
+.ai-result-box h4 {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-size: 1rem;
+}
+.ai-result-box ul {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.ai-result-box li {
+  margin-bottom: 4px;
+}
+.ai-recipe-card {
+  margin-top: 10px;
+}
+.ai-recipe-macros {
+  display: flex;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--on-surface-variant);
+  margin: 8px 0 12px;
+}
+
+
+
+/* ===== ИИ-аналитик в Статистике и фото-рецепты ===== */
+.ai-stats-card {
+  margin-bottom: 14px;
+}
+.ai-stats-icon,
+.ai-center-icon {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--primary);
+  font-size: 1.35rem;
+}
+#ai-recipe-photo-confirm {
+  background: var(--surface-variant);
+  border: 2px dashed var(--primary);
+  margin-bottom: 12px;
+}
+
+/* ===== Кнопки микрофона без ИИ и исправление вёрстки ===== */
+.input-mic-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--on-surface-variant);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.input-mic-btn:hover, .input-mic-btn:focus-visible {
+  color: var(--primary);
+  background: var(--surface-variant);
+}
+.water-actions .chip-voice {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  min-width: 38px;
+  font-size: 1rem;
+  display: grid;
+  place-items: center;
+}
+
+/* ============================================================
+   0.3.5: скролл-лок фона при модальных диалогах, меню Настроек
+   ============================================================ */
+/* Когда открыт диалог — прокручивается только он, фон стоит. */
+html.dialog-open,
+html.dialog-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.app-dialog-backdrop {
+  overscroll-behavior: contain;
+}
+.app-dialog {
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Настройки: меню разделов (схема В) */
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+.settings-menu-btn:hover { filter: brightness(0.98); }
+.settings-menu-btn:active { transform: scale(0.99); }
+.settings-menu-emoji {
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  width: 24px;
+  text-align: center;
+}
+.settings-menu-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-menu-text small {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+.settings-menu-btn .chevron-icon {
+  color: var(--md-sys-color-on-surface-variant);
+  transform: none;
+}
+.settings-sub-emoji { font-size: 1.35rem; }
+
+/* Бейдж источника ответа ИИ: облако / локально */
+.ai-cloud-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  vertical-align: middle;
+}
+.ai-local-badge {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ===== Игровой режим: задания дня и медали ===== */
+.game-task-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  font-size: 0.86rem;
+  border-bottom: 1px dashed var(--outline-variant);
+}
+.game-task-row:last-of-type { border-bottom: none; }
+.game-task-row .game-task-emoji { font-size: 1.05rem; flex: 0 0 auto; }
+/* SVG-иконка задания (единый стиль, цвет по теме) */
+.game-task-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; flex: 0 0 auto; background: var(--md-sys-color-surface-container-high); color: var(--primary); }
+.game-task-icon svg { width: 18px; height: 18px; }
+.game-task-row.done .game-task-icon { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.game-task-row .game-task-info { flex: 1 1 auto; min-width: 0; }
+.game-task-row .game-task-title { font-weight: 600; }
+.game-task-row .game-task-numbers { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); margin-top: 1px; }
+.game-task-row .game-task-state { flex: 0 0 auto; font-weight: 700; font-size: 0.9rem; color: var(--md-sys-color-on-surface-variant); }
+.game-task-row.done .game-task-state { color: var(--primary); }
+.game-task-bar {
+  margin-top: 4px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-variant);
+  overflow: hidden;
+}
+.game-task-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.35s ease; }
+.game-tasks-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.game-tasks-note { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.game-win {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--md-sys-color-primary-container);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: center;
+}
+/* Экран медалей: сетка значков, описание — часть «картинки» медали */
+.game-medals-group-title { margin: 14px 0 2px; }
+.game-medals-group-hint { margin: 0 0 8px; }
+.game-medals-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.medal-tile {
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  padding: 12px 10px;
+  text-align: center;
+  background: var(--md-sys-color-surface-container-low);
+}
+.medal-tile.earned { background: var(--md-sys-color-primary-container); border-color: transparent; }
+.medal-badge-svg { width: 62px; height: 80px; margin: 0 auto; display: block; }
+.medal-tile.locked .medal-badge-svg { opacity: 0.75; filter: grayscale(0.6); }
+.medal-tile-name { margin-top: 8px; font-size: 0.8rem; font-weight: 700; line-height: 1.25; }
+.medal-tile-desc { margin-top: 4px; font-size: 0.7rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35; }
+.medal-tile.earned .medal-tile-desc { color: var(--md-sys-color-on-primary-container); opacity: 0.9; }
+.medal-tile-bar { margin-top: 8px; height: 5px; border-radius: 3px; background: var(--surface-variant); overflow: hidden; }
+.medal-tile-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.35s ease; }
+
+/* ===== Чек-ин сна ===== */
+.sleep-rating-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.sleep-rating-row button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 2px;
+  border-radius: 14px;
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container-low);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.sleep-rating-row button:active { transform: scale(0.96); }
+.sleep-rating-row button.active { background: var(--md-sys-color-primary-container); border-color: var(--primary); }
+.sleep-rating-row .sleep-emoji { font-size: 1.5rem; line-height: 1; }
+.sleep-rating-row small { font-size: 0.62rem; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.sleep-extra-toggle {
+  margin-top: 6px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.sleep-extra { margin-top: 6px; }
+.sleep-time-row { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.sleep-time-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.sleep-time-row input { width: 110px; }
+.sleep-tags-label { margin: 12px 0 6px; }
+.sleep-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 0.3.12: единый размер чипов + ЗАМЕТНОЕ выделение. Причина «выбора не видно»:
+   у базового .chip рамки нет совсем, поэтому border-color ни на что не влиял.
+   Мультивыбор при этом работал всегда — просто не был виден. */
+.sleep-tags .chip { flex: 1 1 30%; min-width: 96px; min-height: 42px; border: 1.5px solid var(--md-sys-color-outline-variant); background: transparent; color: var(--md-sys-color-on-surface); transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.sleep-tags .chip[aria-pressed="true"] { background: var(--md-sys-color-primary-container); border-color: var(--primary); color: var(--md-sys-color-on-primary-container); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--primary), 0 2px 6px rgba(0, 0, 0, 0.28); }
+.sleep-targets-row { display: flex; gap: 12px; margin: 8px 0 4px; }
+.sleep-targets-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.sleep-targets-row input { width: 110px; }
+.checklist-sleep-btn {
+  text-align: left;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+.checklist-sleep-btn.checklist-item { display: flex; }
+
+/* Значок «?» — справка по разделу */
+.help-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1.5px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+  margin-left: 6px;
+  vertical-align: middle;
+  -webkit-tap-highlight-color: transparent;
+}
+.settings-menu-btn .help-dot { margin-left: -4px; margin-right: -4px; } /* компактнее внутри flex-строки с gap */
+.weekly-goal-controls .help-dot { margin-left: 0; }
+.help-dot:active { background: var(--md-sys-color-surface-container-high); }
+/* 0.8.29: метка «бета» для функций в разработке и тестировании.
+   Кликабельна — открывает пояснение через тот же механизм, что и «?». */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-tertiary-container);
+  border: 0;
+  font-size: .64rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.beta-badge:active { filter: brightness(0.95); }
+.help-dot:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+#help-text {
+  white-space: pre-line;
+  line-height: 1.65;
+  font-size: 0.88rem;
+  color: var(--md-sys-color-on-surface);
+  margin-top: 10px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.weekly-activity-goal .progress-fill.over-goal {
+  background: linear-gradient(90deg, var(--md-sys-color-primary) 0%, #2E7D32 100%);
+  box-shadow: 0 0 8px rgba(46, 125, 50, 0.4);
+}
+
+.game-medals-list { text-align: left; max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.game-medal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--outline-variant);
+  font-size: 0.86rem;
+}
+.game-medal:last-child { border-bottom: none; }
+.game-medal .game-medal-emoji { font-size: 1.25rem; flex: 0 0 auto; }
+.game-medal .game-medal-name { font-weight: 600; }
+.game-medal .game-medal-desc { font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); }
+.game-medal.locked { opacity: 0.55; }
+
+/* «План дня»: разделитель чек-листа и заданий в объединённой карточке (0.3.11) */
+.day-plan-divider {
+  border: none;
+  border-top: 1px solid rgba(128, 128, 128, 0.28);
+  margin: 10px 0 8px;
+}
+
+/* 🎓 Онбординг (0.3.12) */
+.onboarding-dialog { max-width: 400px; text-align: center; }
+.onboarding-dialog .app-dialog-icon { font-size: 2rem; margin-bottom: 4px; }
+.onboarding-dialog h2 { font-size: 1.05rem; margin: 4px 0 8px; }
+.onboarding-dialog .app-dialog-text { font-size: 0.85rem; line-height: 1.45; }
+.onboarding-dots { display: flex; justify-content: center; gap: 6px; margin: 14px 0 4px; }
+.onboarding-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-sys-color-outline-variant); transition: background 0.2s ease, transform 0.2s ease; }
+.onboarding-dot.active { background: var(--primary); transform: scale(1.25); }
+.onboarding-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.onboarding-actions .btn-primary { flex: 1; }
+
+/* ✕ очистка полей (0.3.14) */
+.food-input { padding-right: 34px; }
+.field-clear-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--md-sys-color-on-surface-variant); background: transparent; flex: 0 0 auto; }
+.field-clear-btn:hover { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); }
+.field-clear-btn svg { width: 14px; height: 14px; }
+.water-custom-row .field-clear-btn { position: static; transform: none; width: 30px; height: 30px; }
+
+/* 🎨 Темы оформления (0.3.14): только цветовые токены.
+   --primary — алиас на --md-sys-color-primary, подхватывается автоматически. */
+
+/* 🌃 Neon — неоновые циан/фиолет акценты; задуман под тёмный режим */
+html[data-palette="neon"] {
+  --grad-a: #7c5cff;
+  --grad-b: #22e5ff;
+  --calorie-accent: #ff79c6;
+  --bg-blob-a: rgb(124 92 255 / 0.14);
+  --bg-blob-b: rgb(34 229 255 / 0.10);
+}
+html[data-palette="neon"][data-theme="dark"] {
+  --md-sys-color-primary: #22e5ff;
+  --md-sys-color-on-primary: #00252b;
+  --md-sys-color-primary-container: #143a5e;
+  --md-sys-color-on-primary-container: #b9f3ff;
+  --md-sys-color-secondary: #b39dff;
+  --md-sys-color-secondary-container: #352b66;
+  --md-sys-color-on-secondary-container: #e3dbff;
+  --md-sys-color-tertiary: #ff79c6;
+  --md-sys-color-tertiary-container: #5c2149;
+  --md-sys-color-on-tertiary-container: #ffd6ef;
+  --md-sys-color-surface: #0b0d17;
+  --md-sys-color-on-surface: #e2e6ff;
+  --md-sys-color-surface-dim: #0b0d17;
+  --md-sys-color-surface-bright: #2a2d40;
+  --md-sys-color-surface-container-lowest: #070910;
+  --md-sys-color-surface-container-low: #121524;
+  --md-sys-color-surface-container: #171a2b;
+  --md-sys-color-surface-container-high: #20243a;
+  --md-sys-color-surface-container-highest: #2a2e48;
+  --md-sys-color-on-surface-variant: #b8bce0;
+  --md-sys-color-outline: #7d84b8;
+  --md-sys-color-outline-variant: #333852;
+  --bg-blob-a: rgb(124 92 255 / 0.11);
+  --bg-blob-b: rgb(34 229 255 / 0.065);
+}
+
+/* 0.3.16: Neon мягче к глазам (запрос пользователя) — свечения срезаны ~40%,
+   и сам основной циан чуть приглушён, не «лазерный». */
+html[data-palette="neon"][data-theme="dark"] {
+  --md-sys-color-primary: #4adcf2;
+}
+
+/* 🌃 Neon — «шрифтовой» характер (фидбек 0.3.17: «от стандартной отличается
+   только свечением»): рваный ритм заголовков и градиентные primary-кнопки. */
+html[data-palette="neon"][data-theme="dark"] h1,
+html[data-palette="neon"][data-theme="dark"] h2,
+html[data-palette="neon"][data-theme="dark"] .checklist-header,
+html[data-palette="neon"][data-theme="dark"] .greeting-title {
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+html[data-palette="neon"][data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, var(--grad-b, #4adcf2), var(--grad-a, #7c5cff));
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.25);
+}
+
+/* 🌿 Лес (0.3.18, заказ «ещё 1–2 темы»): спокойная зелень в обоих режимах.
+   Фон НЕ переопределяем намеренно (урок sport-dark «всё сливается») —
+   только акцентные токены. */
+html[data-palette="forest"] {
+  --grad-a: #2e7d32;
+  --grad-b: #9ccc65;
+  --calorie-accent: #e07b39;
+  --bg-blob-a: rgb(46 125 50 / 0.10);
+  --bg-blob-b: rgb(156 204 101 / 0.09);
+  --md-sys-color-primary: #2e7d32;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d9f0d0;
+  --md-sys-color-on-primary-container: #0b2e0f;
+}
+html[data-palette="forest"][data-theme="dark"] {
+  --md-sys-color-primary: #9ccc65;
+  --md-sys-color-on-primary: #1b3400;
+  --md-sys-color-primary-container: #2c4d12;
+  --md-sys-color-on-primary-container: #e2f5c8;
+  --grad-a: #9ccc65;
+  --grad-b: #4caf50;
+  --bg-blob-a: rgb(156 204 101 / 0.09);
+  --bg-blob-b: rgb(76 175 80 / 0.07);
+}
+
+/* 🍇 Виноград (0.3.18 → доработка 0.3.19; 0.3.20 — переименована из «Ягода»): фирменная
+   маджента + фиолет + тёплый коралл; больше цветных элементов. Фон НЕ
+   переопределяем (урок sport-dark «всё сливается») — только акцентные токены. */
+html[data-palette="berry"] {
+  --grad-a: #cb11ab;
+  --grad-b: #ff4d94;
+  --calorie-accent: #ff7a3d;
+  --bg-blob-a: rgb(203 17 171 / 0.10);
+  --bg-blob-b: rgb(255 77 148 / 0.08);
+  --card-shadow: 0 1px 2px rgb(59 0 51 / 0.05), 0 12px 28px rgb(122 10 100 / 0.10);
+  --md-sys-color-primary: #b30d94;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffd7f1;
+  --md-sys-color-on-primary-container: #410033;
+  --md-sys-color-secondary: #7b21c8;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #eeddff;
+  --md-sys-color-on-secondary-container: #2c0052;
+  --md-sys-color-tertiary: #c33c00;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffe0d0;
+  --md-sys-color-on-tertiary-container: #3a0b00;
+}
+html[data-palette="berry"][data-theme="dark"] {
+  --md-sys-color-primary: #ff7ad0;
+  --md-sys-color-on-primary: #4a003c;
+  --md-sys-color-primary-container: #801877;
+  --md-sys-color-on-primary-container: #ffd9f0;
+  --md-sys-color-secondary: #d6a4ff;
+  --md-sys-color-on-secondary: #3e006b;
+  --md-sys-color-secondary-container: #5c2499;
+  --md-sys-color-on-secondary-container: #eeddff;
+  --md-sys-color-tertiary: #ffb59b;
+  --md-sys-color-on-tertiary: #5c1900;
+  --md-sys-color-tertiary-container: #8a2800;
+  --md-sys-color-on-tertiary-container: #ffe0d0;
+  --grad-a: #ff7ad0;
+  --grad-b: #b983ff;
+  --calorie-accent: #ffab7a;
+  --bg-blob-a: rgb(255 122 208 / 0.09);
+  --bg-blob-b: rgb(185 131 255 / 0.08);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 14px 32px rgb(255 122 208 / 0.07);
+}
+
+/* 🍇 Виноград — «маркетплейс»-характер (0.3.19, фидбек «возьми за пример
+   крупный онлайн-маркетплейс, добавь цветных элементов, подумай над шрифтом»):
+   фирменный ягодный градиент на ключевых элементах — кнопки, активная
+   точка меню, чипы, кнопка ✨, приветствие с цветной подсечкой; округлые
+   «пузырьковые» формы. Градиентный ТЕКСТ только у приветствия: там строка
+   без эмодзи (эмодзи при text-fill: transparent могли бы исчезнуть).
+   Собственный файл шрифта — опцией, см. tools/github-workflows/FONT_PATCH.md. */
+html[data-palette="berry"] .greeting-title {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--md-sys-color-primary);
+  background: linear-gradient(120deg, var(--grad-a), var(--grad-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+html[data-palette="berry"] .greeting-title::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  bottom: 0;
+  width: 64px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b));
+}
+html[data-palette="berry"] h2,
+html[data-palette="berry"] .checklist-header,
+html[data-palette="berry"] .settings-label {
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 60%, var(--grad-a));
+}
+html[data-palette="berry"] .btn-primary {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--grad-a) 34%, transparent);
+  font-weight: 700;
+}
+html[data-palette="berry"] .btn-primary:active {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--grad-a) 30%, transparent);
+}
+html[data-palette="berry"] #ai-center-open {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  color: #ffffff;
+  border-radius: 14px;
+}
+html[data-palette="berry"] #ai-center-open:active { filter: brightness(1.08); }
+html[data-palette="berry"] .nav-item.active {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+  border-radius: 16px;
+}
+html[data-palette="berry"] .chip[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--grad-a), var(--grad-b));
+  border-color: transparent;
+  color: var(--md-sys-color-on-primary);
+  font-weight: 700;
+}
+html[data-palette="berry"] .card { border-radius: 26px; }
+html[data-palette="berry"] .form-input,
+html[data-palette="berry"] .food-input { border-radius: 16px; }
+
+/* ⚡ Sport, ТОЛЬКО светлая тема (0.3.17→фикс 0.3.18: эти токены раньше стояли
+   в общем селекторе html[data-palette="sport"] и по специфичности/порядку
+   перебивали ТЁМНЫЙ фон на светлый — «всё сливается» у пользователя):
+   тёплый бумажный фон вместо чисто белого. */
+html[data-palette="sport"]:not([data-theme="dark"]) {
+  --md-sys-color-surface: #f7f4ec;
+  --md-sys-color-surface-bright: #faf7f0;
+  --md-sys-color-surface-dim: #e3ddcf;
+}
+
+/* ⚡ Sport — энергичный оранж с лаймом */
+html[data-palette="sport"] {
+  --grad-a: #ff6d00;
+  --grad-b: #84cc16;
+  --calorie-accent: #ff3d6e;
+  --bg-blob-a: rgb(255 109 0 / 0.10);
+  --bg-blob-b: rgb(132 204 22 / 0.09);
+  --md-sys-color-primary: #d84315;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffd8c2;
+  --md-sys-color-on-primary-container: #3c1300;
+}
+html[data-palette="sport"][data-theme="dark"] {
+  --md-sys-color-primary: #ffab70;
+  --md-sys-color-on-primary: #3a1c00;
+  --md-sys-color-primary-container: #7a3b00;
+  --md-sys-color-on-primary-container: #ffe0c2;
+  --md-sys-color-secondary: #bde39b;
+  --md-sys-color-secondary-container: #3d4d1f;
+  --md-sys-color-on-secondary-container: #e2f5c8;
+}
+
+/* ⚡ Sport — «характер» (0.3.15, запрос пользователя «хочется чего-то ещё»):
+   спортивный сжатый шрифт для заголовков и цифр, квадратные формы,
+   энергичные кнопки-«шильды». Только эти overrides — вернуть «Стандарт» можно в один тап. */
+html[data-palette="sport"] h1,
+html[data-palette="sport"] h2,
+html[data-palette="sport"] .checklist-header,
+html[data-palette="sport"] .greeting-title,
+html[data-palette="sport"] .home-weight-current,
+html[data-palette="sport"] .game-task-numbers,
+html[data-palette="sport"] .weight-current,
+html[data-palette="sport"] .settings-label {
+  font-family: "sans-serif-condensed", "Roboto Condensed", Roboto, sans-serif;
+  letter-spacing: 0.02em;
+}
+html[data-palette="sport"] .card { border-radius: 14px; }
+html[data-palette="sport"] .chip,
+html[data-palette="sport"] .medal-tile { border-radius: 10px; }
+html[data-palette="sport"] .form-input,
+html[data-palette="sport"] .food-input { border-radius: 10px; }
+html[data-palette="sport"] .btn {
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+}
+html[data-palette="sport"] .segmented button { text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+html[data-palette="sport"] .btn-primary { box-shadow: 0 3px 0 rgb(0 0 0 / 0.22); }
+html[data-palette="sport"] .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 rgb(0 0 0 / 0.22); }
+/* ⚡ Sport (0.3.16): кнопки верхней панели — спортивные «квадраты» с акцентным подтоном */
+html[data-palette="sport"] .topbar-actions button {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+}
+html[data-palette="sport"] .topbar-actions button:active {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
+
+/* 🎨 0.3.17: значки реагируют на палитру (запрос пользователя «подумаем над
+   значками в зависимости от темы») — первый маленький, полностью обратимый шаг:
+   ⚡ Sport — более жирные спортивные штрихи обводки у значков верхней панели
+   и карточек; 🌃 Neon (тёмный) — значки верхней панели мягким цианом. */
+html[data-palette="sport"] .topbar-actions button svg,
+html[data-palette="sport"] .card-icon svg {
+  stroke-width: 2.1px;
+}
+html[data-palette="neon"][data-theme="dark"] .topbar-actions button {
+  color: #8be9ff;
+}
+
+/* 🌃 Neon — неоновое свечение активных элементов (только в тёмном режиме) */
+html[data-palette="neon"][data-theme="dark"] .btn-primary { box-shadow: 0 0 9px rgb(34 229 255 / 0.20), 0 2px 6px rgb(0 0 0 / 0.4); }
+html[data-palette="neon"][data-theme="dark"] .nav-item.active { box-shadow: 0 0 8px rgb(34 229 255 / 0.15); }
+html[data-palette="neon"][data-theme="dark"] .segmented button.active { box-shadow: 0 0 9px rgb(124 92 255 / 0.24); }
+html[data-palette="neon"][data-theme="dark"] .switch input:checked + .switch-track { box-shadow: 0 0 7px rgb(34 229 255 / 0.30); }
+html[data-palette="neon"][data-theme="dark"] .checklist-item.done,
+html[data-palette="neon"][data-theme="dark"] .sleep-tags .chip[aria-pressed="true"] { box-shadow: 0 0 7px rgb(34 229 255 / 0.15), inset 0 0 0 1px var(--primary); }
+
+/* ===== IME-док (0.3.18): панель ввода над клавиатурой =====
+   Сюда JS переносит контейнер поля (Питание/«Своя мл»/поля ИИ) на время
+   фокуса. bottom:0 layout-viewport при adjustResize = ровно над клавиатурой;
+   z-index выше нижней навигации (30), ниже диалогов (70). */
+/* Личная база продуктов (0.3.25) */
+.custom-food-form { display: grid; gap: 10px; margin: 10px 0 12px; text-align: left; }
+.custom-food-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.custom-food-grid label { display: grid; gap: 3px; font-size: 0.72rem; font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.custom-food-grid .dialog-text-input { margin-top: 0; padding: 8px 9px; }
+.custom-food-list { display: grid; gap: 6px; margin-bottom: 10px; max-height: 210px; overflow-y: auto; text-align: left; }
+.custom-food-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 12px; background: var(--md-sys-color-surface-container-high); }
+.custom-food-row small { display: block; color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.custom-food-row .icon-btn { flex: 0 0 auto; }
+.custom-food-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+/* OFF-строка скрыта в 0.3.28 (карта контуров) — стили сохранены с кодом-основой */
+.custom-food-off { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: stretch; }
+.custom-food-off .dialog-text-input { margin-top: 0; }
+#custom-food-del-dialog .app-dialog-actions button { width: 100%; }
+
+.expert-insights {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+#ime-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--md-sys-color-surface-container-low, var(--card-bg));
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -10px 28px rgb(0 0 0 / 0.22);
+  animation: ime-dock-in 0.18s ease-out;
+}
+@keyframes ime-dock-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+#ime-dock[hidden] { display: none; }
+#ime-dock .ai-input-stack { margin-bottom: 0; }
+#ime-dock .food-form { margin: 0; }
+#ime-dock .water-custom-row { margin: 0; }
+
+/* === Мой курс (0.3.30): строки в «Плане дня», чипы приёмов, форма времени === */
+.course-items { margin-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--primary) 30%, transparent); padding-top: 10px; }
+.course-plan-row { display: grid; gap: 6px; }
+.course-plan-head { display: flex; align-items: center; gap: 8px; }
+.course-plan-name { font-weight: 600; flex: 1; }
+.course-day-label { font-weight: 500; color: var(--md-sys-color-on-surface-variant); }
+.course-dose-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.course-dose-chip {
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  background: transparent; color: inherit; border-radius: 999px;
+  padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.course-dose-chip:active { transform: scale(0.95); }
+.course-dose-chip.done { background: color-mix(in srgb, var(--primary) 88%, transparent); color: var(--md-sys-color-on-primary, #fff); border-color: transparent; }
+.course-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.course-times label { display: grid; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
+#course-del-dialog .app-dialog-actions button { width: 100%; }
+
+/* Уникальные файловые шрифты тем (0.4.11, просьба владельца: «не стандартные,
+   а уникальные под каждую тему, встроенные в неё»): .ttf грузит владелец по
+   инструкции tools/github-workflows/FONTS_THEME_PATCH.md (лицензии SIL OFL 1.1,
+   кириллица из коробки). До появления файлов каскад ТИХО откатывается на
+   системные семейства — никаких битых надписей и ложных аффордансов.
+   Каскад: тематический шрифт — база темы; ручной выбор (data-font, блок ниже)
+   идёт после этих правил и перекрывает их. */
+@font-face {
+  font-family: "Manrope";
+  src: url("assets/fonts/manrope.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Russo One";
+  src: url("assets/fonts/russoone.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Custom";
+  src: url("assets/fonts/ptserif-regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "PT Serif Custom";
+  src: url("assets/fonts/ptserif-bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Comfortaa";
+  src: url("assets/fonts/comfortaa.ttf") format("truetype");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+
+html[data-palette="neon"] body,
+html[data-palette="neon"] .btn,
+html[data-palette="neon"] .form-input {
+  font-family: "Manrope", Roboto, sans-serif;
+}
+/* 0.4.14 (фидбэк: «Спорт толсто и крупно — жутковато»): Russo One — характер
+   заголовков и крупных цифр; основной текст — системный и читабельный. */
+html[data-palette="sport"] h1 {
+  font-family: "Russo One", "sans-serif-condensed", Roboto, sans-serif;
+}
+html[data-palette="sport"] h1,
+html[data-palette="sport"] h2,
+html[data-palette="sport"] .checklist-header,
+html[data-palette="sport"] .greeting-title,
+html[data-palette="sport"] .home-weight-current,
+html[data-palette="sport"] .game-task-numbers,
+html[data-palette="sport"] .weight-current,
+html[data-palette="sport"] .settings-label {
+  font-family: "Russo One", "sans-serif-condensed", Roboto, sans-serif;
+}
+html[data-palette="forest"] body {
+  font-family: "PT Serif Custom", "Noto Serif", "Droid Serif", Georgia, serif;
+}
+html[data-palette="forest"] h1,
+html[data-palette="forest"] h2 {
+  font-family: "PT Serif Custom", "Noto Serif", "Droid Serif", Georgia, serif;
+}
+html[data-palette="berry"] body,
+html[data-palette="berry"] h1,
+html[data-palette="berry"] h2 {
+  font-family: "Comfortaa", Roboto, sans-serif;
+}
+
+/* Шрифты тем (0.4.10): системные семейства Android — офлайн, APK не растёт.
+   Специфичность html[data-font] body выше базового body — правило побеждает
+   в любом положении файла; поля ввода унаследованы (font-family: inherit). */
+/* 0.5.1 (п.9 владельца): ручной выбор шрифта раньше НЕ перекрывал тематические
+   заголовки Спорта (Russo One) — отсюда ощущение «Спорт живёт отдельно».
+   Теперь списки селекторов у condensed/serif такие же полные, как у standard:
+   выбрал шрифт — он действует во всех темах и на заголовки, и на цифры. */
+html[data-font="condensed"] body,
+html[data-font="condensed"] .checklist-header,
+html[data-font="condensed"] .greeting-title,
+html[data-font="condensed"] .home-weight-current,
+html[data-font="condensed"] .game-task-numbers,
+html[data-font="condensed"] .weight-current,
+html[data-font="condensed"] .settings-label,
+html[data-font="condensed"] h1,
+html[data-font="condensed"] h2,
+html[data-font="condensed"] h3 {
+  font-family: "sans-serif-condensed", "Roboto Condensed", Roboto, "Segoe UI", sans-serif;
+}
+html[data-font="serif"] body,
+html[data-font="serif"] .checklist-header,
+html[data-font="serif"] .greeting-title,
+html[data-font="serif"] .home-weight-current,
+html[data-font="serif"] .game-task-numbers,
+html[data-font="serif"] .weight-current,
+html[data-font="serif"] .settings-label,
+html[data-font="serif"] h1,
+html[data-font="serif"] h2,
+html[data-font="serif"] h3 {
+  font-family: "Noto Serif", "Droid Serif", Georgia, serif;
+}
+
+/* ===================== 0.4.15 ===================== */
+/* Дата «10 авг. 2026 г.»: ни одной лишней заглавной (аудит А1/А3) */
+#date-label::first-letter { text-transform: uppercase; }
+
+/* Сон/прочие «отмечено» — нейтральная метка, не зелёный «успех» (аудит А3 #10.3) */
+.checklist-icon.noted { background: var(--md-sys-color-outline-variant); color: #fff; }
+/* 0.5.1 (п.2 владельца «что значит серая галочка у сна»): кружок = ваша оценка сна —
+   эмодзи вместо галочки, цвет честно повторяет выбранную оценку. */
+.checklist-icon.mark-good { background: var(--success); color: #fff; }
+.checklist-icon.mark-mid { background: var(--md-sys-color-outline-variant); color: #fff; }
+.checklist-icon.mark-low { background: #b07d00; color: #fff; }
+.checklist-item.noted { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); }
+
+/* Значения над столбцами недельных графиков (аудит А1/А2);
+   0.5.1: лежат внутри .stats-bar-col и больше не вытесняют подпись даты. */
+.stats-bar-value { display: block; text-align: center; font-size: 0.6rem; font-weight: 700; line-height: 1; margin-bottom: 2px; color: var(--md-sys-color-on-surface-variant); }
+
+/* Инлайн-смайлы самочувствия — 1 тап = записано (0.4.15) */
+.mood-inline-row { display: inline-flex; gap: 4px; }
+/* 0.5.1 (п.10 владельца): плашка самочувствия снова компактная */
+.mood-inline-btn { border: 1px solid transparent; background: var(--md-sys-color-surface-container-high); border-radius: 9px; font-size: 0.96rem; padding: 3px 6px; }
+.mood-inline-btn.active { border-color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); }
+/* 0.5.8: плашка самочувствия — две аккуратные строки:
+   1-я строка: «🌗 Самочувствие» + знак «?» (справка);
+   2-я строка: 5 кнопок-смайлов + текст оценки/подсказки. */
+.mood-compact-row { flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; }
+.mood-compact-top { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.mood-compact-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%; }
+.mood-compact-label { font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
+.mood-card .mood-compact-note { margin: 0; font-size: 0.76rem; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.mood-help-dot { opacity: .7; cursor: pointer; }
+
+/* Компактный «План дня» */
+.day-plan-toggle { border: none; background: none; font-size: 0.95rem; color: var(--md-sys-color-primary); padding: 2px 8px; cursor: pointer; }
+.day-plan-collapsed-line { margin: 0; padding: 4px 11px 10px; font-size: 0.85rem; font-weight: 600; color: var(--md-sys-color-on-surface-variant); }
+
+/* Цели за кнопкой «Цель»; бюджет уведомлений; заголовок «Быстрые записи» */
+.goal-edit-toggle { margin-left: auto; }
+#notif-daily-summary.warn { color: #b3261e; font-weight: 700; }
+.quick-records-title { margin: 14px 2px 2px; font-size: 0.8rem; font-weight: 700; display: grid; gap: 2px; }
+.quick-records-sub { font-weight: 400; font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); }
+
+/* «?»-подсказки приглушены, но остаются на месте (урок: не убирать, а смягчить) */
+.help-dot { opacity: .55; }
+.help-dot:focus-visible, .help-dot:hover { opacity: 1; }
+
+/* 0.4.15 (п.4 владельца): явно выбранный шрифт «Стандарт» — единый системный
+   поверх ЛЮБОЙ темы, включая заголовки и цифры. Без явного выбора тематические шрифты живут. */
+html[data-font="standard"] body,
+html[data-font="standard"] .btn,
+html[data-font="standard"] .form-input,
+html[data-font="standard"] input,
+html[data-font="standard"] textarea,
+html[data-font="standard"] select,
+html[data-font="standard"] h1,
+html[data-font="standard"] h2,
+html[data-font="standard"] h3,
+html[data-font="standard"] .checklist-header,
+html[data-font="standard"] .greeting-title,
+html[data-font="standard"] .home-weight-current,
+html[data-font="standard"] .game-task-numbers,
+html[data-font="standard"] .weight-current,
+html[data-font="standard"] .settings-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ===================== 0.5.0 «Доверие данным» ===================== */
+/* 0.5.1 (п.4 владельца): кнопка «Поправить день» — НАПРОТИВ заголовка
+   «Статистика». 0.5.2 (владелец: «наслаиваются друг на друга, “Итоги за…” в две
+   строки»): запрет переносов — заголовок и подпись обрезаются с многоточием,
+   кнопка компактная и всегда на своём месте справа. */
+.stats-card .card-header { align-items: center; flex-wrap: nowrap; gap: 8px; }
+.stats-card .card-title-wrap { flex: 1 1 auto; min-width: 0; }
+.stats-card .card-title-wrap h2 { font-size: 1.2rem; margin: 0; line-height: 1.2; }
+.stats-card .card-title-wrap p { font-size: 0.82rem; margin: 2px 0 0; color: var(--md-sys-color-on-surface-variant); }
+.stats-day-edit-btn { margin-left: auto; align-self: center; flex: 0 0 auto; padding: 6px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+
+/* Дата в форме активности (задним числом) */
+.workout-date-field { margin-top: 8px; }
+.workout-date-field input { max-width: 170px; }
+.weight-field select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font-size: 1rem; font-family: inherit; }
+
+/* Три поля БЖУ / дня — компактной сеткой */
+.food-edit-macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* 0.5.1 (п.4 владельца): поля «Поправить день» — стопкой во всю ширину:
+   в сетке 3 колонки плейсхолдер обрезался до «без измен…», элементы наслаивались. */
+.day-edit-fields { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; text-align: left; }
+.day-edit-fields .weight-field input { padding: 11px 12px; font-size: 0.95rem; }
+.day-edit-note { text-align: left; margin: 10px 0 0; }
+
+/* Кнопки-карандаши рядом с «×» в списках */
+.food-item-edit, .workout-item-edit, .weight-edit-btn {
+  border: none; background: none; cursor: pointer; padding: 4px;
+  font-size: .95rem; line-height: 1; opacity: .72; border-radius: 8px;
+}
+.food-item-edit:active, .workout-item-edit:active, .weight-edit-btn:active { opacity: 1; transform: scale(.92); }
+
+/* Undo-снекбар: удаление/правка обратимы 6,5 секунды */
+#undo-snackbar {
+  position: fixed; left: 50%; bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(20px); z-index: 70;
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(92vw, 480px);
+  padding: 10px 8px 10px 18px; border-radius: 999px;
+  background: var(--md-sys-color-inverse-surface, #303230);
+  color: var(--md-sys-color-inverse-on-surface, #f2f2ee);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .25);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  font-size: .9rem;
+}
+#undo-snackbar.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+#undo-snackbar-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#undo-snackbar-action {
+  flex: none; border: none; background: none; cursor: pointer;
+  color: var(--md-sys-color-inverse-primary, #a8c7fa);
+  font-weight: 600; font-size: .92rem; padding: 6px 12px; border-radius: 999px;
+}
+
+/* A11y-проход (базовый): видимый фокус для клавиатурной навигации */
+button:focus-visible, [role="button"]:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, .chip:focus-visible {
+  outline: 2.5px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+
+/* ===================== 0.5.2 ===================== */
+/* Кнопка-вход в диалог «Быстрые записи» (одна вместо россыпи блоков) */
+
+.quick-records-dialog { text-align: left; width: min(100%, 430px); }
+.quick-records-dialog h2 { text-align: center; }
+.quick-records-tabs { margin: 8px 0 10px; }
+.quick-records-tab-hint { margin: 0 0 8px; }
+#quick-panel-combo .quick-chips { margin-bottom: 6px; }
+#quick-panel-combo #combo-manage-btn { margin-top: 4px; }
+.quick-panel .manual-food-actions { margin-top: 8px; }
+.quick-panel .manual-food-actions .btn { flex: 1 1 0; white-space: nowrap; }
+
+/* ============================================================
+   0.5.3 — мастер «Быстрая настройка», плашка поддержки, «Добрые дела»
+   ============================================================ */
+/* Прогресс мастера — тонкая строка-подпись под текстом */
+#setup-wizard-progress { margin: 10px 0 0; }
+/* 0.8.18: поле цели шагов в мастере */
+.setup-wizard-steps-row { margin-top: 12px; }
+.setup-wizard-steps-row input { text-align: center; }
+
+/* Кнопки диалогов мастера и поддержки делят строку поровну */
+#setup-wizard-dialog .app-dialog-actions button,
+#support-dialog .app-dialog-actions button { flex: 1 1 0; }
+
+/* «Пропустить всё» — на всю ширину под основными действиями */
+#setup-wizard-skip { width: 100%; margin-top: 8px; }
+
+/* Блок «Добрые дела» в «О приложении» — отделяем пунктиром от ссылок выше */
+.charity-block {
+  margin-top: 12px;
+  border-top: 1px dashed var(--md-sys-color-outline-variant);
+  padding-top: 8px;
+}
+.charity-title { font-weight: 700; }
+#charity-list p { margin: 4px 0 0; }
+
+/* PRO: «как поддержать» — выравнивание влево, отступ от строки статуса */
+#pro-howto { text-align: left; margin-top: 8px; }
+
+/* ============================================================
+   0.5.4 — «⚙️ Настроить» из уведомления, кольцо воды, поддержка
+   ============================================================ */
+/* Подсветка раздела настроек при переходе из уведомления — две мягкие вспышки */
+@keyframes settingsFlash {
+  0% { box-shadow: 0 0 0 0 rgb(0 105 107 / 0); }
+  25% { box-shadow: 0 0 0 4px rgb(0 105 107 / 0.35); }
+  100% { box-shadow: 0 0 0 0 rgb(0 105 107 / 0); }
+}
+.settings-flash { animation: settingsFlash 1.5s ease 3; border-radius: 14px; }
+
+/* «Цель достигнута! 🎉» больше не залезает на дугу кольца: текст держим
+   внутри безопасной зоны, длинная подпись переносится на две строки */
+.water-ring-center {
+  padding-left: 26px;
+  padding-right: 26px;
+  box-sizing: border-box;
+}
+.water-ring-center .water-sub {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+}
+
+/* Постоянный блок поддержки в «О приложении» — кнопка под текстом */
+#about-support-open { margin-top: 8px; }
+
+/* ============================================================
+   0.5.5 — ряд иконок быстрых записей, чип недельной цели
+   ============================================================ */
+/* Ряд иконок быстрых записей — три равные кнопки + «?» справа */
+.quick-entry-row {
+  margin: 12px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quick-entry-btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  font-size: 1.25rem;
+  line-height: 1;
+  border: 1.5px dashed var(--md-sys-color-outline-variant);
+  border-radius: 14px;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+.quick-entry-btn:active { background: var(--md-sys-color-surface-container-high); }
+.quick-entry-row .help-dot { flex: 0 0 auto; }
+
+/* Кликабельные метрики (объяснение формул по тапу на число) */
+.clickable-metric {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.clickable-metric:active {
+  opacity: 0.75;
+  transform: scale(0.98);
+}
+
+/* 0.7.0 / 0.7.5 Недельная цель активности: компактная 2-строчная вёрстка */
+.weekly-activity-goal {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--md-sys-color-secondary-container);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+.weekly-goal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.weekly-goal-label-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.weekly-goal-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+}
+.weekly-goal-value-row {
+  display: flex;
+  align-items: center;
+}
+.weekly-goal-value-row strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+.weekly-goal-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.weekly-status-chip {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.weekly-status-chip.good { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+.weekly-status-chip.todo { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); font-weight: 600; }
+.help-dot-inline { vertical-align: -2px; }
+
+/* Плотность Главного экрана (0.7.5) */
+[data-density="minimal"] .home-cards { gap: 10px; }
+[data-density="minimal"] .home-cards .card { padding: 14px 16px; }
+[data-density="minimal"] #day-plan-card,
+[data-density="minimal"] #day-mood-card { display: none !important; }
+[data-density="minimal"] .quick-entry-row { display: none !important; }
+
+[data-density="normal"] .home-cards { gap: 12px; }
+[data-density="normal"] .home-cards .card { padding: 16px 18px; }
+[data-density="normal"] .quick-entry-row { display: none !important; }
+
+[data-density="full"] .home-cards { gap: 16px; }
+[data-density="full"] .home-cards .card { padding: 18px 20px; }
+[data-density="full"] .quick-entry-row { display: flex !important; }
+
+/* ============================================================
+   0.5.7 — быстрый ввод: «Разобрать» всегда на виду (полевой баг
+   владельца: строка из 5 широких кнопок сжималась и обрезалась);
+   нижний отступ подложки диалогов — под системную панель.
+   ============================================================ */
+.smart-entry-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.smart-entry-actions .icon-btn { flex: 0 0 auto; width: 40px; height: 40px; font-size: 1.05rem; }
+.smart-entry-actions .btn-primary { flex: 0 0 auto; padding: 11px 18px; }
+.smart-entry-cancel-btn { width: 100%; margin-top: 4px; }
+.app-dialog-backdrop { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+
+/* ============================================================
+   0.5.8 — вкладки лицензии (RU/EN/Third-party), время воды,
+   комбо в быстрых записях и модальное окно добрых дел
+   ============================================================ */
+.license-lang-tabs { margin-bottom: 12px; }
+.license-tab-panel { margin-top: 4px; }
+.water-time-window-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; }
+.water-time-window-row label { font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); }
+.water-time-window-row .time-input { flex: 1; max-width: 110px; }
+.combo-quick-add { border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 10px; }
+
+/* 🎨 0.5.8: тематические стили кнопок действий (.ai-icon-btn) для каждой темы */
+html[data-palette="neon"][data-theme="dark"] .ai-icon-btn {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  color: var(--md-sys-color-primary);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--md-sys-color-primary) 25%, transparent);
+}
+html[data-palette="neon"][data-theme="dark"] .ai-icon-btn:hover {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent);
+  filter: brightness(1.15);
+}
+html[data-palette="sport"] .ai-icon-btn {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+  color: var(--md-sys-color-primary);
+}
+html[data-palette="sport"] .ai-icon-btn svg { stroke-width: 2.2px; }
+html[data-palette="forest"] .ai-icon-btn {
+  background: color-mix(in srgb, var(--grad-b) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--grad-a) 30%, transparent);
+  color: var(--md-sys-color-primary);
+}
+html[data-palette="berry"] .ai-icon-btn {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--grad-a) 15%, transparent);
+  border: 1.2px solid color-mix(in srgb, var(--grad-b) 30%, transparent);
+  color: var(--grad-a);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--grad-a) 20%, transparent);
+}
+
+/* ---------- Адаптив силовых (0.8.13): на узких экранах — в одну колонку ---------- */
+@media (max-width: 420px) {
+  .strength-meta { grid-template-columns: minmax(0, 1fr); }
+  .strength-exercise-head { flex-wrap: wrap; }
+  .strength-exercise-summary { width: 100%; text-align: left; }
+  .strength-plan-day { font-size: 0.62rem; padding: 5px 0; }
+}
+
+/* ============================================================
+   0.8.24 — P13 (оценка дня) + деликатные микродвижения
+   ------------------------------------------------------------
+   Принцип: приятно глазу, но не надоедает. Всё уважает
+   prefers-reduced-motion (глобальное правило выше гасит
+   анимации и переходы). Никаких «прыжков» интерфейса.
+   ============================================================ */
+
+/* Мягкая вспышка карточки самочувствия при переходе из вечернего пуша */
+@keyframes moodCardFlash {
+  0% { box-shadow: 0 0 0 0 rgb(142 111 191 / 0); }
+  25% { box-shadow: 0 0 0 5px rgb(142 111 191 / 0.30); }
+  100% { box-shadow: 0 0 0 0 rgb(142 111 191 / 0); }
+}
+.mood-card-flash { animation: moodCardFlash 1.4s ease 2; border-radius: 14px; }
+
+/* Оценка самочувствия: выбранный смайл мягко «подпрыгивает» — отклик без шума */
+.mood-inline-btn {
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.mood-inline-btn:active { transform: scale(1.12); }
+.mood-inline-btn.active { transform: scale(1.06); }
+
+/* Карточки на мышке: лёгкий подъём при наведении (на телефоне не виден —
+   hover-медиа включает эффект только для устройств с курсором) */
+@media (hover: hover) and (pointer: fine) {
+  .card {
+    transition: translate 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+  }
+  .card:hover {
+    translate: 0 -2px;
+  }
+  .ai-model-box:hover,
+  .settings-group:hover {
+    translate: 0 -1px;
+    transition: translate 0.2s ease;
+  }
+}
+
+/* ============================================================
+   0.9.5 — микроанимации отклика (замечание владельца п.3).
+   Оценка была: делать, но УЗКО. Анимируется только то, что реально
+   изменилось, длительность 160–220 мс — глаз успевает заметить
+   изменение, палец не ждёт. Глобальное правило
+   prefers-reduced-motion (строка ~2077) гасит всё это автоматически,
+   поэтому отдельных отключений здесь не нужно.
+   ============================================================ */
+@keyframes value-bump {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.13); }
+  100% { transform: scale(1);    }
+}
+
+/* Крупные счётчики (вода, ккал): короткий «толчок» в момент изменения.
+   Только transform — не вызывает пересчёт разметки, поэтому дёшево. */
+.value-bump {
+  animation: value-bump 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: transform;
+}
+
+@keyframes row-flash {
+  0%   { background-color: transparent; }
+  25%  { background-color: rgb(0 105 107 / 0.16); }
+  100% { background-color: transparent; }
+}
+
+/* Строка/карточка, данные которой только что обновились. */
+.row-flash {
+  animation: row-flash 0.7s ease;
+  border-radius: 12px;
+}
+
+@keyframes check-pop {
+  0%   { transform: scale(0.6); opacity: 0.2; }
+  55%  { transform: scale(1.18); opacity: 1;  }
+  100% { transform: scale(1);    opacity: 1;  }
+}
+
+/* Галочка выполнения (цель достигнута, задача отмечена). */
+.check-pop {
+  animation: check-pop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: transform;
+}
+
+/* ===== 0.9.12: быстрый ввод подходов, отмена заполнения, свои пресеты отдыха ===== */
+.strength-quick-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.strength-quick-input {
+  flex: 1; min-width: 0; padding: 6px 9px; font-size: 0.82rem;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 9px;
+  background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface);
+}
+.strength-quick-apply {
+  border: 0; border-radius: 9px; padding: 7px 12px; font-size: 0.78rem; cursor: pointer;
+  background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);
+  white-space: nowrap;
+}
+.strength-quick-hint { margin: 2px 0 4px; font-size: 0.68rem; opacity: 0.65; }
+
+/* ===== 0.9.46 (п.10 владельца): подходы числом в основном блоке =====
+   Три пилюли «вес × повторения × подходы» рядом с кнопкой «Добавить».
+   Владелец просил именно пилюли — поэтому border-radius 999px, а поле
+   веса не обязательное: у упражнений со своим весом оно может быть пустым. */
+.strength-bulk-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 8px; }
+.strength-bulk-input {
+  flex: 1; min-width: 0; padding: 7px 4px; font-size: 0.82rem; text-align: center;
+  border: 1px solid var(--md-sys-color-outline-variant); border-radius: 999px;
+  background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface);
+}
+/* 0.9.50: кнопка «Добавить» — отдельной строкой во всю ширину. Пока она
+   стояла в одном ряду с пилюлями, на узком экране пилюли сжимались и
+   плейсхолдеры обрезались («Повте…», «Подхо…» — полевое замечание владельца).
+   Поля min-width:0 сжимались бы вместо переноса, поэтому перенос задан явно.
+   Самый длинный плейсхолдер «Повторения» получает самую широкую пилюлю. */
+.strength-bulk-row .strength-quick-apply { flex: 1 1 100%; }
+.strength-bulk-input[data-s-bulk-reps] { flex: 1.3; }
+.strength-bulk-input[data-s-bulk-sets] { flex: 1; }
+.strength-bulk-row .strength-set-x { flex: none; opacity: 0.5; font-size: 0.78rem; }
+.strength-cancel-btn { color: var(--md-sys-color-error); }
+/* Кнопка «своё время отдыха» — тот же размер, что у пресетов, но пунктиром:
+   видно, что это добавление, а не ещё одно готовое значение. */
+.strength-rest-add { border-style: dashed !important; opacity: 0.8; }
