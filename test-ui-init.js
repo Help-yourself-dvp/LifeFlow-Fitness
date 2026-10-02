@@ -5649,6 +5649,66 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.35: плитки, сон, свои значки, имена виджетов, анимация)');
 })();
 
+/* --- 0.9.57: вечерний вопрос молчит, даже если приложение закрыто ---
+   Полевая жалоба владельца: часы отчитались о тренировке (сессия лежит в
+   приложении неподтверждённой), а в 20:00 всё равно приходит «Была сегодня
+   активность?». Причина найдена чтением плагина: фоновая отмена снимала только
+   УЖЕ ПОКАЗАННОЕ уведомление, а сам будильник в AlarmManager оставался.
+   Сторожа: (1) приложение кладёт в снимок для натива минуты «вместе с часами»,
+   (2) натив их читает и отменяет ЗАПЛАНИРОВАННЫЙ будильник тем же id, что JS,
+   (3) id действительно совпадает — проверяется прогоном обеих реализаций. */
+(function test0957EveningQuestion() {
+  const fs957 = require('fs');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+  const appS = fs957.readFileSync('app.js', 'utf8');
+  const activityS = fs957.readFileSync('android-native/MainActivity.java', 'utf8');
+  const receiverS = fs957.readFileSync('android-native/HealthSyncReceiver.java', 'utf8');
+
+  check(/activityMinutesWithWatch: activityMinutesTodayWithWatch\(\)/.test(appS)
+    && /function activityMinutesTodayWithWatch\(\)[\s\S]{0,600}confirmed \+ pendingWatchMinutesForDate/.test(appS),
+    '0.9.57 снимок для натива: минуты активности считаются вместе с неподтверждёнными часами');
+
+  check(/\.putInt\("activityMinutesWithWatch", data\.optInt\("activityMinutesWithWatch", 0\)\)/.test(activityS)
+    && /\.putInt\("activityMinutes", data\.optInt\("activityMinutes", 0\)\)/.test(activityS),
+    '0.9.57 виджет не изменился: подтверждённые минуты отдельно, «вместе с часами» — отдельным полем');
+
+  check(/private static int readWidgetActivityMinutesWithWatch/.test(receiverS)
+    && /getSharedPreferences\("fitflow_widget"/.test(receiverS)
+    && /today\.equals\(widget\.getString\("date", ""\)\)/.test(receiverS)
+    && /widget\.getInt\("activityMinutesWithWatch", 0\)/.test(receiverS),
+    '0.9.57 фон читает снимок приложения и сверяет дату (вчерашние минуты не считаются)');
+
+  check(/private static void cancelScheduledTrainingReminder/.test(receiverS)
+    && /com\.capacitorjs\.plugins\.localnotifications\.TimedNotificationPublisher/.test(receiverS)
+    && /PendingIntent\.getBroadcast\(context, trainingReminderId\(dateKey\), intent, flags\)/.test(receiverS)
+    && /am\.cancel\(pi\)/.test(receiverS),
+    '0.9.57 фон отменяет ЗАПЛАНИРОВАННЫЙ будильник (не только показанное уведомление)');
+
+  check(/int snapshotMin = readWidgetActivityMinutesWithWatch\(context, today\)/.test(receiverS)
+    && /if \(snapshotMin >= ACTIVITY_REMINDER_MIN_MINUTES\) \{[\s\S]{0,200}cancelScheduledTrainingReminder\(context, today\)/.test(receiverS)
+    && /if \(exerciseMin >= ACTIVITY_REMINDER_MIN_MINUTES\) \{[\s\S]{0,200}cancelScheduledTrainingReminder\(context, today\)/.test(receiverS),
+    '0.9.57 фон проверяет и снимок, и Health Connect — по обоим источникам снимает вопрос');
+
+  /* Поведенческая сверка id: реализация на Java (int со знаком, FNV-1a) обязана
+     давать тот же номер, что JS (Math.imul + >>> 0). Разойдутся — фон отменит
+     чужое уведомление или не найдёт своё, и жалоба вернётся. */
+  const api957 = require('./app.js');
+  const javaTrainingReminderId = (dateKey, base) => {
+    let hash = 2166136261 | 0;
+    for (let i = 0; i < dateKey.length; i++) { hash = (hash ^ dateKey.charCodeAt(i)) | 0; hash = Math.imul(hash, 16777619) | 0; }
+    return base + ((hash >>> 0) % 900000);
+  };
+  const javaBase = Number((receiverS.match(/TRAINING_REMINDER_BASE_ID = (\d+)/) || [])[1]);
+  const dates957 = ['2026-10-02', '2026-12-31', '2027-01-01', '2026-03-08'];
+  const mismatched = dates957.filter((d) => javaTrainingReminderId(d, javaBase) !== api957.activityReminderId(d));
+  check(javaBase === api957.TRAINING_REMINDER_BASE_ID && mismatched.length === 0,
+    '0.9.57 id вечернего вопроса совпадает у JS и фона (иначе отменялось бы чужое уведомление)'
+    + (mismatched.length ? ' — разошлись даты: ' + mismatched.join(', ') : ''));
+
+  if (!bad) console.log('  (0.9.57: вечерний вопрос снимается и при закрытом приложении)');
+})();
+
 /* --- 0.9.56 (шаг P2): честная деградация в веб-версии ---
    Проверяем ПовЕДЕНИЕ, а не текст: собираем настоящий DOM из index.html в
    jsdom и запускаем приложение дважды — как в браузере (нет window.Capacitor)

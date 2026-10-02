@@ -36,6 +36,26 @@ public class HealthSyncReceiver extends BroadcastReceiver {
                             .apply();
                     }
 
+                    /* 0.9.57: день уже закрыт активностью — снимаем вечерний вопрос,
+                       даже если приложение сегодня не открывали после тренировки.
+                       Два источника, берём максимум:
+                         ① снимок приложения (fitflow_widget) — минуты «как их видит
+                            владелец»: записанные + пришедшие с часов и ждущие
+                            подтверждения (app.js: activityMinutesWithWatch);
+                         ② прямое чтение Health Connect в фоне (на Android 15+ нужно
+                            разрешение «чтение в фоне»; если его нет — придёт -1).
+                       ВАЖНО, в чём была причина полевой жалобы владельца: старая
+                       функция cancelTrainingReminderNotification() снимает только УЖЕ
+                       ПОКАЗАННОЕ уведомление, а сам будильник на 20:00 живёт в
+                       AlarmManager (его ставит плагин LocalNotifications). Фон его не
+                       отменял, поэтому вопрос приходил, хотя часы уже отчитались.
+                       Добавлена cancelScheduledTrainingReminder(). */
+                    int snapshotMin = readWidgetActivityMinutesWithWatch(context, today);
+                    if (snapshotMin >= ACTIVITY_REMINDER_MIN_MINUTES) {
+                        cancelScheduledTrainingReminder(context, today);
+                        cancelTrainingReminderNotification(context, today);
+                    }
+
                     long lastSync = prefs.getLong("hc_last_sync_ts", 0);
                     if (System.currentTimeMillis() - lastSync >= BACKGROUND_SYNC_MIN_INTERVAL) {
                         try {
@@ -49,9 +69,10 @@ public class HealthSyncReceiver extends BroadcastReceiver {
                                     .putInt("hc_exercise_min_today", exerciseMin)
                                     .putString("hc_exercise_min_date", today)
                                     .apply();
-                                // День уже закрыт активностью — убираем показанный
-                                // вопрос «была сегодня активность?» из шторки.
+                                // День уже закрыт активностью — убираем и показанный
+                                // вопрос, и запланированный будильник на сегодня (0.9.57).
                                 if (exerciseMin >= ACTIVITY_REMINDER_MIN_MINUTES) {
+                                    cancelScheduledTrainingReminder(context, today);
                                     cancelTrainingReminderNotification(context, today);
                                 }
                             }
@@ -81,12 +102,15 @@ public class HealthSyncReceiver extends BroadcastReceiver {
         }).start();
     }
 
-    /* 0.9.15: снять уже показанное вечернее напоминание.
+    /* Вечерний вопрос «Была сегодня активность?».
        Идентификатор считается тем же алгоритмом, что и в app.js
        (FNV-1a от даты + TRAINING_REMINDER_BASE_ID) — иначе фон снимал бы
-       чужое уведомление или не находил нужное. Планируемые (ещё не
-       показанные) сигналы остаются за приложением: их перестраивает
-       refreshTrainingReminderOnResume при ближайшем открытии. */
+       чужое уведомление или не находил нужное.
+       0.9.15: функция появилась, чтобы убирать уже показанное уведомление.
+       0.9.57: выяснилось, что этого мало — запланированный будильник живёт в
+       AlarmManager, и если приложение после тренировки не открывали (а именно
+       так обычно и бывает вечером), он всё равно срабатывал. Теперь фон
+       отменяет и его — см. cancelScheduledTrainingReminder() ниже. */
     private static final int TRAINING_REMINDER_BASE_ID = 76000;
     private static final int ACTIVITY_REMINDER_MIN_MINUTES = 15;
 
@@ -98,6 +122,47 @@ public class HealthSyncReceiver extends BroadcastReceiver {
         }
         long unsigned = ((long) hash) & 0xFFFFFFFFL;
         return TRAINING_REMINDER_BASE_ID + (int) (unsigned % 900000L);
+    }
+
+    /* 0.9.57: минуты активности за сегодня «как их видит владелец» из снимка
+       приложения (его пишет MainActivity.updateWidget при каждом сохранении).
+       Пусто или снимок от прошлого дня → 0. */
+    private static int readWidgetActivityMinutesWithWatch(Context context, String today) {
+        try {
+            SharedPreferences widget = context.getSharedPreferences("fitflow_widget", Context.MODE_PRIVATE);
+            if (!today.equals(widget.getString("date", ""))) return 0;
+            return Math.max(0, widget.getInt("activityMinutesWithWatch", 0));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /* 0.9.57: отменить ЗАПЛАНИРОВАННЫЙ вечерний вопрос на сегодня.
+       Уведомление ставит плагин LocalNotifications (@capacitor/local-notifications
+       5.0.7) через AlarmManager: PendingIntent.getBroadcast с requestCode = id
+       уведомления и Intent на его собственный ресивер
+       com.capacitorjs.plugins.localnotifications.TimedNotificationPublisher.
+       Класс задаётся СТРОКОЙ, а не ссылкой на класс: так сборка не зависит от
+       внутренностей плагина, а совпадение PendingIntent проверяется по
+       ComponentName (имя класса — то же). Тот же id-алгоритм, что в app.js
+       (FNV-1a от даты + 76000) — см. trainingReminderId(). */
+    private static void cancelScheduledTrainingReminder(Context context, String dateKey) {
+        try {
+            Intent intent = new Intent();
+            intent.setClassName(context.getPackageName(),
+                "com.capacitorjs.plugins.localnotifications.TimedNotificationPublisher");
+            int flags = 0;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                // На Android 12+ платформа требует явный флаг изменяемости;
+                // плагин ставит FLAG_MUTABLE — повторяем ровно его.
+                flags = PendingIntent.FLAG_MUTABLE;
+            }
+            PendingIntent pi = PendingIntent.getBroadcast(context, trainingReminderId(dateKey), intent, flags);
+            if (pi != null) {
+                AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+                if (am != null) am.cancel(pi);
+            }
+        } catch (Exception e) { }
     }
 
     private static void cancelTrainingReminderNotification(Context context, String dateKey) {

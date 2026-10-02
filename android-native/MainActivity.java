@@ -927,6 +927,13 @@ public class MainActivity extends BridgeActivity implements SensorEventListener 
                             .putInt("foodTotal", data.optInt("foodTotal", 0))
                             .putInt("foodGoal", data.optInt("foodGoal", 2000))
                             .putInt("activityMinutes", data.optInt("activityMinutes", 0))
+                            // 0.9.57: минуты активности «как их видит владелец» —
+                            // записанные + пришедшие с часов и ждущие подтверждения.
+                            // Нужны фоновому HealthSyncReceiver: он по ним снимает
+                            // вечерний вопрос, даже если приложение не открывали.
+                            // Виджет продолжает показывать только подтверждённые
+                            // минуты (activityMinutes) — расчёты снаружи не меняются.
+                            .putInt("activityMinutesWithWatch", data.optInt("activityMinutesWithWatch", 0))
                             .putInt("stepsToday", data.optInt("stepsToday", 0))
                             // 0.9.6: цели для «рисованных» виджетов (кольца, дуги, плитки)
                             .putInt("stepsGoal", data.optInt("stepsGoal", 8000))

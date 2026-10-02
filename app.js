@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.56';
+const FITFLOW_VERSION = '0.9.57';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -5803,6 +5803,12 @@ function updateNativeWidget() {
       foodTotal,
       foodGoal: state.food.goal,
       activityMinutes,
+      // 0.9.57: минуты активности за сегодня «как их видит владелец» — записанные
+      // плюс пришедшие с часов и ещё не подтверждённые (activityMinutesTodayWithWatch).
+      // Виджет по-прежнему показывает только подтверждённые минуты, а натив по
+      // этому полю снимает вечерний вопрос «была активность?», даже если
+      // приложение после тренировки не открывали.
+      activityMinutesWithWatch: activityMinutesTodayWithWatch(),
       stepsToday,
       // 0.9.6 (пункт 5 владельца — виджеты с кольцами/дугами): им нужны не
       // только значения, но и цели, иначе процент нарисовать не из чего.
@@ -18426,6 +18432,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // 0.9.10: сопоставление тренировок по времени — проверяется node-прогоном
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     pendingWatchMinutesForDate, ACTIVITY_REMINDER_MIN_MINUTES, // 0.9.22
+    activityReminderId, TRAINING_REMINDER_BASE_ID, // 0.9.57: id вечернего вопроса (сверяется с нативом)
 
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,
