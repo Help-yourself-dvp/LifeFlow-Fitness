@@ -5694,6 +5694,87 @@ for (const id of ids) {
     && /initWebAppShell\(\); \/\/ 0\.9\.55/.test(appW),
     '0.9.55 веб-версия: служба регистрируется только вне APK, обновление по version.txt');
 
+  /* Поведенческий прогон sw.js в песочнице Node: браузера в CI нет, а служба
+     офлайн-кэша — самый рискованный файл веб-версии (если она сломана,
+     приложение на iPhone не откроется офлайн). Проверяем реальные сценарии:
+     ① установка кэширует оболочку; ② запрос своего файла отдаётся из кэша;
+     ③ чужой домен (Open Food Facts) не перехватывается; ④ version.txt всегда
+     идёт в сеть; ⑤ сообщение обновления перекачивает оболочку и отвечает. */
+  const swBehavior = (() => {
+    const src = fsW.readFileSync('sw.js', 'utf8');
+    const handlers = {};
+    const store = new Map();
+    const posted = [];
+    const fetched = [];
+    const mkResp = (body, ok = true) => ({ ok, body, clone: () => mkResp(body, ok) });
+    const seg = (key) => String(key).split('/').filter(Boolean).pop() || 'index';
+    const cachesStub = {
+      async open() { return { async put(url, res) { store.set(seg(url), res); } }; },
+      async keys() { return ['fitflow-shell-v1']; },
+      async delete() { return true; },
+      async match(req) { return store.get(seg(typeof req === 'string' ? req : req.url)); }
+    };
+    const selfStub = {
+      addEventListener: (type, handler) => { handlers[type] = handler; },
+      skipWaiting: async () => {},
+      clients: {
+        claim: async () => {},
+        matchAll: async () => [{ postMessage: (m) => posted.push(m) }]
+      },
+      location: { origin: 'https://example.github.io' }
+    };
+    const fetchStub = async (url) => { fetched.push(String(url)); return mkResp('shell:' + url); };
+    // eslint-disable-next-line no-new-func
+    new Function('self', 'caches', 'fetch', 'URL', 'Response', src)(
+      selfStub, cachesStub, fetchStub, URL, function Response() {});
+    const run = (handler, event) => {
+      let waited = null;
+      handler(Object.assign({ waitUntil: (p) => { waited = p; } }, event));
+      return waited;
+    };
+    return { handlers, store, posted, fetched, run };
+  })();
+
+  const swChecks = [];
+  const runSwChecks = (async () => {
+  const install = swBehavior.run(swBehavior.handlers.install, {});
+  if (install) await install;
+  swChecks.push(typeof swBehavior.handlers.fetch === 'function'
+    && swBehavior.store.has('app.js') && swBehavior.store.has('style.css')
+    && swBehavior.store.has('sqlite-bundle.js') && swBehavior.store.has('index.html'));
+
+  let cachedAnswer = null;
+  swBehavior.handlers.fetch({
+    request: { method: 'GET', url: 'https://example.github.io/app.js', mode: 'no-cors' },
+    respondWith: (p) => { cachedAnswer = p; }
+  });
+  swChecks.push(!!cachedAnswer && String((await cachedAnswer).body).includes('shell:'));
+
+  let foreignIntercepted = false;
+  swBehavior.handlers.fetch({
+    request: { method: 'GET', url: 'https://world.openfoodfacts.org/api/v2/product/1', mode: 'cors' },
+    respondWith: () => { foreignIntercepted = true; }
+  });
+  let versionIntercepted = false;
+  swBehavior.handlers.fetch({
+    request: { method: 'GET', url: 'https://example.github.io/version.txt', mode: 'no-cors' },
+    respondWith: () => { versionIntercepted = true; }
+  });
+  swChecks.push(!foreignIntercepted && !versionIntercepted);
+
+  const refresh = swBehavior.run(swBehavior.handlers.message,
+    { data: { type: 'fitflow-refresh-shell', version: '9.9.9' } });
+  if (refresh) await refresh;
+  swChecks.push(swBehavior.posted.some((m) => m.type === 'fitflow-shell-updated' && m.version === '9.9.9'));
+
+  check(swChecks.every(Boolean),
+    '0.9.55 веб-версия: служба проверена прогоном (кэш, чужие домены, version.txt, обновление)'
+    + (swChecks.every(Boolean) ? '' : ' — провалено шагов: ' + swChecks.filter((x) => !x).length));
+  })();
+  /* Прогон службы асинхронный (промисы), а весь файл синхронный — поэтому
+     складываем проверку в очередь, а итог печатаем после неё. */
+  global.__fitflowAsyncChecks = (global.__fitflowAsyncChecks || []).concat(runSwChecks);
+
   /* Манифест, служба и иконки PWA не должны уезжать в APK: сборка копирует в
      www/ только перечисленные файлы. Сторож — от «добавлю на всякий случай». */
   const buildW = fsW.readFileSync('tools/github-workflows/build.yml', 'utf8');
@@ -5704,5 +5785,7 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.55: веб-версия — манифест, служба офлайн-кэша, иконки)');
 })();
 
-console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
-process.exit(failed === 0 ? 0 : 1);
+Promise.all(global.__fitflowAsyncChecks || []).then(() => {
+  console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
+  process.exit(failed === 0 ? 0 : 1);
+});

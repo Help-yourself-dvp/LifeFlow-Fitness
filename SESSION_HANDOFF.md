@@ -874,10 +874,14 @@ AGP 8.8.1 и compileSdk 35, у нас 8.2.1 / 34). P37 (тоннаж для уп
 
 ### Версия правится в 4 местах одновременно
 Иначе падает тест «версия в коде и в „О приложении“ совпадают»:
-1. `version.txt` (строка 1) — workflow читает её сам;
+1. `version.txt` (строка 1) — workflow читает её сам; **она же — метка
+   свежести веб-версии**: по ней страница узнаёт, что на сайте новая версия;
 2. `app.js` — `const FITFLOW_VERSION` (~строка 3054);
 3. `index.html` — `#about-version` (~строка 1350);
 4. `APP_DESCRIPTION.md` — строка 3.
+Плюс сторож 0.9.43 требует версию в `README.md`, `PROJECT.md`,
+`package.json` и `ROADMAP.md` — проще прогонять `node test-ui-init.js` после
+подъёма версии.
 
 ### Протокол замены workflow (делает владелец, с телефона)
 Пуш в `.github/workflows/` запрещён GitHub App (403), `workflow_dispatch` тоже.
@@ -894,20 +898,20 @@ JS/HTML/CSS собираются обычным релизом.
 
 ### Протокол публикации веб-версии (делает владелец ОДИН раз)
 
-Агент не может пушить `.github/workflows/**` (нет прав), поэтому файл
-`pages.yml` владелец добавляет сам — ровно как когда-то `build.yml`.
-Порядок и две ссылки:
+**02.10.2026, важное наблюдение:** пуш `.github/workflows/pages.yml` прошёл
+успешно — у GitHub App, похоже, появилось разрешение `workflows` (в 2026-08
+такой пуш возвращал 403). Первый прогон **Publish Web (PWA)** завершился
+success и создал ветку `gh-pages` со всеми файлами веб-версии. Поэтому
+копировать файл руками не нужно; **если пуш в `.github/` когда-нибудь снова
+вернёт 403 — зеркало `tools/github-workflows/pages.yml` и старый протокол
+остаются в силе** (raw-ссылка → `/edit/`).
 
-1. **Откуда копировать (raw):**
-   https://raw.githubusercontent.com/Help-yourself-dvp/LifeFlow-Fitness/arena/01a0fc42-lifeflow-fitness/tools/github-workflows/pages.yml
-2. **Куда вставлять (редактор, создать файл):**
-   https://github.com/Help-yourself-dvp/LifeFlow-Fitness/new/arena/01a0fc42-lifeflow-fitness/.github/workflows/pages.yml
-   (страница «Create new file»; имя файла — `pages.yml`).
-3. Commit changes → вкладка **Actions** → дождаться прогона **Publish Web
-   (PWA)** (он создаст ветку `gh-pages`).
-4. **Settings → Pages → Source: «Deploy from a branch» → Branch: `gh-pages`,
-   папка `/ (root)` → Save.**
-5. Открыть в Safari: https://help-yourself-dvp.github.io/LifeFlow-Fitness/ →
+Что осталось владельцу:
+
+1. **Settings → Pages → Source: «Deploy from a branch» → Branch: `gh-pages`,
+   папка `/ (root)` → Save.** (Через API это сделать нельзя: 403 у GitHub App,
+   Pages — административная настройка репозитория.)
+2. Открыть в Safari: https://help-yourself-dvp.github.io/LifeFlow-Fitness/ →
    «Поделиться» → «На экран „Домой“» → «Добавить». Дальше открывать **только
    с иконки** (у вкладки Safari отдельное хранилище данных).
 
