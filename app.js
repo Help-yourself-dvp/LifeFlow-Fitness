@@ -3051,7 +3051,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.57';
+const FITFLOW_VERSION = '0.9.58';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -16273,6 +16273,17 @@ function renderAiSettings() {
           ? '○ Укажите адрес сервера выше — без него облако выключено.'
           : '○ Ключ не задан — облако выключено, всё работает локально.'));
   }
+  // 0.9.58: остаток баланса DeepSeek — в интерфейсе, как требует владелец.
+  // Запрос бесплатный (не генерация), поэтому тянем при открытии настроек;
+  // кэш по ключу не даёт дёргать сеть при каждом рендере.
+  const balanceEl = $('#ai-cloud-balance');
+  if (balanceEl) {
+    if (def.id === 'deepseek' && getCloudKey() && isOnlineAllowed('cloudAi')) {
+      fetchDeepSeekBalance();
+    } else {
+      balanceEl.hidden = true;
+    }
+  }
 }
 
 /* ============================================================
@@ -17072,7 +17083,7 @@ function generateAiRecipe() {
   }
 }
 
-/* Общее распознавание фото через зрение нейросети (Gemini, OpenRouter, GigaChat). */
+/* Общее распознавание фото через зрение нейросети (Gemini, DeepSeek, OpenRouter, GigaChat). */
 function readImageAsBase64(file, maxSide) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -17138,10 +17149,10 @@ function handleAiRecipeCameraPhoto(file) {
   }
   if (recipeInput) recipeInput.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
-    toast('📷 У выбранного провайдера нет распознавания фото. Для фото подойдут Gemini, OpenRouter или GigaChat, либо перечислите продукты текстом.');
+    toast('📷 У выбранного провайдера нет распознавания фото. Для фото подойдут Gemini, DeepSeek, OpenRouter или GigaChat, либо перечислите продукты текстом.');
     return;
   }
-  toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini, OpenRouter или GigaChat): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
+  toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini, DeepSeek, OpenRouter или GigaChat): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
 }
 
 /* Сколько дней с записями есть в дневнике — честность анализа при пустых данных */
@@ -17544,11 +17555,14 @@ const CLOUD_PROVIDERS = {
   deepseek: {
     id: 'deepseek',
     label: 'DeepSeek',
-    hint: 'Ключ: platform.deepseek.com → API Keys (платно, недорого). Работает без VPN, фото не распознаёт.',
-    vision: false,
+    hint: 'Ключ: platform.deepseek.com → API Keys (платно, недорого). Работает без VPN. Фото еды распознаёт модель deepseek-flash (с зрением); deepseek-v4-pro — только текст. Остаток баланса показывается ниже.',
+    vision: true,
     autoModel: false,
     baseUrl: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-chat'
+    defaultModel: 'deepseek-flash',
+    /* Если владелец выбрал текстовую deepseek-v4-pro и прислал фото, запрос
+       упадёт с 400 — транспорт сам подставит зрячую deepseek-flash. */
+    visionModels: ['deepseek-flash']
   },
   openrouter: {
     id: 'openrouter',
@@ -17975,11 +17989,57 @@ async function checkCloudConnection() {
     state.aiSettings.cloudModel = (state.aiSettings.cloudModel || getCloudProviderDef().defaultModel).trim();
     saveState();
     statusEl.textContent = '✓ Подключено: ' + out.modelLabel;
+    if (def.id === 'deepseek') fetchDeepSeekBalance(); // 0.9.58: остаток баланса рядом со статусом
     return true;
   } catch (err) {
     statusEl.textContent = '✗ ' + cloudErrorText(err);
     return false;
   }
+}
+
+/* 0.9.58: остаток баланса DeepSeek (GET /user/balance) — владелец просил
+   видеть деньги в интерфейсе. Запрос бесплатный (не генерация), поэтому
+   тянем его при открытии настроек и после «Проверить подключение»; кэш по
+   ключу не даёт дёргать сеть при каждом рендере. Ошибка сети молча
+   оставляет строку пустой — баланс не критичен для работы. */
+let deepSeekBalanceCache = { key: '', text: '' };
+let deepSeekBalanceLoading = false;
+
+async function fetchDeepSeekBalance() {
+  const el = $('#ai-cloud-balance');
+  const key = getCloudKey();
+  if (!el || !key) return;
+  if (deepSeekBalanceCache.key === key && deepSeekBalanceCache.text) {
+    el.textContent = deepSeekBalanceCache.text;
+    el.hidden = false;
+    return;
+  }
+  if (deepSeekBalanceLoading) return;
+  deepSeekBalanceLoading = true;
+  try {
+    const res = await fetch('https://api.deepseek.com/user/balance', {
+      headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const infos = Array.isArray(data.balance_infos) ? data.balance_infos : [];
+    const parts = infos.map((b) => {
+      const total = Number(b.total_balance);
+      if (!Number.isFinite(total)) return '';
+      const cur = b.currency === 'USD' ? '$' : (b.currency === 'CNY' ? '¥' : (b.currency || '') + ' ');
+      let s = cur + total.toFixed(2);
+      const granted = Number(b.granted_balance);
+      if (Number.isFinite(granted) && granted > 0) s += ' (грант ' + cur + granted.toFixed(2) + ')';
+      return s;
+    }).filter(Boolean);
+    if (!parts.length) return;
+    const text = '💰 Остаток DeepSeek: ' + parts.join(' · ')
+      + (data.is_available === false ? ' — баланс пуст, запросы отклонятся (402)' : '');
+    deepSeekBalanceCache = { key, text };
+    el.textContent = text;
+    el.hidden = false;
+  } catch (e) { /* сеть/таймаут — молча */ }
+  finally { deepSeekBalanceLoading = false; }
 }
 
 /* Найденные в вопросе продукты из локальной базы — опора для ответов (RAG),
@@ -18392,10 +18452,10 @@ function handleAiQuickCamera(file) {
   }
   input.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
-    toast('📷 У выбранного облачного провайдера нет зрения (подойдут Gemini, OpenRouter или GigaChat). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
+    toast('📷 У выбранного облачного провайдера нет зрения (подойдут Gemini, DeepSeek, OpenRouter или GigaChat). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
     return;
   }
-  toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный ИИ (Gemini, OpenRouter, GigaChat).', 6000);
+  toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный ИИ (Gemini, DeepSeek, OpenRouter, GigaChat).', 6000);
 }
 
 /* Поддержка запуска в браузере и в Node (для тестов парсера) */

@@ -970,9 +970,14 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   if (!okEndless) failed++;
   console.log(`${okEndless ? '✓' : '✗'} курс: длительность 0 = «пока не остановлю», активен всегда`);
   // Отметки: нормализация журнала + живой тумблер в состоянии (с уборкой за собой).
+  // Дата — относительно сегодня: normalizeCourse отрезает журнал старше 90 дней,
+  // фиксированная дата протухает (так тест падал в ноябре 2026).
+  const logDate = (() => { const d = new Date(); d.setDate(d.getDate() - 10);
+    const pad = (v) => String(v).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); })();
   const withLog = normalizeCourse({ name: 'Креатин', times: ['08:00', '20:00'], daysTotal: 0, startDate: '2026-08-01',
-    checkLog: { '2026-08-07': [1, 0, 0, 9, -1], 'плохая дата': [0] } });
-  const doses = courseDosesForDate(withLog, '2026-08-07');
+    checkLog: { [logDate]: [1, 0, 0, 9, -1], 'плохая дата': [0] } });
+  const doses = courseDosesForDate(withLog, logDate);
   const okLog = withLog && doses.length === 2 && doses[0].done === true && doses[1].done === true
     && !('плохая дата' in withLog.checkLog);
   if (!okLog) failed++;

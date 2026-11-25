@@ -4265,19 +4265,66 @@ for (const id of ids) {
   };
   const flagsOk = /vision: true/.test(block('openrouter'))
     && /vision: true/.test(block('gigachat'))
-    && /vision: false/.test(block('deepseek'))
+    && /vision: true/.test(block('deepseek'))
     && /vision: false/.test(block('pollinations'))
     && !/фото не распознаёт/i.test(block('openrouter'))
     && !/фото не распознаёт/i.test(block('gigachat'))
-    && /фото не распознаёт/i.test(block('deepseek'));
+    && !/фото не распознаёт/i.test(block('deepseek'))
+    && /defaultModel: 'deepseek-flash'/.test(block('deepseek'))
+    && /visionModels: \['deepseek-flash'\]/.test(block('deepseek'));
   if (!flagsOk) failed++;
-  console.log(`${flagsOk ? '✓' : '✗'} 0.9.20 vision включён у OpenRouter и GigaChat, у безглазых провайдеров остался false`);
+  console.log(`${flagsOk ? '✓' : '✗'} 0.9.20 vision включён у OpenRouter, GigaChat и DeepSeek (0.9.58), у Pollinations остался false`);
 
   const hintsOk = !/нужен Gemini\)/.test(app)
     && !/Для фото выберите Gemini/.test(app)
-    && /Gemini, OpenRouter или GigaChat/.test(app);
+    && /Gemini, DeepSeek, OpenRouter или GigaChat/.test(app);
   if (!hintsOk) failed++;
   console.log(`${hintsOk ? '✓' : '✗'} 0.9.20 подсказки больше не утверждают, что фото умеет только Gemini`);
+}
+
+/* ---- 0.9.58: DeepSeek — актуальные модели, зрение, баланс ------------------ */
+{
+  const providers = app.slice(app.indexOf('const CLOUD_PROVIDERS'), app.indexOf('const GEMINI_FALLBACK_MODELS'));
+  const block = (id) => {
+    const from = providers.indexOf('\n  ' + id + ': {');
+    return from === -1 ? '' : providers.slice(from, providers.indexOf('\n  },', from));
+  };
+  // deepseek-chat/deepseek-reasoner выведены из эксплуатации 24.07.2026 —
+  // дефолт обязан быть актуальным deepseek-flash (V4.1-Flash, с зрением).
+  const dsOk = /defaultModel: 'deepseek-flash'/.test(block('deepseek'))
+    && /vision: true/.test(block('deepseek'))
+    && /visionModels: \['deepseek-flash'\]/.test(block('deepseek'))
+    && !/deepseek-chat'/.test(block('deepseek'));
+  if (!dsOk) failed++;
+  console.log(`${dsOk ? '✓' : '✗'} 0.9.58 DeepSeek: дефолт deepseek-flash, зрение включено, запасная зрячая модель та же`);
+
+  // Баланс: GET /user/balance с Bearer-ключом, разбор balance_infos, кэш по ключу.
+  const balOk = app.includes('async function fetchDeepSeekBalance')
+    && app.includes("fetch('https://api.deepseek.com/user/balance'")
+    && app.includes("'Authorization': 'Bearer ' + key")
+    && app.includes('data.balance_infos')
+    && app.includes('deepSeekBalanceCache')
+    && app.includes("$('#ai-cloud-balance')");
+  if (!balOk) failed++;
+  console.log(`${balOk ? '✓' : '✗'} 0.9.58 баланс DeepSeek: GET /user/balance, разбор balance_infos, строка в настройках`);
+
+  // Баланс тянется только при включённом облаке и только для DeepSeek.
+  const balGuardOk = app.includes("def.id === 'deepseek' && getCloudKey() && isOnlineAllowed('cloudAi')")
+    && app.includes("if (def.id === 'deepseek') fetchDeepSeekBalance();");
+  if (!balGuardOk) failed++;
+  console.log(`${balGuardOk ? '✓' : '✗'} 0.9.58 баланс не дёргает сеть без рубильника облака и только для DeepSeek`);
+
+  // max_tokens — предохранитель от сжигания баланса одним запросом (требование владельца).
+  const compat = app.slice(app.indexOf('async function cloudCallOpenAiCompat'));
+  const body = compat.slice(0, compat.indexOf('\nasync function callCloudAi'));
+  const maxTokOk = /max_tokens: \d+/.test(body);
+  if (!maxTokOk) failed++;
+  console.log(`${maxTokOk ? '✓' : '✗'} 0.9.58 max_tokens в облачном запросе — предохранитель баланса`);
+
+  // Элемент баланса есть в разметке облачного блока.
+  const balElOk = html.includes('id="ai-cloud-balance"');
+  if (!balElOk) failed++;
+  console.log(`${balElOk ? '✓' : '✗'} 0.9.58 строка баланса есть в разметке настроек облака`);
 }
 
 // ===== 0.9.21: список тренировок с часов сворачивается =====
