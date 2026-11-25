@@ -1593,6 +1593,11 @@ function markParseLogSaved(id) {
   renderParseLogStatus();
 }
 
+/* 0.9.61: подпись снимка в журнале — одна на локальное и облачное зрение. */
+function photoLogName(file) {
+  return '(фото: ' + (file && file.name ? String(file.name).slice(0, 60) : 'снимок') + ')';
+}
+
 /* Зрение отработало — держим сырой ответ 5 минут для ближайшего разбора,
    чтобы было видно и «что модель сказала», и «что пользователь поправил». */
 function rememberPhotoVision(raw) {
@@ -1804,7 +1809,7 @@ async function recognizeFoodPhotoLocal(file, targetInput, statusHost, onFilled, 
     const draft = cleanPhotoDraftText(out.text);
     if (isPhotoNoFoodAnswer(draft)) {
       // 0.4.13: промах зрения тоже фиксируем — такие кадры и есть калибровочный материал
-      if (visionTrack) logParseEvent('photo', '(фото: ' + (file && file.name ? String(file.name).slice(0, 60) : 'снимок') + ')', { food: [], unparsed: ['нейросеть еду не нашла'] }, draft);
+      if (visionTrack) logParseEvent('photo', photoLogName(file), { food: [], unparsed: ['нейросеть еду не нашла'] }, draft);
       setStage('<p style="color:var(--error)">Нейросеть не разглядела еду на снимке — попробуйте светлее/ближе или введите текстом.</p>');
       return;
     }
@@ -1901,7 +1906,7 @@ async function runPhotoFoodRecognition(file) {
   const engine = photoEngineNow();
   if (engine === 'cloud') {
     recognizeFoodPhoto(file, $('#smart-entry-input'), $('#smart-entry-preview'),
-      () => { previewSmartEntry(); });
+      () => { previewSmartEntry(); }, true);
     return;
   }
   if (engine === 'none') {
@@ -3071,7 +3076,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.60';
+const FITFLOW_VERSION = '0.9.61';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -17156,7 +17161,7 @@ function photoEngineNow() {
   });
 }
 
-function recognizeFoodPhoto(file, targetInput, statusHost, onFilled) {
+function recognizeFoodPhoto(file, targetInput, statusHost, onFilled, visionTrack) {
   toast('☁ Отправляю фото в нейросеть…');
   if (statusHost) {
     statusHost.innerHTML = '<p>☁ Распознаю продукты на фото…</p>';
@@ -17169,8 +17174,19 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled) {
       { image: img }
     ))
     .then((out) => {
-      const list = String(out.text).replace(/\s+/g, ' ').replace(/[.;!\s]+$/, '').trim();
-      if (!list) throw new Error('На фото не удалось найти продукты');
+      const raw = String(out.text || '').replace(/\s+/g, ' ').trim();
+      const list = raw.replace(/[.;!\s]+$/, '').trim();
+      /* 0.9.61: облачное зрение пишется в журнал распознаваний так же, как
+         локальное (0.4.13) — видно и «что сказала модель», и «что владелец
+         поправил». Промах тоже фиксируем: такие кадры и есть калибровочный
+         материал для проверки точности. visionTrack ставится только там, где
+         есть потребитель метки (разбор), иначе метка повиснет и припишется
+         следующему чужому разбору. */
+      if (!list || isPhotoNoFoodAnswer(raw)) {
+        if (visionTrack) logParseEvent('photo', photoLogName(file), { food: [], unparsed: ['нейросеть еду не нашла'] }, raw);
+        throw new Error('На фото не удалось найти продукты');
+      }
+      if (visionTrack) rememberPhotoVision(raw);
       if (targetInput) targetInput.value = list;
       if (statusHost) statusHost.hidden = true;
       toast('☁ Распознано: ' + list.slice(0, 60) + (list.length > 60 ? '…' : ''));
@@ -18505,7 +18521,7 @@ function handleAiQuickCamera(file) {
     return;
   }
   if (engine === 'cloud') {
-    recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());
+    recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry(), true);
     return;
   }
   input.focus();
@@ -18556,6 +18572,7 @@ if (typeof module !== 'undefined' && module.exports) {
     pendingWatchMinutesForDate, ACTIVITY_REMINDER_MIN_MINUTES, // 0.9.22
     activityReminderId, TRAINING_REMINDER_BASE_ID, // 0.9.57: id вечернего вопроса (сверяется с нативом)
     photoEngineFor, isCloudVisionReady, // 0.9.60: режим из настроек главнее загруженной модели
+    rememberPhotoVision, consumePendingPhotoVision, // 0.9.61: метка зрения одноразовая и живёт 5 минут
 
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,

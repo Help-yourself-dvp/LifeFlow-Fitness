@@ -564,14 +564,23 @@ for (const id of ids) {
   if (!okEngine) failed++;
   console.log(`${okEngine ? '✓' : '✗'} единый локальный фото-движок: этапы в панели, стриминг зрения, пометка-провенанс`);
 
-  const okQuickCam = appF.indexOf('function handleAiQuickCamera(file) {') >= 0
-    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);')
-      > appF.indexOf('function handleAiQuickCamera(file) {')
-    && appF.indexOf('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);')
-      < appF.indexOf('recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());')
+  /* 0.9.61: прежняя проверка «локальный вызов стоит в исходнике РАНЬШЕ
+     облачного» устарела — с 0.9.60 приоритет определяет не порядок веток, а
+     photoEngineNow() по режиму из настроек (правило владельца: выбрано
+     «Облако» — работает только облако). Проверяем сам механизм выбора и то,
+     что тост-заглушка 0.4.1 по-прежнему удалена. */
+  const quickFrom = appF.indexOf('function handleAiQuickCamera(file) {');
+  const quickEnd = appF.indexOf('\n}\n', quickFrom);
+  const quickBody = appF.slice(quickFrom, quickEnd === -1 ? quickFrom + 3000 : quickEnd);
+  const okQuickCam = quickFrom >= 0
+    && quickBody.includes('const engine = photoEngineNow();')
+    && quickBody.includes("engine === 'local'")
+    && quickBody.includes("engine === 'cloud'")
+    && quickBody.includes('recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);')
+    && quickBody.includes('recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry(), true);')
     && !appF.includes('Распознавание по фото работает с облачным ИИ (Gemini): Настройки');
   if (!okQuickCam) failed++;
-  console.log(`${okQuickCam ? '✓' : '✗'} камера ИИ-поля: локальный зрячий путь ПЕРВЫМ, тост-заглушка удалена`);
+  console.log(`${okQuickCam ? '✓' : '✗'} камера ИИ-поля: движок выбирает photoEngineNow по режиму, тост-заглушка удалена`);
 
   const okRecipeCam = appF.includes("recognizeFoodPhotoLocal(file, recipeInput, resultBox, () => generateAiRecipe());");
   if (!okRecipeCam) failed++;
@@ -6069,6 +6078,60 @@ for (const id of ids) {
     '0.9.60 смена режима не трогает ключ: возврат в офлайн не требует вводить ключ заново');
 
   if (!bad) console.log('  (0.9.60: режим из настроек главнее загруженной модели)');
+}
+
+/* ---- 0.9.61: облачное зрение пишется в журнал распознаваний --------------- */
+{
+  const api = require('./app.js');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  /* Метка зрения обязана быть ОДНОРАЗОВОЙ: её снимает ближайший разбор. Если
+     метка останется висеть, она припишется следующему чужому разбору и журнал
+     начнёт врать («фото» там, где был текст). */
+  api.rememberPhotoVision('борщ, сметана 30 г');
+  check(api.consumePendingPhotoVision() === 'борщ, сметана 30 г',
+    '0.9.61 сырой ответ зрения доходит до журнала разбора');
+  check(api.consumePendingPhotoVision() === null,
+    '0.9.61 метка одноразовая: чужому разбору не припишется');
+
+  /* Окно 5 минут: давний ответ не должен всплыть в сегодняшнем журнале. */
+  const realNow = Date.now;
+  try {
+    api.rememberPhotoVision('рис, курица 200 г');
+    Date.now = () => realNow() + 6 * 60 * 1000;
+    check(api.consumePendingPhotoVision() === null,
+      '0.9.61 метка зрения протухает через 5 минут');
+  } finally { Date.now = realNow; }
+  api.consumePendingPhotoVision(); // не оставляем хвоста другим проверкам
+
+  /* Облачный путь пишет журнал так же, как локальный: и успех, и промах. */
+  const cloud = app.slice(app.indexOf('function recognizeFoodPhoto('), app.indexOf('function handleAiRecipeCameraPhoto'));
+  check(/visionTrack\)/.test(cloud.split('\n')[0])
+    && /if \(visionTrack\) rememberPhotoVision\(raw\);/.test(cloud)
+    && /if \(visionTrack\) logParseEvent\('photo', photoLogName\(file\)/.test(cloud)
+    && /isPhotoNoFoodAnswer\(raw\)/.test(cloud),
+    '0.9.61 облачное распознавание пишет в журнал и успех, и промах зрения');
+
+  /* Метку ставят ТОЛЬКО пути с потребителем (разбор). У «Рецепта» потребителя
+     нет — там метка повисла бы и испортила следующий журнал. */
+  const quickCall = /recognizeFoodPhoto\(file, input, resultBox, \(\) => parseAiQuickEntry\(\), true\);/.test(app);
+  const smartCall = /recognizeFoodPhoto\(file, \$\('#smart-entry-input'\), \$\('#smart-entry-preview'\),\s*\(\) => \{ previewSmartEntry\(\); \}, true\);/.test(app);
+  const recipeCall = /recognizeFoodPhoto\(file, recipeInput, resultBox, \(\) => generateAiRecipe\(\)\);/.test(app);
+  check(quickCall && smartCall,
+    '0.9.61 «Ввод» и «Умный ввод» помечают зрение для журнала');
+  check(recipeCall,
+    '0.9.61 «Рецепт» метку НЕ ставит: потребителя нет, метка не должна висеть');
+
+  /* Подпись снимка одна на оба пути — иначе журнал начнёт различать «фото:» и
+     «(фото: …)» и поиск по журналу сломается. */
+  const inline = (app.match(/'\(фото: ' \+/g) || []).length;
+  check(/function photoLogName\(file\)/.test(app)
+    && (app.match(/photoLogName\(file\)/g) || []).length >= 3
+    && inline === 1, // ровно один: внутри самого photoLogName, а не по месту вызова
+    '0.9.61 подпись снимка в журнале общая у локального и облачного зрения');
+
+  if (!bad) console.log('  (0.9.61: облачное зрение видно в журнале распознаваний)');
 }
 
 Promise.all(global.__fitflowAsyncChecks || []).then(() => {
