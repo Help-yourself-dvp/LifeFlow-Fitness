@@ -1872,9 +1872,16 @@ function openPhotoPickerInput(inputId, opts) {
   fileInput.click();
 }
 function openSmartPhotoPicker(inputId, opts) {
-  const plugin = getLocalAiPlugin();
-  if (!plugin) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
-  if (!hasRealLocalModel()) {
+  // 0.9.60: режим из настроек главнее загруженной модели — решает photoEngineNow().
+  // В режиме «Облако» локальная модель не нужна вовсе; если облако при этом не
+  // готово, честно говорим об этом, а НЕ молча снимаем фото локальной Gemma.
+  const engine = photoEngineNow();
+  if (engine === 'none') {
+    if (state.aiSettings.mode === 'cloud') {
+      toast('📷 Выбран режим «Облако», но он не готов: включите Настройки → Онлайн-функции («Разрешить выход в интернет» и «Облачная нейросеть») и вставьте ключ провайдера.', 8000);
+      return;
+    }
+    if (!getLocalAiPlugin()) { toast('Фото-разбор работает в Android-сборке с нейросетью на устройстве.'); return; }
     toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000);
     return;
   }
@@ -1889,6 +1896,19 @@ async function runPhotoFoodRecognition(file) {
   // перечислением распознанного, ручной поправкой и кнопкой «подтвердить»).
   const dlg = $('#smart-entry-dialog');
   if (dlg && dlg.hidden) openSmartEntry();
+  // 0.9.60: режим «Облако» — распознаёт провайдер; результат попадает в то же
+  // поле и тот же предпросмотр, что и при локальной модели.
+  const engine = photoEngineNow();
+  if (engine === 'cloud') {
+    recognizeFoodPhoto(file, $('#smart-entry-input'), $('#smart-entry-preview'),
+      () => { previewSmartEntry(); });
+    return;
+  }
+  if (engine === 'none') {
+    if (state.aiSettings.mode === 'cloud') { toast('📷 Выбран режим «Облако», но он не готов: включите Настройки → Онлайн-функции («Разрешить выход в интернет» и «Облачная нейросеть») и вставьте ключ провайдера.', 8000); }
+    else { toast('Сначала выберите зрячую модель: Настройки → ✨ ИИ-помощник → Gemma E2B (.litertlm).', 6000); }
+    return;
+  }
   await recognizeFoodPhotoLocal(file, $('#smart-entry-input'), $('#smart-entry-preview'),
     () => { previewSmartEntry(); }, true); // 0.4.13: зрение пишется в журнал распознаваний
 }
@@ -3051,7 +3071,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.59';
+const FITFLOW_VERSION = '0.9.60';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -17106,6 +17126,36 @@ function readImageAsBase64(file, maxSide) {
 }
 
 /* Заполнить поле списком продуктов с фото и выполнить onFilled (рецепт/разбор). */
+/* 0.9.60: готово ли облако принять фото. Режим «Облако» выбран владельцем,
+   рубильник онлайн-функций включён, ключ вставлен и у провайдера есть зрение. */
+function isCloudVisionReady() {
+  return isCloudAiReady() && !!getCloudProviderDef().vision;
+}
+
+/* 0.9.60: ОДНА точка выбора движка распознавания фото на все три пути
+   (Помощник → «Ввод», Помощник → «Рецепт», диалог «Умный ввод»).
+   Раньше каждый путь решал сам, и два из них ставили загруженную Gemma ВЫШЕ
+   выбора владельца: при режиме «Облако» фото всё равно уходило в локальную
+   модель. Теперь режим из настроек главнее факта загрузки модели:
+     'cloud' — только облако (локальная модель не подменяет выбор),
+     'local' — только модель на устройстве,
+     'none'  — движка нет: честный тост, а не молчаливая подмена.
+   Функция чистая — node-прогон проверяет её без DOM и без нативного моста. */
+function photoEngineFor(mode, opts) {
+  const localReady = !!(opts && opts.localModelLoaded);
+  const cloudReady = !!(opts && opts.cloudVisionReady);
+  if (mode === 'cloud') return cloudReady ? 'cloud' : 'none';
+  return localReady ? 'local' : 'none';
+}
+
+/* Тот же расчёт, но по живому состоянию приложения. */
+function photoEngineNow() {
+  return photoEngineFor(state.aiSettings.mode, {
+    localModelLoaded: !!(getLocalAiPlugin() && hasRealLocalModel()),
+    cloudVisionReady: isCloudVisionReady()
+  });
+}
+
 function recognizeFoodPhoto(file, targetInput, statusHost, onFilled) {
   toast('☁ Отправляю фото в нейросеть…');
   if (statusHost) {
@@ -17139,17 +17189,23 @@ function handleAiRecipeCameraPhoto(file) {
   const recipeInput = $('#ai-recipe-input');
   const resultBox = $('#ai-recipe-result');
   // 0.4.1: локальная зрячая модель — офлайн-фото (пункт №1 ТЗ), облако — запасной путь.
-  if (getLocalAiPlugin() && hasRealLocalModel()) {
+  // 0.9.60: путь выбирает photoEngineNow() — режим из настроек главнее загрузки модели.
+  const engine = photoEngineNow();
+  if (engine === 'local') {
     recognizeFoodPhotoLocal(file, recipeInput, resultBox, () => generateAiRecipe());
     return;
   }
-  if (isCloudAiReady() && getCloudProviderDef().vision) {
+  if (engine === 'cloud') {
     recognizeFoodPhoto(file, recipeInput, resultBox, () => generateAiRecipe());
     return;
   }
   if (recipeInput) recipeInput.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
     toast('📷 У выбранного провайдера нет распознавания фото. Для фото подойдут Gemini, DeepSeek, OpenRouter или GigaChat, либо перечислите продукты текстом.');
+    return;
+  }
+  if (state.aiSettings.mode === 'cloud') {
+    toast('📷 Выбран режим «Облако», но он не готов: включите Настройки → Онлайн-функции («Разрешить выход в интернет» и «Облачная нейросеть») и вставьте ключ провайдера.', 8000);
     return;
   }
   toast('📷 Распознавание продуктов по фото работает через облачный ИИ (Gemini, DeepSeek, OpenRouter или GigaChat): Настройки → «✨ ИИ-помощник» → «Облачный ИИ». Пока перечислите продукты текстом.');
@@ -18442,17 +18498,23 @@ function handleAiQuickCamera(file) {
   // 0.4.1 (полевой баг «тост и тишина»): локальная зрячая модель — первый путь,
   // это и есть пункт №1 ТЗ «фото в ai-вводе офлайн». Тост-заглушка удалена:
   // этапы и ошибки — в панели, итог — экран подтверждения с правкой.
-  if (getLocalAiPlugin() && hasRealLocalModel()) {
+  // 0.9.60: путь выбирает photoEngineNow() — режим из настроек главнее загрузки модели.
+  const engine = photoEngineNow();
+  if (engine === 'local') {
     recognizeFoodPhotoLocal(file, input, resultBox, () => parseAiQuickEntry(), true);
     return;
   }
-  if (isCloudAiReady() && getCloudProviderDef().vision) {
+  if (engine === 'cloud') {
     recognizeFoodPhoto(file, input, resultBox, () => parseAiQuickEntry());
     return;
   }
   input.focus();
   if (isCloudAiReady() && !getCloudProviderDef().vision) {
     toast('📷 У выбранного облачного провайдера нет зрения (подойдут Gemini, DeepSeek, OpenRouter или GigaChat). Офлайн-вариант: зрячая Gemma E2B в Настройки → ✨ ИИ-помощник.', 6000);
+    return;
+  }
+  if (state.aiSettings.mode === 'cloud') {
+    toast('📷 Выбран режим «Облако», но он не готов: включите Настройки → Онлайн-функции («Разрешить выход в интернет» и «Облачная нейросеть») и вставьте ключ провайдера.', 8000);
     return;
   }
   toast('📷 Фото-разбор без сети: Настройки → ✨ ИИ-помощник → выберите зрячую Gemma E2B (.litertlm). Либо включите облачный ИИ (Gemini, DeepSeek, OpenRouter, GigaChat).', 6000);
@@ -18493,6 +18555,7 @@ if (typeof module !== 'undefined' && module.exports) {
     intervalsOverlapRatio, workoutInterval, classifyWatchWorkout, pickStaleWatchWorkouts,
     pendingWatchMinutesForDate, ACTIVITY_REMINDER_MIN_MINUTES, // 0.9.22
     activityReminderId, TRAINING_REMINDER_BASE_ID, // 0.9.57: id вечернего вопроса (сверяется с нативом)
+    photoEngineFor, isCloudVisionReady, // 0.9.60: режим из настроек главнее загруженной модели
 
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,

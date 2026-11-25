@@ -5998,6 +5998,79 @@ for (const id of ids) {
   if (!bad) console.log('  (0.9.55: веб-версия — манифест, служба офлайн-кэша, иконки)');
 })();
 
+/* ---- 0.9.60: режим из настроек главнее загруженной офлайн-модели ----------- */
+{
+  const api = require('./app.js');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  /* Правило владельца дословно: «Если выбрано облако, то работает только через
+     облако», независимо от того, загружена ли офлайн-модель. И обратно: уход в
+     офлайн-режим не требует удалять ключ DeepSeek. */
+  const e = api.photoEngineFor;
+
+  check(e('cloud', { localModelLoaded: true, cloudVisionReady: true }) === 'cloud',
+    '0.9.60 режим «Облако»: фото уходит провайдеру, даже если Gemma загружена');
+  check(e('cloud', { localModelLoaded: true, cloudVisionReady: false }) === 'none',
+    '0.9.60 режим «Облако» при неготовом облаке: честный отказ, а НЕ молчаливая локальная модель');
+  check(e('cloud', { localModelLoaded: false, cloudVisionReady: true }) === 'cloud',
+    '0.9.60 режим «Облако»: локальная модель для фото вообще не требуется');
+  check(e('litert', { localModelLoaded: true, cloudVisionReady: true }) === 'local',
+    '0.9.60 режим «Gemma на устройстве»: фото считает модель на устройстве, ключ не мешает');
+  check(e('expert', { localModelLoaded: true, cloudVisionReady: false }) === 'local',
+    '0.9.60 режим «Быстрый (офлайн)» с загруженной моделью: фото считается офлайн');
+  check(e('expert', { localModelLoaded: false, cloudVisionReady: false }) === 'none',
+    '0.9.60 офлайн-режим без модели: движка нет — будет подсказка, а не тишина');
+
+  /* isCloudVisionReady — по живому состоянию: рубильники, провайдер, ключ, режим.
+     В Node `state.aiSettings` поднимает loadState() (браузер), поэтому здесь
+     раздел создаётся сам и в конце честно возвращается как было. */
+  const hadAi = !!api.state.aiSettings;
+  const ai = api.state.aiSettings || (api.state.aiSettings = {
+    enabled: true, mode: 'expert', modelPath: '', modelName: '',
+    cloudProvider: 'gemini', cloudKey: '', cloudModel: '', cloudModels: [], cloudBase: ''
+  });
+  const saved = { mode: ai.mode, provider: ai.cloudProvider, key: ai.cloudKey, online: api.state.onlineFeatures };
+  api.state.onlineFeatures = { master: true, cloudAi: true };
+  ai.mode = 'cloud'; ai.cloudProvider = 'deepseek'; ai.cloudKey = 'sk-test-0123456789';
+  check(api.isCloudVisionReady() === true,
+    '0.9.60 DeepSeek с ключом и включёнными рубильниками готов принять фото');
+  ai.cloudProvider = 'pollinations';
+  check(api.isCloudVisionReady() === false,
+    '0.9.60 провайдер без зрения не считается готовым к фото');
+  ai.cloudProvider = 'deepseek';
+  api.state.onlineFeatures = { master: false, cloudAi: true };
+  check(api.isCloudVisionReady() === false,
+    '0.9.60 главный рубильник интернета старше ключа: фото в облако не уходит');
+  api.state.onlineFeatures = { master: true, cloudAi: true };
+  ai.mode = 'expert';
+  check(api.isCloudVisionReady() === false,
+    '0.9.60 в офлайн-режиме облако не считается готовым, даже с вставленным ключом');
+  ai.mode = saved.mode; ai.cloudProvider = saved.provider; ai.cloudKey = saved.key;
+  api.state.onlineFeatures = saved.online;
+  if (!hadAi) delete api.state.aiSettings; // не оставляем следов другим проверкам
+
+  /* Все фото-пути обязаны спрашивать ОДНУ функцию решения — иначе снова
+     разойдутся, как разошлись до 0.9.60 (два пути уважали режим, два нет). */
+  const bare = app.match(/if \(getLocalAiPlugin\(\) && hasRealLocalModel\(\)\) \{/g) || [];
+  check(bare.length === 0,
+    '0.9.60 не осталось фото-путей, где загруженная модель главнее выбранного режима');
+  const pick = app.slice(app.indexOf('function openSmartPhotoPicker'), app.indexOf('function handleSmartEntryPhoto'));
+  const runPhoto = app.slice(app.indexOf('async function runPhotoFoodRecognition'), app.indexOf('function openSmartVoiceHelp'));
+  const recipe = app.slice(app.indexOf('function handleAiRecipeCameraPhoto'), app.indexOf('/* Сколько дней с записями'));
+  const quick = app.slice(app.indexOf('function handleAiQuickCamera'));
+  check(/photoEngineNow\(\)/.test(pick) && /photoEngineNow\(\)/.test(runPhoto)
+    && /photoEngineNow\(\)/.test(recipe) && /photoEngineNow\(\)/.test(quick),
+    '0.9.60 все четыре точки фото решают через photoEngineNow (пикер, умный ввод, «Ввод», «Рецепт»)');
+
+  /* Второй пункт владельца: переключение режима НЕ удаляет ключ DeepSeek. */
+  const setMode = app.slice(app.indexOf('function setAiMode'), app.indexOf('function setCloudProvider'));
+  check(!/cloudKey/.test(setMode),
+    '0.9.60 смена режима не трогает ключ: возврат в офлайн не требует вводить ключ заново');
+
+  if (!bad) console.log('  (0.9.60: режим из настроек главнее загруженной модели)');
+}
+
 Promise.all(global.__fitflowAsyncChecks || []).then(() => {
   console.log(failed === 0 ? '\nUI INIT CHECK PASSED' : `\n${failed} UI INIT FAILURES`);
   process.exit(failed === 0 ? 0 : 1);
