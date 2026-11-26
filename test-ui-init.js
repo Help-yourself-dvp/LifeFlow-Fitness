@@ -206,11 +206,25 @@ for (const id of ids) {
     && app2.includes("bindEvent('#custom-food-close', 'click', closeCustomFoodDialog)");
   if (!okBind) failed++;
   console.log(`${okBind ? '✓' : '✗'} личная база: кнопки диалога привязаны`);
-  const okLogic = /function lookupProduct\(name\) \{\s*\n\s*\/\/ Сначала личная база/.test(app2)
-    && app2.includes('normalizeCustomFoods();')
-    && /Number\(product\.pieceG\) > 0\) return/.test(app2);
+  /* 0.9.65 (O14): раньше здесь проверялся дословный фрагмент
+     `Number(product.pieceG) > 0) return`, и он сломался, как только pieceG
+     перестал относиться к долям штуки. Проверяем ПОВЕДЕНИЕ, а не текст. */
+  const A0 = require('./app.js');
+  const added = A0.addCustomFood({ name: 'сыр домашний', kcal: 400, pieceG: 30 });
+  let okLogic = /function lookupProduct\(name\) \{\s*\n\s*\/\/ Сначала личная база/.test(app2)
+    && app2.includes('normalizeCustomFoods();');
+  if (added && added.ok) {
+    const it = A0.parseMealText('сыр домашний 2 шт')[0];
+    okLogic = okLogic && !!it && it.grams === 60 && it.kcal === 240;
+    // 0.9.65: доля штуки НЕ равна целой штуке — половинка это половина pieceG.
+    const hf = A0.parseMealText('сыр домашний 2 половинки')[0];
+    okLogic = okLogic && !!hf && hf.grams === 30;
+    A0.removeCustomFood(added.item.id);
+  } else {
+    okLogic = false;
+  }
   if (!okLogic) failed++;
-  console.log(`${okLogic ? '✓' : '✗'} личная база: lookupProduct сначала личная база, вес штуки учитывается`);
+  console.log(`${okLogic ? '✓' : '✗'} личная база: lookupProduct сначала личная база, вес штуки учитывается, доля штуки ≠ целая штука`);
 }
 
 // 0.3.26: док после «Спросить», подтверждение удаления, скролл-зоны, значки, placeholder
@@ -633,7 +647,10 @@ for (const id of ids) {
   if (!okNoFood) failed++;
   console.log(`${okNoFood ? '✓' : '✗'} честный отказ расширен: «на фото нет еды», «не вижу еды» тоже отказ`);
 
-  const okDb = appG.includes("'кальмар вяленый': { kcal: 300") && appG.includes("'чупа-чупс': { kcal: 46, p: 0, f: 0, c: 11.4, per: 'шт' }");
+  // 0.9.65 (O14): у чупа-чупса появился вес штуки, поэтому проверяем не дословную
+  // строку (она меняется вместе с данными), а механизм: запись штучная и знает pieceG.
+  const okDb = appG.includes("'кальмар вяленый': { kcal: 300")
+    && /'чупа-чупс':\s*\{[^}]*kcal:\s*46[^}]*per:\s*'шт'[^}]*pieceG:\s*12/u.test(appG);
   if (!okDb) failed++;
   console.log(`${okDb ? '✓' : '✗'} база: вяленый/сушёный кальмар (в 4 раза калорийнее варёного), чупа-чупс штучный`);
 
