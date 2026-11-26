@@ -118,7 +118,9 @@ const FOOD_DB = {
   'кровяная колбаса': { kcal: 274, p: 9, f: 19.5, c: 14 },
   'сырокопченая колбаса': { kcal: 470, p: 24, f: 42, c: 0.5 }, 'сырокопчёная колбаса': { kcal: 470, p: 24, f: 42, c: 0.5 },
   'салями': { kcal: 407, p: 22, f: 35, c: 1 }, 'сервелат': { kcal: 461, p: 24, f: 40, c: 1 }, 'ветчина': { kcal: 145, p: 17, f: 8, c: 1 },
-  'сосиска': { kcal: 105, p: 5, f: 9, c: 1, per: 'шт' }, 'сарделька': { kcal: 190, p: 9, f: 17, c: 1, per: 'шт' },
+  // 0.9.63: pieceG согласован с макросами строки (иначе журнал показывал «0 г»);
+  // сосиска ≈50 г, сарделька ≈100 г.
+  'сосиска': { kcal: 105, p: 5, f: 9, c: 1, per: 'шт', pieceG: 50 }, 'сарделька': { kcal: 190, p: 9, f: 17, c: 1, per: 'шт', pieceG: 100 },
   'колбаски': { kcal: 260, p: 12, f: 23, c: 1 }, 'охотничьи колбаски': { kcal: 330, p: 20, f: 28, c: 1 },
   'бекон': { kcal: 458, p: 12, f: 45, c: 0.5 },
 
@@ -1528,7 +1530,13 @@ function normalizeParseLogList(list) {
     if (!raw || typeof raw !== 'object') continue;
     const items = Array.isArray(raw.items)
       ? raw.items.filter((i) => i && typeof i.name === 'string' && i.name).slice(0, 30)
-          .map((i) => ({ name: String(i.name).slice(0, 120), grams: Math.round(Number(i.grams) || 0), kcal: Math.round(Number(i.kcal) || 0) }))
+          .map((i) => ({
+            name: String(i.name).slice(0, 120),
+            grams: Math.round(Number(i.grams) || 0),
+            kcal: Math.round(Number(i.kcal) || 0),
+            amount: (i.amount != null && Number.isFinite(Number(i.amount))) ? Number(i.amount) : null,
+            unit: typeof i.unit === 'string' ? i.unit.slice(0, 12) : ''
+          }))
       : [];
     out.push({
       id: typeof raw.id === 'string' && raw.id ? raw.id.slice(0, 24) : ('pl' + out.length),
@@ -1553,6 +1561,25 @@ function readParseLog() {
 }
 
 /* Чистый конструктор записи из результата parseSmartEntry (тестируется в node). */
+/* 0.9.63 (кейс владельца: «сосиска 0 г (525 ккал)»): журнал терял единицу и
+   печатал граммы даже там, где их нет — у штучных позиций. Теперь пункт
+   журнала хранит количество и единицу, а строка честная: «сосиска 5 шт
+   (525 ккал)», при известном pieceG — с приблизительными граммами. */
+function formatParseLogItem(i) {
+  const name = String(i && i.name || '');
+  const kcal = Math.round(Number(i && i.kcal) || 0);
+  const grams = Math.round(Number(i && i.grams) || 0);
+  const amount = (i && i.amount != null && Number.isFinite(Number(i.amount))) ? Number(i.amount) : null;
+  const unit = String(i && i.unit || '');
+  if (amount != null && PIECE_UNITS.has(unit)) {
+    return name + ' ' + amount + ' шт' + (grams > 0 ? ' ≈ ' + grams + ' г' : '') + ' (' + kcal + ' ккал)';
+  }
+  if (amount != null && unit && unit !== 'г' && unit !== 'мл') {
+    return name + ' ' + amount + ' ' + unit + (grams > 0 ? ' ≈ ' + grams + ' г' : '') + ' (' + kcal + ' ккал)';
+  }
+  return name + ' ' + grams + ' г (' + kcal + ' ккал)';
+}
+
 function buildParseLogEntry(src, input, parsed, visionRaw) {
   const foods = (parsed && Array.isArray(parsed.food)) ? parsed.food : [];
   return {
@@ -1563,7 +1590,9 @@ function buildParseLogEntry(src, input, parsed, visionRaw) {
     items: foods.slice(0, 30).map((i) => ({
       name: String(i && i.name || '').slice(0, 120),
       grams: Math.round(Number(i && i.grams) || 0),
-      kcal: Math.round(Number(i && i.kcal) || 0)
+      kcal: Math.round(Number(i && i.kcal) || 0),
+      amount: (i && i.amount != null && Number.isFinite(Number(i.amount))) ? Number(i.amount) : null,
+      unit: typeof (i && i.unit) === 'string' ? i.unit.slice(0, 12) : ''
     })),
     unparsed: (parsed && Array.isArray(parsed.unparsed))
       ? Array.from(new Set(parsed.unparsed)).slice(0, 20).map((s) => String(s).slice(0, 120)) : [],
@@ -1637,7 +1666,7 @@ function formatParseLogForClipboard(list) {
   const lines = ['FitFlow · журнал распознаваний · v' + (typeof FITFLOW_VERSION === 'string' ? FITFLOW_VERSION : '?')
     + ' · записей: ' + rows.length + ' · выгружено ' + dt(Date.now()), ''];
   rows.forEach((e, idx) => {
-    const body = e.items.map((i) => i.name + ' ' + i.grams + ' г (' + i.kcal + ' ккал)').join('; ') || '—';
+    const body = e.items.map(formatParseLogItem).join('; ') || '—';
     lines.push((idx + 1) + '. ' + dt(e.ts) + ' · ' + (e.src === 'photo' ? 'фото' : 'текст')
       + ' · «' + e.input + '» → ' + body
       + (e.waterMl > 0 ? ' · вода +' + e.waterMl + ' мл' : '')
@@ -3078,7 +3107,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.62';
+const FITFLOW_VERSION = '0.9.63';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -17111,25 +17140,63 @@ function generateAiRecipe() {
 }
 
 /* Общее распознавание фото через зрение нейросети (Gemini, DeepSeek, OpenRouter, GigaChat). */
-function readImageAsBase64(file, maxSide) {
+/* 0.9.63: кадр проверяется и описывается ДО отправки в модель. Полевая камера
+   дала «Пустой ответ модели» без единой зацепки: нулевой или пустой кадр
+   молча уходил провайдеру. Теперь честные причины отказа и диагностика
+   (размер и вес кадра) в ответе и в журнале. */
+function encodeImageToJpegBase64(source, sw, sh, maxSide) {
+  return new Promise((resolve, reject) => {
+    if (!sw || !sh) { reject(new Error('Снимок не прочитался: нулевой размер кадра')); return; }
+    const scale = Math.min(1, maxSide / Math.max(sw, sh));
+    const w = Math.max(8, Math.round(sw * scale));
+    const h = Math.max(8, Math.round(sh * scale));
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(source, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const base64 = String(dataUrl).split(',')[1] || '';
+      /* Вырожденный кадр (системе не хватило памяти на большой снимок камеры)
+         даёт крошечный base64 — такой в модель не отправляем. */
+      if (base64.length < 1024) { reject(new Error('Снимок не прочитался: пустой кадр (повторите съёмку)')); return; }
+      resolve({ base64: base64, mimeType: 'image/jpeg', width: sw, height: sh, kb: Math.round(base64.length * 3 / 4 / 1024) });
+    } catch (e) { reject(e); }
+  });
+}
+
+function readImageAsBase64Legacy(file, maxSide) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const sw = img.naturalWidth || img.width;
+      const sh = img.naturalHeight || img.height;
       URL.revokeObjectURL(url);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      resolve({ base64: String(dataUrl).split(',')[1], mimeType: 'image/jpeg' });
+      encodeImageToJpegBase64(img, sw, sh, maxSide).then(resolve, reject);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось прочитать фото')); };
     img.src = url;
   });
+}
+
+function readImageAsBase64(file, maxSide) {
+  /* 0.9.63: камера пишет поворот в EXIF, галерея обычно отдаёт уже повёрнутый
+     файл — без imageOrientation кадр мог уходить боком. createImageBitmap
+     применяет ориентацию и надёжнее декодирует большие кадры; где его нет —
+     прежний путь через Image. */
+  if (typeof createImageBitmap === 'function') {
+    return createImageBitmap(file, { imageOrientation: 'from-image' })
+      .then((bmp) => encodeImageToJpegBase64(bmp, bmp.width, bmp.height, maxSide)
+        .then((out) => { try { bmp.close && bmp.close(); } catch (e) { /* не критично */ } return out; },
+          (err) => { try { bmp.close && bmp.close(); } catch (e) { /* не критично */ } throw err; }))
+      .catch((err) => {
+        // Честный отказ кадра не маскируем запасным путём — там тот же файл.
+        if (err && /не прочитался/.test(String(err && err.message))) throw err;
+        return readImageAsBase64Legacy(file, maxSide);
+      });
+  }
+  return readImageAsBase64Legacy(file, maxSide);
 }
 
 /* Заполнить поле списком продуктов с фото и выполнить onFilled (рецепт/разбор). */
@@ -17169,8 +17236,9 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled, visionTrack
     statusHost.innerHTML = '<p>☁ Распознаю продукты на фото…</p>';
     statusHost.hidden = false;
   }
+  let shot = null; // 0.9.63: метаданные кадра для честной ошибки и журнала
   readImageAsBase64(file, 1024)
-    .then((img) => callCloudAi(
+    .then((img) => { shot = img; return callCloudAi(
       /* 0.9.62 (полевое фото владельца: крылья/черри/холодец/хлеб). Модель плохо
          оценивает граммы на глаз и пишет вес С костью, а база хранит ккал на
          100 г съедобной части — крылья вышли 812 ккал против правдоподобных
@@ -17179,7 +17247,7 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled, visionTrack
       'Ты анализируешь фото еды. Верни ТОЛЬКО список продуктов через запятую на русском языке, без нумерации и пояснений. Количество указывай так: штучные продукты (крылья, котлеты, яйца, фрукты, овощи, оливки, куски хлеба) — в штуках или кусках («куриное крыло 5 шт», «помидоры черри 3 шт», «ржаной хлеб 1 кусок»); то, что не пересчитать по штукам (каши, супы, салаты, гарниры, напитки), — в граммах или миллилитрах. Граммы пиши для съедобной части: без костей, косточек, кожуры и упаковки. Если это одно готовое блюдо — назови его (например «борщ» или «суши 6 штук»).',
       'Что на фото?',
       { image: img }
-    ))
+    ); })
     .then((out) => {
       const raw = String(out.text || '').replace(/\s+/g, ' ').trim();
       const list = raw.replace(/[.;!\s]+$/, '').trim();
@@ -17190,7 +17258,10 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled, visionTrack
          есть потребитель метки (разбор), иначе метка повиснет и припишется
          следующему чужому разбору. */
       if (!list || isPhotoNoFoodAnswer(raw)) {
-        if (visionTrack) logParseEvent('photo', photoLogName(file), { food: [], unparsed: ['нейросеть еду не нашла'] }, raw);
+        // 0.9.63: если модель вернула пустоту, в журнал уходит описание кадра —
+        // по нему видно, виноват снимок или провайдер.
+        const missNote = raw || (shot ? 'кадр ' + shot.width + '×' + shot.height + ', ' + shot.kb + ' КБ — модель вернула пустой текст' : '');
+        if (visionTrack) logParseEvent('photo', photoLogName(file), { food: [], unparsed: ['нейросеть еду не нашла'] }, missNote);
         throw new Error('На фото не удалось найти продукты');
       }
       if (visionTrack) rememberPhotoVision(raw);
@@ -17200,8 +17271,13 @@ function recognizeFoodPhoto(file, targetInput, statusHost, onFilled, visionTrack
       if (typeof onFilled === 'function') onFilled(list);
     })
     .catch((err) => {
+      // 0.9.63: размер и вес кадра в тексте ошибки — следующая попытка объяснима.
+      const msg = String(err && err.message || '');
+      const diag = shot && !/КБ\)/.test(msg)
+        ? ' Кадр: ' + shot.width + '×' + shot.height + ', ' + shot.kb + ' КБ.'
+        : '';
       if (statusHost) {
-        statusHost.innerHTML = '<p style="color:var(--error)">☁ ' + escapeHtml(cloudErrorText(err)) + '</p>' +
+        statusHost.innerHTML = '<p style="color:var(--error)">☁ ' + escapeHtml(cloudErrorText(err)) + escapeHtml(diag) + '</p>' +
           '<p class="settings-hint">Пока можно перечислить продукты текстом — база FitFlow посчитает их локально.</p>';
         statusHost.hidden = false;
       }
@@ -17969,7 +18045,11 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
     res = await fetch(baseUrl + '/chat/completions', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: candidate, messages, temperature: 0.6, max_tokens: 1400 })
+      /* 0.9.63 (полевая камера): гибридные модели DeepSeek тратят max_tokens и
+         на размышления; на пёстром кадре бюджет 1400 мог кончиться до ответа —
+         модель возвращала пустой текст. На зрение даём 2500: предохранитель
+         остаётся (требование владельца), но ответ успевает дописаться. */
+      body: JSON.stringify({ model: candidate, messages, temperature: 0.6, max_tokens: image ? 2500 : 1400 })
     });
     if (res.ok) { lastError = null; break; }
     // 400/404 — модель убрали, переименовали или она не принимает картинки:
@@ -17996,7 +18076,13 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
   }
   const data = await res.json();
   const text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
-  if (!text) throw new Error('Пустой ответ модели');
+  if (!text) {
+    // 0.9.63: пустой текст без зацепки стоил владельцу доверия к функции.
+    // Говорим, что фото реально ушло и каким оно было — это и есть диагностика.
+    throw new Error(image
+      ? 'Пустой ответ модели: фото ушло (' + (image.width || '?') + '×' + (image.height || '?') + ', ' + (image.kb || '?') + ' КБ), модель вернула пустой текст. Повторите снимок или пришлите фото из галереи.'
+      : 'Пустой ответ модели');
+  }
   return { text, modelLabel: def.label + ' · ' + usedModel };
 }
 
@@ -18580,6 +18666,7 @@ if (typeof module !== 'undefined' && module.exports) {
     activityReminderId, TRAINING_REMINDER_BASE_ID, // 0.9.57: id вечернего вопроса (сверяется с нативом)
     photoEngineFor, isCloudVisionReady, // 0.9.60: режим из настроек главнее загруженной модели
     rememberPhotoVision, consumePendingPhotoVision, // 0.9.61: метка зрения одноразовая и живёт 5 минут
+    formatParseLogItem, // 0.9.63: журнал пишет «5 шт», а не «0 г»
 
     EXERCISE_CATALOG, STRENGTH_GROUPS, computeSetTonnage, estimate1RM, computeExercise1RM, computeSessionTonnage, normalizeStrengthSessions, computeStrengthRecords,
     BODYWEIGHT_RULES, bodyweightCoefFor, setLoadKg,

@@ -4324,11 +4324,13 @@ for (const id of ids) {
   console.log(`${balGuardOk ? '✓' : '✗'} 0.9.58 баланс не дёргает сеть без рубильника облака и только для DeepSeek`);
 
   // max_tokens — предохранитель от сжигания баланса одним запросом (требование владельца).
+  // 0.9.63: на зрение бюджет больше (мышление гибридных моделей ест токены),
+  // но ОБА предела обязаны остаться числовыми литералами, а не переменными.
   const compat = app.slice(app.indexOf('async function cloudCallOpenAiCompat'));
   const body = compat.slice(0, compat.indexOf('\nasync function callCloudAi'));
-  const maxTokOk = /max_tokens: \d+/.test(body);
+  const maxTokOk = /max_tokens: \d+/.test(body) || /max_tokens: image \? \d+ : \d+/.test(body);
   if (!maxTokOk) failed++;
-  console.log(`${maxTokOk ? '✓' : '✗'} 0.9.58 max_tokens в облачном запросе — предохранитель баланса`);
+  console.log(`${maxTokOk ? '✓' : '✗'} 0.9.58 max_tokens в облачном запросе — предохранитель баланса (0.9.63: зрение 2500, текст 1400)`);
 
   // Элемент баланса есть в разметке облачного блока.
   const balElOk = html.includes('id="ai-cloud-balance"');

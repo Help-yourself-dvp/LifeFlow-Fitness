@@ -1780,6 +1780,46 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   console.log(`${ok29 ? '✓' : '✗'} 0.9.45 резервная копия: ключ провайдера вычищен, остальные настройки целы`);
 }
 
+/* ---- 0.9.63: журнал пишет штуки, а не «0 г» ------------------------------- */
+{
+  const A = require('./app.js');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  /* Кейс владельца из журнала 26.11: «сосиска 0 г (525 ккал)» — единица
+     терялась, и доверие к функции умирало на ровном месте. */
+  const entry = A.buildParseLogEntry('photo', 'сосиски 5 шт', { food: [A.parseItem('сосиски 5 шт')] }, 'сосиски 5 шт');
+  const line = A.formatParseLogItem(entry.items[0]);
+  check(/сосиска 5 шт/.test(line) && !/ 0 г \(/.test(line),
+    '0.9.63 журнал: штучная позиция пишется как «5 шт», а не «0 г»');
+
+  const withG = A.formatParseLogItem({ name: 'куриное крыло', amount: 5, unit: 'шт', grams: 300, kcal: 609 });
+  check(withG === 'куриное крыло 5 шт ≈ 300 г (609 ккал)',
+    '0.9.63 журнал: при известном весе штуки показываются как «≈ 300 г»');
+
+  const gramsLine = A.formatParseLogItem({ name: 'холодец', amount: null, unit: 'г', grams: 100, kcal: 180 });
+  check(gramsLine === 'холодец 100 г (180 ккал)',
+    '0.9.63 журнал: граммовые позиции не изменились');
+
+  /* Старые записи журнала (без unit/amount) не должны ломаться. */
+  const old = A.normalizeParseLogList([{ ts: 1, src: 'photo', input: 'x', items: [{ name: 'хлеб', grams: 40, kcal: 80 }] }]);
+  check(A.formatParseLogItem(old[0].items[0]) === 'хлеб 40 г (80 ккал)',
+    '0.9.63 журнал: старые записи без единиц читаются как раньше');
+
+  const sos = A.parseItem('сосиски 5 шт');
+  check(sos && sos.grams === 250 && sos.kcal === 525,
+    '0.9.63 сосиски 5 шт = 250 г по честной штуке 50 г, ккал прежние 525');
+
+  const src = require('fs').readFileSync('app.js', 'utf8');
+  check(/max_tokens: image \? 2500 : 1400/.test(src),
+    '0.9.63 на зрение бюджет 2500 токенов, на текст предохранитель 1400');
+  check(/createImageBitmap\(file, \{ imageOrientation: 'from-image' \}\)/.test(src)
+    && /base64\.length < 1024/.test(src),
+    '0.9.63 кадр проверяется до отправки: EXIF-ориентация и отказ пустого кадра');
+
+  if (!bad) console.log('  (0.9.63: журнал честен про штуки; камера с диагностикой)');
+}
+
 /* ---- 0.9.62: веса распознавания по фото — штуки и съедобные граммы ---------- */
 {
   const A = require('./app.js');
