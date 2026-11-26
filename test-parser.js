@@ -1243,11 +1243,15 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
 
 // ---- 0.4.12: куриные крылья (полевое ⚠️) + бутерброд с уточнением начинки ----
 {
+  /* 0.9.62: у крыла появилась честная штука pieceG 60 г (съедобная часть без
+     кости) — полевое фото показало, что дефолт 70 г/шт считает кости съедобными.
+     Поэтому 2 шт = 120 г: жареные 254/100 → 305 ккал, обычные 203/100 → 244.
+     Прежние 140 г / 356 и 284 ккал кодировали вес С костью (грабли §7.4). */
   const wings = parseSmartEntry('жареные куриные крылья 2 шт');
   const okWings = wings.food.length === 1 && wings.food[0].name === 'жареные куриные крылья'
-    && wings.food[0].amount === 2 && wings.food[0].grams === 140 && wings.food[0].kcal === 356;
+    && wings.food[0].amount === 2 && wings.food[0].grams === 120 && wings.food[0].kcal === 305;
   const plain = parseSmartEntry('куриные крылья 2 шт');
-  const okPlain = plain.food.length === 1 && plain.food[0].kcal === 284 && plain.unparsed.length === 0;
+  const okPlain = plain.food.length === 1 && plain.food[0].kcal === 244 && plain.unparsed.length === 0;
   const boiled = parseSmartEntry('бутерброд с вареной колбасой');
   const bItem = boiled.food.length === 1 ? boiled.food[0] : null;
   const okBoiled = !!bItem && bItem.name === 'бутерброд с вареной колбасой'
@@ -1257,7 +1261,7 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
     && !/варен/.test(curated.food[0].note || '');
   const ok7 = okWings && okPlain && okBoiled && okCurated;
   if (!ok7) failed++;
-  console.log(`${ok7 ? '✓' : '✗'} 0.4.12: крылья всех речевых форм (жареные 2 шт = 356), уточнение «вареная» сохранено в имени ключа и составе, голое «с колбасой» — кураторский 125`);
+  console.log(`${ok7 ? '✓' : '✗'} 0.4.12: крылья всех речевых форм (жареные 2 шт = 305 по честной штуке 60 г, 0.9.62), уточнение «вареная» сохранено в имени ключа и составе, голое «с колбасой» — кураторский 125`);
 }
 
 // ---- 0.4.13: правдивость еды I — штучные веса, части курицы/колбасы, кляр, негация, журнал ----
@@ -1774,6 +1778,47 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   const ok29 = bad === 0;
   if (!ok29) failed++;
   console.log(`${ok29 ? '✓' : '✗'} 0.9.45 резервная копия: ключ провайдера вычищен, остальные настройки целы`);
+}
+
+/* ---- 0.9.62: веса распознавания по фото — штуки и съедобные граммы ---------- */
+{
+  const A = require('./app.js');
+  const src = require('fs').readFileSync('app.js', 'utf8');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+  const it = (t) => A.parseItem(t);
+
+  /* Полевое фото владельца (25.11.2026): модель вернула «помидоры черри 3 шт»,
+     дефолт 70 г/шт дал 210 г. Черри ≈17 г — три штуки ≈51 г. */
+  const ch = it('помидоры черри 3 шт');
+  check(ch && ch.grams === 51 && ch.kcal === 8,
+    '0.9.62 черри 3 шт = 51 г / 8 ккал (было 210 г / 31 ккал)');
+
+  /* Главная ошибка того же фото: крылья. Съедобная часть крыла ≈60 г, пять
+     крыльев = 300 г съедобного, а не 350 г с костью по дефолту. */
+  const wg = it('куриное крыло 5 шт');
+  check(wg && wg.grams === 300 && wg.kcal === 609,
+    '0.9.62 куриное крыло 5 шт = 300 г съедобного / 609 ккал (было 350 г с костью)');
+
+  /* Граммовый путь не меняется: граммы от модели/владельца трактуются как
+     съедобная часть — именно это теперь обещает промт зрения. */
+  const wgg = it('куриное крыло 400 г');
+  check(wgg && wgg.grams === 400 && wgg.kcal === 812,
+    '0.9.62 граммовый путь не изменился: 400 г = съедобная часть');
+
+  const ol = it('оливки 10 шт');
+  check(ol && ol.grams === 40, '0.9.62 оливки 10 шт = 40 г (дефолт дал бы 700 г)');
+  const qe = it('перепелиные яйца 6 шт');
+  check(qe && qe.grams === 60, '0.9.62 перепелиные яйца 6 шт = 60 г (дефолт дал бы 420 г)');
+  const sh = it('креветки 8 шт');
+  check(sh && sh.grams === 96, '0.9.62 креветки 8 шт = 96 г (дефолт дал бы 560 г)');
+
+  /* Промт зрения обязан требовать штуки для штучного и съедобные граммы. */
+  const prompt = src.slice(src.indexOf('function recognizeFoodPhoto('), src.indexOf('function handleAiRecipeCameraPhoto'));
+  check(/в штуках или кусках/.test(prompt) && /съедобной части: без костей/.test(prompt),
+    '0.9.62 промт зрения: штуки для штучного, граммы — съедобной части без костей');
+
+  if (!bad) console.log('  (0.9.62: веса распознавания по фото — штуки и съедобные граммы)');
 }
 
 console.log(failed === 0 ? '\nALL TESTS PASSED' : `\n${failed} FAILURES`);
