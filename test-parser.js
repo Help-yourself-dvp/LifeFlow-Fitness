@@ -1944,6 +1944,37 @@ for (const [text, water, foodNames, actTypes] of smartCases) {
   check(dfH && dfH.grams === 70,
     '0.9.65 половинка без pieceG = половина дефолта (творог 2 половинки = 70 г)');
 
+/* ---- 0.9.66: пустой ответ модели несёт причину, а не только факт ----------
+   Поле 27.11 09:21 (0.9.65): камера дошла до модели (4096×3072, 111 КБ),
+   модель вернула пустой текст, а ошибка не несла НИКАКОЙ зацепки: ни
+   finish_reason, ни модели, ни тела. Владелец видел «повторите снимок» и
+   терял доверие к функции. Теперь: один молчаливый повтор тем же запросом
+   (транзиторная пустота уходит) и зацепка от провайдера в ошибке и журнале. */
+{
+  const A = require('./app.js');
+  const fs = require('fs');
+  let bad = 0;
+  const check = (ok, name) => { if (!ok) { failed++; bad++; } console.log(`${ok ? '✓' : '✗'} ${name}`); };
+
+  check(A.describeEmptyCloudResponse({ choices: [{ finish_reason: 'length', message: { content: '' } }] }) === 'finish_reason=length',
+    '0.9.66 зацепка: бюджет токенов кончился (finish_reason=length)');
+  check(/reasoning_content/u.test(A.describeEmptyCloudResponse({ choices: [{ finish_reason: 'stop', message: { content: null, reasoning_content: 'думаю' } }] })),
+    '0.9.66 зацепка: модель потратила ответ на рассуждения без текста');
+  check(/finishReason=SAFETY/u.test(A.describeEmptyCloudResponse({ candidates: [{ finishReason: 'SAFETY' }] })),
+    '0.9.66 зацепка: Gemini-фильтр (finishReason=SAFETY)');
+  check(A.describeEmptyCloudResponse({}) === 'finish_reason=нет',
+    '0.9.66 зацепка: пустое тело не падает и говорит «finish_reason=нет»');
+
+  /* Обвязка: повтор и зацепка обязаны жить в ОБОИХ транспортах. */
+  const src = fs.readFileSync('app.js', 'utf8');
+  const retries = (src.match(/0\.9\.66: тот же молчаливый повтор|0\.9\.66: пустой ответ на фото чаще всего транзиторный/gu) || []).length;
+  check(retries === 2, '0.9.66 повтор пустого ответа есть в обоих транспортах (OpenAI-совместимый и Gemini)');
+  check(/попыток: ' \+ attempts/u.test(src) && /describeEmptyCloudResponse\(data\)/u.test(src),
+    '0.9.66 ошибка пустого ответа несёт число попыток и зацепку провайдера');
+
+  if (!bad) console.log('  (0.9.66: пустой ответ несёт причину + один повтор)');
+}
+
   /* Методика на экране обязана соответствовать данным: владелец читает её,
      чтобы понять, откуда взялись граммы. */
   const idx = fs.readFileSync('index.html', 'utf8');

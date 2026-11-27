@@ -3147,7 +3147,7 @@ const DEFAULTS = {
   strengthRest: { seconds: 90, presets: [60, 90, 120, 180] }
 };
 
-const FITFLOW_VERSION = '0.9.65';
+const FITFLOW_VERSION = '0.9.66';
 const FITFLOW_BUILD = 'build 0';
 
 // 0.5.0 «Доверие данным»: версия схемы состояния — основа пошаговых миграций.
@@ -17915,10 +17915,23 @@ async function geminiCallModel(model, key, systemText, userText, image, history)
     err.status = res.status;
     throw err;
   }
-  const data = await res.json();
-  const text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [])
+  let data = await res.json();
+  const grab = (d) => ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || [])
     .map((p) => p.text || '').join('').trim();
-  if (!text) throw new Error('Пустой ответ модели');
+  let text = grab(data);
+  /* 0.9.66: тот же молчаливый повтор, что и в OpenAI-совместимом транспорте. */
+  if (!text && image) {
+    const retry = await fetch('https://generativelanguage.googleapis.com/v1beta/' + model + ':generateContent?key=' + encodeURIComponent(key), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, generationConfig: { temperature: 0.6, maxOutputTokens: 1400 } })
+    }).catch(() => null);
+    if (retry && retry.ok) {
+      data = await retry.json().catch(() => data);
+      text = grab(data);
+    }
+  }
+  if (!text) throw new Error('Пустой ответ модели (' + describeEmptyCloudResponse(data) + ')');
   return text;
 }
 
@@ -18115,16 +18128,55 @@ async function cloudCallOpenAiCompat(systemText, userText, options) {
     err.status = res.status;
     throw err;
   }
-  const data = await res.json();
-  const text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+  let data = await res.json();
+  let text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+  /* 0.9.66: пустой ответ на фото чаще всего транзиторный (гибридная модель,
+     нагрузка, фильтр) — один молчаливый повтор тем же запросом спасает снимок,
+     который владелец иначе переснимал бы вручную. Текст без фото не повторяем:
+     там пустота почти всегда про настройку, а не про удачу. */
+  let attempts = 1;
+  if (!text && image) {
+    attempts = 2;
+    const retry = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model: usedModel, messages, temperature: 0.6, max_tokens: 2500 })
+    }).catch(() => null);
+    if (retry && retry.ok) {
+      data = await retry.json().catch(() => data);
+      text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+    }
+  }
   if (!text) {
     // 0.9.63: пустой текст без зацепки стоил владельцу доверия к функции.
-    // Говорим, что фото реально ушло и каким оно было — это и есть диагностика.
+    // 0.9.66: к диагностике кадра добавляем причину со стороны провайдера.
     throw new Error(image
-      ? 'Пустой ответ модели: фото ушло (' + (image.width || '?') + '×' + (image.height || '?') + ', ' + (image.kb || '?') + ' КБ), модель вернула пустой текст. Повторите снимок или пришлите фото из галереи.'
-      : 'Пустой ответ модели');
+      ? 'Пустой ответ модели: фото ушло (' + (image.width || '?') + '×' + (image.height || '?') + ', ' + (image.kb || '?') + ' КБ), попыток: ' + attempts + ', модель вернула пустой текст (' + describeEmptyCloudResponse(data) + '). Повторите снимок или пришлите фото из галереи; если повторится — пришлите журнал распознаваний.'
+      : 'Пустой ответ модели (' + describeEmptyCloudResponse(data) + ')');
   }
   return { text, modelLabel: def.label + ' · ' + usedModel };
+}
+
+/* 0.9.66 (поле 27.11: «Пустой ответ модели» на 0.9.65). Пустой текст — не
+   тупик, а зацепка: провайдер почти всегда говорит, ПОЧЕМУ пусто (finish_reason,
+   safety, рассуждения без ответа, ошибка в теле). Раньше эти поля выбрасывались,
+   и владелец видел только «модель вернула пустой текст» — без причины. Чистая
+   функция: принимает сырое тело ответа, возвращает строку-зацепку для ошибки и
+   журнала распознаваний. */
+function describeEmptyCloudResponse(data) {
+  const bits = [];
+  const ch = Array.isArray(data && data.choices) ? data.choices[0] : null;
+  const msg = ch && ch.message ? ch.message : null;
+  const fr = (ch && ch.finish_reason) || (data && data.finish_reason) || null;
+  bits.push('finish_reason=' + (fr ? String(fr) : 'нет'));
+  const cand = Array.isArray(data && data.candidates) ? data.candidates[0] : null;
+  if (cand) bits.push('finishReason=' + String(cand.finishReason || cand.blockReason || 'нет'));
+  if (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim() && !(typeof msg.content === 'string' && msg.content.trim())) {
+    bits.push('reasoning_content есть, content пуст (рассуждения съели ответ)');
+  }
+  if (msg && Array.isArray(msg.content)) bits.push('content is an array of ' + msg.content.length + ' parts (provider changed the format)');
+  if (data && data.error) bits.push('error in body: ' + String((data.error && (data.error.message || data.error.code)) || '').slice(0, 80));
+  return bits.join('; ');
 }
 
 /* Единая точка входа в облако. */
@@ -18678,6 +18730,7 @@ if (typeof document !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     parseMealText, parseItem, lookupProduct, calcNutrition, FOOD_DB,
+    describeEmptyCloudResponse, // 0.9.66: зацепка пустого ответа для тестов
     parseQuickSets, parseRestInput, formatRestSeconds, // 0.9.12
     buildBulkSetsLine, // 0.9.46: вес × повторения × подходы
     parseWorkoutDuration, formatWorkoutDuration, normalizeActivityName,
